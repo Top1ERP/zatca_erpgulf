@@ -1,6 +1,6 @@
 """
 QR codes for invoices in compliance with Saudi Arabia's ZATCA e-invoicing regulations.
-Each invoice has a QR code containing critical data encoded in TLV (Tag-Length-Value) format, 
+Each invoice has a QR code containing critical data encoded in TLV (Tag-Length-Value) format,
 which includes:
 1. Seller's Name
 2. VAT Number
@@ -10,13 +10,12 @@ which includes:
 
 The QR code generation follows these steps:
 - Verify if the document is relevant for Saudi Arabia based on the company region.
-- Check if the required "ksa_einv_qr" field exists in the document. 
+- Check if the required "ksa_einv_qr" field exists in the document.
 If not, it creates the custom field dynamically.
 - Ensure no duplicate QR code generation by checking if a QR code already exists.
 - Collect required invoice data, validate it, and encode it into the TLV format.
 - Convert the TLV data into a Base64 string.
 - Generate a QR code image using the `pyqrcode` library and attach it to the document.
-
 """
 
 import io
@@ -32,20 +31,36 @@ from pyqrcode import create as qr_create
 from erpnext import get_region
 
 
-def create_qr_code(doc, method=None):  # pylint: disable=unused-argument
-    """this concept is giving A qr code for every time of zatca call
-    TLV conversion for
-        1. Seller's Name
-        2. VAT Number
-        3. Time Stamp
-        4. Invoice Amount
-        5. VAT Amount
+def get_company_arabic_name(company_name: str) -> str:
     """
+    Return company Arabic name using the required fallback order:
+    1. company_name_in_arabic
+    2. custom_company_name_in_arabic
+    3. custom__company_name_in_arabic__
+    """
+    meta = frappe.get_meta("Company")
+    fallback_fields = [
+        "company_name_in_arabic",
+        "custom_company_name_in_arabic",
+        "custom__company_name_in_arabic__",
+    ]
+
+    for fieldname in fallback_fields:
+        if meta.get_field(fieldname):
+            value = frappe.db.get_value("Company", company_name, fieldname)
+            if value:
+                return value
+
+    return ""
+
+
+def create_qr_code(doc, method=None):  # pylint: disable=unused-argument
+    """Create ZATCA phase-1 QR code for invoice documents."""
     region = get_region(doc.company)
     if region not in ["Saudi Arabia"]:
         return
 
-    # if QR Code field not present, create it. Invoices without QR are invalid as per law.
+    # If QR Code field not present, create it. Invoices without QR are invalid as per law.
     if not hasattr(doc, "ksa_einv_qr"):
         create_custom_fields(
             {
@@ -70,19 +85,19 @@ def create_qr_code(doc, method=None):  # pylint: disable=unused-argument
     meta = frappe.get_meta(doc.doctype)
 
     if "ksa_einv_qr" in [d.fieldname for d in meta.get_image_fields()]:
-
         tlv_array = []
-        # Sellers Name
 
-        seller_name = frappe.db.get_value(
-            "Company", doc.company, "custom__company_name_in_arabic__"
-        )
+        # Seller's Name
+        seller_name = get_company_arabic_name(doc.company)
 
         if not seller_name:
             frappe.throw(
-                _("Arabic name missing for {} in the company document").format(
-                    doc.company
-                )
+                _(
+                    "Arabic name missing for {} in the company document. "
+                    "Checked fields: company_name_in_arabic, "
+                    "custom_company_name_in_arabic, "
+                    "custom__company_name_in_arabic__"
+                ).format(doc.company)
             )
 
         tag = bytes([1]).hex()
@@ -123,22 +138,22 @@ def create_qr_code(doc, method=None):  # pylint: disable=unused-argument
 
         # VAT Amount
         vat_amount = str(doc.total_taxes_and_charges)
-
         tag = bytes([5]).hex()
         length = bytes([len(vat_amount)]).hex()
         value = vat_amount.encode("utf-8").hex()
         tlv_array.append("".join([tag, length, value]))
 
-        # Joining bytes into one
+        # Join bytes into one buffer
         tlv_buff = "".join(tlv_array)
 
-        # base64 conversion for QR Code
+        # Base64 conversion for QR Code
         base64_string = b64encode(bytes.fromhex(tlv_buff)).decode()
 
         qr_image = io.BytesIO()
         url = qr_create(base64_string, error="L")
         url.png(qr_image, scale=8, quiet_zone=1)
-        # making file
+
+        # Make file
         filename = f"QR-Phase1-{doc.name}.png".replace(os.path.sep, "__")
         _file = frappe.get_doc(
             {
@@ -154,9 +169,9 @@ def create_qr_code(doc, method=None):  # pylint: disable=unused-argument
 
         _file.save()
 
-        # assigning to document
+        # Assign to document
         doc.db_set("ksa_einv_qr", _file.file_url)
-        doc.custom_zatca_status="Phase-1 QR Generated"
-        doc.save(ignore_permissions=True)  # or with permissions if needed
+        doc.custom_zatca_status = "Phase-1 QR Generated"
+        doc.save(ignore_permissions=True)
         frappe.db.commit()
         doc.notify_update()

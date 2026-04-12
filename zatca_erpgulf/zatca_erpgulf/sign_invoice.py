@@ -15,6 +15,17 @@ from frappe import _
 import frappe
 import requests
 from zatca_erpgulf.zatca_erpgulf.event_log import log_zatca_event
+
+def _get_customer_country_code(customer_doc):
+    address_name = getattr(customer_doc, "customer_primary_address", None)
+    if not address_name:
+        return "SA"
+    address = frappe.get_doc("Address", address_name)
+    country = (address.country or "").strip()
+    if not country:
+        return "SA"
+    from zatca_erpgulf.zatca_erpgulf.country_code import country_code_mapping
+    return country_code_mapping().get(country.lower(), "SA")
 from pyqrcode import create as qr_create
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from zatca_erpgulf.zatca_erpgulf.createxml import (
@@ -178,7 +189,7 @@ def attach_qr_image(qrcodeb64, sales_invoice_doc):
             return
         qr_image = io.BytesIO()
         qr = qr_create(qrcodeb64, error="L")
-        qr.png(qr_image, scale=8, quiet_zone=1)
+        qr.png(qr_image, scale=4, quiet_zone=1)
 
         file_doc = frappe.get_doc(
             {
@@ -894,6 +905,12 @@ def zatca_call(
 
         customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
 
+        # Export validation
+        if getattr(sales_invoice_doc, "custom_zatca_export_invoice", 0) == 1:
+            customer_country = _get_customer_country_code(customer_doc)
+            if customer_country == "SA":
+                frappe.throw(_("Export Invoice cannot be enabled for a customer in Saudi Arabia."))
+
         if compliance_type == "0":
             if customer_doc.custom_b2c == 1:
                 invoice = invoice_typecode_simplified(invoice, sales_invoice_doc)
@@ -1598,7 +1615,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
             # frappe.msgprint("Zatca Invoice is not enabled. Submitting the document.")
             return  # Exit the function without further checks
 
-        # 🚨 Skip ZATCA logic if Company Tax ID = Customer Tax ID
+        # ? Skip ZATCA logic if Company Tax ID = Customer Tax ID
         if company_doc.tax_id and customer_doc.tax_id:
             if company_doc.tax_id.strip() == customer_doc.tax_id.strip():
                 sales_invoice_doc.custom_zatca_status = "Intra-company transfer"
@@ -1623,7 +1640,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
             ):
                 return
             
-    # If offline invoice number is blank → only create QR when Phase-1
+    # If offline invoice number is blank ? only create QR when Phase-1
             if company_doc.custom_phase_1_or_2 == "Phase-1":
                 create_qr_code(sales_invoice_doc, method=_method)
                 return

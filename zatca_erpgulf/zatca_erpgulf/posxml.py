@@ -13,6 +13,8 @@ for ZATCA and provides support for multiple currencies (SAR and USD).
 import xml.etree.ElementTree as ET
 import uuid
 import re
+import unicodedata
+from difflib import SequenceMatcher
 import json
 from frappe.utils.data import get_time
 from frappe import _
@@ -52,13 +54,87 @@ def get_icv_code(invoice_number):
         return None
 
 
+
+# ===== NAME HELPERS =====
+def _first_available_value(doc, fieldnames):
+    meta = frappe.get_meta(doc.doctype)
+    for fieldname in fieldnames:
+        if meta.get_field(fieldname):
+            value = getattr(doc, fieldname, None)
+            if value:
+                return str(value).strip()
+    return ""
+
+
+_NAME_NOISE_WORDS = {"company", "co", "ltd", "llc", "corp", "inc", "شركة", "مؤسسة"}
+
+
+def _normalize_name(val):
+    val = unicodedata.normalize("NFKD", str(val)).lower()
+    val = re.sub(r"[^\w\s؀-ۿ]", " ", val)
+    tokens = [t for t in val.split() if t not in _NAME_NOISE_WORDS]
+    return " ".join(tokens)
+
+
+def _similar(a, b):
+    if not a or not b:
+        return False
+    a = _normalize_name(a)
+    b = _normalize_name(b)
+    return SequenceMatcher(None, a, b).ratio() > 0.9
+
+
+def _unique(names):
+    out = []
+    for n in names:
+        if not n:
+            continue
+        if any(_similar(n, x) for x in out):
+            continue
+        out.append(n)
+    return out
+
+
+def _company_names(doc):
+    ar = _first_available_value(
+        doc,
+        [
+            "company_name_in_arabic",
+            "custom_company_name_in_arabic",
+            "custom__company_name_in_arabic__",
+        ],
+    )
+    en = str(getattr(doc, "company_name", "")).strip()
+    return _unique([ar, en])
+
+
+def _customer_names(doc):
+    ar = _first_available_value(
+        doc,
+        [
+            "customer_name_in_arabic",
+            "custom_customer_name_in_arabic",
+            "zatca_customer_name_in_arabic",
+        ],
+    )
+    en = str(getattr(doc, "customer_name", "")).strip()
+    return _unique([ar, en])
+
+
+def _append_names(party, names):
+    for n in names:
+        tag = ET.SubElement(party, "cac:PartyName")
+        name = ET.SubElement(tag, "cbc:Name")
+        name.text = n
+# ===== END =====
+
+
 def get_issue_time(invoice_number):
     """Function for Issue time"""
     doc = frappe.get_doc("POS Invoice", invoice_number)
     time = get_time(doc.posting_time)
     issue_time = time.strftime("%H:%M:%S")  # time in format of  hour,mints,secnds
     return issue_time
-
 
 def xml_tags():
     """Function for XML tags"""
@@ -489,7 +565,9 @@ def additional_reference(invoice, company_abbr, pos_invoice_doc):
 #         cbc_registrationname = ET.SubElement(
 #             cac_partylegalentity, "cbc:RegistrationName"
 #         )
-#         cbc_registrationname.text = pos_invoice_doc.company
+#         names=_company_names(company_doc)
+        if names: _append_names(cac_party_1,names)
+        cbc_registrationname.text = names[0] if names else pos_invoice_doc.company
 #         # frappe.throw(f"Registration Name set to: {cbc_RegistrationName.text}")
 #         return invoice
 #     except (ET.ParseError, AttributeError, ValueError, frappe.DoesNotExistError) as e:
@@ -619,7 +697,9 @@ def company_data(invoice, pos_invoice_doc):
         cbc_registrationname = ET.SubElement(
             cac_partylegalentity, "cbc:RegistrationName"
         )
-        cbc_registrationname.text = pos_invoice_doc.company
+        names=_company_names(company_doc)
+        if names: _append_names(cac_party_1,names)
+        cbc_registrationname.text = names[0] if names else pos_invoice_doc.company
 
         return invoice
     except (ET.ParseError, AttributeError, ValueError, frappe.DoesNotExistError) as e:
@@ -688,7 +768,9 @@ def customer_data(invoice, pos_invoice_doc):
         cbc_registrationname_1 = ET.SubElement(
             cac_partylegalentity_1, "cbc:RegistrationName"
         )
-        cbc_registrationname_1.text = customer_doc.customer_name
+        names=_customer_names(customer_doc)
+        if names: _append_names(cac_party_2,names)
+        cbc_registrationname_1.text = names[0] if names else customer_doc.customer_name
         return invoice
     except (ET.ParseError, AttributeError, ValueError, frappe.DoesNotExistError) as e:
         frappe.throw(_(f"Error occurred in company data: {e}"))

@@ -1,498 +1,950 @@
-"""
-This module facilitates the generation, validation, and submission of
- ZATCA-compliant e-invoices for companies
-using ERPNext
-"""
+"""this module is used to populate the Advance Payment data in the XML file."""
 
-import hashlib
+import os
+import io
 import base64
 import json
-import binascii
+import uuid
+import xml.etree.ElementTree as ET
+from xml.dom import minidom
+from decimal import Decimal, ROUND_DOWN
 from datetime import datetime
-from lxml import etree
-import lxml.etree as MyTree
-from frappe import _
+import xml.etree.ElementTree as ET
+from frappe.utils.data import get_time
 import frappe
-from cryptography import x509
-from cryptography.hazmat._oid import NameOID
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.bindings._rust import ObjectIdentifier
-from cryptography.hazmat.primitives import serialization, hashes
-from cryptography.hazmat.primitives.asymmetric import ec
 import requests
-import asn1
-
-SUPPORTED_INVOICES = ["Advance Sales Invoice", "POS Invoice"]
-
-
-def encode_customoid(custom_string):
-    """Encoding of a custom string"""
-    # Create an encoder
-    encoder = asn1.Encoder()
-    encoder.start()
-    encoder.write(custom_string, asn1.Numbers.UTF8String)
-    return encoder.output()
-
-
-def parse_csr_config(csr_config_string):
-    """Parse the csr config data"""
-    csr_config = {}
-    lines = csr_config_string.splitlines()
-    for line in lines:
-        key, value = line.split("=", 1)
-        csr_config[key.strip()] = value.strip()
-    return csr_config
+from decimal import Decimal, ROUND_HALF_UP
+from frappe import _
+from pyqrcode import create as qr_create
+from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+from zatca_erpgulf.zatca_erpgulf.xml_tax_data import (
+    get_exemption_reason_map,
+)
+from zatca_erpgulf.zatca_erpgulf.createxml import (
+    xml_tags,
+    get_icv_code,
+    get_address,
+)
+from zatca_erpgulf.zatca_erpgulf.xml_tax_data import (
+    get_exemption_reason_map,
+)
 
 
-def get_csr_data(company_abbr):
-    """Getting csr data from the config"""
-    try:
-        company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
-        if not company_name:
-            frappe.throw(f"Company with abbreviation {company_abbr} not found.")
+from zatca_erpgulf.zatca_erpgulf.sign_invoice import get_api_url, attach_qr_image
 
-        company_doc = frappe.get_doc("Company", company_name)
-        csr_config_string = company_doc.custom_csr_config
+from zatca_erpgulf.zatca_erpgulf.create_qr import create_qr_code
 
-        if not csr_config_string:
-            frappe.throw("No CSR config found in company settings")
+ITEM_TAX_TEMPLATE = "Item Tax Template"
+CAC_TAX_TOTAL = "cac:TaxTotal"
 
-        csr_config = parse_csr_config(csr_config_string)
 
-        csr_values = {
-            "csr.common.name": csr_config.get("csr.common.name"),
-            "csr.serial.number": csr_config.get("csr.serial.number"),
-            "csr.organization.identifier": csr_config.get(
-                "csr.organization.identifier"
-            ),
-            "csr.organization.unit.name": csr_config.get("csr.organization.unit.name"),
-            "csr.organization.name": csr_config.get("csr.organization.name"),
-            "csr.country.name": csr_config.get("csr.country.name"),
-            "csr.invoice.type": csr_config.get("csr.invoice.type"),
-            "csr.location.address": csr_config.get("csr.location.address"),
-            "csr.industry.business.category": csr_config.get(
-                "csr.industry.business.category"
-            ),
-        }
+def _safe_strip(value):
+    """Return stripped string or empty string."""
+    return str(value).strip() if value else ""
 
-        return csr_values
 
-    except (frappe.ValidationError, frappe.DoesNotExistError) as e:
-        frappe.throw(_(f"Error in fetching CSR data: {e}"))
+def _clean_name_for_compare(value):
+    """Normalize names for duplicate detection."""
+    value = _safe_strip(value).lower()
+    if not value:
+        return ""
+
+    value = re.sub(r"[\W_]+", " ", value, flags=re.UNICODE)
+    removable_tokens = {
+        "company",
+        "co",
+        "co.",
+        "ltd",
+        "ltd.",
+        "llc",
+        "inc",
+        "inc.",
+        "corp",
+        "corp.",
+        "est",
+        "est.",
+        "trading",
+        "factory",
+        "group",
+        "holding",
+        "holdings",
+        "شركة",
+        "مؤسسة",
+        "مصنع",
+        "مجموعة",
+        "القابضة",
+        "للتجارة",
+    }
+    parts = [part for part in value.split() if part not in removable_tokens]
+    return " ".join(parts).strip()
+
+
+def _is_arabic_text(value):
+    """Check whether text contains Arabic characters."""
+    value = _safe_strip(value)
+    return bool(re.search(r"[\u0600-\u06FF]", value))
+
+
+def _names_are_highly_similar(first_name, second_name):
+    """
+    Return True when two names are effectively duplicates.
+    Arabic vs English variants are kept as separate names.
+    """
+    first_name = _safe_strip(first_name)
+    second_name = _safe_strip(second_name)
+
+    if not first_name or not second_name:
+        return False
+
+    if first_name == second_name:
+        return True
+
+    first_ar = _is_arabic_text(first_name)
+    second_ar = _is_arabic_text(second_name)
+
+    # Keep Arabic and English variants as separate names.
+    if first_ar != second_ar:
+        return False
+
+    first_clean = _clean_name_for_compare(first_name)
+    second_clean = _clean_name_for_compare(second_name)
+
+    if not first_clean or not second_clean:
+        return False
+
+    if first_clean == second_clean:
+        return True
+
+    from difflib import SequenceMatcher
+
+    return SequenceMatcher(None, first_clean, second_clean).ratio() >= 0.90
+
+
+def _deduplicate_party_names(names):
+    """Remove empty and near-duplicate names while preserving order."""
+    final_names = []
+    for name in names:
+        name = _safe_strip(name)
+        if not name:
+            continue
+        if any(_names_are_highly_similar(name, existing) for existing in final_names):
+            continue
+        final_names.append(name)
+    return final_names
+
+
+def _get_first_available_value(doc, fieldnames):
+    """Return the first non-empty value from existing fields on a document."""
+    meta = frappe.get_meta(doc.doctype)
+    for fieldname in fieldnames:
+        if meta.get_field(fieldname):
+            value = _safe_strip(getattr(doc, fieldname, None))
+            if value:
+                return value
+    return ""
+
+
+def _company_names(company_doc):
+    """Return ordered supplier names: Arabic first, then English if distinct."""
+    arabic_name = _get_first_available_value(
+        company_doc,
+        [
+            "company_name_in_arabic",
+            "custom_company_name_in_arabic",
+            "custom__company_name_in_arabic__",
+        ],
+    )
+    english_name = _safe_strip(getattr(company_doc, "company_name", None))
+    return _deduplicate_party_names([arabic_name, english_name])
+
+
+def _customer_names(customer_doc):
+    """Return ordered customer names: Arabic first, then English if distinct."""
+    arabic_name = _get_first_available_value(
+        customer_doc,
+        [
+            "customer_name_in_arabic",
+            "custom_customer_name_in_arabic",
+            "zatca_customer_name_in_arabic",
+        ],
+    )
+    english_name = _safe_strip(getattr(customer_doc, "customer_name", None))
+    return _deduplicate_party_names([arabic_name, english_name])
+
+
+def _append_party_names(party_element, names):
+    """Append one or more cac:PartyName elements."""
+    for name in names:
+        cac_partyname = ET.SubElement(party_element, "cac:PartyName")
+        cbc_name = ET.SubElement(cac_partyname, "cbc:Name")
+        cbc_name.text = name
+CBC_TAX_AMOUNT = "cbc:TaxAmount"
+CAC_TAX_SUBTOTAL = "cac:TaxSubtotal"
+CBC_TAXABLE_AMOUNT = "cbc:TaxableAmount"
+ZERO_RATED = "Zero Rated"
+OUTSIDE_SCOPE = "Services outside scope of tax / Not subject to VAT"
+CBC_ID = "cbc:ID"
+DS_TRANSFORM = "ds:Transform"
+TAX_CALCULATION_ERROR = "Tax Calculation Error"
+CAC_TAX_TOTAL = "cac:TaxTotal"
+
+
+def _q2(value):
+    """Round to 2 decimals using HALF_UP."""
+    return Decimal(str(value or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def _advance_currency(doc):
+    return getattr(doc, "paid_from_account_currency", None) or getattr(doc, "currency", None) or "SAR"
+
+
+def _advance_item_net_amount(single_item, sales_invoice_doc):
+    """Use line net amount as the source of truth for advance XML."""
+    currency = _advance_currency(sales_invoice_doc)
+    company_currency = getattr(sales_invoice_doc, "company_currency", currency)
+
+    if currency == company_currency:
+        value = single_item.get("base_net_amount")
+        if value is None:
+            value = single_item.get("net_amount")
+        if value is None:
+            value = single_item.get("base_amount")
+        if value is None:
+            value = single_item.get("amount")
+    else:
+        value = single_item.get("net_amount")
+        if value is None:
+            value = single_item.get("amount")
+
+    return _q2(abs(value or 0))
+
+
+def _advance_item_base_net_amount(single_item):
+    value = single_item.get("base_net_amount")
+    if value is None:
+        value = single_item.get("base_amount")
+    if value is None:
+        value = single_item.get("net_amount")
+    if value is None:
+        value = single_item.get("amount")
+    return _q2(abs(value or 0))
+
+
+def _advance_item_rate(single_item, sales_invoice_doc):
+    """Use line net rate as the source of truth for advance XML."""
+    currency = _advance_currency(sales_invoice_doc)
+    company_currency = getattr(sales_invoice_doc, "company_currency", currency)
+
+    if currency == company_currency:
+        value = single_item.get("base_net_rate")
+        if value is None:
+            value = single_item.get("net_rate")
+        if value is None:
+            value = single_item.get("base_rate")
+        if value is None:
+            value = single_item.get("rate")
+    else:
+        value = single_item.get("net_rate")
+        if value is None:
+            value = single_item.get("rate")
+
+    return _q2(abs(value or 0))
+
+
+def _advance_tax_rate_for_item(single_item, sales_invoice_doc):
+    tax_detail = generate_item_wise_tax_detail(sales_invoice_doc)
+    _item_tax_amount, tax_percentage = get_tax_for_item(tax_detail, single_item.item_code)
+    return _q2(tax_percentage or 0)
+
+
+def _advance_line_name(single_item):
+    description = getattr(single_item, "description", None)
+    if description:
+        description = unescape(str(description))
+        description = re.sub(r"<[^>]+>", " ", description)
+        description = re.sub(r"\s+", " ", description).strip()
+        if description:
+            return description
+
+    item_name = getattr(single_item, "item_name", None)
+    if item_name:
+        item_name = unescape(str(item_name))
+        item_name = re.sub(r"<[^>]+>", " ", item_name)
+        item_name = re.sub(r"\s+", " ", item_name).strip()
+        if item_name:
+            return item_name
+
+    return str(getattr(single_item, "item_code", "") or "").strip()
+
+
+def _advance_customer_country_code(address):
+    from zatca_erpgulf.zatca_erpgulf.country_code import country_code_mapping
+
+    if not address or not getattr(address, "country", None):
+        return "SA"
+
+    country_name = str(address.country).strip()
+    if not country_name:
+        return "SA"
+
+    mapped = country_code_mapping().get(country_name.lower())
+    return mapped or "SA"
+
+
+
+# frappe.init(site="zatca.erpgulf.com")
+# frappe.connect()
+def get_issue_time(invoice_number):
+    """
+    Extracts and formats the posting time of a Sales Invoice as HH:MM:SS.
+    """
+    doc = frappe.get_doc("Advance Sales Invoice", invoice_number)
+    time = get_time(doc.posting_time)
+    issue_time = time.strftime("%H:%M:%S")  # time in format of  hour,mints,secnds
+    return issue_time
+
+
+def get_tax_for_item(full_string, item):
+    """
+    Extracts the tax amount and tax percentage for a specific item from a JSON-encoded string.
+    """
+    try:  # getting tax percentage and tax amount
+        data = json.loads(full_string)
+        tax_percentage = data.get(item, [0, 0])[0]
+        tax_amount = data.get(item, [0, 0])[1]
+        return tax_amount, tax_percentage
+    except json.JSONDecodeError as e:
+        frappe.throw(_("JSON decoding error occurred in tax for item: " + str(e)))
         return None
+    except KeyError as e:
+        frappe.throw(_(f"Key error occurred while accessing item '{item}': " + str(e)))
+        return None
+    except TypeError as e:
+        frappe.throw(_("Type error occurred in tax for item: " + str(e)))
+        return None
+from decimal import Decimal, ROUND_HALF_UP
+import json
 
+def generate_item_wise_tax_detail(sales_invoice_doc, tax_index=0):
+    """
+    Generate item-wise tax detail for a sales invoice.
+    """
+    if not sales_invoice_doc.custom_item:
+        return "{}"
 
-def create_private_keys(company_abbr, zatca_doc):
-    """the function is for creating the private key"""
-    try:
-        company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
-        if not company_name:
-            frappe.throw(_(f"Company with abbreviation {company_abbr} not found."))
+    # Get the tax rate from the specified tax entry
+    tax_rate = sales_invoice_doc.taxes[tax_index].rate
 
-        company_doc = frappe.get_doc("Company", company_name)
+    item_wise_tax_detail = {}
 
-        private_key = ec.generate_private_key(ec.SECP256K1(), backend=default_backend())
-        private_key_pem = private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.TraditionalOpenSSL,
-            encryption_algorithm=serialization.NoEncryption(),
+    for single_item in sales_invoice_doc.custom_item:
+        item_code = single_item.item_code
+        amount = Decimal(str(single_item.amount))
+        tax_amount = (amount * Decimal(str(tax_rate)) / Decimal("100")).quantize(
+            Decimal("0.0001"), rounding=ROUND_HALF_UP
         )
 
-        company_doc.custom_private_key = private_key_pem.decode("utf-8")
-        company_doc.save(ignore_permissions=True)
+        item_wise_tax_detail[item_code] = [float(tax_rate), float(tax_amount)]
 
-        return private_key_pem
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
+    # Store as JSON string in the tax entry
+    sales_invoice_doc.taxes[tax_index].item_wise_tax_detail = json.dumps(item_wise_tax_detail)
+
+    return sales_invoice_doc.taxes[tax_index].item_wise_tax_detail
+
+
+def get_tax_total_from_items(sales_invoice_doc):
+    """Getting tax total for items"""
+    try:
+        total_tax = 0
+        tax_detail = generate_item_wise_tax_detail(sales_invoice_doc)
+        for single_item in sales_invoice_doc.custom_item:
+            _item_tax_amount, tax_percent = get_tax_for_item(
+                tax_detail, single_item.item_code
+            )
+            total_tax = total_tax + (single_item.net_amount * (tax_percent / 100))
+        return total_tax
+    except AttributeError as e:
         frappe.throw(
             _(
-                "error while creating the private key for company {company_abbr} "
-                + str(e)
+                f"AttributeError in get_tax_total_from_items: {str(e)}",
+                TAX_CALCULATION_ERROR,
             )
         )
         return None
+    except KeyError as e:
+        frappe.throw(
+            _(f"KeyError in get_tax_total_from_items: {str(e)}", TAX_CALCULATION_ERROR)
+        )
+
+        return None
+    except TypeError as e:
+        frappe.throw(
+            _(f"KeyError in get_tax_total_from_items: {str(e)}", TAX_CALCULATION_ERROR)
+        )
+
+        return None
 
 
-@frappe.whitelist(allow_guest=False)
-def create_csr(zatca_doc, portal_type, company_abbr):
+def salesinvoice_data_advance(invoice, invoice_number):
     """
-    Function defining the create csr method with the config csr data
+    Populates the Sales Invoice XML with key elements and metadata.
     """
     try:
-        # frappe.throw("hi")
+        sales_invoice_doc = frappe.get_doc("Advance Sales Invoice", invoice_number)
 
+        cbc_profile_id = ET.SubElement(invoice, "cbc:ProfileID")
+        cbc_profile_id.text = "reporting:1.0"
+
+        cbc_id = ET.SubElement(invoice, CBC_ID)
+        cbc_id.text = str(sales_invoice_doc.name)
+
+        cbc_uuid = ET.SubElement(invoice, "cbc:UUID")
+        cbc_uuid.text = str(uuid.uuid1())
+        uuid1 = cbc_uuid.text
+
+        cbc_issue_date = ET.SubElement(invoice, "cbc:IssueDate")
+        cbc_issue_date.text = str(sales_invoice_doc.posting_date)
+
+        cbc_issue_time = ET.SubElement(invoice, "cbc:IssueTime")
+        cbc_issue_time.text = get_issue_time(invoice_number)
+
+        return invoice, uuid1, sales_invoice_doc
+    except (AttributeError, ValueError, frappe.ValidationError) as e:
+        frappe.throw(_(("Error occurred in SalesInvoice data: " f"{str(e)}")))
+        return None
+
+
+def tax_data(invoice, sales_invoice_doc):
+    """Build advance-payment invoice tax totals using line net amounts."""
+    try:
+        currency = _advance_currency(sales_invoice_doc)
+
+        total_taxable = Decimal("0.00")
+        total_tax = Decimal("0.00")
+        total_sar_tax = Decimal("0.00")
+
+        for single_item in sales_invoice_doc.custom_item:
+            tax_rate = _advance_tax_rate_for_item(single_item, sales_invoice_doc)
+            line_net_amount = _advance_item_net_amount(single_item, sales_invoice_doc)
+            line_base_net_amount = _advance_item_base_net_amount(single_item)
+
+            total_taxable += line_net_amount
+            total_tax += _q2(line_net_amount * tax_rate / Decimal("100"))
+            total_sar_tax += _q2(line_base_net_amount * tax_rate / Decimal("100"))
+
+        total_taxable = _q2(total_taxable)
+        total_tax = _q2(total_tax)
+        total_sar_tax = _q2(total_sar_tax)
+
+        # Summary-only TaxTotal in SAR
+        cac_taxtotal_summary = ET.SubElement(invoice, CAC_TAX_TOTAL)
+        cbc_taxamount_sar = ET.SubElement(cac_taxtotal_summary, CBC_TAX_AMOUNT)
+        cbc_taxamount_sar.set("currencyID", "SAR")
+        cbc_taxamount_sar.text = str(total_sar_tax if currency != "SAR" else total_tax)
+
+        # Detailed TaxTotal in document currency
+        cac_taxtotal = ET.SubElement(invoice, CAC_TAX_TOTAL)
+        cbc_taxamount = ET.SubElement(cac_taxtotal, CBC_TAX_AMOUNT)
+        cbc_taxamount.set("currencyID", currency)
+        cbc_taxamount.text = str(total_tax)
+
+        cac_taxsubtotal = ET.SubElement(cac_taxtotal, "cac:TaxSubtotal")
+        cbc_taxableamount = ET.SubElement(cac_taxsubtotal, "cbc:TaxableAmount")
+        cbc_taxableamount.set("currencyID", currency)
+        cbc_taxableamount.text = str(total_taxable)
+
+        cbc_taxamount_2 = ET.SubElement(cac_taxsubtotal, "cbc:TaxAmount")
+        cbc_taxamount_2.set("currencyID", currency)
+        cbc_taxamount_2.text = str(total_tax)
+
+        cac_taxcategory_1 = ET.SubElement(cac_taxsubtotal, "cac:TaxCategory")
+        cbc_id_8 = ET.SubElement(cac_taxcategory_1, "cbc:ID")
+
+        if sales_invoice_doc.custom_zatca_tax_category == "Standard":
+            cbc_id_8.text = "S"
+        elif sales_invoice_doc.custom_zatca_tax_category == "Zero Rated":
+            cbc_id_8.text = "Z"
+        elif sales_invoice_doc.custom_zatca_tax_category == "Exempted":
+            cbc_id_8.text = "E"
+        elif (
+            sales_invoice_doc.custom_zatca_tax_category
+            == "Services outside scope of tax / Not subject to VAT"
+        ):
+            cbc_id_8.text = "O"
+
+        cbc_percent_1 = ET.SubElement(cac_taxcategory_1, "cbc:Percent")
+        cbc_percent_1.text = f"{float(sales_invoice_doc.taxes[0].rate):.2f}"
+
+        exemption_reason_map = get_exemption_reason_map()
+        if sales_invoice_doc.custom_zatca_tax_category != "Standard":
+            cbc_taxexemptionreasoncode = ET.SubElement(
+                cac_taxcategory_1, "cbc:TaxExemptionReasonCode"
+            )
+            cbc_taxexemptionreasoncode.text = sales_invoice_doc.custom_exemption_reason_code
+            cbc_taxexemptionreason = ET.SubElement(
+                cac_taxcategory_1, "cbc:TaxExemptionReason"
+            )
+            reason_code = sales_invoice_doc.custom_exemption_reason_code
+            if reason_code in exemption_reason_map:
+                cbc_taxexemptionreason.text = exemption_reason_map[reason_code]
+
+        cac_taxscheme_3 = ET.SubElement(cac_taxcategory_1, "cac:TaxScheme")
+        cbc_id_9 = ET.SubElement(cac_taxscheme_3, CBC_ID)
+        cbc_id_9.text = "VAT"
+
+        cac_legalmonetarytotal = ET.SubElement(invoice, "cac:LegalMonetaryTotal")
+
+        cbc_lineextensionamount = ET.SubElement(
+            cac_legalmonetarytotal, "cbc:LineExtensionAmount"
+        )
+        cbc_lineextensionamount.set("currencyID", currency)
+        cbc_lineextensionamount.text = str(total_taxable)
+
+        cbc_taxexclusiveamount = ET.SubElement(
+            cac_legalmonetarytotal, "cbc:TaxExclusiveAmount"
+        )
+        cbc_taxexclusiveamount.set("currencyID", currency)
+        cbc_taxexclusiveamount.text = str(total_taxable)
+
+        cbc_taxinclusiveamount = ET.SubElement(
+            cac_legalmonetarytotal, "cbc:TaxInclusiveAmount"
+        )
+        cbc_taxinclusiveamount.set("currencyID", currency)
+        cbc_taxinclusiveamount.text = str(_q2(total_taxable + total_tax))
+
+        cbc_allowancetotalamount = ET.SubElement(
+            cac_legalmonetarytotal, "cbc:AllowanceTotalAmount"
+        )
+        cbc_allowancetotalamount.set("currencyID", currency)
+        cbc_allowancetotalamount.text = "0.00"
+
+        cbc_payableamount = ET.SubElement(cac_legalmonetarytotal, "cbc:PayableAmount")
+        cbc_payableamount.set("currencyID", currency)
+        cbc_payableamount.text = str(_q2(total_taxable + total_tax))
+
+        return invoice
+
+    except (AttributeError, KeyError, ValueError, TypeError) as e:
+        frappe.throw(_(f"Data processing error in tax data: {str(e)}"))
+        return None
+
+def additional_reference_advanve(invoice, company_abbr, sales_invoice_doc):
+    """
+    Adds additional document references to the XML invoice for PIH, QR, and Signature elements.
+    """
+    try:
         company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
         if not company_name:
             frappe.throw(f"Company with abbreviation {company_abbr} not found.")
 
         company_doc = frappe.get_doc("Company", company_name)
-        csr_values = get_csr_data(company_abbr)
 
-        company_csr_data = csr_values
-
-        csr_common_name = company_csr_data.get("csr.common.name")
-        csr_serial_number = company_csr_data.get("csr.serial.number")
-        csr_organization_identifier = company_csr_data.get(
-            "csr.organization.identifier"
+        # Create the first AdditionalDocumentReference element for PIH
+        cac_additionaldocumentreference2 = ET.SubElement(
+            invoice, "cac:AdditionalDocumentReference"
         )
-        csr_organization_unit_name = company_csr_data.get("csr.organization.unit.name")
-        csr_organization_name = company_csr_data.get("csr.organization.name")
-        csr_country_name = company_csr_data.get("csr.country.name")
-        csr_invoice_type = company_csr_data.get("csr.invoice.type")
-        csr_location_address = company_csr_data.get("csr.location.address")
-        csr_industry_business_category = company_csr_data.get(
-            "csr.industry.business.category"
+        cbc_id_1_1 = ET.SubElement(cac_additionaldocumentreference2, CBC_ID)
+        cbc_id_1_1.text = "PIH"
+        cac_attachment = ET.SubElement(
+            cac_additionaldocumentreference2, "cac:Attachment"
         )
-
-        if portal_type == "Sandbox":
-            customoid = encode_customoid("TESTZATCA-Code-Signing")
-        elif portal_type == "Simulation":
-            customoid = encode_customoid("PREZATCA-Code-Signing")
-        else:
-            customoid = encode_customoid("ZATCA-Code-Signing")
-
-        private_key_pem = create_private_keys(company_abbr, zatca_doc)
-
-        private_key = serialization.load_pem_private_key(
-            private_key_pem, password=None, backend=default_backend()
+        cbc_embeddeddocumentbinaryobject = ET.SubElement(
+            cac_attachment, "cbc:EmbeddedDocumentBinaryObject"
         )
-
-        custom_oid_string = "1.3.6.1.4.1.311.20.2"
-        oid = ObjectIdentifier(custom_oid_string)
-        custom_extension = x509.extensions.UnrecognizedExtension(oid, customoid)
-
-        dn = x509.Name(
-            [
-                x509.NameAttribute(NameOID.COUNTRY_NAME, csr_country_name),
-                x509.NameAttribute(
-                    NameOID.ORGANIZATIONAL_UNIT_NAME, csr_organization_unit_name
-                ),
-                x509.NameAttribute(NameOID.ORGANIZATION_NAME, csr_organization_name),
-                x509.NameAttribute(NameOID.COMMON_NAME, csr_common_name),
-            ]
+        cbc_embeddeddocumentbinaryobject.set("mimeCode", "text/plain")
+        pih = company_doc.custom_pih
+        cbc_embeddeddocumentbinaryobject.text = pih
+        cac_additionaldocumentreference22 = ET.SubElement(
+            invoice, "cac:AdditionalDocumentReference"
         )
-        alt_name = x509.SubjectAlternativeName(
-            [
-                x509.DirectoryName(
-                    x509.Name(
-                        [
-                            x509.NameAttribute(NameOID.SURNAME, csr_serial_number),
-                            x509.NameAttribute(
-                                NameOID.USER_ID, csr_organization_identifier
-                            ),
-                            x509.NameAttribute(NameOID.TITLE, csr_invoice_type),
-                            x509.NameAttribute(
-                                ObjectIdentifier("2.5.4.26"), csr_location_address
-                            ),
-                            x509.NameAttribute(
-                                NameOID.BUSINESS_CATEGORY,
-                                csr_industry_business_category,
-                            ),
-                        ]
-                    )
-                ),
-            ]
+        cbc_id_1_12 = ET.SubElement(cac_additionaldocumentreference22, CBC_ID)
+        cbc_id_1_12.text = "QR"
+        cac_attachment22 = ET.SubElement(
+            cac_additionaldocumentreference22, "cac:Attachment"
         )
+        cbc_embeddeddocumentbinaryobject22 = ET.SubElement(
+            cac_attachment22, "cbc:EmbeddedDocumentBinaryObject"
+        )
+        cbc_embeddeddocumentbinaryobject22.set("mimeCode", "text/plain")
+        cbc_embeddeddocumentbinaryobject22.text = "GsiuvGjvchjbFhibcDhjv1886G"
+        cac_sign = ET.SubElement(invoice, "cac:Signature")
+        cbc_id_sign = ET.SubElement(cac_sign, CBC_ID)
+        cbc_method_sign = ET.SubElement(cac_sign, "cbc:SignatureMethod")
+        cbc_id_sign.text = "urn:oasis:names:specification:ubl:signature:Invoice"
+        cbc_method_sign.text = "urn:oasis:names:specification:ubl:dsig:enveloped:xades"
 
-        csr = (
-            x509.CertificateSigningRequestBuilder()
-            .subject_name(dn)
-            .add_extension(custom_extension, critical=False)
-            .add_extension(alt_name, critical=False)
-            .sign(private_key, hashes.SHA256(), backend=default_backend())
-        )
-        mycsr = csr.public_bytes(serialization.Encoding.PEM)
-        base64csr = base64.b64encode(mycsr)
-        encoded_string = base64csr.decode("utf-8")
+        return invoice
 
-        company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
-        company_doc.custom_csr_data = encoded_string.strip()
-        # Save the updated company document
-        company_doc.save(ignore_permissions=True)
-        return encoded_string
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(
-            _("error occurred while creating csr for company {company_abbr} " + str(e))
-        )
+    except (ET.ParseError, AttributeError, ValueError, frappe.DoesNotExistError) as e:
+        frappe.throw(_(f"Error occurred in additional references: {e}"))
         return None
 
 
-def get_api_url(company_abbr, base_url):
-    """There are many api susing in zatca which can be defined by a feild in settings"""
+def company_data_advance(invoice, sales_invoice_doc):
+    """
+    Adds company data elements to the XML invoice, including supplier details, address,
+    tax information, and multilingual party names when available.
+    """
     try:
-        company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
-        if company_doc.custom_select == "Sandbox":
-            url = company_doc.custom_sandbox_url + base_url
-        elif company_doc.custom_select == "Simulation":
-            url = company_doc.custom_simulation_url + base_url
-        else:
-            url = company_doc.custom_production_url + base_url
-        return url
+        company_doc = frappe.get_doc("Company", sales_invoice_doc.company)
+        if company_doc.custom_costcenter == 1 and not sales_invoice_doc.cost_center:
+            frappe.throw("no Cost Center is set in the invoice.Give the feild")
+        custom_registration_type = company_doc.custom_registration_type
+        custom_company_registration = company_doc.custom_company_registration
 
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(
-            _("unexpected error occurred api for company {company_abbr} " + str(e))
+        cac_accountingsupplierparty = ET.SubElement(
+            invoice, "cac:AccountingSupplierParty"
         )
+        cac_party_1 = ET.SubElement(cac_accountingsupplierparty, "cac:Party")
+        cac_partyidentification = ET.SubElement(cac_party_1, "cac:PartyIdentification")
+        cbc_id_2 = ET.SubElement(cac_partyidentification, CBC_ID)
+        cbc_id_2.set("schemeID", custom_registration_type)
+        cbc_id_2.text = custom_company_registration
+        address = get_address(sales_invoice_doc, company_doc)
+
+        supplier_names = _company_names(company_doc)
+        if supplier_names:
+            _append_party_names(cac_party_1, supplier_names)
+
+        cac_postaladdress = ET.SubElement(cac_party_1, "cac:PostalAddress")
+        cbc_streetname = ET.SubElement(cac_postaladdress, "cbc:StreetName")
+        cbc_streetname.text = address.address_line1
+        cbc_buildingnumber = ET.SubElement(cac_postaladdress, "cbc:BuildingNumber")
+        cbc_buildingnumber.text = address.custom_building_number
+        cbc_plotidentification = ET.SubElement(
+            cac_postaladdress, "cbc:PlotIdentification"
+        )
+        cbc_plotidentification.text = address.address_line1
+        cbc_citysubdivisionname = ET.SubElement(
+            cac_postaladdress, "cbc:CitySubdivisionName"
+        )
+        cbc_citysubdivisionname.text = address.address_line2
+        cbc_cityname = ET.SubElement(cac_postaladdress, "cbc:CityName")
+        cbc_cityname.text = address.city
+        cbc_postalzone = ET.SubElement(cac_postaladdress, "cbc:PostalZone")
+        cbc_postalzone.text = address.pincode
+        cbc_countrysubentity = ET.SubElement(cac_postaladdress, "cbc:CountrySubentity")
+        cbc_countrysubentity.text = address.state
+
+        cac_country = ET.SubElement(cac_postaladdress, "cac:Country")
+        cbc_identificationcode = ET.SubElement(cac_country, "cbc:IdentificationCode")
+        cbc_identificationcode.text = "SA"
+
+        cac_partytaxscheme = ET.SubElement(cac_party_1, "cac:PartyTaxScheme")
+        cbc_companyid = ET.SubElement(cac_partytaxscheme, "cbc:CompanyID")
+        cbc_companyid.text = company_doc.tax_id
+
+        cac_taxscheme = ET.SubElement(cac_partytaxscheme, "cac:TaxScheme")
+        cbc_id_3 = ET.SubElement(cac_taxscheme, CBC_ID)
+        cbc_id_3.text = "VAT"
+
+        cac_partylegalentity = ET.SubElement(cac_party_1, "cac:PartyLegalEntity")
+        cbc_registrationname = ET.SubElement(
+            cac_partylegalentity, "cbc:RegistrationName"
+        )
+        cbc_registrationname.text = (
+            supplier_names[0] if supplier_names else sales_invoice_doc.company
+        )
+
+        return invoice
+    except (ET.ParseError, AttributeError, ValueError, frappe.DoesNotExistError) as e:
+        frappe.throw(_(f"Error occurred in company data: {e}"))
         return None
 
 
-@frappe.whitelist(allow_guest=False)
-def create_csid(zatca_doc, company_abbr):
-    """creating csid"""
+def customer_data_advance(invoice, sales_invoice_doc):
+    """
+    Add customer data, including multilingual party names when available.
+    Country code is resolved from the customer address instead of being forced to SA.
+    """
     try:
-        company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
-        if not company_name:
-            frappe.throw(_(f"Company with abbreviation {company_abbr} not found."))
-
-        company_doc = frappe.get_doc("Company", company_name)
-
-        csr_data_str = company_doc.get("custom_csr_data", "")
-
-        csr_contents = csr_data_str.strip()
-
-        if not csr_contents:
-            frappe.throw(_(f"No valid CSR data found for company {company_name}"))
-
-        payload = json.dumps({"csr": csr_contents})
-        # frappe.msgprint(f"Using OTP: {company_doc.custom_otp}")
-        otp = company_doc.get("custom_otp", "")
-        headers = {
-            "accept": "application/json",
-            "OTP": otp,
-            "Accept-Version": "V2",
-            "Content-Type": "application/json",
-            "Cookie": "TS0106293e=0132a679c07382ce7821148af16b99da546c13ce1dcddbef0e19802eb470e539a4d39d5ef63d5c8280b48c529f321e8b0173890e4f",
-        }
-
-        frappe.publish_realtime(
-            "show_gif",
-            {"gif_url": "/assets/zatca_erpgulf/js/loading.gif"},
-            user=frappe.session.user,
+        customer_doc = frappe.get_doc("Customer", sales_invoice_doc.party)
+        cac_accountingcustomerparty = ET.SubElement(
+            invoice, "cac:AccountingCustomerParty"
         )
-
-        response = requests.post(
-            url=get_api_url(company_abbr, base_url="compliance"),
-            headers=headers,
-            data=payload,
-            timeout=300,
+        cac_party_2 = ET.SubElement(cac_accountingcustomerparty, "cac:Party")
+        cac_partyidentification_1 = ET.SubElement(
+            cac_party_2, "cac:PartyIdentification"
         )
-        frappe.publish_realtime("hide_gif", user=frappe.session.user)
+        cbc_id_4 = ET.SubElement(cac_partyidentification_1, CBC_ID)
+        cbc_id_4.set("schemeID", str(customer_doc.custom_buyer_id_type))
+        cbc_id_4.text = customer_doc.custom_buyer_id
 
-        if response.status_code == 400:
-            frappe.throw("Error: OTP is not valid. " + response.text)
-        if response.status_code != 200:
-            frappe.throw("Error: Issue with Certificate or OTP. " + response.text)
-        frappe.msgprint(str(response.text))
-        data = json.loads(response.text)
+        customer_names = _customer_names(customer_doc)
+        if customer_names:
+            _append_party_names(cac_party_2, customer_names)
 
-        concatenated_value = data["binarySecurityToken"] + ":" + data["secret"]
-        encoded_value = base64.b64encode(concatenated_value.encode()).decode()
+        address = None
+        if customer_doc.customer_primary_address:
+            address = frappe.get_doc("Address", customer_doc.customer_primary_address)
 
-        company_doc.custom_certificate = base64.b64decode(
-            data["binarySecurityToken"]
-        ).decode("utf-8")
-        company_doc.custom_basic_auth_from_csid = encoded_value
-        company_doc.custom_compliance_request_id_ = data["requestID"]
-        company_doc.save(ignore_permissions=True)
-        return response.text
+        if address:
+            cac_postaladdress_1 = ET.SubElement(cac_party_2, "cac:PostalAddress")
+            if address.address_line1:
+                cbc_streetname_1 = ET.SubElement(cac_postaladdress_1, "cbc:StreetName")
+                cbc_streetname_1.text = address.address_line1
 
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(_("Error in creating CSID: " + str(e)))
-        return None
+            if hasattr(address, "custom_building_number") and address.custom_building_number:
+                cbc_buildingnumber_1 = ET.SubElement(
+                    cac_postaladdress_1, "cbc:BuildingNumber"
+                )
+                cbc_buildingnumber_1.text = address.custom_building_number
 
-
-def create_public_key(company_abbr, source_doc):
-    """Create a public key based on the company abbreviation and source document."""
-    try:
-        # Get the company name using the provided abbreviation
-        company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
-        if not company_name:
-            frappe.throw(f"Company with abbreviation {company_abbr} not found.")
-
-        company_doc = frappe.get_doc("Company", company_name)
-        certificate_data_str = company_doc.get("custom_certificate", "")
-
-        if not certificate_data_str:
-            frappe.throw("No certificate data found.")
-
-        # Build the PEM certificate
-        cert_base64 = f"""
-        -----BEGIN CERTIFICATE-----
-        {certificate_data_str.strip()}
-        -----END CERTIFICATE-----
-        """
-        # Load the certificate and extract the public key
-        cert = x509.load_pem_x509_certificate(cert_base64.encode(), default_backend())
-        public_key = cert.public_key()
-        public_key_pem = public_key.public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo,
-        ).decode()
-
-        company_doc.custom_public_key = public_key_pem
-        company_doc.save(ignore_permissions=True)
-        frappe.db.commit()
-
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(_("Error occurred while creating public key: " + str(e)))
-
-
-def removetags(finalzatcaxml):
-    """remove the unwanted tags from created xml"""
-    try:
-        # Code corrected by Farook K - ERPGulf
-        xml_file = MyTree.fromstring(finalzatcaxml)
-        xsl_file = MyTree.fromstring(
-            """<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
-                                    xmlns:xs="http://www.w3.org/2001/XMLSchema"
-                                    xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
-                                    xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
-                                    xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
-                                    xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2"
-                                    exclude-result-prefixes="xs"
-                                    version="2.0">
-                                    <xsl:output omit-xml-declaration="yes" encoding="utf-8" indent="no"/>
-                                    <xsl:template match="node() | @*">
-                                        <xsl:copy>
-                                            <xsl:apply-templates select="node() | @*"/>
-                                        </xsl:copy>
-                                    </xsl:template>
-                                    <xsl:template match="//*[local-name()='Invoice']//*[local-name()='UBLExtensions']"></xsl:template>
-                                    <xsl:template match="//*[local-name()='AdditionalDocumentReference'][cbc:ID[normalize-space(text()) = 'QR']]"></xsl:template>
-                                        <xsl:template match="//*[local-name()='Invoice']/*[local-name()='Signature']"></xsl:template>
-                                    </xsl:stylesheet>"""
-        )
-        transform = MyTree.XSLT(xsl_file.getroottree())
-        transformed_xml = transform(xml_file.getroottree())
-        return transformed_xml
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(_("error occurred win removing tags " + str(e)))
-        return None
-
-
-def canonicalize_xml(tag_removed_xml):
-    """canonicalisation of the xml"""
-    try:
-        canonical_xml = etree.tostring(tag_removed_xml, method="c14n").decode()
-        return canonical_xml
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(_("error occurred in canonicalise xml " + str(e)))
-        return None
-
-
-def getinvoicehash(canonicalized_xml):
-    """Getting the invoice hash of the xml"""
-    try:
-        hash_object = hashlib.sha256(canonicalized_xml.encode())
-        hash_hex = hash_object.hexdigest()
-        # print(hash_hex)
-        hash_base64 = base64.b64encode(bytes.fromhex(hash_hex)).decode("utf-8")
-        return hash_hex, hash_base64
-    except Exception as e:
-        raise frappe.ValidationError(
-            f"error occurred while invoice hash {str(e)}"
-        ) from e
-
-
-def digital_signature(hash1, company_abbr, source_doc):
-    """find digital signature of xml"""
-    try:
-        company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
-        if not company_name:
-            frappe.throw(_(f"Company with abbreviation {company_abbr} not found."))
-
-        company_doc = frappe.get_doc("Company", company_name)
-        private_key_data_str = company_doc.get("custom_private_key")
-
-        if not private_key_data_str:
-            frappe.throw(_("No private key data found for the company."))
-        private_key_bytes = private_key_data_str.encode("utf-8")
-        private_key = serialization.load_pem_private_key(
-            private_key_bytes, password=None, backend=default_backend()
-        )
-        hash_bytes = bytes.fromhex(hash1)
-        signature = private_key.sign(hash_bytes, ec.ECDSA(hashes.SHA256()))
-        encoded_signature = base64.b64encode(signature).decode()
-
-        return encoded_signature
-
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(_("Error in digital signature:" + str(e)))
-        return None
-
-
-def extract_certificate_details(company_abbr, source_doc):
-    """extracting the certificate details from the certificate data"""
-    try:
-        company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
-        if not company_name:
-            frappe.throw(_(f"Company with abbreviation {company_abbr} not found."))
-
-        company_doc = frappe.get_doc("Company", company_name)
-
-        certificate_data_str = company_doc.get("custom_certificate")
-
-        if not certificate_data_str:
-            frappe.throw(_(f"No certificate data found for company {company_name}"))
-
-        certificate_content = certificate_data_str.strip()
-
-        if not certificate_content:
-            frappe.throw(
-                f"No valid certificate content found for company {company_name}"
+            cbc_plotidentification_1 = ET.SubElement(
+                cac_postaladdress_1, "cbc:PlotIdentification"
             )
-        # Format the certificate string to PEM format if not already in correct PEM format
-        formatted_certificate = "-----BEGIN CERTIFICATE-----\n"
-        formatted_certificate += "\n".join(
-            certificate_content[i : i + 64]
-            for i in range(0, len(certificate_content), 64)
-        )
-        formatted_certificate += "\n-----END CERTIFICATE-----\n"
-        # Load the certificate using cryptography
-        certificate_bytes = formatted_certificate.encode("utf-8")
-        cert = x509.load_pem_x509_certificate(certificate_bytes, default_backend())
-        formatted_issuer_name = cert.issuer.rfc4514_string()
-        issuer_name = ", ".join([x.strip() for x in formatted_issuer_name.split(",")])
-        serial_number = cert.serial_number
-        return issuer_name, serial_number
+            if hasattr(address, "po_box") and address.po_box:
+                cbc_plotidentification_1.text = address.po_box
+            elif address.address_line1:
+                cbc_plotidentification_1.text = address.address_line1
 
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(_("Error inextracting certificate details" + str(e)))
+            if address.address_line2:
+                cbc_citysubdivisionname_1 = ET.SubElement(
+                    cac_postaladdress_1, "cbc:CitySubdivisionName"
+                )
+                cbc_citysubdivisionname_1.text = address.address_line2
+
+            if address.city:
+                cbc_cityname_1 = ET.SubElement(cac_postaladdress_1, "cbc:CityName")
+                cbc_cityname_1.text = address.city
+
+            if address.pincode:
+                cbc_postalzone_1 = ET.SubElement(cac_postaladdress_1, "cbc:PostalZone")
+                cbc_postalzone_1.text = address.pincode
+
+            if address.state:
+                cbc_countrysubentity_1 = ET.SubElement(
+                    cac_postaladdress_1, "cbc:CountrySubentity"
+                )
+                cbc_countrysubentity_1.text = address.state
+
+            cac_country_1 = ET.SubElement(cac_postaladdress_1, "cac:Country")
+            cbc_identificationcode_1 = ET.SubElement(
+                cac_country_1, "cbc:IdentificationCode"
+            )
+            cbc_identificationcode_1.text = _advance_customer_country_code(address)
+
+        if getattr(customer_doc, "tax_id", None):
+            cac_partytaxscheme_1 = ET.SubElement(cac_party_2, "cac:PartyTaxScheme")
+            cbc_companyid_1 = ET.SubElement(cac_partytaxscheme_1, "cbc:CompanyID")
+            cbc_companyid_1.text = customer_doc.tax_id
+            cac_taxscheme_1 = ET.SubElement(cac_partytaxscheme_1, "cac:TaxScheme")
+            cbc_id_5 = ET.SubElement(cac_taxscheme_1, CBC_ID)
+            cbc_id_5.text = "VAT"
+        else:
+            cac_partytaxscheme_1 = ET.SubElement(cac_party_2, "cac:PartyTaxScheme")
+            cac_taxscheme_1 = ET.SubElement(cac_partytaxscheme_1, "cac:TaxScheme")
+            cbc_id_5 = ET.SubElement(cac_taxscheme_1, CBC_ID)
+            cbc_id_5.text = "VAT"
+
+        cac_partylegalentity_1 = ET.SubElement(cac_party_2, "cac:PartyLegalEntity")
+        cbc_registrationname_1 = ET.SubElement(
+            cac_partylegalentity_1, "cbc:RegistrationName"
+        )
+        cbc_registrationname_1.text = (
+            customer_names[0] if customer_names else customer_doc.customer_name
+        )
+
+        return invoice
+    except (ET.ParseError, AttributeError, ValueError, frappe.DoesNotExistError) as e:
+        frappe.throw(_(f"Error occurred in customer data: {e}"))
+        return None
+
+def delivery_and_payment_means_adavance(invoice, sales_invoice_doc):
+    """
+    Adds delivery and payment means elements to the XML invoice,
+    including actual delivery date and payment means.
+    """
+    try:
+        cac_delivery = ET.SubElement(invoice, "cac:Delivery")
+        cbc_actual_delivery_date = ET.SubElement(cac_delivery, "cbc:ActualDeliveryDate")
+        cbc_actual_delivery_date.text = str(sales_invoice_doc.posting_date)
+
+        cac_payment_means = ET.SubElement(invoice, "cac:PaymentMeans")
+        cbc_payment_means_code = ET.SubElement(
+            cac_payment_means, "cbc:PaymentMeansCode"
+        )
+        cbc_payment_means_code.text = "30"
+
+        return invoice
+
+    except (ET.ParseError, AttributeError, ValueError) as e:
+        frappe.throw(_(f"Delivery and payment means failed: {e}"))
+        return None  # Ensures all return paths explicitly return a value
+
+
+def delivery_and_payment_means_for_compliance_advance(
+    invoice, sales_invoice_doc, compliance_type
+):
+    """
+    Adds delivery and payment means elements to the XML invoice for compliance,
+    including actual delivery date, payment means, and instruction notes for cancellations.
+    """
+    try:
+        cac_delivery = ET.SubElement(invoice, "cac:Delivery")
+        cbc_actual_delivery_date = ET.SubElement(cac_delivery, "cbc:ActualDeliveryDate")
+        cbc_actual_delivery_date.text = str(sales_invoice_doc.posting_date)
+
+        cac_payment_means = ET.SubElement(invoice, "cac:PaymentMeans")
+        cbc_payment_means_code = ET.SubElement(
+            cac_payment_means, "cbc:PaymentMeansCode"
+        )
+        cbc_payment_means_code.text = "30"
+
+        if compliance_type in {"3", "4", "5", "6"}:
+            cbc_instruction_note = ET.SubElement(
+                cac_payment_means, "cbc:InstructionNote"
+            )
+            cbc_instruction_note.text = "Cancellation or Additional Charge"
+
+        return invoice
+
+    except (ET.ParseError, AttributeError, ValueError) as e:
+        frappe.throw(_(f"Delivery and payment means failed: {e}"))
         return None
 
 
-def certificate_hash(company_abbr, source_doc):
-    """Find the certificate hash and returning the value"""
+def item_data_advance(invoice, sales_invoice_doc, invoice_number):
+    """
+    Build advance invoice lines using line-net values as the source of truth.
+    """
     try:
-        company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
-        if not company_name:
-            frappe.throw(_(f"Company with abbreviation {company_abbr} not found."))
+        tax_detail = generate_item_wise_tax_detail(sales_invoice_doc)
+        currency = _advance_currency(sales_invoice_doc)
 
-        company_doc = frappe.get_doc("Company", company_name)
-
-        certificate_data_str = company_doc.get("custom_certificate", "")
-
-        if not certificate_data_str:
-            frappe.throw(_(f"No certificate data found for company {company_name}"))
-        certificate_data = certificate_data_str.strip()
-        if not certificate_data:
-            frappe.throw(
-                _(f"No valid certificate data found for company {company_name}")
+        for single_item in sales_invoice_doc.custom_item:
+            _item_tax_amount, item_tax_percentage = get_tax_for_item(
+                tax_detail, single_item.item_code
             )
 
-        # Calculate the SHA-256 hash of the certificate data
-        certificate_data_bytes = certificate_data.encode("utf-8")
-        sha256_hash = hashlib.sha256(certificate_data_bytes).hexdigest()
-        # Encode the hash in base64
-        base64_encoded_hash = base64.b64encode(sha256_hash.encode("utf-8")).decode(
-            "utf-8"
-        )
-        return base64_encoded_hash
+            line_net_amount = _advance_item_net_amount(single_item, sales_invoice_doc)
+            line_rate = _advance_item_rate(single_item, sales_invoice_doc)
+            line_tax_amount = _q2(line_net_amount * Decimal(str(item_tax_percentage or 0)) / Decimal("100"))
 
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
+            cac_invoiceline = ET.SubElement(invoice, "cac:InvoiceLine")
+            cbc_id_10 = ET.SubElement(cac_invoiceline, "cbc:ID")
+            cbc_id_10.text = str(single_item.idx)
+
+            cbc_invoicedquantity = ET.SubElement(
+                cac_invoiceline, "cbc:InvoicedQuantity"
+            )
+            cbc_invoicedquantity.set("unitCode", str(single_item.uom))
+            cbc_invoicedquantity.text = str(abs(single_item.qty))
+
+            cbc_lineextensionamount_1 = ET.SubElement(
+                cac_invoiceline, "cbc:LineExtensionAmount"
+            )
+            cbc_lineextensionamount_1.set("currencyID", currency)
+            cbc_lineextensionamount_1.text = f"{line_net_amount:.2f}"
+
+            cac_taxtotal_2 = ET.SubElement(cac_invoiceline, CAC_TAX_TOTAL)
+            cbc_taxamount_3 = ET.SubElement(cac_taxtotal_2, CBC_TAX_AMOUNT)
+            cbc_taxamount_3.set("currencyID", currency)
+            cbc_taxamount_3.text = f"{line_tax_amount:.2f}"
+
+            cbc_roundingamount = ET.SubElement(cac_taxtotal_2, "cbc:RoundingAmount")
+            cbc_roundingamount.set("currencyID", currency)
+            cbc_roundingamount.text = f"{_q2(line_net_amount + line_tax_amount):.2f}"
+
+            cac_item = ET.SubElement(cac_invoiceline, "cac:Item")
+            cbc_name = ET.SubElement(cac_item, "cbc:Name")
+            cbc_name.text = _advance_line_name(single_item)
+
+            cac_classifiedtaxcategory = ET.SubElement(
+                cac_item, "cac:ClassifiedTaxCategory"
+            )
+            cbc_id_11 = ET.SubElement(cac_classifiedtaxcategory, "cbc:ID")
+            if sales_invoice_doc.custom_zatca_tax_category == "Standard":
+                cbc_id_11.text = "S"
+            elif sales_invoice_doc.custom_zatca_tax_category == ZERO_RATED:
+                cbc_id_11.text = "Z"
+            elif sales_invoice_doc.custom_zatca_tax_category == "Exempted":
+                cbc_id_11.text = "E"
+            elif sales_invoice_doc.custom_zatca_tax_category == OUTSIDE_SCOPE:
+                cbc_id_11.text = "O"
+
+            cbc_percent_2 = ET.SubElement(cac_classifiedtaxcategory, "cbc:Percent")
+            cbc_percent_2.text = f"{float(item_tax_percentage):.2f}"
+            cac_taxscheme_4 = ET.SubElement(cac_classifiedtaxcategory, "cac:TaxScheme")
+            cbc_id_12 = ET.SubElement(cac_taxscheme_4, "cbc:ID")
+            cbc_id_12.text = "VAT"
+
+            cac_price = ET.SubElement(cac_invoiceline, "cac:Price")
+            cbc_priceamount = ET.SubElement(cac_price, "cbc:PriceAmount")
+            cbc_priceamount.set("currencyID", currency)
+            cbc_priceamount.text = f"{line_rate:.2f}"
+
+        return invoice
+    except (ValueError, KeyError, TypeError) as e:
+        frappe.throw(_(f"Error occurred in item data processing: {str(e)}"))
+
+def custom_round(value):
+    """Rounding CCording to our need"""
+    # Convert the value to a Decimal for accurate handling
+    decimal_value = Decimal(str(value))
+
+    # Check if the number has less than 3 decimal places
+    if decimal_value.as_tuple().exponent >= -2:
+        # If there are less than 3 decimal places, return the original value as float
+        return float(decimal_value)
+
+    # Extract the third decimal digit accurately
+    third_digit = int((decimal_value * 1000) % 10)
+
+    # Check if the third digit is strictly greater than 5
+    if third_digit > 5:
+        # Increment the rounded result by 0.01 to ensure rounding up
+        return float(decimal_value.quantize(Decimal("0.01")))
+    elif third_digit == 5:
+        # If the third digit is exactly 5, ensure we round down as desired
+        return float(decimal_value.quantize(Decimal("0.01"), rounding=ROUND_DOWN))
+    else:
+        # Otherwise, round normally to 2 decimal places using ROUND_DOWN
+        return float(decimal_value.quantize(Decimal("0.01"), rounding=ROUND_DOWN))
+
+
+def xml_structuring_advance(invoice, sales_invoice_doc):
+    """
+    Xml structuring and final saving of the xml into private files
+    """
+    try:
+
+        tree = ET.ElementTree(invoice)
+        xml_string = ET.tostring(invoice, encoding="utf-8", method="xml")
+
+        # Format the XML string to make it pretty
+        xml_dom = minidom.parseString(xml_string)
+        pretty_xml_string = xml_dom.toprettyxml(indent="  ")
+
+        # # Write the formatted XML to the final file
+        # final_xml_path = f"{frappe.local.site}/private/files/finalzatcaxmladavance1_{invoice_number}.xml"
+        # with open(final_xml_path, "w", encoding="utf-8") as file:
+        #     file.write(pretty_xml_string)
+        return pretty_xml_string
+
+    except (FileNotFoundError, IOError):
         frappe.throw(
-            _("Error in obtaining certificate hash chcek cert data: " + str(e))
+            _(
+                "File operation error occurred while structuring the XML. "
+                "Please contact your system administrator."
+            )
         )
-        return None
+
+    except ET.ParseError:
+        frappe.throw(
+            _(
+                "Error occurred in XML parsing or formatting. "
+                "Please check the XML structure for errors. "
+                "If the problem persists, contact your system administrator."
+            )
+        )
+    except UnicodeDecodeError:
+        frappe.throw(
+            _(
+                "Encoding error occurred while processing the XML file. "
+                "Please contact your system administrator."
+            )
+        )
 
 
 def xml_base64_decode(signed_xmlfile_name):
@@ -503,536 +955,78 @@ def xml_base64_decode(signed_xmlfile_name):
             base64_encoded = base64.b64encode(xml.encode("utf-8"))
             base64_decoded = base64_encoded.decode("utf-8")
             return base64_decoded
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.msgprint(_("Error in xml base64:  " + str(e)))
+    except (ValueError, TypeError, KeyError) as e:
+        frappe.throw(_(("xml decode base64" f"error: {str(e)}")))
         return None
 
 
-def signxml_modify(company_abbr,finalzatcaxml, source_doc):
-    """modify the signed xml by adding the values like signing time,serial number etc"""
+def success_log(response, uuid1, invoice_number):
+    """defining the success log"""
     try:
-        encoded_certificate_hash = certificate_hash(company_abbr, source_doc)
-        issuer_name, serial_number = extract_certificate_details(
-            company_abbr, source_doc
-        )
-        # original_invoice_xml = etree.parse(
-        #     f"{frappe.local.site}/private/files/finalzatcaxmladavance1_{invoice_number}.xml"
-        # )
-        # root = original_invoice_xml.getroot()
-        root_element = etree.fromstring(finalzatcaxml.encode("utf-8"))
-        original_invoice_xml = etree.ElementTree(root_element)
-        root = original_invoice_xml.getroot()
-        namespaces = {
-            "ext": "urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2",
-            "sig": "urn:oasis:names:specification:ubl:schema:xsd:CommonSignatureComponents-2",
-            "sac": "urn:oasis:names:specification:ubl:schema:xsd:SignatureAggregateComponents-2",
-            "xades": "http://uri.etsi.org/01903/v1.3.2#",
-            "ds": "http://www.w3.org/2000/09/xmldsig#",
-        }
-
-        xpath_dv = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:Object/xades:QualifyingProperties/xades:SignedProperties/xades:SignedSignatureProperties/xades:SigningCertificate/xades:Cert/xades:CertDigest/ds:DigestValue"
-        xpath_signtime = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:Object/xades:QualifyingProperties/xades:SignedProperties/xades:SignedSignatureProperties/xades:SigningTime"
-        xpath_issuername = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:Object/xades:QualifyingProperties/xades:SignedProperties/xades:SignedSignatureProperties/xades:SigningCertificate/xades:Cert/xades:IssuerSerial/ds:X509IssuerName"
-        xpath_serialnum = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:Object/xades:QualifyingProperties/xades:SignedProperties//xades:SignedSignatureProperties/xades:SigningCertificate/xades:Cert/xades:IssuerSerial/ds:X509SerialNumber"
-        element_dv = root.find(xpath_dv, namespaces)
-        element_st = root.find(xpath_signtime, namespaces)
-        element_in = root.find(xpath_issuername, namespaces)
-        element_sn = root.find(xpath_serialnum, namespaces)
-        element_dv.text = encoded_certificate_hash
-        element_st.text = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
-        signing_time = element_st.text
-        element_in.text = issuer_name
-        element_sn.text = str(serial_number)
-        modified_xml_string = etree.tostring(
-            root,
-            encoding="utf-8",
-            xml_declaration=True,
-            pretty_print=True,
-        ).decode("utf-8")
-        # with open(
-        #     f"{frappe.local.site}/private/files/after_step_4advance1_{invoice_number}.xml", "wb"
-        # ) as file:
-        #     original_invoice_xml.write(
-        #         file,
-        #         encoding="utf-8",
-        #         xml_declaration=True,
-        #     )
-        return modified_xml_string,namespaces, signing_time
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(_(" error in modification of xml sign part: " + str(e)))
-        return None
-
-
-def generate_signed_properties_hash(
-    signing_time, issuer_name, serial_number, encoded_certificate_hash
-):
-    """generate the signed property hash of the xml using a part
-    of the xml"""
-    try:
-        xml_string = """<xades:SignedProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Id="xadesSignedProperties">
-                                    <xades:SignedSignatureProperties>
-                                        <xades:SigningTime>{signing_time}</xades:SigningTime>
-                                        <xades:SigningCertificate>
-                                            <xades:Cert>
-                                                <xades:CertDigest>
-                                                    <ds:DigestMethod xmlns:ds="http://www.w3.org/2000/09/xmldsig#" Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
-                                                    <ds:DigestValue xmlns:ds="http://www.w3.org/2000/09/xmldsig#">{certificate_hash}</ds:DigestValue>
-                                                </xades:CertDigest>
-                                                <xades:IssuerSerial>
-                                                    <ds:X509IssuerName xmlns:ds="http://www.w3.org/2000/09/xmldsig#">{issuer_name}</ds:X509IssuerName>
-                                                    <ds:X509SerialNumber xmlns:ds="http://www.w3.org/2000/09/xmldsig#">{serial_number}</ds:X509SerialNumber>
-                                                </xades:IssuerSerial>
-                                            </xades:Cert>
-                                        </xades:SigningCertificate>
-                                    </xades:SignedSignatureProperties>
-                                </xades:SignedProperties>"""
-        xml_string_rendered = xml_string.format(
-            signing_time=signing_time,
-            certificate_hash=encoded_certificate_hash,
-            issuer_name=issuer_name,
-            serial_number=str(serial_number),
-        )
-        utf8_bytes = xml_string_rendered.encode("utf-8")
-        hash_object = hashlib.sha256(utf8_bytes)
-        hex_sha256 = hash_object.hexdigest()
-        signed_properties_base64 = base64.b64encode(hex_sha256.encode("utf-8")).decode(
-            "utf-8"
-        )
-        return signed_properties_base64
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(_(" error in generating signed properties hash: " + str(e)))
-        return None
-
-
-def populate_the_ubl_extensions_output(
-    modified_xml_string,
-    encoded_signature,
-    namespaces,
-    signed_properties_base64,
-    encoded_hash,
-    company_abbr,
-    source_doc,
-):
-    """populate the ubl extension output by giving the signature values and digest values"""
-    try:
-        # updated_invoice_xml = etree.parse(
-        #     f"{frappe.local.site}/private/files/after_step_4advance1_{invoice_number}.xml"
-        # )
-        # root3 = updated_invoice_xml.getroot()
-        root3 = etree.fromstring(modified_xml_string.encode("utf-8"))
-        updated_invoice_xml = etree.ElementTree(root3)
-        company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
-        if not company_name:
-            frappe.throw(_(f"Company with abbreviation {company_abbr} not found."))
-
-        company_doc = frappe.get_doc("Company", company_name)
-        certificate_data_str = company_doc.get("custom_certificate")
-
-        if not certificate_data_str:
-            frappe.throw(_(f"No certificate data found for company {company_name}"))
-        content = certificate_data_str.strip()
-
-        if not content:
-            frappe.throw(
-                f"No valid certificate content found for company {company_name}"
-            )
-
-        xpath_signvalue = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:SignatureValue"
-        xpath_x509certi = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:KeyInfo/ds:X509Data/ds:X509Certificate"
-        xpath_digvalue = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:SignedInfo/ds:Reference[@URI='#xadesSignedProperties']/ds:DigestValue"
-        xpath_digvalue2 = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:SignedInfo/ds:Reference[@Id='invoiceSignedData']/ds:DigestValue"
-
-        signvalue6 = root3.find(xpath_signvalue, namespaces)
-        x509certificate6 = root3.find(xpath_x509certi, namespaces)
-        digestvalue6 = root3.find(xpath_digvalue, namespaces)
-        digestvalue6_2 = root3.find(xpath_digvalue2, namespaces)
-
-        signvalue6.text = encoded_signature
-        x509certificate6.text = content
-        digestvalue6.text = signed_properties_base64
-        digestvalue6_2.text = encoded_hash
-        final_xml_string = etree.tostring(
-            root3,
-            encoding="utf-8",
-            xml_declaration=True,
-            pretty_print=True,
-        ).decode("utf-8")
-        # with open(
-        #     f"{frappe.local.site}/private/files/final_xml_after_signadvance1_{invoice_number}.xml", "wb"
-        # ) as file:
-        #     updated_invoice_xml.write(file, encoding="utf-8", xml_declaration=True)
-        return final_xml_string
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(_("Error in populating UBL extension output: " + str(e)))
-        return
-
-
-def extract_public_key_data(company_abbr, source_doc):
-    """extract public key"""
-    try:
-        company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
-        if not company_name:
-            frappe.throw(_(f"Company with abbreviation {company_abbr} not found."))
-
-        company_doc = frappe.get_doc("Company", company_name)
-
-        public_key_pem = company_doc.get("custom_public_key", "")
-        if not public_key_pem:
-            frappe.throw(f"No public key found for company {company_name}")
-
-        lines = public_key_pem.splitlines()
-        key_data = "".join(lines[1:-1])
-        key_data = key_data.replace("-----BEGIN PUBLIC KEY-----", "").replace(
-            "-----END PUBLIC KEY-----", ""
-        )
-        key_data = key_data.replace(" ", "").replace("\n", "")
-
-        return key_data
-
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(_("Error in extracting public key data: " + str(e)))
-        return None
-
-
-def get_tlv_for_value(tag_num, tag_value):
-    """get the tlv data value for teh qr"""
-    try:
-        tag_num_buf = bytes([tag_num])
-        if tag_value is None:
-            frappe.throw(f"Error: Tag value for tag number {tag_num} is None")
-        if isinstance(tag_value, str):
-            if len(tag_value) < 256:
-                tag_value_len_buf = bytes([len(tag_value)])
-            else:
-                tag_value_len_buf = bytes(
-                    [0xFF, (len(tag_value) >> 8) & 0xFF, len(tag_value) & 0xFF]
-                )
-            tag_value = tag_value.encode("utf-8")
-        else:
-            tag_value_len_buf = bytes([len(tag_value)])
-        return tag_num_buf + tag_value_len_buf + tag_value
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(" error in getting the tlv data value: " + str(e))
-        return None
-
-
-def tag8_publickey(company_abbr, source_doc):
-    """tag 8 of qr from public key"""
-    try:
-        create_public_key(company_abbr, source_doc)
-        base64_encoded = extract_public_key_data(company_abbr, source_doc)
-        byte_data = base64.b64decode(base64_encoded)
-        hex_data = binascii.hexlify(byte_data).decode("utf-8")
-        chunks = [hex_data[i : i + 2] for i in range(0, len(hex_data), 2)]
-        value = "".join(chunks)
-        binary_data = bytes.fromhex(value)
-        return binary_data
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(_("Error in tag 8 from public key: " + str(e)))
-        return None
-
-
-def tag9_signature_ecdsa(company_abbr, source_doc):
-    """tag 9 of signature"""
-    try:
-        company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
-        if not company_name:
-            frappe.throw(_(f"Company with abbreviation {company_abbr} not found."))
-
-        company_doc = frappe.get_doc("Company", company_name)
-
-        certificate_content = company_doc.custom_certificate or ""
-
-        if not certificate_content:
-            frappe.throw(_(f"No certificate found for company in tag9 {company_abbr}"))
-
-        formatted_certificate = "-----BEGIN CERTIFICATE-----\n"
-        formatted_certificate += "\n".join(
-            certificate_content[i : i + 64]
-            for i in range(0, len(certificate_content), 64)
-        )
-        formatted_certificate += "\n-----END CERTIFICATE-----\n"
-
-        certificate_bytes = formatted_certificate.encode("utf-8")
-        cert = x509.load_pem_x509_certificate(certificate_bytes, default_backend())
-        signature = cert.signature
-        signature_hex = "".join("{:02x}".format(byte) for byte in signature)
-        signature_bytes = bytes.fromhex(signature_hex)
-
-        return signature_bytes
-
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(_("Error in tag 9 (signaturetag): " + str(e)))
-        return None
-
-
-def generate_tlv_xml(final_xml_string,company_abbr, source_doc):
-    """generate xml by adding the tlv data"""
-    try:
-        root = etree.fromstring(final_xml_string.encode("utf-8"))
-        # with open(
-        #     f"{frappe.local.site}/private/files/final_xml_after_signadvance1_{invoice_number}.xml", "rb"
-        # ) as file:
-        #     xml_data = file.read()
-        # root = etree.fromstring(xml_data)
-        namespaces = {
-            "ubl": "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2",
-            "cac": "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2",
-            "cbc": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
-            "ext": "urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2",
-            "sig": "urn:oasis:names:specification:ubl:schema:xsd:CommonSignatureComponents-2",
-            "sac": "urn:oasis:names:specification:ubl:schema:xsd:SignatureAggregateComponents-2",
-            "ds": "http://www.w3.org/2000/09/xmldsig#",
-        }
-        issue_date_xpath = "/ubl:Invoice/cbc:IssueDate"
-        issue_time_xpath = "/ubl:Invoice/cbc:IssueTime"
-        issue_date_results = root.xpath(issue_date_xpath, namespaces=namespaces)
-        issue_time_results = root.xpath(issue_time_xpath, namespaces=namespaces)
-        issue_date = (
-            issue_date_results[0].text.strip() if issue_date_results else "Missing Data"
-        )
-        issue_time = (
-            issue_time_results[0].text.strip() if issue_time_results else "Missing Data"
-        )
-        issue_date_time = issue_date + "T" + issue_time
-        tags_xpaths = [
-            (
-                1,
-                "/ubl:Invoice/cac:AccountingSupplierParty/cac:Party/cac:PartyLegalEntity/cbc:RegistrationName",
-            ),
-            (
-                2,
-                "/ubl:Invoice/cac:AccountingSupplierParty/cac:Party/cac:PartyTaxScheme/cbc:CompanyID",
-            ),
-            (3, None),
-            (4, "/ubl:Invoice/cac:LegalMonetaryTotal/cbc:TaxInclusiveAmount"),
-            (5, "/ubl:Invoice/cac:TaxTotal/cbc:TaxAmount"),
-            (
-                6,
-                "/ubl:Invoice/ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:SignedInfo/ds:Reference/ds:DigestValue",
-            ),
-            (
-                7,
-                "/ubl:Invoice/ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:SignatureValue",
-            ),
-            (8, None),
-            (9, None),
-        ]
-        result_dict = {}
-        for tag, xpath in tags_xpaths:
-            if isinstance(xpath, str):
-                elements = root.xpath(xpath, namespaces=namespaces)
-                if elements:
-                    value = (
-                        elements[0].text
-                        if isinstance(elements[0], etree._Element)
-                        else elements[0]
-                    )
-                    result_dict[tag] = value
-                else:
-                    result_dict[tag] = "Not found"
-            else:
-                result_dict[tag] = xpath
-        result_dict[3] = issue_date_time
-        result_dict[8] = tag8_publickey(company_abbr, source_doc)
-        result_dict[9] = tag9_signature_ecdsa(company_abbr, source_doc)
-        result_dict[1] = result_dict[1].encode(
-            "utf-8"
-        )  # Handling Arabic company name in QR Code
-        return result_dict
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(_("Error in getting the entire TLV data: " + str(e)))
-        return None
-
-
-def update_qr_toxml(final_xml_string, qrcodeb64, company_abbr):
-    """updating the  alla values of qr to xml"""
-    try:
-        # xml_file_path = (
-        #     f"{frappe.local.site}/private/files/final_xml_after_signadvance1_{invoice_number}.xml"
-        # )
-        # xml_tree = etree.parse(xml_file_path)
-        xml_tree = etree.fromstring(final_xml_string.encode("utf-8"))
-        namespaces = {
-            "cac": "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2",
-            "cbc": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
-        }
-        qr_code_element = xml_tree.find(
-            './/cac:AdditionalDocumentReference[cbc:ID="QR"]/cac:Attachment/cbc:EmbeddedDocumentBinaryObject',
-            namespaces=namespaces,
-        )
-        if qr_code_element is not None:
-            qr_code_element.text = qrcodeb64
-        else:
-            frappe.msgprint(
-                f"QR code element not found in the XML for company {company_abbr}"
-            )
-        # xml_tree.write(xml_file_path, encoding="UTF-8", xml_declaration=True)
-        updated_xml_string = etree.tostring(
-            xml_tree,
-            encoding="utf-8",
-            xml_declaration=True,
-            pretty_print=True,
-        ).decode("utf-8")
-        return updated_xml_string
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(
-            _(f"Error in saving TLV data to XML for company {company_abbr}: " + str(e))
-        )
-
-
-def structuring_signedxml(invoice_number,updated_xml_string):
-    """structuring the signed xml"""
-    try:
-        # with open(
-        #     f"{frappe.local.site}/private/files/final_xml_after_signadvance1_{invoice_number}.xml",
-        #     "r",
-        #     encoding="utf-8",
-        # ) as file:
-        #     xml_content = file.readlines()
-        indentations = {
-            29: [
-                '<xades:QualifyingProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Target="signature">',
-                "</xades:QualifyingProperties>",
-            ],
-            33: [
-                '<xades:SignedProperties Id="xadesSignedProperties">',
-                "</xades:SignedProperties>",
-            ],
-            37: [
-                "<xades:SignedSignatureProperties>",
-                "</xades:SignedSignatureProperties>",
-            ],
-            41: [
-                "<xades:SigningTime>",
-                "<xades:SigningCertificate>",
-                "</xades:SigningCertificate>",
-            ],
-            45: ["<xades:Cert>", "</xades:Cert>"],
-            49: [
-                "<xades:CertDigest>",
-                "<xades:IssuerSerial>",
-                "</xades:CertDigest>",
-                "</xades:IssuerSerial>",
-            ],
-            53: [
-                '<ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>',
-                "<ds:DigestValue>",
-                "<ds:X509IssuerName>",
-                "<ds:X509SerialNumber>",
-            ],
-        }
-
-        def adjust_indentation(line):
-            for col, tags in indentations.items():
-                for tag in tags:
-                    if line.strip().startswith(tag):
-                        return " " * (col - 1) + line.lstrip()
-            return line
-
-        # adjusted_xml_content = [adjust_indentation(line) for line in xml_content]
-        adjusted_xml_content = [
-        adjust_indentation(line) for line in updated_xml_string.splitlines(keepends=True)
-        ]
-        with open(
-            f"{frappe.local.site}/private/files/final_xml_after_indentadvance1_{invoice_number}.xml",
-            "w",
-            encoding="utf-8",
-        ) as file:
-            file.writelines(adjusted_xml_content)
-    
-        signed_xmlfile_name = (
-            f"{frappe.local.site}/private/files/final_xml_after_indentadvance1_{invoice_number}.xml"
-        )
-        return signed_xmlfile_name
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(_(" error in structuring signed xml: " + str(e)))
-        return None
-
-
-def compliance_api_call(
-    uuid1, encoded_hash, signed_xmlfile_name, company_abbr, source_doc
-):
-    """compliance api call for testing with sandbox"""
-    try:
-
-        company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
-        if not company_name:
-            frappe.throw(_(f"Company with abbreviation {company_abbr} not found."))
-
-        company_doc = frappe.get_doc("Company", company_name)
-        payload = json.dumps(
+        current_time = frappe.utils.now()
+        frappe.get_doc(
             {
-                "invoiceHash": encoded_hash,
+                "doctype": "ZATCA ERPGulf Success Log",
+                "title": "ZATCA invoice call done successfully",
+                "message": "This message by ZATCA Compliance",
                 "uuid": uuid1,
-                "invoice": xml_base64_decode(signed_xmlfile_name),
+                "invoice_number": invoice_number,
+                "time": current_time,
+                "zatca_response": response,
             }
-        )
-
-        # csid = company_doc.custom_basic_auth_from_csid
-
-        csid = company_doc.custom_basic_auth_from_csid
-        if not csid:
-            frappe.throw(_((f"CSID for company {company_abbr} not found")))
-
-        headers = {
-            "accept": "application/json",
-            "Accept-Language": "en",
-            "Accept-Version": "V2",
-            "Authorization": "Basic " + csid,
-            "Content-Type": "application/json",
-        }
-        # frappe.throw(get_api_url(company_abbr, base_url="compliance/invoices"))
-        response = requests.request(
-            "POST",
-            url=get_api_url(company_abbr, base_url="compliance/invoices"),
-            headers=headers,
-            data=payload,
-            timeout=300,
-        )
-        # frappe.throw(response.status_code)
-        frappe.throw(_(response.text))
-        if response.status_code != 200:
-            frappe.throw(_(f"Error in compliance: {response.text}"))
-        if response.status_code != 202:
-            frappe.throw(_(f"Warning from ZATCA in compliance: {response.text}"))
-
-        return response.text
-    except requests.exceptions.RequestException as e:
-        frappe.msgprint(f"Request exception occurred: {str(e)}")
-        return "error in compliance", "NOT ACCEPTED"
-
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(_(f"ERROR in clearance invoice, ZATCA validation: {str(e)}"))
+        ).insert(ignore_permissions=True)
+    except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
+        frappe.throw(_(("error in success log" f"error: {str(e)}")))
         return None
 
 
-@frappe.whitelist(allow_guest=False)
-def production_csid(zatca_doc, company_abbr):
-    """production csid button and api"""
+def error_log():
+    """defining the error log"""
     try:
+        frappe.log_error(
+            title="ZATCA invoice call failed in clearance/Reporting  status",
+            message=frappe.get_traceback(),
+        )
+    except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
+        frappe.throw(_(("error in error log" f"error: {str(e)}")))
+        return None
 
-        company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
-        if not company_name:
-            frappe.throw(_(f"Company with abbreviation {company_abbr} not found."))
 
-        company_doc = frappe.get_doc("Company", company_name)
-        csid = company_doc.custom_basic_auth_from_csid
-        request_id = company_doc.custom_compliance_request_id_
-
-        if not csid:
-            frappe.throw(_(("CSID for company not found")))
-
-        if not request_id:
-            frappe.throw(_("Compliance request ID for company  not found"))
-        payload = {"compliance_request_id": request_id}
-
-        headers = {
-            "accept": "application/json",
-            "Accept-Version": "V2",
-            "Authorization": "Basic " + csid,
-            "Content-Type": "application/json",
+def clearance_api(
+    uuid1, encoded_hash, signed_xmlfile_name, invoice_number, sales_invoice_doc
+):
+    """The clearance api with payload and headeders aand signed xml data"""
+    try:
+        company_abbr = frappe.db.get_value(
+            "Company", {"name": sales_invoice_doc.company}, "abbr"
+        )
+        if not company_abbr:
+            frappe.throw(
+                _(
+                    f" problem with company name in {sales_invoice_doc.company} not found."
+                )
+            )
+        company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
+        production_csid = company_doc.custom_basic_auth_from_production or ""
+        payload = {
+            "invoiceHash": encoded_hash,
+            "uuid": uuid1,
+            "invoice": xml_base64_decode(signed_xmlfile_name),
         }
+
+        if production_csid:
+            headers = {
+                "accept": "application/json",
+                "accept-language": "en",
+                "Clearance-Status": "1",
+                "Accept-Version": "V2",
+                "Authorization": "Basic " + production_csid,
+                "Content-Type": "application/json",
+                "Cookie": "TS0106293e=0132a679c03c628e6c49de86c0f6bb76390abb4416868d6368d6d7c05da619c8326266f5bc262b7c0c65a6863cd3b19081d64eee99",
+            }
+        else:
+            frappe.throw(f"Production CSID for company {company_abbr} not found.")
+            headers = None
         frappe.publish_realtime(
             "show_gif",
             {"gif_url": "/assets/zatca_erpgulf/js/loading.gif"},
@@ -1040,30 +1034,547 @@ def production_csid(zatca_doc, company_abbr):
         )
 
         response = requests.post(
-            url=get_api_url(company_abbr, base_url="production/csids"),
+            url=get_api_url(company_abbr, base_url="invoices/clearance/single"),
             headers=headers,
             json=payload,
             timeout=300,
         )
         frappe.publish_realtime("hide_gif", user=frappe.session.user)
-        frappe.msgprint(response.text)
 
-        if response.status_code != 200:
-            frappe.throw(_("Error in production: " + response.text))
+        if response.status_code in (400, 405, 406, 409):
+            invoice_doc = frappe.get_doc("Advance Sales Invoice", invoice_number)
+            invoice_doc.db_set(
+                "custom_uuid", "Not Submitted", commit=True, update_modified=True
+            )
+            invoice_doc.db_set(
+                "custom_zatca_status",
+                "Not Submitted",
+                commit=True,
+                update_modified=True,
+            )
+            invoice_doc.db_set("custom_zatca_full_response", "Not Submitted")
+            frappe.throw(
+                _(
+                    (
+                        "Error: The request you are sending to ZATCA is in incorrect format. "
+                        f"Status code: {response.status_code}<br><br>"
+                        f"{response.text}"
+                    )
+                )
+            )
+        if response.status_code in (401, 403, 407, 451):
+            invoice_doc = frappe.get_doc("Advance Sales Invoice", invoice_number)
+            invoice_doc.db_set(
+                "custom_uuid", "Not Submitted", commit=True, update_modified=True
+            )
+            invoice_doc.db_set(
+                "custom_zatca_status",
+                "Not Submitted",
+                commit=True,
+                update_modified=True,
+            )
+            invoice_doc.db_set("custom_zatca_full_response", "Not Submitted")
+            frappe.throw(
+                _(
+                    (
+                        "Error: ZATCA Authentication failed. "
+                        f"Status code: {response.status_code}<br><br>"
+                        f"{response.text}"
+                    )
+                )
+            )
+        if response.status_code not in (200, 202):
+            invoice_doc = frappe.get_doc("Advance Sales Invoice", invoice_number)
+            invoice_doc.db_set(
+                "custom_uuid", "Not Submitted", commit=True, update_modified=True
+            )
+            invoice_doc.db_set(
+                "custom_zatca_status",
+                "Not Submitted",
+                commit=True,
+                update_modified=True,
+            )
+            invoice_doc.db_set("custom_zatca_full_response", "Not Submitted")
+            frappe.throw(
+                _(
+                    f"Error: ZATCA server busy or not responding. Status code: {response.status_code}"
+                )
+            )
 
-        data = response.json()
-        concatenated_value = data["binarySecurityToken"] + ":" + data["secret"]
-        encoded_value = base64.b64encode(concatenated_value.encode()).decode()
+        if response.status_code in (200, 202):
+            msg = (
+                "CLEARED WITH WARNINGS: <br><br>"
+                if response.status_code == 202
+                else "SUCCESS: <br><br>"
+            )
+            msg += (
+                f"Status Code: {response.status_code}<br><br>"
+                f"ZATCA Response: {response.text}<br><br>"
+            )
 
-        company_doc.custom_certificate = base64.b64decode(
-            data["binarySecurityToken"]
-        ).decode("utf-8")
-        company_doc.custom_basic_auth_from_production = encoded_value
+            company_name = sales_invoice_doc.company
+            settings = frappe.get_doc("Company", company_name)
+            company_abbr = settings.abbr
+            if settings.custom_send_einvoice_background:
+                frappe.msgprint(msg)
 
-        company_doc.save(ignore_permissions=True)
+                # Update PIH data without JSON formatting
+            company_doc.custom_pih = encoded_hash
+            company_doc.save(ignore_permissions=True)
 
-        return response.text
+            invoice_doc = frappe.get_doc("Advance Sales Invoice", invoice_number)
+            invoice_doc.db_set(
+                "custom_zatca_full_response", msg, commit=True, update_modified=True
+            )
+            invoice_doc.db_set("custom_uuid", uuid1, commit=True, update_modified=True)
+            invoice_doc.db_set(
+                "custom_zatca_status", "CLEARED", commit=True, update_modified=True
+            )
 
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(_("Error in production CSID formation: " + str(e)))
+            data = response.json()
+            base64_xml = data.get("clearedInvoice")
+            xml_cleared = base64.b64decode(base64_xml).decode("utf-8")
+            file = frappe.get_doc(
+                {
+                    "doctype": "File",
+                    "file_name": "Cleared_Advance_xml_file "
+                    + sales_invoice_doc.name
+                    + ".xml",
+                    "attached_to_doctype": sales_invoice_doc.doctype,
+                    "is_private": 1,
+                    "attached_to_name": sales_invoice_doc.name,
+                    "content": xml_cleared,
+                }
+            )
+            file.save(ignore_permissions=True)
+            sales_invoice_doc.db_set("custom_ksa_einvoicing_xml", file.file_url)
+            frappe.db.commit()
+            success_log(response.text, uuid1, invoice_number)
+            return xml_cleared
+        else:
+            error_log()
+
+    except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
+        invoice_doc = frappe.get_doc("Advance Sales Invoice", invoice_number)
+        invoice_doc.db_set(
+            "custom_zatca_full_response",
+            f"Error: {str(e)}",
+            commit=True,
+            update_modified=True,
+        )
+        invoice_doc.db_set(
+            "custom_zatca_status",
+            "503 Service Unavailable",
+            commit=True,
+            update_modified=True,
+        )
+        frappe.throw(_(f"Error in clearance API: {str(e)}"))
+
+
+def invoice_typecode_standard_advance(invoice, sales_invoice_doc):
+    """
+    Sets the InvoiceTypeCode for a standard invoice based on sales invoice document attributes.
+    """
+    try:
+        cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
+
+        cbc_invoicetypecode.set("name", "0100000")
+        cbc_invoicetypecode.text = "386"
+        return invoice
+    except (ET.ParseError, AttributeError, ValueError) as e:
+        frappe.throw(_(f"Error in standard invoice type code: {e}"))
         return None
+
+
+def invoice_typecode_compliance_advance(invoice, compliance_type):
+    """
+    Creates and populates XML tags for a UBL Invoice document.
+    """
+
+    try:
+
+        if compliance_type == "1":  # simplified invoice
+            cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
+            cbc_invoicetypecode.set("name", "0200000")
+            cbc_invoicetypecode.text = "388"
+
+        elif compliance_type == "2":  # standard invoice
+            cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
+            cbc_invoicetypecode.set("name", "0100000")
+            cbc_invoicetypecode.text = "388"
+
+        elif compliance_type == "3":  # simplified Credit note
+            cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
+            cbc_invoicetypecode.set("name", "0200000")
+            cbc_invoicetypecode.text = "381"
+
+        elif compliance_type == "4":  # Standard Credit note
+            cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
+            cbc_invoicetypecode.set("name", "0100000")
+            cbc_invoicetypecode.text = "381"
+
+        elif compliance_type == "5":  # simplified Debit note
+            cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
+            cbc_invoicetypecode.set("name", "0211000")
+            cbc_invoicetypecode.text = "383"
+
+        elif compliance_type == "6":  # Standard Debit note
+            cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
+            cbc_invoicetypecode.set("name", "0100000")
+            cbc_invoicetypecode.text = "383"
+        return invoice
+
+    except (ET.ParseError, AttributeError, ValueError) as e:
+        frappe.throw(_(f"Error occurred in compliance typecode: {e}"))
+        return None
+
+
+def doc_reference_advance(invoice, sales_invoice_doc, invoice_number):
+    """
+    Adds document reference elements to the XML invoice,
+    including currency codes and additional document references.
+    """
+    try:
+        cbc_documentcurrencycode = ET.SubElement(invoice, "cbc:DocumentCurrencyCode")
+        cbc_documentcurrencycode.text = sales_invoice_doc.paid_from_account_currency
+        cbc_taxcurrencycode = ET.SubElement(invoice, "cbc:TaxCurrencyCode")
+        cbc_taxcurrencycode.text = "SAR"  # SAR is as zatca requires tax amount in SAR
+
+        cac_additionaldocumentreference = ET.SubElement(
+            invoice, "cac:AdditionalDocumentReference"
+        )
+        cbc_id_1 = ET.SubElement(cac_additionaldocumentreference, CBC_ID)
+        cbc_id_1.text = "ICV"
+        cbc_uuid_1 = ET.SubElement(cac_additionaldocumentreference, "cbc:UUID")
+        cbc_uuid_1.text = str(get_icv_code(invoice_number))
+        return invoice
+    except (ET.ParseError, AttributeError, ValueError) as e:
+        frappe.throw(_(f"Error occurred in reference doc: {e}"))
+        return None
+
+
+def attach_qr_image_advance(qrcodeb64, sales_invoice_doc):
+    """attach the qr image"""
+    try:
+        if not hasattr(sales_invoice_doc, "ksa_einv_qr"):
+            create_custom_fields(
+                {
+                    sales_invoice_doc.doctype: [
+                        {
+                            "fieldname": "ksa_einv_qr",
+                            "label": "KSA E-Invoicing QR",
+                            "fieldtype": "Attach Image",
+                            "read_only": 1,
+                            "no_copy": 1,
+                            "hidden": 0,  # Set hidden to 0 for testing
+                        }
+                    ]
+                }
+            )
+            # frappe.log("Custom field 'ksa_einv_qr' created.")
+        qr_code = sales_invoice_doc.get("ksa_einv_qr")
+        if qr_code and frappe.db.exists({"doctype": "File", "file_url": qr_code}):
+            return
+        qr_image = io.BytesIO()
+        qr = qr_create(qrcodeb64, error="L")
+        qr.png(qr_image, scale=8, quiet_zone=1)
+
+        file_doc = frappe.get_doc(
+            {
+                "doctype": "File",
+                "file_name": f"QR_Phase2_{sales_invoice_doc.name}.png".replace(
+                    os.path.sep, "__"
+                ),
+                "attached_to_doctype": sales_invoice_doc.doctype,
+                "attached_to_name": sales_invoice_doc.name,
+                "is_private": 1,
+                "content": qr_image.getvalue(),
+                "attached_to_field": "ksa_einv_qr",
+            }
+        )
+        file_doc.save(ignore_permissions=True)
+        sales_invoice_doc.db_set("ksa_einv_qr", file_doc.file_url)
+        sales_invoice_doc.notify_update()
+
+    except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
+        frappe.throw(_(("attach qr images" f"error: {str(e)}")))
+
+
+@frappe.whitelist(allow_guest=False)
+def zatca_call(
+    invoice_number,
+    compliance_type="0",
+    any_item_has_tax_template=False,
+    company_abbr=None,
+    source_doc=None,
+):
+    """zatca call which includes the function calling and validation reguarding the api and
+    based on this the zATCA output and message is getting"""
+    try:
+        if not frappe.db.exists("Advance Sales Invoice", invoice_number):
+            frappe.throw("Invoice Number is NOT Valid: " + str(invoice_number))
+        invoice = xml_tags()
+        invoice, uuid1, sales_invoice_doc = salesinvoice_data_advance(
+            invoice, invoice_number
+        )
+        # Get the company abbreviation
+        company_abbr = frappe.db.get_value(
+            "Company", {"name": sales_invoice_doc.company}, "abbr"
+        )
+
+        customer_doc = frappe.get_doc("Customer", sales_invoice_doc.party)
+        # frappe.throw(str(customer_doc))
+
+        invoice = invoice_typecode_standard_advance(invoice, sales_invoice_doc)
+
+        invoice = doc_reference_advance(invoice, sales_invoice_doc, invoice_number)
+        invoice = additional_reference_advanve(invoice, company_abbr, sales_invoice_doc)
+        invoice = company_data_advance(invoice, sales_invoice_doc)
+        invoice = customer_data_advance(invoice, sales_invoice_doc)
+        invoice = delivery_and_payment_means_adavance(invoice, sales_invoice_doc)
+        # frappe.throw(str(sales_invoice_doc))
+        invoice = tax_data(invoice, sales_invoice_doc)
+        invoice = item_data_advance(invoice, sales_invoice_doc, invoice_number)
+        file_content = xml_structuring_advance(invoice,sales_invoice_doc)
+
+        tag_removed_xml = removetags(file_content)
+        canonicalized_xml = canonicalize_xml(tag_removed_xml)
+        hash1, encoded_hash = getinvoicehash(canonicalized_xml)
+        encoded_signature = digital_signature(hash1, company_abbr, source_doc)
+        issuer_name, serial_number = extract_certificate_details(
+            company_abbr, source_doc
+        )
+        encoded_certificate_hash = certificate_hash(company_abbr, source_doc)
+        modified_xml_string,namespaces, signing_time = signxml_modify(company_abbr,file_content, source_doc)
+        signed_properties_base64 = generate_signed_properties_hash(
+            signing_time, issuer_name, serial_number, encoded_certificate_hash
+        )
+        final_xml_string = populate_the_ubl_extensions_output(
+            modified_xml_string,
+            encoded_signature,
+            namespaces,
+            signed_properties_base64,
+            encoded_hash,
+            company_abbr,
+            source_doc,
+        )
+        tlv_data = generate_tlv_xml(final_xml_string,company_abbr, source_doc)
+
+        tagsbufsarray = []
+        for tag_num, tag_value in tlv_data.items():
+            tagsbufsarray.append(get_tlv_for_value(tag_num, tag_value))
+
+        qrcodebuf = b"".join(tagsbufsarray)
+        qrcodeb64 = base64.b64encode(qrcodebuf).decode("utf-8")
+        updated_xml_string= update_qr_toxml(final_xml_string,qrcodeb64, company_abbr)
+        signed_xmlfile_name = structuring_signedxml(invoice_number,updated_xml_string)
+        if compliance_type == "0":
+            # if customer_doc.custom_b2c != 1:
+
+            clearance_api(
+                uuid1,
+                encoded_hash,
+                signed_xmlfile_name,
+                invoice_number,
+                sales_invoice_doc,
+            )
+            attach_qr_image_advance(qrcodeb64, sales_invoice_doc)
+        else:
+            compliance_api_call(
+                uuid1,
+                encoded_hash,
+                signed_xmlfile_name,
+                company_abbr,
+                source_doc,
+            )
+            attach_qr_image(qrcodeb64, sales_invoice_doc)
+
+    except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
+        frappe.log_error(
+            title="ZATCA invoice call failed",
+            message=f"{frappe.get_traceback()}\nError: {str(e)}",
+        )
+
+
+@frappe.whitelist(allow_guest=False)
+def zatca_background_on_submit(doc, _method=None, bypass_background_check=False):
+    """referes according to the ZATC based sytem with the submitbutton of the sales invoice"""
+    try:
+        source_doc = doc
+        sales_invoice_doc = doc
+        invoice_number = sales_invoice_doc.name
+        sales_invoice_doc = frappe.get_doc("Advance Sales Invoice", invoice_number)
+        company_abbr = frappe.db.get_value(
+            "Company", {"name": sales_invoice_doc.company}, "abbr"
+        )
+        if not company_abbr:
+            frappe.throw(
+                _(f"Company abbreviation for {sales_invoice_doc.company} not found.")
+            )
+        company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
+        if company_doc.custom_zatca_invoice_enabled != 1:
+            # frappe.msgprint("Zatca Invoice is not enabled. Submitting the document.")
+            return  # Exit the function without further checks
+
+        any_item_has_tax_template = False
+        tax_categories = set()
+        for item in sales_invoice_doc.custom_item:
+            if item.item_tax_template:
+                item_tax_template = frappe.get_doc(
+                    "Item Tax Template", item.item_tax_template
+                )
+                zatca_tax_category = item_tax_template.custom_zatca_tax_category
+                tax_categories.add(zatca_tax_category)
+                for tax in item_tax_template.taxes:
+                    tax_rate = float(tax.tax_rate)
+
+                    if f"{tax_rate:.2f}" not in [
+                        "5.00",
+                        "15.00",
+                    ] and zatca_tax_category not in [
+                        "Zero Rated",
+                        "Exempted",
+                        "Services outside scope of tax / Not subject to VAT",
+                    ]:
+                        frappe.throw(
+                            _(
+                                "ZATCA tax category should be 'Zero Rated', 'Exempted', or "
+                                "'Services outside scope of tax / Not subject to VAT' "
+                                "for items with tax rate not equal to 5.00 or 15.00."
+                            )
+                        )
+
+                    if (
+                        f"{tax_rate:.2f}" == "15.00"
+                        and zatca_tax_category != "Standard"
+                    ):
+                        frappe.throw(
+                            "Check the ZATCA category code and enable it as Standard."
+                        )
+
+        if not frappe.db.exists("Advance Sales Invoice", invoice_number):
+            frappe.throw(
+                _(
+                    f"Please save and submit the invoice before sending to ZATCA: {invoice_number}"
+                )
+            )
+
+        if sales_invoice_doc.docstatus in [0, 2]:
+            frappe.throw(
+                _(
+                    f"Please submit the invoice before sending to ZATCA: {invoice_number}"
+                )
+            )
+        if sales_invoice_doc.custom_zatca_status in ["REPORTED", "CLEARED"]:
+            frappe.throw(
+                _("This invoice has already been submitted to Zakat and Tax Authority.")
+            )
+        company_name = sales_invoice_doc.company
+        settings = frappe.get_doc("Company", company_name)
+        # if settings.custom_phase_1_or_2 == "Phase-2":
+
+        if settings.custom_phase_1_or_2 == "Phase-2":
+            zatca_call(
+                invoice_number,
+                "0",
+                any_item_has_tax_template,
+                company_abbr,
+                source_doc,
+            )
+
+        else:
+            create_qr_code(sales_invoice_doc, method=None)
+        doc.reload()
+    except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
+        frappe.throw(_(f"Error in background call: {str(e)}"))
+
+
+@frappe.whitelist(allow_guest=False)
+def zatca_background(invoice_number, source_doc, bypass_background_check=False):
+    """defines the zatca bacground"""
+    try:
+        if source_doc:
+            source_doc = frappe.get_doc(json.loads(source_doc))
+        sales_invoice_doc = frappe.get_doc("Advance Sales Invoice", invoice_number)
+        company_name = sales_invoice_doc.company
+        settings = frappe.get_doc("Company", company_name)
+        company_abbr = settings.abbr
+
+        company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
+        if company_doc.custom_zatca_invoice_enabled != 1:
+            # frappe.msgprint("Zatca Invoice is not enabled. Submitting the document.")
+            return  # Exit the function without further checks
+
+        any_item_has_tax_template = False
+        tax_categories = set()
+        for item in sales_invoice_doc.custom_item:
+            if item.item_tax_template:
+                item_tax_template = frappe.get_doc(
+                    "Item Tax Template", item.item_tax_template
+                )
+                zatca_tax_category = item_tax_template.custom_zatca_tax_category
+                tax_categories.add(zatca_tax_category)
+                for tax in item_tax_template.taxes:
+                    tax_rate = float(tax.tax_rate)
+
+                    if f"{tax_rate:.2f}" not in [
+                        "5.00",
+                        "15.00",
+                    ] and zatca_tax_category not in [
+                        "Zero Rated",
+                        "Exempted",
+                        "Services outside scope of tax / Not subject to VAT",
+                    ]:
+                        frappe.throw(
+                            _(
+                                "ZATCA tax category should be 'Zero Rated', 'Exempted', or "
+                                "'Services outside scope of tax / Not subject to VAT' "
+                                "for items with tax rate not equal to 5.00 or 15.00."
+                            )
+                        )
+
+                    if (
+                        f"{tax_rate:.2f}" == "15.00"
+                        and zatca_tax_category != "Standard"
+                    ):
+                        frappe.throw(
+                            _(
+                                "Check the ZATCA category code and enable it as Standard."
+                            )
+                        )
+
+        if not frappe.db.exists("Advance Sales Invoice", invoice_number):
+            frappe.throw(
+                _(
+                    f"Please save and submit the invoice before sending to ZATCA: {invoice_number}"
+                )
+            )
+
+        if sales_invoice_doc.docstatus in [0, 2]:
+            frappe.throw(
+                _(
+                    f"Please submit the invoice before sending to ZATCA: {invoice_number}"
+                )
+            )
+        if sales_invoice_doc.custom_zatca_status in ["REPORTED", "CLEARED"]:
+            frappe.throw(
+                _("This invoice has already been submitted to Zakat and Tax Authority.")
+            )
+        company_name = sales_invoice_doc.company
+        settings = frappe.get_doc("Company", company_name)
+        # if settings.custom_phase_1_or_2 == "Phase-2":
+
+        if settings.custom_phase_1_or_2 == "Phase-2":
+            zatca_call(
+                invoice_number,
+                "0",
+                any_item_has_tax_template,
+                company_abbr,
+                source_doc,
+            )
+
+        else:
+            create_qr_code(sales_invoice_doc, method=None)
+
+    except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
+        frappe.throw(_(f"Error in background call: {str(e)}"))
