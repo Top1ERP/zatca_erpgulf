@@ -2031,6 +2031,85 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
         frappe.throw(_(f"Error in background call on submit: {str(e)}"))
 
 
+
+
+@frappe.whitelist()
+def run_all_compliance_summary(company_name: str, invoice_number: str):
+    """
+    Run all compliance validation types sequentially and return one aggregated result.
+
+    Notes:
+    - This helper is intended for the new "Run All Compliance" button on Company.
+    - It does not modify the front-end document state during the loop.
+    - The original company validation type is restored at the end.
+    """
+
+    validation_types = [
+        "Simplified Invoice",
+        "Standard Invoice",
+        "Simplified Credit Note",
+        "Standard Credit Note",
+        "Simplified Debit Note",
+        "Standard Debit Note",
+    ]
+
+    company_doc = frappe.get_doc("Company", company_name)
+    original_validation_type = company_doc.custom_validation_type or ""
+
+    results = []
+
+    try:
+        for validation_type in validation_types:
+            try:
+                company_doc.db_set(
+                    "custom_validation_type",
+                    validation_type,
+                    update_modified=False,
+                )
+
+                response = zatca_call_compliance(
+                    invoice_number=invoice_number,
+                    company_abbr=company_doc.abbr,
+                    source_doc=json.dumps({
+                        "doctype": company_doc.doctype,
+                        "name": company_doc.name,
+                    }),
+                    compliance_type="0",
+                )
+
+                message_text = "Completed successfully"
+
+                if response:
+                    if isinstance(response, (dict, list)):
+                        message_text = json.dumps(response, ensure_ascii=False)
+                    else:
+                        message_text = str(response)
+
+                results.append({
+                    "type": validation_type,
+                    "status": "PASS",
+                    "message": message_text,
+                })
+
+            except Exception as e:
+                results.append({
+                    "type": validation_type,
+                    "status": "FAIL",
+                    "message": str(e),
+                })
+
+    finally:
+        company_doc.db_set(
+            "custom_validation_type",
+            original_validation_type,
+            update_modified=False,
+        )
+
+    return {
+        "results": results
+    }
+
+
 @frappe.whitelist()
 def resubmit_invoices(invoice_numbers, bypass_background_check=False):
     """
