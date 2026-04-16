@@ -10,9 +10,11 @@ def field_exists(doctype: str, fieldname: str) -> bool:
 def execute():
     custom_fields = {}
 
-    # Company:
-    # If standard/company field exists, do nothing.
-    # Otherwise create only custom_company_name_in_arabic.
+    # ------------------------------------------------------------------
+    # Company
+    # If standard field exists, do nothing.
+    # Otherwise create only custom_company_name_in_arabic if missing.
+    # ------------------------------------------------------------------
     if not field_exists("Company", "company_name_in_arabic"):
         if not field_exists("Company", "custom_company_name_in_arabic"):
             custom_fields.setdefault("Company", []).append({
@@ -25,9 +27,11 @@ def execute():
                 "reqd": 0,
             })
 
-    # Customer:
-    # If standard/customer field exists, do nothing.
-    # Otherwise create only custom_customer_name_in_arabic.
+    # ------------------------------------------------------------------
+    # Customer
+    # If standard field exists, do nothing.
+    # Otherwise create only custom_customer_name_in_arabic if missing.
+    # ------------------------------------------------------------------
     if not field_exists("Customer", "customer_name_in_arabic"):
         if not field_exists("Customer", "custom_customer_name_in_arabic"):
             custom_fields.setdefault("Customer", []).append({
