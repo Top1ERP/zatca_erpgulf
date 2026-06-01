@@ -409,21 +409,68 @@ def _line_net_amount(single_item, sales_invoice_doc):
     return _quantize_2(abs(value or 0))
 
 
+PRICE_AMOUNT_QUANTIZER = Decimal("0.000000000001")
+
+
+def _quantize_price_amount(value):
+    """
+    Return BT-146 / PriceAmount with controlled high precision.
+
+    ZATCA decimal limits apply to Amount business terms such as BT-131,
+    not to the unit price amount BT-146. Keeping more precision here avoids
+    BR-KSA-EN16931-11 differences when document-level discounts are already
+    distributed into ERPNext line net amounts.
+    """
+    return Decimal(str(value or 0)).quantize(
+        PRICE_AMOUNT_QUANTIZER,
+        rounding=ROUND_HALF_UP,
+    )
+
+
+def _format_price_amount(value):
+    """
+    Format BT-146 / PriceAmount.
+
+    Trailing zeros are removed to keep the XML readable, but at least two
+    decimal places are retained for normal prices such as 3400.00.
+    """
+    value = _quantize_price_amount(value)
+    text = format(value, "f")
+
+    if "." not in text:
+        return f"{text}.00"
+
+    integer_part, decimal_part = text.split(".", 1)
+    decimal_part = decimal_part.rstrip("0")
+
+    if len(decimal_part) < 2:
+        decimal_part = decimal_part.ljust(2, "0")
+
+    return f"{integer_part}.{decimal_part}"
+
+
+def _line_quantity(single_item):
+    """Return absolute invoice line quantity as Decimal."""
+    return Decimal(str(abs(single_item.get("qty") or 0)))
+
+
 def _line_net_rate(single_item, sales_invoice_doc):
-    """Use line net rate as the source of truth for ZATCA XML."""
-    if _is_company_currency_document(sales_invoice_doc):
-        value = single_item.get("base_net_rate")
-        if value is None:
-            value = single_item.get("net_rate")
-        if value is None:
-            value = single_item.get("base_rate")
-        if value is None:
-            value = single_item.get("rate")
-    else:
-        value = single_item.get("net_rate")
-        if value is None:
-            value = single_item.get("rate")
-    return _quantize_2(abs(value or 0))
+    """
+    Derive BT-146 / PriceAmount from BT-131 / BT-129.
+
+    Do not depend on base_net_rate/net_rate because ERPNext may round those
+    rates to two decimals after distributing invoice-level discounts. ZATCA
+    validates BT-131 against quantity multiplied by BT-146, so BT-146 must be
+    precise enough to reproduce the already rounded BT-131.
+
+    If quantity is zero, return zero defensively as requested.
+    """
+    qty = _line_quantity(single_item)
+    if qty == Decimal("0"):
+        return _quantize_price_amount(0)
+
+    line_net_amount = _line_net_amount(single_item, sales_invoice_doc)
+    return _quantize_price_amount(line_net_amount / qty)
 
 
 def _clean_text_value(value):
@@ -513,7 +560,7 @@ def item_data(invoice, sales_invoice_doc):
             cac_price = ET.SubElement(cac_invoiceline, "cac:Price")
             cbc_priceamount = ET.SubElement(cac_price, "cbc:PriceAmount")
             cbc_priceamount.set("currencyID", sales_invoice_doc.currency)
-            cbc_priceamount.text = f"{line_net_rate:.2f}"
+            cbc_priceamount.text = _format_price_amount(line_net_rate)
 
         return invoice
     except (ValueError, KeyError, TypeError) as e:
@@ -576,7 +623,7 @@ def item_data_advance_invoice(invoice, sales_invoice_doc):
             price = ET.SubElement(line, "cac:Price")
             ET.SubElement(
                 price, "cbc:PriceAmount", currencyID=sales_invoice_doc.currency
-            ).text = f"{line_net_rate:.2f}"
+            ).text = _format_price_amount(line_net_rate)
 
         if (
             "claudion4saudi" in frappe.get_installed_apps()
@@ -785,7 +832,7 @@ def item_data_with_template(invoice, sales_invoice_doc):
             cac_price = ET.SubElement(cac_invoiceline, "cac:Price")
             cbc_priceamount = ET.SubElement(cac_price, "cbc:PriceAmount")
             cbc_priceamount.set("currencyID", sales_invoice_doc.currency)
-            cbc_priceamount.text = f"{line_net_rate:.2f}"
+            cbc_priceamount.text = _format_price_amount(line_net_rate)
 
         return invoice
     except (ValueError, KeyError, TypeError) as e:
@@ -852,7 +899,7 @@ def item_data_with_template_advance_invoice(invoice, sales_invoice_doc):
             price = ET.SubElement(cac_invoiceline, "cac:Price")
             ET.SubElement(
                 price, "cbc:PriceAmount", currencyID=sales_invoice_doc.currency
-            ).text = f"{line_net_rate:.2f}"
+            ).text = _format_price_amount(line_net_rate)
 
         if (
             "claudion4saudi" in frappe.get_installed_apps()
@@ -938,15 +985,8 @@ def item_data_with_template_advance_invoice(invoice, sales_invoice_doc):
 
                     tax_cat = ET.SubElement(subtotal, "cac:TaxCategory")
                     zatca_tax_category = item_tax_template.custom_zatca_tax_category
-                    if zatca_tax_category == "Standard":
-                        cbc_id_12.text = "S"
-                    elif zatca_tax_category == ZERO_RATED:
-                        cbc_id_12.text = "Z"
-                    elif zatca_tax_category == "Exempted":
-                        cbc_id_12.text = "E"
-                    elif zatca_tax_category == OUTSIDE_SCOPE:
-                        cbc_id_12.text = "O"
-                    ET.SubElement(tax_cat, "cbc:ID").text = cbc_id_12.text
+                    tax_category_code = get_tax_code(zatca_tax_category)
+                    ET.SubElement(tax_cat, "cbc:ID").text = tax_category_code
                     ET.SubElement(tax_cat, "cbc:Percent").text = (
                         f"{float(item_tax_percentage):.2f}"
                     )
@@ -961,7 +1001,7 @@ def item_data_with_template_advance_invoice(invoice, sales_invoice_doc):
                     tax_cat_adv = ET.SubElement(
                         item_tag_adv, "cac:ClassifiedTaxCategory"
                     )
-                    ET.SubElement(tax_cat_adv, "cbc:ID").text = cbc_id_12.text
+                    ET.SubElement(tax_cat_adv, "cbc:ID").text = tax_category_code
                     ET.SubElement(tax_cat_adv, "cbc:Percent").text = (
                         f"{float(item_tax_percentage):.2f}"
                     )

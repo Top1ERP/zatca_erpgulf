@@ -151,7 +151,7 @@ def create_qr_code(doc, method=None):  # pylint: disable=unused-argument
 
         qr_image = io.BytesIO()
         url = qr_create(base64_string, error="L")
-        url.png(qr_image, scale=8, quiet_zone=1)
+        url.png(qr_image, scale=4, quiet_zone=1)
 
         # Make file
         filename = f"QR-Phase1-{doc.name}.png".replace(os.path.sep, "__")
