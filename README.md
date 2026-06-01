@@ -41,7 +41,7 @@ Frappe Cloud users can install the app directly from the Marketplace.
 Follow the standard Frappe app installation process:
 
 # Get the app from GitHub
-bench get-app https://github.com/ERPGulf/zatca_erpgulf.git
+bench get-app https://github.com/Top1ERP/zatca_erpgulf.git
 
 # Install the app on your site
 bench --site yoursite.erpgulf.com install-app zatca_erpgulf
