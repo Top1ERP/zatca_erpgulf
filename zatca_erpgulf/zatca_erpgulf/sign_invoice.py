@@ -189,7 +189,7 @@ def attach_qr_image(qrcodeb64, sales_invoice_doc):
             return
         qr_image = io.BytesIO()
         qr = qr_create(qrcodeb64, error="L")
-        qr.png(qr_image, scale=4, quiet_zone=1)
+        qr.png(qr_image, scale=2, quiet_zone=1)
 
         file_doc = frappe.get_doc(
             {
