@@ -171,6 +171,151 @@ def _get_customer_country_code(sales_invoice_doc, customer_doc, address=None):
     return mapped or "SA"
 
 
+def _address_get(address, fieldname):
+    """Safely read a field from Address document or frappe._dict."""
+    if not address:
+        return None
+    if hasattr(address, "get"):
+        try:
+            return address.get(fieldname)
+        except Exception:
+            pass
+    return getattr(address, fieldname, None)
+
+
+def _clean_address_value(value):
+    """Normalize address values before validation."""
+    return re.sub(r"\s+", " ", str(value or "")).strip()
+
+
+def _is_placeholder_value(value):
+    """Reject empty and fake address values."""
+    clean = _clean_address_value(value).upper().replace(" ", "")
+    return clean in {
+        "",
+        "NA",
+        "N/A",
+        "N//A",
+        "NONE",
+        "NULL",
+        "-",
+        "--",
+    }
+
+
+def _is_placeholder_postal_code(value):
+    """Reject empty/fake postal codes that cause ZATCA inaccurate-address warnings."""
+    clean = _clean_address_value(value).upper().replace(" ", "")
+    return _is_placeholder_value(value) or clean in {
+        "0000",
+        "00000",
+        "99999",
+    }
+
+
+def _throw_zatca_address_error(title, problems):
+    """Throw a consistent ZATCA address validation error."""
+    if problems:
+        frappe.throw(
+            _(
+                title
+                + "<br><br>"
+                + "<br>".join(f"- {problem}" for problem in problems)
+            )
+        )
+
+
+def _validate_supplier_address_for_zatca(address):
+    """
+    Validate seller address before XML generation.
+
+    Seller postal code must be 5 digits.
+    Seller building number must be exactly 4 digits.
+    """
+    problems = []
+
+    if not address:
+        problems.append("Seller address is missing.")
+        _throw_zatca_address_error("ZATCA seller address validation failed.", problems)
+
+    street = _clean_address_value(_address_get(address, "address_line1"))
+    building_number = _clean_address_value(_address_get(address, "custom_building_number"))
+    city = _clean_address_value(_address_get(address, "city"))
+    postal_code = _clean_address_value(_address_get(address, "pincode"))
+    district = _clean_address_value(_address_get(address, "address_line2"))
+
+    if _is_placeholder_value(street):
+        problems.append("Seller street name is mandatory.")
+    if _is_placeholder_value(building_number):
+        problems.append("Seller building number is mandatory.")
+    elif not re.fullmatch(r"\d{4}", building_number):
+        problems.append("Seller building number must be exactly 4 digits.")
+    if _is_placeholder_value(city):
+        problems.append("Seller city is mandatory.")
+    if _is_placeholder_postal_code(postal_code):
+        problems.append("Seller postal code is mandatory.")
+    elif not re.fullmatch(r"\d{5}", postal_code):
+        problems.append("Seller postal code must be exactly 5 digits.")
+    if _is_placeholder_value(district):
+        problems.append(
+            "Seller district is mandatory. In ERPNext this is currently read from Address Line 2."
+        )
+
+    _throw_zatca_address_error("ZATCA seller address validation failed.", problems)
+
+
+def _validate_customer_b2b_address_for_zatca(customer_doc, address, customer_country_code):
+    """
+    Validate buyer address before XML generation.
+
+    Policy:
+    - B2C customers are not blocked.
+    - B2B / non-B2C customers must have a postal code to avoid ZATCA inaccurate-address warnings.
+    - Saudi B2B customers must have 5-digit postal code.
+    - Foreign B2B customers must have postal code, but it may contain letters/spaces.
+    """
+    if cint(getattr(customer_doc, "custom_b2c", 0)) == 1:
+        return
+
+    problems = []
+
+    if not address:
+        problems.append("Buyer address is mandatory for B2B / non-B2C customers.")
+        _throw_zatca_address_error("ZATCA buyer address validation failed.", problems)
+
+    country_code = _clean_address_value(customer_country_code or "").upper()
+    street = _clean_address_value(_address_get(address, "address_line1"))
+    building_number = _clean_address_value(_address_get(address, "custom_building_number"))
+    city = _clean_address_value(_address_get(address, "city"))
+    postal_code = _clean_address_value(_address_get(address, "pincode"))
+    district = _clean_address_value(_address_get(address, "address_line2"))
+
+    if _is_placeholder_value(street):
+        problems.append("Buyer street name is mandatory for B2B / non-B2C customers.")
+    if _is_placeholder_value(city):
+        problems.append("Buyer city is mandatory for B2B / non-B2C customers.")
+    if _is_placeholder_value(country_code):
+        problems.append("Buyer country code is mandatory for B2B / non-B2C customers.")
+
+    if _is_placeholder_postal_code(postal_code):
+        problems.append("Buyer postal code is mandatory for B2B / non-B2C customers. Fill Address > Postal Code.")
+
+    if country_code == "SA":
+        if _is_placeholder_value(building_number):
+            problems.append("Saudi buyer building number is mandatory.")
+        elif not re.fullmatch(r"\d{4}", building_number):
+            problems.append("Saudi buyer building number must be exactly 4 digits.")
+
+        if _is_placeholder_value(district):
+            problems.append(
+                "Saudi buyer district is mandatory. In ERPNext this is currently read from Address Line 2."
+            )
+
+        if not _is_placeholder_postal_code(postal_code) and not re.fullmatch(r"\d{5}", postal_code):
+            problems.append("Saudi buyer postal code must be exactly 5 digits.")
+
+    _throw_zatca_address_error("ZATCA buyer address validation failed.", problems)
+
 def _is_export_invoice(sales_invoice_doc, customer_doc=None, address=None):
     """
     Treat invoice as export only when:
@@ -876,6 +1021,7 @@ def company_data(invoice, sales_invoice_doc):
         # Get the appropriate address
         address = get_address(sales_invoice_doc, company_doc)
 
+        _validate_supplier_address_for_zatca(address)
         cac_postaladdress = ET.SubElement(cac_party_1, "cac:PostalAddress")
         cbc_streetname = ET.SubElement(cac_postaladdress, "cbc:StreetName")
         cbc_streetname.text = address.address_line1
@@ -951,6 +1097,7 @@ def customer_data(invoice, sales_invoice_doc):
                 sales_invoice_doc, customer_doc, address
             )
 
+            _validate_customer_b2b_address_for_zatca(customer_doc, address, customer_country_code)
             cac_postaladdress_1 = ET.SubElement(cac_party_2, "cac:PostalAddress")
             if getattr(address, "address_line1", None):
                 cbc_streetname_1 = ET.SubElement(cac_postaladdress_1, "cbc:StreetName")
