@@ -349,3 +349,9 @@ fixtures = [
 
 app_include_css = "/assets/zatca_erpgulf/css/tooltip.css"
 app_include_js = "/assets/zatca_erpgulf/js/tooltip.js"
+
+# ZATCA customization sync
+# Ensures required Custom Fields and optional Property Setters after install/sync/migrate.
+after_install = "zatca_erpgulf.setup_customizations.after_install"
+after_sync = "zatca_erpgulf.setup_customizations.after_sync"
+after_migrate = "zatca_erpgulf.setup_customizations.after_migrate"

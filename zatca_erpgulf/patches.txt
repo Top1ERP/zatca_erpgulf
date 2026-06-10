@@ -5,3 +5,4 @@
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
 zatca_erpgulf.patches.create_arabic_name_fields
+zatca_erpgulf.patches.ensure_zatca_customizations_v3_20260610 # 2026-06-10 sync custom fields/property setters for v15-v16
