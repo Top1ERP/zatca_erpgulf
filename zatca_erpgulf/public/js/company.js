@@ -23,7 +23,62 @@ frappe.realtime.on('show_gif', (data) => {
 
 frappe.ui.form.on("Company", {
     refresh(frm) {
-        // Refresh logic if any
+        if (!frm.is_new() && frm.doc.country === "Saudi Arabia") {
+            // Use the existing ERPNext/Frappe button location if present:
+            // Manage > Create Tax Template
+            // Remove first to avoid duplicate buttons, then add our idempotent ZATCA/KSA implementation.
+            try {
+                frm.remove_custom_button(__("Create Tax Template"), __("Manage"));
+            } catch (e) {
+                // Ignore if the button does not exist.
+            }
+
+            frm.add_custom_button(
+                __("Create Tax Template"),
+                function () {
+                    frappe.confirm(
+                        __("This will create or update KSA VAT tax accounts and tax templates for this company. KSA VAT 15% will be set as the default Sales Taxes and Charges Template. Continue?"),
+                        function () {
+                            frappe.call({
+                                method: "zatca_erpgulf.ksa_compliance.tax_templates.create_or_update_ksa_tax_templates",
+                                args: {
+                                    company: frm.doc.name
+                                },
+                                freeze: true,
+                                freeze_message: __("Creating / Updating KSA VAT Templates..."),
+                                callback: function (r) {
+                                    if (r.exc) {
+                                        return;
+                                    }
+
+                                    const msg = r.message || {};
+                                    const accounts = msg.accounts || [];
+                                    const sales = msg.sales_templates || [];
+                                    const purchase = msg.purchase_templates || [];
+                                    const item_tax = msg.item_tax_templates || [];
+
+                                    frappe.msgprint({
+                                        title: __("Tax Templates Updated"),
+                                        indicator: "green",
+                                        message: `
+                                            <p><b>${__("Company")}:</b> ${frappe.utils.escape_html(msg.company || frm.doc.name)}</p>
+                                            <p><b>${__("Accounts")}:</b> ${accounts.length}</p>
+                                            <p><b>${__("Sales Tax Templates")}:</b> ${sales.length}</p>
+                                            <p><b>${__("Purchase Tax Templates")}:</b> ${purchase.length}</p>
+                                            <p><b>${__("Item Tax Templates")}:</b> ${item_tax.length}</p>
+                                            <p>${__("KSA VAT 15% is now the default Sales Taxes and Charges Template.")}</p>
+                                        `
+                                    });
+
+                                    frm.reload_doc();
+                                }
+                            });
+                        }
+                    );
+                },
+                __("Manage")
+            );
+        }
     },
 
     custom_generate_production_csids: function (frm) {
