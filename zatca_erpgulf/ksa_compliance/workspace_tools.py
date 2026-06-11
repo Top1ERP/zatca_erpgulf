@@ -91,3 +91,49 @@ def rename_zatca_workspace() -> dict:
     result["new_exists_after"] = bool(frappe.db.exists("Workspace", NEW_WORKSPACE))
 
     return result
+
+
+@frappe.whitelist()
+def normalize_zatca_vat_report_links() -> dict:
+    """Point ZATCA workspace VAT links to ZATCA-specific reports."""
+
+    workspace_name = NEW_WORKSPACE if frappe.db.exists("Workspace", NEW_WORKSPACE) else OLD_WORKSPACE
+
+    if not frappe.db.exists("Workspace", workspace_name):
+        frappe.throw(f"Workspace not found: {workspace_name}")
+
+    ws = frappe.get_doc("Workspace", workspace_name)
+
+    replacements = {
+        "Item-wise Sales Register": "Output VAT Report",
+        "Item-wise Purchase Register": "Input VAT Report",
+    }
+
+    changed = False
+
+    for old, new in replacements.items():
+        if ws.get("content") and old in ws.content:
+            ws.content = ws.content.replace(old, new)
+            changed = True
+
+    for row in ws.get("shortcuts") or []:
+        if row.get("link_to") in replacements:
+            row.link_to = replacements[row.link_to]
+            changed = True
+
+    for row in ws.get("links") or []:
+        if row.get("link_to") in replacements:
+            row.link_to = replacements[row.link_to]
+            changed = True
+
+    if changed:
+        ws.save(ignore_permissions=True)
+        frappe.db.commit()
+        frappe.clear_cache()
+
+    return {
+        "workspace": workspace_name,
+        "changed": changed,
+        "output_link": "Output VAT Report",
+        "input_link": "Input VAT Report",
+    }

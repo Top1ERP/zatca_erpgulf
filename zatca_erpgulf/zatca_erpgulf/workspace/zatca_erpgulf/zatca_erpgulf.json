@@ -101,7 +101,7 @@
    "is_query_report": 1,
    "label": "Output VAT Report",
    "link_count": 0,
-   "link_to": "Item-wise Sales Register",
+   "link_to": "Output VAT Report",
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"
@@ -111,7 +111,7 @@
    "is_query_report": 1,
    "label": "Input VAT Report",
    "link_count": 0,
-   "link_to": "Item-wise Purchase Register",
+   "link_to": "Input VAT Report",
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"

@@ -1,0 +1,22 @@
+{
+ "add_total_row": 1,
+ "columns": [],
+ "disabled": 0,
+ "doctype": "Report",
+ "filters": [],
+ "is_standard": "Yes",
+ "module": "Zatca Erpgulf",
+ "name": "Output VAT Report",
+ "prepared_report": 0,
+ "ref_doctype": "Sales Invoice",
+ "report_name": "Output VAT Report",
+ "report_type": "Script Report",
+ "roles": [
+  {
+   "role": "Accounts Manager"
+  },
+  {
+   "role": "Accounts User"
+  }
+ ]
+}
