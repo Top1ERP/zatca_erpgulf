@@ -43,6 +43,12 @@ def execute(filters=None):
             "vat": 0,
         },
         {
+            "category": "Services outside scope of tax / Not subject to VAT",
+            "amount": sales_totals["OutOfScope"]["amount"],
+            "adjustment": sales_totals["OutOfScope"]["adjustment"],
+            "vat": 0,
+        },
+        {
             "category": "<b>Total Sales</b>",
             "amount": sum(v["amount"] for v in sales_totals.values()),
             "adjustment": sum(v["adjustment"] for v in sales_totals.values()),
@@ -83,6 +89,12 @@ def execute(filters=None):
             "category": "Exempt purchases",
             "amount": purchase_totals["Exempt"]["amount"],
             "adjustment": purchase_totals["Exempt"]["adjustment"],
+            "vat": 0,
+        },
+        {
+            "category": "Services outside scope of tax / Not subject to VAT",
+            "amount": purchase_totals["OutOfScope"]["amount"],
+            "adjustment": purchase_totals["OutOfScope"]["adjustment"],
             "vat": 0,
         },
         {
@@ -133,6 +145,7 @@ def get_sales_vat_totals_sql(filters):
         "Zero Rated": {"amount": 0, "adjustment": 0, "vat": 0},
         "Exports": {"amount": 0, "adjustment": 0, "vat": 0},
         "Exempt": {"amount": 0, "adjustment": 0, "vat": 0},
+        "OutOfScope": {"amount": 0, "adjustment": 0, "vat": 0},
     }
 
     where_clause = build_filters_sql(filters)
@@ -286,6 +299,19 @@ def get_sales_vat_totals_sql(filters):
                         item_amount = abs(item_amount)
                     totals["Exempt"][key] += item_amount
 
+        # --- Out of Scope / Not subject to VAT ---
+        if inv_doc.get("custom_zatca_tax_category") == "Services outside scope of tax / Not subject to VAT":
+            totals["OutOfScope"][key] += signed_grand_total
+        else:
+            for item in inv_doc["items"]:
+                if item.get("template_category") == "Services outside scope of tax / Not subject to VAT":
+                    item_amount = item.get("amount") or 0
+                    if is_return:
+                        item_amount = -abs(item_amount)
+                    elif is_debit:
+                        item_amount = abs(item_amount)
+                    totals["OutOfScope"][key] += item_amount
+
     return totals
 
     # # Now apply your original ORM logic per-invoice
@@ -355,6 +381,7 @@ def get_purchase_vat_totals_sql(filters):
         "ImportsCustoms": {"amount": 0, "adjustment": 0, "vat": 0},
         "Zero Rated": {"amount": 0, "adjustment": 0, "vat": 0},
         "Exempt": {"amount": 0, "adjustment": 0, "vat": 0},
+        "OutOfScope": {"amount": 0, "adjustment": 0, "vat": 0},
     }
 
     where_clause = build_filters_sql(filters, table_alias="pi")
@@ -386,6 +413,9 @@ def get_purchase_vat_totals_sql(filters):
 
         elif r.get("custom_zatca_tax_category") == "Exempted":
             totals["Exempt"][key] += r.get("grand_total") or 0
+
+        elif r.get("custom_zatca_tax_category") == "Services outside scope of tax / Not subject to VAT":
+            totals["OutOfScope"][key] += r.get("grand_total") or 0
 
         if int(r.get("custom_zatca_import_invoice") or 0) == 1:
             totals["ImportsCustoms"][key] += r.get("grand_total") or 0
