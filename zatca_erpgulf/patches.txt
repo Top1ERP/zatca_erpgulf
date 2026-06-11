@@ -6,3 +6,4 @@
 # Patches added in this section will be executed after doctypes are migrated
 zatca_erpgulf.patches.create_arabic_name_fields
 zatca_erpgulf.patches.ensure_zatca_customizations_v3_20260610 # 2026-06-10 sync custom fields/property setters for v15-v16
+zatca_erpgulf.patches.ensure_address_arabic_field_20260611 # 2026-06-11 ensure Address.address_in_arabic field

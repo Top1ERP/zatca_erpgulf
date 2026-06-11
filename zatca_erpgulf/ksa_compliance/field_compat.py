@@ -43,6 +43,9 @@ FIELD_ALIAS_GROUPS = {
             "address_in_arabic",
             "custom_address_in_arabic",
             "zatca_address_in_arabic",
+            "address_line1_in_arabic",
+            "custom_address_line1_in_arabic",
+            "custom__address_in_arabic__",
         ],
     },
     "sales_invoice_qr": {
