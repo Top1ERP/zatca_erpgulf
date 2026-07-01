@@ -242,6 +242,7 @@ scheduler_events = {
 doc_events = {
     "Sales Invoice": {
         # "before_insert":"zatca_erpgulf.zatca_erpgulf.sales_invoice_hooks.set_draft_series",
+        "validate": "zatca_erpgulf.zatca_erpgulf.tax_error.validate_negative_item_values_on_save",
         "before_cancel": "zatca_erpgulf.zatca_erpgulf.validations.before_save",
         "before_submit": "zatca_erpgulf.zatca_erpgulf.tax_error.validate_sales_invoice_taxes",
         "after_insert": "zatca_erpgulf.zatca_erpgulf.validations.duplicating_invoice",
@@ -251,6 +252,7 @@ doc_events = {
             ]
     },
     "POS Invoice": {
+        "validate": "zatca_erpgulf.zatca_erpgulf.tax_error.validate_negative_item_values_on_save",
         "before_cancel": "zatca_erpgulf.zatca_erpgulf.validations.before_save",
         "before_submit": "zatca_erpgulf.zatca_erpgulf.tax_error.validate_sales_invoice_taxes",
         "after_insert": "zatca_erpgulf.zatca_erpgulf.validations.duplicating_invoice",
@@ -286,12 +288,17 @@ doctype_js = {
     "Sales Invoice": [
         # "public/js/draft.js",
         "public/js/our_sales_invoice.js",
+        "public/js/zatca_negative_line_validation.js",
         "public/js/print.js",
         "public/js/badge.js"
        
     ],
     "Company": "public/js/company.js",
-    "POS Invoice": ["public/js/our_pos_invoice.js", "public/js/badge_pos.js"],
+    "POS Invoice": [
+        "public/js/our_pos_invoice.js",
+        "public/js/zatca_negative_line_validation.js",
+        "public/js/badge_pos.js",
+    ],
 }
 
 doctype_list_js = {
