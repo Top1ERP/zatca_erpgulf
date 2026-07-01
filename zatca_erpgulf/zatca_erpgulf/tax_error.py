@@ -5,7 +5,7 @@ in sales invoices."""
 
 import frappe
 from frappe import _
-from frappe.utils import cint
+from frappe.utils import cint, flt
 
 
 def _safe_str(value):
@@ -58,6 +58,254 @@ def _get_pos_name(doc):
     return _safe_str(getattr(doc, "custom_zatca_pos_name", None))
 
 
+
+_ZATCA_NEGATIVE_LINE_VALIDATION_FIELD = "custom_zatca_negative_line_validation_mode"
+_ZATCA_NEGATIVE_LINE_VALIDATION_MODES = {"Strict", "Warn Only", "Disabled"}
+
+_ZATCA_ITEM_POSITIVE_FIELDS = (
+    ("qty", "Quantity"),
+    ("rate", "Rate"),
+    ("amount", "Amount"),
+    ("net_rate", "Net Rate"),
+    ("net_amount", "Net Amount"),
+    ("base_rate", "Base Rate"),
+    ("base_amount", "Base Amount"),
+    ("base_net_rate", "Base Net Rate"),
+    ("base_net_amount", "Base Net Amount"),
+)
+
+
+_ZATCA_ITEM_RATE_FIELDS = (
+    ("rate", "Rate"),
+    ("net_rate", "Net Rate"),
+    ("base_rate", "Base Rate"),
+    ("base_net_rate", "Base Net Rate"),
+)
+
+
+def _company_has_negative_line_validation_field() -> bool:
+    """
+    Return True only if the site has the Company custom field installed.
+
+    This keeps shared benches safe while migrating/testing one site first.
+    Sites that were not migrated yet will not suddenly enforce the new rule.
+    """
+    try:
+        return bool(frappe.get_meta("Company").has_field(_ZATCA_NEGATIVE_LINE_VALIDATION_FIELD))
+    except Exception:
+        return False
+
+
+def _get_negative_line_validation_mode(company_doc) -> str:
+    """
+    Return company-level validation mode.
+
+    If the field does not exist on this site yet, validation is skipped for
+    backward compatibility during staged rollout.
+    """
+    if not _company_has_negative_line_validation_field():
+        return "Disabled"
+
+    mode = _safe_str(getattr(company_doc, _ZATCA_NEGATIVE_LINE_VALIDATION_FIELD, None))
+
+    if not mode:
+        return "Strict"
+
+    if mode not in _ZATCA_NEGATIVE_LINE_VALIDATION_MODES:
+        return "Strict"
+
+    return mode
+
+
+def _build_negative_line_validation_message(doc, issues) -> str:
+    shown_issues = issues[:10]
+
+    issue_lines = []
+    for issue in shown_issues:
+        if issue.get("custom_message"):
+            issue_lines.append(issue["custom_message"])
+            continue
+
+        item_code_part = f", Item {issue['item_code']}" if issue.get("item_code") else ""
+        issue_lines.append(
+            f"- Row {issue['idx']}{item_code_part}, {issue['field_label']}: {issue['value']}"
+        )
+
+    if len(issues) > len(shown_issues):
+        issue_lines.append(f"- ... and {len(issues) - len(shown_issues)} more invalid values.")
+
+    return (
+        "ZATCA item line validation failed.\n\n"
+        "For standard invoices and debit notes:\n"
+        "- Item quantity must not be negative.\n"
+        "- Item rates, prices, and amounts must not be negative.\n"
+        "- Zero quantity and zero monetary values are allowed by this ZATCA validation layer.\n\n"
+        "For returns / credit notes:\n"
+        "- Item quantity must not be positive.\n"
+        "- Item rates must not be negative.\n"
+        "- Zero quantity is allowed by this ZATCA validation layer.\n\n"
+        f"Document {doc.doctype} {getattr(doc, 'name', '') or '(new document)'} "
+        "contains invalid item values:\n"
+        + "\n".join(issue_lines)
+        + "\n\n"
+        "If a row represents a discount, use the discount fields.\n"
+        "If it represents retention or deduction, use the taxes and deductions table.\n"
+        "If it represents an advance payment, create a Payment Entry and issue an "
+        "Advance Tax Invoice (386)."
+    )
+
+
+def _build_quantity_sign_issue(item, expected, actual_value):
+    item_code = getattr(item, "item_code", None)
+    item_code_part = f", Item {item_code}" if item_code else ""
+
+    return {
+        "idx": getattr(item, "idx", None) or "",
+        "item_code": item_code,
+        "fieldname": "qty",
+        "field_label": "Quantity",
+        "value": actual_value,
+        "custom_message": (
+            f"- Row {getattr(item, 'idx', None) or ''}{item_code_part}, Quantity: {actual_value}. "
+            f"{expected}"
+        ),
+    }
+
+
+def validate_positive_item_values_for_zatca(doc, company_doc) -> None:
+    """
+    Validate ZATCA item line values.
+
+    Rules:
+    - Standard invoices and debit notes:
+      * item quantity must not be negative
+      * item rates and amounts must not be negative
+    - Returns / credit notes:
+      * item quantity must not be positive
+      * item rates must not be negative
+      * line amounts are not blocked here because ERPNext return rows may carry
+        negative amounts and XML builders convert return values to absolute
+        positive values.
+    - Zero quantity is allowed by this validation layer.
+    - Zero monetary values are allowed, for example free samples.
+    - Taxes table rows are intentionally not validated here because retention
+      and deductions may be represented there depending on ERPNext configuration.
+    """
+    if doc.doctype not in {"Sales Invoice", "POS Invoice"}:
+        return
+
+    mode = _get_negative_line_validation_mode(company_doc)
+
+    if mode == "Disabled":
+        return
+
+    is_return = cint(getattr(doc, "is_return", 0)) == 1
+    issues = []
+
+    for item in getattr(doc, "items", []) or []:
+        qty = flt(getattr(item, "qty", 0))
+
+        if is_return:
+            if qty > 0:
+                issues.append(
+                    _build_quantity_sign_issue(
+                        item,
+                        "Return / credit note item quantity must be zero or negative.",
+                        getattr(item, "qty", None),
+                    )
+                )
+
+            # Return / credit note quantities may be negative, but item rates
+            # must still be zero or positive. Do not validate line amounts here,
+            # because ERPNext may calculate return amounts as negative values.
+            for fieldname, field_label in _ZATCA_ITEM_RATE_FIELDS:
+                value = getattr(item, fieldname, None)
+
+                if flt(value) < 0:
+                    issues.append(
+                        {
+                            "idx": getattr(item, "idx", None) or "",
+                            "item_code": getattr(item, "item_code", None),
+                            "fieldname": fieldname,
+                            "field_label": field_label,
+                            "value": value,
+                        }
+                    )
+
+            continue
+
+        # Standard invoices and debit notes must not have negative quantity.
+        if qty < 0:
+            issues.append(
+                _build_quantity_sign_issue(
+                    item,
+                    "Standard invoice and debit note item quantity must be zero or greater.",
+                    getattr(item, "qty", None),
+                )
+            )
+
+        # Monetary zero values are allowed. Negative monetary values are blocked.
+        for fieldname, field_label in _ZATCA_ITEM_POSITIVE_FIELDS:
+            if fieldname == "qty":
+                continue
+
+            value = getattr(item, fieldname, None)
+
+            if flt(value) < 0:
+                issues.append(
+                    {
+                        "idx": getattr(item, "idx", None) or "",
+                        "item_code": getattr(item, "item_code", None),
+                        "fieldname": fieldname,
+                        "field_label": field_label,
+                        "value": value,
+                    }
+                )
+
+    if not issues:
+        return
+
+    message = _build_negative_line_validation_message(doc, issues)
+
+    if mode == "Warn Only":
+        frappe.msgprint(
+            message,
+            title="ZATCA Negative Line Validation",
+            indicator="orange",
+        )
+        frappe.log_error(
+            title="ZATCA Negative Line Validation Warning",
+            message=message,
+        )
+        return
+
+    frappe.throw(
+        message,
+        title="ZATCA Negative Line Validation",
+    )
+
+def validate_negative_item_values_on_save(doc, event=None):
+    """
+    Validate item quantities and negative values on document save.
+
+    This is intentionally limited to item value validation only.
+    Do not run the full ZATCA submit validation here because drafts may still
+    be incomplete while users are entering invoice data.
+    """
+    if doc.doctype not in {"Sales Invoice", "POS Invoice"}:
+        return
+
+    company = getattr(doc, "company", None)
+    if not company:
+        return
+
+    company_doc = frappe.get_doc("Company", company)
+
+    if not cint(getattr(company_doc, "custom_zatca_invoice_enabled", 0)):
+        return
+
+    validate_positive_item_values_for_zatca(doc, company_doc)
+
 def validate_sales_invoice_taxes(doc, event=None):
     """
     Validate tax information and required ZATCA-related fields
@@ -70,6 +318,8 @@ def validate_sales_invoice_taxes(doc, event=None):
     # ----------------------------------------
     if not cint(getattr(company_doc, "custom_zatca_invoice_enabled", 0)):
         return
+
+    validate_positive_item_values_for_zatca(doc, company_doc)
 
     is_gpos_installed = "gpos" in frappe.get_installed_apps()
     meta = frappe.get_meta(doc.doctype)

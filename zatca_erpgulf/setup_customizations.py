@@ -42,6 +42,32 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
                 "abbr",
                 "default_currency",
             ],
+        },
+        {
+            "fieldname": "custom_zatca_negative_line_validation_mode",
+            "label": "ZATCA Negative Line Validation Mode",
+            "fieldtype": "Select",
+            "options": "Strict\nWarn Only\nDisabled",
+            "default": "Strict",
+            "insert_after": "custom_zatca_invoice_enabled",
+            "module": MODULE_NAME,
+            "translatable": 0,
+            "hidden": 0,
+            "read_only": 0,
+            "reqd": 0,
+            "description": (
+                "Controls whether ZATCA validation blocks negative item quantities, "
+                "prices, and amounts in standard invoices and debit notes. "
+                "Returns/credit notes are excluded."
+            ),
+            "_fallback_insert_after": [
+                "custom_zatca_invoice_enabled",
+                "custom_costcenter",
+                "custom_company_name_in_arabic",
+                "company_name",
+                "abbr",
+                "default_currency",
+            ],
         }
     ],
     "Customer": [
