@@ -299,6 +299,7 @@ doctype_js = {
         "public/js/zatca_negative_line_validation.js",
         "public/js/badge_pos.js",
     ],
+    "Payment Entry": "public/js/zatca_advance_payment_debug.js",
 }
 
 doctype_list_js = {
