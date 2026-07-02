@@ -177,6 +177,65 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
             ],
         },
     ],
+    "Sales Invoice": [
+        {
+            "fieldname": "custom_zatca_advance_deduction_section",
+            "label": "ZATCA Advance Deductions",
+            "fieldtype": "Section Break",
+            "insert_after": "advances",
+            "module": MODULE_NAME,
+            "translatable": 0,
+            "hidden": 0,
+            "read_only": 0,
+            "reqd": 0,
+            "no_copy": 1,
+            "description": "Automatically summarizes accepted ZATCA advance deductions from ERPNext standard Advance Payments.",
+            "_fallback_insert_after": [
+                "custom_zatca_full_response",
+                "custom_integrations",
+                "taxes_and_charges",
+                "taxes",
+                "items"
+            ],
+        },
+                {
+            "fieldname": "custom_zatca_prepaid_amount",
+            "label": "ZATCA Prepaid Amount",
+            "fieldtype": "Currency",
+            "insert_after": "custom_zatca_advance_deduction_section",
+            "module": MODULE_NAME,
+            "translatable": 0,
+            "hidden": 0,
+            "read_only": 1,
+            "reqd": 0,
+            "no_copy": 1,
+            "description": "Tax-inclusive prepaid amount used for cbc:PrepaidAmount.",
+            "_fallback_insert_after": [
+                "custom_zatca_advance_deductions",
+                "custom_zatca_full_response",
+                "taxes_and_charges",
+                "taxes"
+            ],
+        },
+        {
+            "fieldname": "custom_zatca_advance_deduction_count",
+            "label": "ZATCA Advance Deduction Count",
+            "fieldtype": "Int",
+            "insert_after": "custom_zatca_prepaid_amount",
+            "module": MODULE_NAME,
+            "translatable": 0,
+            "hidden": 0,
+            "read_only": 1,
+            "reqd": 0,
+            "no_copy": 1,
+            "description": "Number of linked advance tax invoices.",
+            "_fallback_insert_after": [
+                "custom_zatca_prepaid_amount",
+                "custom_zatca_advance_deductions",
+                "taxes"
+            ],
+        },
+    ],
     "Customer": [
         {
             "fieldname": "custom_customer_name_in_arabic",
