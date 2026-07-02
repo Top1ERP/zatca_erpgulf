@@ -1,0 +1,914 @@
+{
+  "actions": [],
+  "allow_rename": 1,
+  "autoname": "method",
+  "creation": "2026-07-01 00:00:00.000000",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "overview_section",
+    "company",
+    "payment_entry",
+    "mode_of_payment",
+    "payment_means_code",
+    "customer",
+    "posting_date",
+    "posting_time",
+    "overview_column",
+    "currency",
+    "company_currency",
+    "exchange_rate",
+    "letter_head",
+    "amounts_section",
+    "advance_amount",
+    "tax_rate",
+    "taxable_amount",
+    "tax_amount",
+    "tax_account",
+    "tax_description",
+    "amounts_column",
+    "tax_category",
+    "tax_category_code",
+    "total_amount",
+    "base_taxable_amount",
+    "base_tax_amount",
+    "base_total_amount",
+    "in_words",
+    "base_in_words",
+    "zatca_section",
+    "invoice_type_code",
+    "zatca_uuid",
+    "status",
+    "zatca_status",
+    "debug_xml",
+    "signed_xml",
+    "zatca_column",
+    "qr_code",
+    "invoice_hash",
+    "pih",
+    "icv",
+    "last_debug_at",
+    "full_response",
+    "preflight_section",
+    "preflight_status",
+    "preflight_checked_at",
+    "preflight_details",
+    "preflight_column",
+    "submitted_at",
+    "last_submission_at",
+    "has_warnings",
+    "warning_details",
+    "terms_section",
+    "description",
+    "tc_name",
+    "terms_column",
+    "terms",
+    "company_snapshot_section",
+    "company_name",
+    "company_name_arabic",
+    "company_vat_number",
+    "company_address",
+    "company_address_column",
+    "company_address_line1",
+    "company_address_line2",
+    "company_city",
+    "company_postal_code",
+    "company_country",
+    "company_country_code",
+    "customer_snapshot_section",
+    "customer_name",
+    "customer_name_arabic",
+    "customer_vat_number",
+    "customer_b2c",
+    "customer_buyer_id_type",
+    "customer_buyer_id",
+    "customer_address",
+    "customer_address_column",
+    "customer_address_line1",
+    "customer_address_line2",
+    "customer_city",
+    "customer_postal_code",
+    "customer_country",
+    "customer_country_code",
+    "naming_series",
+    "section_amounts",
+    "section_zatca",
+    "party_snapshot_section",
+    "company_snapshot_column",
+    "customer_snapshot_column",
+    "company_names_column",
+    "customer_names_column",
+    "submission_mode",
+    "zatca_invoice_kind",
+    "unsigned_xml",
+    "cryptographic_stamp",
+    "api_submission_section",
+    "zatca_submission_uuid",
+    "zatca_clearance_status",
+    "zatca_reporting_status",
+    "zatca_response_code",
+    "zatca_response_message",
+    "zatca_warning_messages",
+    "zatca_error_messages",
+    "zatca_response_xml",
+    "last_successful_submission_at",
+    "last_failed_submission_at",
+    "submission_attempts"
+  ],
+  "fields": [
+    {
+      "default": "ZADV-.YYYY.-.#####",
+      "fieldname": "naming_series",
+      "fieldtype": "Data",
+      "label": "Series",
+      "options": "ZADV-.YYYY.-.#####",
+      "reqd": 0,
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "company",
+      "fieldtype": "Link",
+      "label": "Company",
+      "options": "Company",
+      "reqd": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "payment_entry",
+      "fieldtype": "Link",
+      "label": "Payment Entry",
+      "options": "Payment Entry",
+      "reqd": 1,
+      "unique": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "mode_of_payment",
+      "fieldtype": "Link",
+      "label": "Mode of Payment",
+      "options": "Mode of Payment",
+      "read_only": 1,
+      "in_standard_filter": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "payment_means_code",
+      "fieldtype": "Data",
+      "label": "Payment Means Code",
+      "default": "10",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "customer",
+      "fieldtype": "Link",
+      "label": "Customer",
+      "options": "Customer",
+      "reqd": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "posting_date",
+      "fieldtype": "Date",
+      "label": "Posting Date",
+      "reqd": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "posting_time",
+      "fieldtype": "Time",
+      "label": "Posting Time"
+    },
+    {
+      "fieldname": "currency",
+      "fieldtype": "Link",
+      "label": "Currency",
+      "options": "Currency",
+      "reqd": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "company_currency",
+      "fieldtype": "Link",
+      "label": "Company Currency",
+      "options": "Currency",
+      "read_only": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "exchange_rate",
+      "fieldtype": "Float",
+      "label": "Exchange Rate",
+      "read_only": 1,
+      "precision": "9",
+      "no_copy": 1
+    },
+    {
+      "fieldname": "section_amounts",
+      "fieldtype": "Section Break",
+      "label": "Amounts"
+    },
+    {
+      "fieldname": "advance_amount",
+      "fieldtype": "Currency",
+      "label": "Advance Amount",
+      "reqd": 1,
+      "no_copy": 1,
+      "read_only": 1
+    },
+    {
+      "default": "15",
+      "fieldname": "tax_rate",
+      "fieldtype": "Percent",
+      "label": "Tax Rate",
+      "no_copy": 1,
+      "read_only": 1
+    },
+    {
+      "fieldname": "taxable_amount",
+      "fieldtype": "Currency",
+      "label": "Taxable Amount",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "tax_amount",
+      "fieldtype": "Currency",
+      "label": "Tax Amount",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "tax_account",
+      "fieldtype": "Link",
+      "label": "Tax Account",
+      "options": "Account",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "tax_description",
+      "fieldtype": "Data",
+      "label": "Tax Description",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "tax_category",
+      "fieldtype": "Select",
+      "label": "ZATCA Tax Category",
+      "options": "Standard\nZero Rated\nExempt\nOut of Scope",
+      "default": "Standard",
+      "read_only": 1,
+      "in_standard_filter": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "tax_category_code",
+      "fieldtype": "Data",
+      "label": "ZATCA Tax Category Code",
+      "default": "S",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "total_amount",
+      "fieldtype": "Currency",
+      "label": "Total Amount",
+      "read_only": 1,
+      "in_list_view": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "base_taxable_amount",
+      "fieldtype": "Currency",
+      "label": "Base Taxable Amount",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "base_tax_amount",
+      "fieldtype": "Currency",
+      "label": "Base Tax Amount",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "base_total_amount",
+      "fieldtype": "Currency",
+      "label": "Base Total Amount",
+      "read_only": 1,
+      "in_list_view": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "in_words",
+      "fieldtype": "Data",
+      "label": "In Words",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "base_in_words",
+      "fieldtype": "Data",
+      "label": "In Words (Company Currency)",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "section_zatca",
+      "fieldtype": "Section Break",
+      "label": "ZATCA"
+    },
+    {
+      "default": "386",
+      "fieldname": "invoice_type_code",
+      "fieldtype": "Data",
+      "label": "Invoice Type Code",
+      "read_only": 1
+    },
+    {
+      "fieldname": "zatca_uuid",
+      "fieldtype": "Data",
+      "label": "ZATCA UUID",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "default": "Draft",
+      "fieldname": "status",
+      "fieldtype": "Select",
+      "label": "Document Status",
+      "options": "Draft\nFinal\nCancelled",
+      "read_only": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1,
+      "no_copy": 1
+    },
+    {
+      "default": "Not Submitted",
+      "fieldname": "zatca_status",
+      "fieldtype": "Select",
+      "label": "ZATCA Status",
+      "options": "Not Submitted\nDebug XML Created\nPreflight Passed\nQueued\nSending\nCleared\nReported\nFailed\nWarning",
+      "read_only": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "debug_xml",
+      "fieldtype": "Attach",
+      "label": "Debug XML",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "last_debug_at",
+      "fieldtype": "Datetime",
+      "label": "Last Debug At",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "full_response",
+      "fieldtype": "Long Text",
+      "label": "Full Response",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "terms",
+      "fieldtype": "Text Editor",
+      "label": "Terms and Conditions",
+      "no_copy": 0
+    },
+    {
+      "fieldname": "party_snapshot_section",
+      "fieldtype": "Section Break",
+      "label": "Party Snapshot"
+    },
+    {
+      "fieldname": "company_name",
+      "fieldtype": "Data",
+      "label": "Company Name",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "company_name_arabic",
+      "fieldtype": "Data",
+      "label": "Company Name Arabic",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "company_vat_number",
+      "fieldtype": "Data",
+      "label": "Company VAT Number",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "company_address",
+      "fieldtype": "Link",
+      "label": "Company Address",
+      "read_only": 1,
+      "options": "Address",
+      "no_copy": 1
+    },
+    {
+      "fieldname": "company_address_line1",
+      "fieldtype": "Data",
+      "label": "Company Address Line 1",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "company_address_line2",
+      "fieldtype": "Data",
+      "label": "Company Address Line 2",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "company_city",
+      "fieldtype": "Data",
+      "label": "Company City",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "company_postal_code",
+      "fieldtype": "Data",
+      "label": "Company Postal Code",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "company_country",
+      "fieldtype": "Data",
+      "label": "Company Country",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "customer_name",
+      "fieldtype": "Data",
+      "label": "Customer Name",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "customer_name_arabic",
+      "fieldtype": "Data",
+      "label": "Customer Name Arabic",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "customer_vat_number",
+      "fieldtype": "Data",
+      "label": "Customer VAT Number",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "customer_b2c",
+      "fieldtype": "Check",
+      "label": "Customer B2C",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "customer_buyer_id_type",
+      "fieldtype": "Data",
+      "label": "Customer Buyer ID Type",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "customer_buyer_id",
+      "fieldtype": "Data",
+      "label": "Customer Buyer ID",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "customer_address",
+      "fieldtype": "Link",
+      "label": "Customer Address",
+      "read_only": 1,
+      "options": "Address",
+      "no_copy": 1
+    },
+    {
+      "fieldname": "customer_address_line1",
+      "fieldtype": "Data",
+      "label": "Customer Address Line 1",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "customer_address_line2",
+      "fieldtype": "Data",
+      "label": "Customer Address Line 2",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "customer_city",
+      "fieldtype": "Data",
+      "label": "Customer City",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "customer_postal_code",
+      "fieldtype": "Data",
+      "label": "Customer Postal Code",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "customer_country",
+      "fieldtype": "Data",
+      "label": "Customer Country",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "letter_head",
+      "fieldtype": "Link",
+      "label": "Letter Head",
+      "options": "Letter Head",
+      "no_copy": 0
+    },
+    {
+      "fieldname": "tc_name",
+      "fieldtype": "Link",
+      "label": "Terms Template",
+      "options": "Terms and Conditions",
+      "no_copy": 0
+    },
+    {
+      "fieldname": "description",
+      "fieldtype": "Small Text",
+      "label": "Description",
+      "default": "Advance Payment",
+      "no_copy": 0
+    },
+    {
+      "fieldname": "preflight_status",
+      "fieldtype": "Select",
+      "label": "Preflight Status",
+      "options": "Not Checked\nPassed\nFailed",
+      "default": "Not Checked",
+      "read_only": 1,
+      "in_standard_filter": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "preflight_checked_at",
+      "fieldtype": "Datetime",
+      "label": "Preflight Checked At",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "preflight_details",
+      "fieldtype": "Long Text",
+      "label": "Preflight Details",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "submitted_at",
+      "fieldtype": "Datetime",
+      "label": "Submitted At",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "last_submission_at",
+      "fieldtype": "Datetime",
+      "label": "Last Submission At",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "has_warnings",
+      "fieldtype": "Check",
+      "label": "Has Warnings",
+      "read_only": 1,
+      "in_standard_filter": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "warning_details",
+      "fieldtype": "Long Text",
+      "label": "Warning Details",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "signed_xml",
+      "fieldtype": "Attach",
+      "label": "Signed XML",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "qr_code",
+      "fieldtype": "Attach Image",
+      "label": "QR Code",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "invoice_hash",
+      "fieldtype": "Data",
+      "label": "Invoice Hash",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "pih",
+      "fieldtype": "Data",
+      "label": "PIH",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "icv",
+      "fieldtype": "Data",
+      "label": "ICV",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "overview_section",
+      "fieldtype": "Section Break",
+      "label": "Overview"
+    },
+    {
+      "fieldname": "amounts_section",
+      "fieldtype": "Section Break",
+      "label": "Amounts"
+    },
+    {
+      "fieldname": "zatca_section",
+      "fieldtype": "Section Break",
+      "label": "ZATCA"
+    },
+    {
+      "fieldname": "preflight_section",
+      "fieldtype": "Section Break",
+      "label": "Preflight and Submission"
+    },
+    {
+      "fieldname": "terms_section",
+      "fieldtype": "Section Break",
+      "label": "Print and Terms"
+    },
+    {
+      "fieldname": "company_snapshot_section",
+      "fieldtype": "Section Break",
+      "label": "Company Snapshot"
+    },
+    {
+      "fieldname": "customer_snapshot_section",
+      "fieldtype": "Section Break",
+      "label": "Customer Snapshot"
+    },
+    {
+      "fieldname": "overview_column",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "amounts_column",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "zatca_column",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "preflight_column",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "terms_column",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "company_snapshot_column",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "customer_snapshot_column",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "company_names_column",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "customer_names_column",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "company_country_code",
+      "fieldtype": "Data",
+      "label": "Company Country Code",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "customer_country_code",
+      "fieldtype": "Data",
+      "label": "Customer Country Code",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "company_address_column",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "customer_address_column",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "submission_mode",
+      "fieldtype": "Select",
+      "label": "Submission Mode",
+      "options": "Local Only\nSubmit to ZATCA",
+      "default": "Local Only",
+      "read_only": 1,
+      "in_standard_filter": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "zatca_invoice_kind",
+      "fieldtype": "Select",
+      "label": "ZATCA Invoice Kind",
+      "options": "Standard\nSimplified",
+      "default": "Standard",
+      "read_only": 1,
+      "in_standard_filter": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "unsigned_xml",
+      "fieldtype": "Attach",
+      "label": "Unsigned XML",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "cryptographic_stamp",
+      "fieldtype": "Long Text",
+      "label": "Cryptographic Stamp",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "api_submission_section",
+      "fieldtype": "Section Break",
+      "label": "ZATCA API Submission"
+    },
+    {
+      "fieldname": "zatca_submission_uuid",
+      "fieldtype": "Data",
+      "label": "ZATCA Submission UUID",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "zatca_clearance_status",
+      "fieldtype": "Select",
+      "label": "Clearance Status",
+      "options": "Not Submitted\nPending\nCleared\nFailed",
+      "default": "Not Submitted",
+      "read_only": 1,
+      "in_standard_filter": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "zatca_reporting_status",
+      "fieldtype": "Select",
+      "label": "Reporting Status",
+      "options": "Not Submitted\nPending\nReported\nFailed",
+      "default": "Not Submitted",
+      "read_only": 1,
+      "in_standard_filter": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "zatca_response_code",
+      "fieldtype": "Data",
+      "label": "ZATCA Response Code",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "zatca_response_message",
+      "fieldtype": "Small Text",
+      "label": "ZATCA Response Message",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "zatca_warning_messages",
+      "fieldtype": "Long Text",
+      "label": "ZATCA Warning Messages",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "zatca_error_messages",
+      "fieldtype": "Long Text",
+      "label": "ZATCA Error Messages",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "zatca_response_xml",
+      "fieldtype": "Attach",
+      "label": "ZATCA Response XML",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "last_successful_submission_at",
+      "fieldtype": "Datetime",
+      "label": "Last Successful Submission At",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "last_failed_submission_at",
+      "fieldtype": "Datetime",
+      "label": "Last Failed Submission At",
+      "read_only": 1,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "submission_attempts",
+      "fieldtype": "Int",
+      "label": "Submission Attempts",
+      "read_only": 1,
+      "no_copy": 1
+    }
+  ],
+  "index_web_pages_for_search": 1,
+  "is_submittable": 0,
+  "links": [],
+  "modified": "2026-07-01 00:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "Zatca Erpgulf",
+  "name": "ZATCA Advance Tax Invoice",
+  "naming_rule": "Expression",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "create": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Accounts Manager",
+      "share": 1,
+      "write": 1
+    }
+  ],
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "states": [],
+  "track_changes": 1,
+  "title_field": "customer",
+  "default_print_format": "ZATCA Advance Tax Invoice"
+}
