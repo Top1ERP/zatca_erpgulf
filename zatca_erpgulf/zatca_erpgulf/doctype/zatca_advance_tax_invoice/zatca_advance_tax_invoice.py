@@ -76,6 +76,21 @@ def company_currency(company: str) -> str:
     return frappe.db.get_value("Company", company, "default_currency") or "SAR"
 
 
+def get_company_default_letter_head(company: str) -> str:
+    if not company or not frappe.db.exists("Company", company):
+        return ""
+
+    meta = frappe.get_meta("Company")
+
+    for fieldname in ("default_letter_head", "letter_head"):
+        if meta.has_field(fieldname):
+            value = safe_text(frappe.db.get_value("Company", company, fieldname))
+            if value:
+                return value
+
+    return ""
+
+
 def payment_document_currency(payment_entry) -> str:
     return (
         safe_text(getattr(payment_entry, "paid_from_account_currency", None))
@@ -139,6 +154,9 @@ class ZATCAAdvanceTaxInvoice(Document):
         if self.meta.has_field("zatca_status") and not self.zatca_status:
             self.zatca_status = "Not Submitted"
 
+        if self.meta.has_field("print_heading") and not self.print_heading:
+            self.print_heading = "Advance Tax Invoice"
+
         if self.payment_entry:
             self._sync_from_payment_entry()
 
@@ -174,7 +192,15 @@ class ZATCAAdvanceTaxInvoice(Document):
         if self.meta.has_field("payment_means_code"):
             self.payment_means_code = "10"
         if self.meta.has_field("letter_head"):
-            self.letter_head = getattr(payment_entry, "letter_head", None) or self.letter_head
+            self.letter_head = (
+                safe_text(getattr(payment_entry, "letter_head", None))
+                or self.letter_head
+                or get_company_default_letter_head(payment_entry.company)
+            )
+
+        if self.meta.has_field("print_heading") and not self.print_heading:
+            self.print_heading = safe_text(getattr(payment_entry, "print_heading", None)) or "Advance Tax Invoice"
+
         if self.meta.has_field("tc_name") and not self.tc_name:
             self._set_default_terms_template(payment_entry.company)
 

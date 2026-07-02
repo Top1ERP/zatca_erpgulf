@@ -19,6 +19,7 @@
     "company_currency",
     "exchange_rate",
     "letter_head",
+    "print_heading",
     "amounts_section",
     "advance_amount",
     "tax_rate",
@@ -869,6 +870,13 @@
       "label": "Submission Attempts",
       "read_only": 1,
       "no_copy": 1
+    },
+    {
+      "fieldname": "print_heading",
+      "fieldtype": "Data",
+      "label": "Print Heading",
+      "default": "Advance Tax Invoice",
+      "no_copy": 0
     }
   ],
   "index_web_pages_for_search": 1,
