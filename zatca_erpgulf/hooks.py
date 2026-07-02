@@ -299,11 +299,14 @@ doctype_js = {
         "public/js/zatca_negative_line_validation.js",
         "public/js/badge_pos.js",
     ],
+    "Payment Entry": "public/js/zatca_advance_payment_debug.js",
+    "ZATCA Advance Tax Invoice": "public/js/zatca_advance_tax_invoice.js",
 }
 
 doctype_list_js = {
     "Sales Invoice": "public/js/resubmit.js",
     "POS Invoice": "public/js/resubmitpos.js",
+    "ZATCA Advance Tax Invoice": "public/js/zatca_advance_tax_invoice_list.js",
 }
 
 
@@ -362,3 +365,7 @@ app_include_js = "/assets/zatca_erpgulf/js/tooltip.js"
 after_install = "zatca_erpgulf.setup_customizations.after_install"
 after_sync = "zatca_erpgulf.setup_customizations.after_sync"
 after_migrate = "zatca_erpgulf.setup_customizations.after_migrate"
+
+# ZATCA advance payment copy guard
+doc_events.setdefault("Payment Entry", {})
+doc_events["Payment Entry"]["validate"] = "zatca_erpgulf.zatca_erpgulf.advance_payment_debug.cleanup_copied_advance_fields_on_payment_entry_save"
