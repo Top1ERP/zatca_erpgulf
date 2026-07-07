@@ -206,6 +206,62 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
     ],
     "Sales Invoice": [
         {
+            "fieldname": "custom_is_advance_credit_note",
+            "label": "Is Advance Credit Note",
+            "fieldtype": "Check",
+            "insert_after": "return_against",
+            "module": MODULE_NAME,
+            "translatable": 0,
+            "hidden": 0,
+            "read_only": 0,
+            "reqd": 0,
+            "no_copy": 1,
+            "depends_on": "eval:doc.is_return",
+            "description": (
+                "Enable this when the credit note cancels or reverses a ZATCA "
+                "advance payment invoice."
+            ),
+            "_alternatives": [
+                "custom_is_advance_credit_note",
+            ],
+            "_fallback_insert_after": [
+                "return_against",
+                "is_return",
+                "remarks",
+            ],
+        },
+        {
+            "fieldname": "custom_advance_invoice_reference",
+            "label": "Advance Invoice Reference",
+            "fieldtype": "Link",
+            "options": "ZATCA Advance Tax Invoice",
+            "insert_after": "custom_is_advance_credit_note",
+            "module": MODULE_NAME,
+            "translatable": 0,
+            "hidden": 0,
+            "read_only": 0,
+            "reqd": 0,
+            "no_copy": 1,
+            "depends_on": "eval:doc.is_return && doc.custom_is_advance_credit_note",
+            "mandatory_depends_on": "eval:doc.is_return && doc.custom_is_advance_credit_note",
+            "description": (
+                "Reference to the original ZATCA advance payment invoice when this "
+                "credit note cancels or reverses an advance payment invoice."
+            ),
+            "_alternatives": [
+                "custom_advance_invoice_reference",
+            ],
+            "_fallback_insert_after": [
+                "custom_is_advance_credit_note",
+                "return_against",
+                "is_return",
+                "remarks",
+            ],
+        },
+
+
+
+        {
             "fieldname": "custom_zatca_advance_deduction_section",
             "label": "ZATCA Advance Deductions",
             "fieldtype": "Section Break",

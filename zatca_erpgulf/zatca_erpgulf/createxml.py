@@ -79,6 +79,56 @@ def _use_line_net_amounts_discount_model(sales_invoice_doc):
     return has_line_level_discount_effect and abs(total_gross - total_net) > 0.000001
 
 
+
+def _is_valid_zatca_uuid_value(value):
+    """Return True when the stored value is a real UUID-like value, not a placeholder."""
+    value = str(value or "").strip()
+
+    if not value:
+        return False
+
+    invalid_values = {
+        "not submitted",
+        "not submitted.",
+        "not submitted ",
+        "not submitted\n",
+        "none",
+        "null",
+        "false",
+        "0",
+    }
+
+    return value.lower() not in invalid_values
+
+
+def _get_or_create_sales_invoice_uuid(sales_invoice_doc):
+    """
+    Persist the invoice UUID before ZATCA submission.
+
+    This prevents retry attempts from generating a new UUID if ZATCA accepted
+    the invoice but ERPNext failed to update the local status because of a
+    timeout or network interruption.
+    """
+    existing_uuid = getattr(sales_invoice_doc, "custom_uuid", None)
+
+    if _is_valid_zatca_uuid_value(existing_uuid):
+        return str(existing_uuid).strip()
+
+    generated_uuid = str(uuid.uuid1())
+
+    if hasattr(sales_invoice_doc, "custom_uuid"):
+        sales_invoice_doc.db_set(
+            "custom_uuid",
+            generated_uuid,
+            commit=True,
+            update_modified=False,
+        )
+        sales_invoice_doc.custom_uuid = generated_uuid
+
+    return generated_uuid
+
+
+
 def get_icv_code(invoice_number):
     """
     Extracts the numeric part from the invoice number to generate the ICV code.
@@ -639,8 +689,8 @@ def salesinvoice_data(invoice, invoice_number):
         cbc_id.text = str(sales_invoice_doc.name)
 
         cbc_uuid = ET.SubElement(invoice, "cbc:UUID")
-        cbc_uuid.text = str(uuid.uuid1())
-        uuid1 = cbc_uuid.text
+        uuid1 = _get_or_create_sales_invoice_uuid(sales_invoice_doc)
+        cbc_uuid.text = uuid1
 
         cbc_issue_date = ET.SubElement(invoice, "cbc:IssueDate")
         cbc_issue_date.text = str(sales_invoice_doc.posting_date)
