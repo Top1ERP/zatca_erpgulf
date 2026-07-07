@@ -481,12 +481,55 @@ def validate_sales_invoice_taxes(doc, event=None):
     # Return / Credit Note validation
     # ----------------------------------------
     if cint(getattr(doc, "is_return", 0)) == 1 and doc.doctype in ["Sales Invoice", "POS Invoice"]:
-        if not getattr(doc, "return_against", None):
+        is_advance_credit_note = (
+            doc.doctype == "Sales Invoice"
+            and cint(getattr(doc, "custom_is_advance_credit_note", 0)) == 1
+        )
+
+        if is_advance_credit_note:
+            advance_reference = str(
+                getattr(doc, "custom_advance_invoice_reference", "") or ""
+            ).strip()
+
+            if not advance_reference:
+                frappe.throw(
+                    _(
+                        "Advance Invoice Reference is required when this credit note "
+                        "cancels or reverses a ZATCA advance payment invoice."
+                    )
+                )
+
+            if not frappe.db.exists("ZATCA Advance Tax Invoice", advance_reference):
+                frappe.throw(
+                    _("ZATCA Advance Tax Invoice not found: {0}").format(
+                        advance_reference
+                    )
+                )
+
+            advance_doc = frappe.get_doc("ZATCA Advance Tax Invoice", advance_reference)
+            advance_status_values = [
+                getattr(advance_doc, "zatca_status", None),
+                getattr(advance_doc, "zatca_clearance_status", None),
+                getattr(advance_doc, "zatca_reporting_status", None),
+            ]
+
+            if not any(
+                str(status or "").strip().lower() in {"cleared", "reported"}
+                for status in advance_status_values
+            ):
+                frappe.throw(
+                    _(
+                        "Original ZATCA advance payment invoice must be Cleared or "
+                        "Reported before creating a credit note."
+                    )
+                )
+
+        elif not getattr(doc, "return_against", None):
             frappe.throw(
                 _(
                     "As per ZATCA regulation, the Billing Reference ID "
                     "(Original Invoice Number) is mandatory for "
-                    "Credit Notes and Return Invoices. "
+                    "Credit Notes and Return Invoices.\n"
                     "Please select the original invoice in the 'Return Against' field."
                 )
             )

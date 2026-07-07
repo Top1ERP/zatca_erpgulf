@@ -517,22 +517,92 @@ def _append_party_names(party_element, names):
         cbc_name = ET.SubElement(cac_party_name, "cbc:Name")
         cbc_name.text = name
 
+
+def _is_advance_credit_note_for_prepayment(sales_invoice_doc):
+    """Return True when this Sales Invoice is a credit note for a ZATCA advance invoice."""
+    return (
+        cint(getattr(sales_invoice_doc, "is_return", 0)) == 1
+        and cint(getattr(sales_invoice_doc, "custom_is_advance_credit_note", 0)) == 1
+    )
+
+
+def _advance_invoice_status_is_submitted(advance_doc):
+    """Accept either the main ZATCA status or the clearance/reporting status fields."""
+    status_values = [
+        getattr(advance_doc, "zatca_status", None),
+        getattr(advance_doc, "zatca_clearance_status", None),
+        getattr(advance_doc, "zatca_reporting_status", None),
+    ]
+
+    return any(
+        str(status or "").strip().lower() in {"cleared", "reported"}
+        for status in status_values
+    )
+
+
+def _get_advance_credit_note_reference(sales_invoice_doc):
+    """Validate and return the original ZATCA advance invoice reference."""
+    reference = str(
+        getattr(sales_invoice_doc, "custom_advance_invoice_reference", "") or ""
+    ).strip()
+
+    if not reference:
+        frappe.throw(
+            _(
+                "Advance Invoice Reference is required when this credit note "
+                "cancels or reverses a ZATCA advance payment invoice."
+            )
+        )
+
+    if not frappe.db.exists("ZATCA Advance Tax Invoice", reference):
+        frappe.throw(
+            _("ZATCA Advance Tax Invoice not found: {0}").format(reference)
+        )
+
+    advance_doc = frappe.get_doc("ZATCA Advance Tax Invoice", reference)
+
+    if not _advance_invoice_status_is_submitted(advance_doc):
+        frappe.throw(
+            _(
+                "Original ZATCA advance payment invoice must be Cleared or Reported "
+                "before creating a credit note."
+            )
+        )
+
+    return reference
+
+
+
 def billing_reference_for_credit_and_debit_note(invoice, sales_invoice_doc):
     """
     Adds billing reference details for credit and debit notes to the invoice XML.
+
+    Standard returns / credit notes continue to reference Sales Invoice.return_against.
+    Advance credit notes reference ZATCA Advance Tax Invoice via
+    Sales Invoice.custom_advance_invoice_reference.
     """
     try:
-        # details of original invoice
+        billing_reference_id = getattr(sales_invoice_doc, "return_against", None)
+
+        if _is_advance_credit_note_for_prepayment(sales_invoice_doc):
+            billing_reference_id = _get_advance_credit_note_reference(sales_invoice_doc)
+        elif not billing_reference_id:
+            frappe.throw(
+                _(
+                    "Billing Reference ID is mandatory for credit notes, debit notes, "
+                    "and return invoices."
+                )
+            )
+
         cac_billingreference = ET.SubElement(invoice, "cac:BillingReference")
         cac_invoicedocumentreference = ET.SubElement(
             cac_billingreference, "cac:InvoiceDocumentReference"
         )
         cbc_id13 = ET.SubElement(cac_invoicedocumentreference, CBC_ID)
-        cbc_id13.text = (
-            sales_invoice_doc.return_against
-        )  # field from return against invoice.
+        cbc_id13.text = str(billing_reference_id)
 
         return invoice
+
     except (ValueError, KeyError, AttributeError) as error:
         frappe.throw(
             _(

@@ -241,18 +241,24 @@ scheduler_events = {
 # }
 doc_events = {
     "Sales Invoice": {
-        # "before_insert":"zatca_erpgulf.zatca_erpgulf.sales_invoice_hooks.set_draft_series",
+        # "before_insert": "zatca_erpgulf.zatca_erpgulf.sales_invoice_hooks.set_draft_series",
         "validate": [
             "zatca_erpgulf.zatca_erpgulf.tax_error.validate_negative_item_values_on_save",
             "zatca_erpgulf.zatca_erpgulf.advance_deduction.validate_sales_invoice_advance_deductions",
+            "zatca_erpgulf.zatca_erpgulf.advance_credit_note.validate_advance_credit_note_against_original",
         ],
         "before_cancel": "zatca_erpgulf.zatca_erpgulf.validations.before_save",
-        "before_submit": "zatca_erpgulf.zatca_erpgulf.tax_error.validate_sales_invoice_taxes",
+        "before_submit": [
+            "zatca_erpgulf.zatca_erpgulf.tax_error.validate_sales_invoice_taxes",
+            "zatca_erpgulf.zatca_erpgulf.advance_credit_note.validate_advance_credit_note_against_original",
+        ],
         "after_insert": "zatca_erpgulf.zatca_erpgulf.validations.duplicating_invoice",
         "on_submit": [
             # "zatca_erpgulf.zatca_erpgulf.sales_invoice_hooks.rename_invoice_on_submit",
-             "zatca_erpgulf.zatca_erpgulf.sign_invoice.zatca_background_on_submit"
-            ]
+            "zatca_erpgulf.zatca_erpgulf.sign_invoice.zatca_background_on_submit",
+            "zatca_erpgulf.zatca_erpgulf.advance_credit_note.update_advance_invoice_reversal_status_from_sales_invoice",
+        ],
+        "on_cancel": "zatca_erpgulf.zatca_erpgulf.advance_credit_note.update_advance_invoice_reversal_status_from_sales_invoice",
     },
     "POS Invoice": {
         "validate": "zatca_erpgulf.zatca_erpgulf.tax_error.validate_negative_item_values_on_save",
@@ -264,8 +270,6 @@ doc_events = {
 }
 
 
-
-
 jinja = {
     "methods": [
         "zatca_erpgulf.zatca_erpgulf.utils.arabic_money_in_words",
@@ -273,20 +277,7 @@ jinja = {
     ]
 }
 
-# doc_events = {
-#     "Sales Invoice": {
-#         "before_cancel": "zatca_erpgulf.zatca_erpgulf.validations.before_save",
-#         "before_submit": "zatca_erpgulf.zatca_erpgulf.tax_error.validate_sales_invoice_taxes",
-#         "after_insert": "zatca_erpgulf.zatca_erpgulf.validations.duplicating_invoice",
-#         "on_submit": "zatca_erpgulf.zatca_erpgulf.sign_invoice.zatca_background_on_submit",
-#     },
-#     "POS Invoice": {
-#         "before_cancel": "zatca_erpgulf.zatca_erpgulf.validations.before_save",
-#         "before_submit": "zatca_erpgulf.zatca_erpgulf.tax_error.validate_sales_invoice_taxes",
-#         "after_insert": "zatca_erpgulf.zatca_erpgulf.validations.duplicating_invoice",
-#         "on_submit": "zatca_erpgulf.zatca_erpgulf.pos_sign.zatca_background_on_submit",
-#     },
-# }
+
 doctype_js = {
     "Sales Invoice": [
         # "public/js/draft.js",
