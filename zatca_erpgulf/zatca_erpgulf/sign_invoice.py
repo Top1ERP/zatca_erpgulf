@@ -16,6 +16,28 @@ import frappe
 import requests
 from zatca_erpgulf.zatca_erpgulf.event_log import log_zatca_event
 
+
+def _is_valid_zatca_uuid_value(value):
+    """Return True when the stored value is a real UUID-like value, not a placeholder."""
+    value = str(value or "").strip()
+
+    if not value:
+        return False
+
+    invalid_values = {
+        "not submitted",
+        "not submitted.",
+        "not submitted ",
+        "not submitted\n",
+        "none",
+        "null",
+        "false",
+        "0",
+    }
+
+    return value.lower() not in invalid_values
+
+
 def _get_customer_country_code(customer_doc):
     address_name = getattr(customer_doc, "customer_primary_address", None)
     if not address_name:
@@ -347,7 +369,8 @@ def reporting_api(
                     #     commit=True,
                     #     update_modified=True,
                     # )
-                    invoice_doc.custom_uuid = "Not Submitted"
+                    if not _is_valid_zatca_uuid_value(getattr(invoice_doc, "custom_uuid", None)):
+                        invoice_doc.custom_uuid = "Not Submitted"
                     invoice_doc.custom_zatca_status = "Not Submitted"
                     invoice_doc.custom_zatca_full_response = "Not Submitted"
                     invoice_doc.save(ignore_permissions=True)  # or with permissions if needed
@@ -383,7 +406,8 @@ def reporting_api(
                     #     commit=True,
                     #     update_modified=True,
                     # )
-                    invoice_doc.custom_uuid = "Not Submitted"
+                    if not _is_valid_zatca_uuid_value(getattr(invoice_doc, "custom_uuid", None)):
+                        invoice_doc.custom_uuid = "Not Submitted"
                     invoice_doc.custom_zatca_status = "Not Submitted"
                     invoice_doc.custom_zatca_full_response = "Not Submitted"
                     invoice_doc.save(ignore_permissions=True)  # or with permissions if needed
@@ -459,7 +483,8 @@ def reporting_api(
                     #     commit=True,
                     #     update_modified=True,
                     # )
-                    invoice_doc.custom_uuid = "Not Submitted"
+                    if not _is_valid_zatca_uuid_value(getattr(invoice_doc, "custom_uuid", None)):
+                        invoice_doc.custom_uuid = "Not Submitted"
                     invoice_doc.custom_zatca_status = "Not Submitted"
                     invoice_doc.custom_zatca_full_response = "Not Submitted"
                     invoice_doc.save(ignore_permissions=True)  # or with permissions if needed
@@ -663,9 +688,10 @@ def clearance_api(
         frappe.publish_realtime("hide_gif", user=frappe.session.user)
         if response.status_code in (400, 405, 406):
             invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
-            invoice_doc.db_set(
-                "custom_uuid", "Not Submitted", commit=True, update_modified=True
-            )
+            if not _is_valid_zatca_uuid_value(getattr(invoice_doc, "custom_uuid", None)):
+                invoice_doc.db_set(
+                    "custom_uuid", "Not Submitted", commit=True, update_modified=True
+                )
             invoice_doc.db_set(
                 "custom_zatca_status",
                 "Not Submitted",
@@ -684,9 +710,10 @@ def clearance_api(
             )
         if response.status_code in (401, 403, 407, 451):
             invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
-            invoice_doc.db_set(
-                "custom_uuid", "Not Submitted", commit=True, update_modified=True
-            )
+            if not _is_valid_zatca_uuid_value(getattr(invoice_doc, "custom_uuid", None)):
+                invoice_doc.db_set(
+                    "custom_uuid", "Not Submitted", commit=True, update_modified=True
+                )
             invoice_doc.db_set(
                 "custom_zatca_status",
                 "Not Submitted",
@@ -750,9 +777,10 @@ def clearance_api(
         #     error_log()
         if response.status_code not in (200, 202, 409):
             invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
-            invoice_doc.db_set(
-                "custom_uuid", "Not Submitted", commit=True, update_modified=True
-            )
+            if not _is_valid_zatca_uuid_value(getattr(invoice_doc, "custom_uuid", None)):
+                invoice_doc.db_set(
+                    "custom_uuid", "Not Submitted", commit=True, update_modified=True
+                )
             invoice_doc.db_set(
                 "custom_zatca_status",
                 "Not Submitted",
