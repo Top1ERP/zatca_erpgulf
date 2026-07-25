@@ -248,6 +248,7 @@ frappe.ui.form.on("Company", {
             method: "zatca_erpgulf.zatca_erpgulf.sign_invoice.zatca_call_compliance",
             args: {
                 "invoice_number": frm.doc.custom_sample_invoice_number_to_test,
+                "company_name": frm.doc.name,
                 "compliance_type": "1",
                 "company_abbr": frm.doc.abbr,
                 "source_doc": frm.doc,
