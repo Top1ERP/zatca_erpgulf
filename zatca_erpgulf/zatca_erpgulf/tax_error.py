@@ -117,8 +117,44 @@ def _get_negative_line_validation_mode(company_doc) -> str:
     return mode
 
 
+def _get_zatca_user_language() -> str:
+    """Return the user's configured language for ZATCA validation messages."""
+    try:
+        user = getattr(frappe.session, "user", None)
+        if user and user != "Guest":
+            user_language = frappe.db.get_value("User", user, "language")
+            if user_language:
+                return _safe_str(user_language)
+    except Exception:
+        pass
+
+    return _safe_str(getattr(frappe.local, "lang", None) or "en")
+
+
+def _zt(source_text: str) -> str:
+    """Translate ZATCA validation text only when the user selected Arabic."""
+    source_text = _safe_str(source_text)
+    if not source_text:
+        return ""
+
+    user_language = _get_zatca_user_language().lower()
+
+    if user_language.startswith("ar"):
+        try:
+            return _(source_text, lang="ar")
+        except TypeError:
+            old_lang = getattr(frappe.local, "lang", None)
+            try:
+                frappe.local.lang = "ar"
+                return _(source_text)
+            finally:
+                frappe.local.lang = old_lang
+
+    return source_text
+
+
 def _build_negative_line_issue_line(doc, issue) -> str:
-    field_label = _(issue.get("field_label") or "")
+    field_label = _zt(issue.get("field_label") or "")
     value = issue.get("value")
 
     reason = issue.get("reason")
@@ -134,10 +170,10 @@ def _build_negative_line_issue_line(doc, issue) -> str:
         else:
             reason = "Item rates, prices, and amounts must not be negative."
 
-    reason = _(reason)
+    reason = _zt(reason)
 
     if issue.get("item_code"):
-        return _("- Row {0}, Item {1}, {2}: {3}. {4}").format(
+        return _zt("- Row {0}, Item {1}, {2}: {3}. {4}").format(
             issue.get("idx") or "",
             issue.get("item_code"),
             field_label,
@@ -145,7 +181,7 @@ def _build_negative_line_issue_line(doc, issue) -> str:
             reason,
         )
 
-    return _("- Row {0}, {1}: {2}. {3}").format(
+    return _zt("- Row {0}, {1}: {2}. {3}").format(
         issue.get("idx") or "",
         field_label,
         value,
@@ -166,36 +202,36 @@ def _build_negative_line_validation_message(doc, issues) -> str:
 
     if len(issues) > len(shown_issues):
         issue_lines.append(
-            _("- ... and {0} more invalid values.").format(
+            _zt("- ... and {0} more invalid values.").format(
                 len(issues) - len(shown_issues)
             )
         )
 
-    document_name = getattr(doc, "name", "") or _("new document")
+    document_name = getattr(doc, "name", "") or _zt("new document")
 
     return "\n".join(
         [
-            _("ZATCA item line validation failed."),
+            _zt("ZATCA item line validation failed."),
             "",
-            _("For standard invoices and debit notes:"),
-            "- " + _("Item quantity must not be negative."),
-            "- " + _("Item rates, prices, and amounts must not be negative."),
-            "- " + _("Zero quantity and zero monetary values are allowed by this ZATCA validation layer."),
+            _zt("For standard invoices and debit notes:"),
+            "- " + _zt("Item quantity must not be negative."),
+            "- " + _zt("Item rates, prices, and amounts must not be negative."),
+            "- " + _zt("Zero quantity and zero monetary values are allowed by this ZATCA validation layer."),
             "",
-            _("For returns / credit notes:"),
-            "- " + _("Item quantity must not be positive."),
-            "- " + _("Item rates must not be negative."),
-            "- " + _("Zero quantity is allowed by this ZATCA validation layer."),
+            _zt("For returns / credit notes:"),
+            "- " + _zt("Item quantity must not be positive."),
+            "- " + _zt("Item rates must not be negative."),
+            "- " + _zt("Zero quantity is allowed by this ZATCA validation layer."),
             "",
-            _("Document {0} {1} contains invalid item values:").format(
+            _zt("Document {0} {1} contains invalid item values:").format(
                 doc.doctype,
                 document_name,
             ),
             "\n".join(issue_lines),
             "",
-            _("If a row represents a discount, use the discount fields."),
-            _("If it represents retention or deduction, use the taxes and deductions table."),
-            _("If it represents an advance payment, create a Payment Entry and issue an Advance Tax Invoice (386)."),
+            _zt("If a row represents a discount, use the discount fields."),
+            _zt("If it represents retention or deduction, use the taxes and deductions table."),
+            _zt("If it represents an advance payment, create a Payment Entry and issue an Advance Tax Invoice (386)."),
         ]
     )
 
@@ -231,14 +267,7 @@ def _get_item_tax_template_doc(item):
 
 
 def validate_zatca_tax_category_and_exemption_reason(doc) -> None:
-    """Validate that ZATCA tax category and exemption reason are complete.
-
-    Rules:
-    - If one item uses Item Tax Template, all items must use Item Tax Template.
-    - Item Tax Template must define ZATCA Tax Category.
-    - ZATCA exemption reason is mandatory for Zero Rated, Exempted, and Out of Scope categories.
-    - Export invoices must explicitly carry a ZATCA tax category and exemption/zero-rating reason.
-    """
+    """Validate that ZATCA tax category and exemption reason are complete."""
     if doc.doctype not in {"Sales Invoice", "POS Invoice"}:
         return
 
@@ -256,7 +285,7 @@ def validate_zatca_tax_category_and_exemption_reason(doc) -> None:
 
         if missing_template_rows:
             frappe.throw(
-                _(
+                _zt(
                     "All item rows must have an Item Tax Template when any row uses an Item Tax Template. Missing rows: {0}."
                 ).format(", ".join(missing_template_rows))
             )
@@ -275,7 +304,7 @@ def validate_zatca_tax_category_and_exemption_reason(doc) -> None:
 
             if not zatca_tax_category:
                 frappe.throw(
-                    _(
+                    _zt(
                         "ZATCA Tax Category is required in Item Tax Template {0} used by row {1}."
                     ).format(
                         item_tax_template.name,
@@ -288,12 +317,12 @@ def validate_zatca_tax_category_and_exemption_reason(doc) -> None:
                 and not exemption_reason_code
             ):
                 frappe.throw(
-                    _(
+                    _zt(
                         "ZATCA exemption reason is required in Item Tax Template {0} for row {1} because the ZATCA tax category is {2}."
                     ).format(
                         item_tax_template.name,
                         getattr(item, "idx", "") or "",
-                        _(zatca_tax_category),
+                        _zt(zatca_tax_category),
                     )
                 )
 
@@ -309,12 +338,12 @@ def validate_zatca_tax_category_and_exemption_reason(doc) -> None:
     if cint(getattr(doc, "custom_zatca_export_invoice", 0)) == 1:
         if not invoice_zatca_tax_category:
             frappe.throw(
-                _("ZATCA Tax Category is required when ZATCA Export Invoice is enabled.")
+                _zt("ZATCA Tax Category is required when ZATCA Export Invoice is enabled.")
             )
 
         if not invoice_exemption_reason_code:
             frappe.throw(
-                _("ZATCA exemption reason is required when ZATCA Export Invoice is enabled.")
+                _zt("ZATCA exemption reason is required when ZATCA Export Invoice is enabled.")
             )
 
     if (
@@ -322,9 +351,9 @@ def validate_zatca_tax_category_and_exemption_reason(doc) -> None:
         and not invoice_exemption_reason_code
     ):
         frappe.throw(
-            _(
+            _zt(
                 "ZATCA exemption reason is required when the ZATCA tax category is {0}."
-            ).format(_(invoice_zatca_tax_category))
+            ).format(_zt(invoice_zatca_tax_category))
         )
 
 

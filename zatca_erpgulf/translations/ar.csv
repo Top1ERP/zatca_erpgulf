@@ -6,24 +6,58 @@ Amount,المبلغ
 Base Amount,المبلغ بالعملة الأساسية
 Base Net Amount,صافي المبلغ بالعملة الأساسية
 Base Rate,السعر بالعملة الأساسية
+CLEARED,تمت الموافقة
+Controls whether line item discounts are submitted to ZATCA as line-level discount data where supported.,يتحكم فيما إذا كان خصم السطر يُرسل إلى زاتكا كبيانات خصم على مستوى السطر عند دعم ذلك.
 Document {0} {1} contains invalid item values:,المستند {0} {1} يحتوي على قيم أصناف غير صحيحة:
 Exempted,معفاة
+Exemption Reason Code,رمز سبب الإعفاء
+FAILED,فشل
 For returns / credit notes:,للمرتجعات وإشعارات الدائن:
 For standard invoices and debit notes:,للفواتير القياسية وإشعارات المدين:
+Hidden self-billed invoice flag for ZATCA transaction flags.,مؤشر مخفي للفاتورة ذاتية الإصدار ضمن مؤشرات معاملة زاتكا.
 "If a row represents a discount, use the discount fields.",إذا كان السطر يمثل خصمًا، استخدم حقول الخصم.
 "If it represents an advance payment, create a Payment Entry and issue an Advance Tax Invoice (386).",إذا كان يمثل دفعة مقدمة، أنشئ Payment Entry وأصدر فاتورة دفعة مقدمة حسب إعدادات زاتكا.
 "If it represents retention or deduction, use the taxes and deductions table.",إذا كان يمثل احتجازًا أو استقطاعًا، استخدم جدول الضرائب والاستقطاعات.
+"Invoice-level ZATCA tax category. For mixed tax categories, use Item Tax Template on every item row.",فئة ضريبة زاتكا على مستوى الفاتورة. عند وجود فئات ضريبية متعددة، استخدم قالب ضريبة الصنف لكل سطر.
 Item quantity must not be negative.,لا يجوز أن تكون كمية الصنف سالبة.
 Item quantity must not be positive.,لا يجوز أن تكون كمية الصنف موجبة.
 Item rates must not be negative.,لا يجوز أن يكون سعر الصنف سالبًا.
 "Item rates, prices, and amounts must not be negative.",لا يجوز أن تكون أسعار أو قيم أو مبالغ السطر سالبة.
+Marks a nominal invoice. Existing validation requires a 100% document-level discount.,يعلّم الفاتورة كفاتورة اسمية. يتطلب التحقق الحالي خصمًا بنسبة 100% على مستوى المستند.
+Marks an export invoice. Customer must not be in Saudi Arabia and a valid exemption or zero-rating reason is required.,يعلّم الفاتورة كفاتورة تصدير. يجب ألا يكون العميل داخل السعودية، ويجب تحديد سبب إعفاء أو تصفير صحيح.
+Marks the invoice as a summary invoice for ZATCA transaction flags.,يعلّم الفاتورة كفاتورة ملخصة ضمن مؤشرات معاملة زاتكا.
+Marks the invoice as a third-party invoice for ZATCA transaction flags.,يعلّم الفاتورة كفاتورة لطرف ثالث ضمن مؤشرات معاملة زاتكا.
 Net Amount,صافي المبلغ
+Not Submitted,لم يتم الإرسال
+Optional ZATCA discount reason code when a discount reason must be sent.,رمز اختياري لسبب الخصم في زاتكا عند الحاجة لإرسال سبب الخصم.
+Optional ZATCA discount reason text when a discount reason must be sent.,نص اختياري لسبب الخصم في زاتكا عند الحاجة لإرسال سبب الخصم.
+Persisted ZATCA UUID used by the invoice XML and signing flow.,معرّف UUID محفوظ لزاتكا ويُستخدم في XML الفاتورة ومسار التوقيع.
 Quantity,الكمية
+REPORTED,تم الإبلاغ
 Rate,السعر
+Read-only ZATCA submission status.,حالة إرسال زاتكا للقراءة فقط.
+"Required for Zero Rated, Exempted, Out of Scope, and Export invoices.",مطلوب للفواتير الخاضعة لنسبة صفرية أو المعفاة أو خارج نطاق الضريبة أو فواتير التصدير.
 Return / credit note item quantity must be zero or negative.,يجب أن تكون كمية صنف المرتجع أو إشعار الدائن صفرًا أو سالبة.
 Services outside scope of tax / Not subject to VAT,خدمات خارج نطاق الضريبة / غير خاضعة لضريبة القيمة المضافة
 Standard,قياسية
+Standard 15%,قياسي 15%
 Standard invoice and debit note item quantity must be zero or greater.,يجب أن تكون كمية صنف الفاتورة القياسية أو إشعار المدين صفرًا أو أكبر.
+Submit line item discount to ZATCA,إرسال خصم السطر إلى زاتكا
+Submit line item discount to ZATCA.,إرسال خصم السطر إلى زاتكا.
+UUID,المعرّف UUID
+Visual ZATCA status notification shown on the invoice.,تنبيه مرئي لحالة زاتكا يظهر داخل الفاتورة.
+ZATCA 3rd party invoice,فاتورة زاتكا لطرف ثالث
+ZATCA Discount reason,سبب الخصم في زاتكا
+ZATCA Discount reason code,رمز سبب الخصم في زاتكا
+ZATCA Export Invoice,فاتورة تصدير زاتكا
+ZATCA Integration Feilds,حقول تكامل زاتكا
+ZATCA Integration Fields,حقول تكامل زاتكا
+ZATCA NOMINAL Invoice,فاتورة زاتكا اسمية
+ZATCA Self billed Invoice,فاتورة زاتكا ذاتية الإصدار
+ZATCA Status,حالة زاتكا
+ZATCA Status Notification,تنبيه حالة زاتكا
+ZATCA Summary Invoice,فاتورة زاتكا ملخصة
+ZATCA Tax Category,فئة ضريبة زاتكا
 ZATCA Tax Category is required in Item Tax Template {0} used by row {1}.,فئة ضريبة زاتكا مطلوبة في قالب ضريبة الصنف {0} المستخدم في السطر {1}.
 ZATCA Tax Category is required when ZATCA Export Invoice is enabled.,فئة ضريبة زاتكا مطلوبة عند تفعيل فاتورة تصدير زاتكا.
 ZATCA exemption reason is required in Item Tax Template {0} for row {1} because the ZATCA tax category is {2}.,سبب الإعفاء/التصفير مطلوب في قالب ضريبة الصنف {0} للسطر {1} لأن فئة ضريبة زاتكا هي {2}.
