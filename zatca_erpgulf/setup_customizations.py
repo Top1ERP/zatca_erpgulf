@@ -3104,6 +3104,554 @@ def sync_company_zatca_fields_and_layout() -> dict[str, list[str]]:
 
 
 
+
+def sync_zatca_arabic_translations() -> dict[str, list[str]]:
+    """Sync Arabic ZATCA translations to Translation DocType for existing sites."""
+    result = {
+        "created": [],
+        "updated": [],
+        "skipped": [],
+    }
+
+    if not _doctype_exists("Translation"):
+        result["skipped"].append("Translation DocType not available")
+        return result
+
+    try:
+        from pathlib import Path
+        import csv
+
+        translations_file = Path(
+            frappe.get_app_path("zatca_erpgulf", "translations", "ar.csv")
+        )
+    except Exception as exc:
+        result["skipped"].append(f"translation path resolution failed: {exc}")
+        return result
+
+    if not translations_file.exists():
+        result["skipped"].append(f"missing file: {translations_file}")
+        return result
+
+    meta = frappe.get_meta("Translation")
+    fieldnames = {df.fieldname for df in meta.fields}
+
+    required_fields = {"language", "source_text", "translated_text"}
+    if not required_fields.issubset(fieldnames):
+        result["skipped"].append("Translation DocType schema is not compatible")
+        return result
+
+    with translations_file.open("r", encoding="utf-8", newline="") as f:
+        rows = [row for row in csv.reader(f) if len(row) >= 2 and row[0] and row[1]]
+
+    for source_text, translated_text, *_ in rows:
+        filters = {
+            "language": "ar",
+            "source_text": source_text,
+        }
+
+        existing_name = frappe.db.get_value("Translation", filters, "name")
+
+        if existing_name:
+            doc = frappe.get_doc("Translation", existing_name)
+            if getattr(doc, "translated_text", None) != translated_text:
+                doc.translated_text = translated_text
+                doc.flags.ignore_permissions = True
+                doc.save(ignore_permissions=True)
+                result["updated"].append(source_text)
+            continue
+
+        doc = frappe.new_doc("Translation")
+        doc.language = "ar"
+        doc.source_text = source_text
+        doc.translated_text = translated_text
+        doc.flags.ignore_permissions = True
+        doc.insert(ignore_permissions=True)
+        result["created"].append(source_text)
+
+    frappe.db.commit()
+    return result
+
+
+def remove_unused_sales_invoice_user_invoice_number_field() -> dict[str, list[str]]:
+    """Remove unused Sales Invoice.custom_user_invoice_number if it has no data."""
+    result = {
+        "deleted": [],
+        "skipped": [],
+        "property_setters_deleted": [],
+        "field_order_updated": [],
+    }
+
+    fieldname = "custom_user_invoice_number"
+
+    if not _doctype_exists("Sales Invoice"):
+        result["skipped"].append("Sales Invoice - missing DocType")
+        return result
+
+    has_column = bool(
+        frappe.db.sql(
+            """
+            SELECT COUNT(*)
+            FROM information_schema.columns
+            WHERE table_schema = DATABASE()
+              AND table_name = 'tabSales Invoice'
+              AND column_name = %s
+            """,
+            fieldname,
+        )[0][0]
+    )
+
+    if has_column:
+        non_empty = frappe.db.sql(
+            f"""
+            SELECT COUNT(*)
+            FROM `tabSales Invoice`
+            WHERE COALESCE(`{fieldname}`, '') != ''
+            """
+        )[0][0]
+
+        if non_empty:
+            result["skipped"].append(
+                f"Sales Invoice.{fieldname} has {non_empty} non-empty values"
+            )
+            return result
+
+    custom_field_name = _get_custom_field_name("Sales Invoice", fieldname)
+    if custom_field_name:
+        frappe.delete_doc(
+            "Custom Field",
+            custom_field_name,
+            force=True,
+            ignore_permissions=True,
+        )
+        result["deleted"].append(custom_field_name)
+
+    property_setters = frappe.get_all(
+        "Property Setter",
+        filters={
+            "doc_type": "Sales Invoice",
+            "field_name": fieldname,
+        },
+        pluck="name",
+    )
+
+    for ps_name in property_setters:
+        frappe.delete_doc(
+            "Property Setter",
+            ps_name,
+            force=True,
+            ignore_permissions=True,
+        )
+        result["property_setters_deleted"].append(ps_name)
+
+    field_order_setters = frappe.get_all(
+        "Property Setter",
+        filters={
+            "doc_type": "Sales Invoice",
+            "property": "field_order",
+        },
+        fields=["name", "value"],
+    )
+
+    import json
+
+    for row in field_order_setters:
+        value = row.get("value") or ""
+        if fieldname not in value:
+            continue
+
+        new_value = value
+
+        try:
+            parsed = json.loads(value)
+            if isinstance(parsed, list):
+                parsed = [x for x in parsed if x != fieldname]
+                new_value = json.dumps(parsed)
+        except Exception:
+            new_value = value.replace(f'"{fieldname}", ', "")
+            new_value = new_value.replace(f', "{fieldname}"', "")
+            new_value = new_value.replace(fieldname, "")
+
+        if new_value != value:
+            ps = frappe.get_doc("Property Setter", row["name"])
+            ps.value = new_value
+            ps.flags.ignore_permissions = True
+            ps.save(ignore_permissions=True)
+            result["field_order_updated"].append(row["name"])
+
+    frappe.db.commit()
+    frappe.clear_cache(doctype="Sales Invoice")
+    return result
+
+
+def sync_sales_invoice_zatca_integration_layout() -> dict[str, list[str]]:
+    """Canonical Sales Invoice ZATCA Integration Fields layout."""
+    result = {
+        "created": [],
+        "updated": [],
+        "property_setters": [],
+        "skipped": [],
+    }
+
+    if not _doctype_exists("Sales Invoice"):
+        result["skipped"].append("Sales Invoice - missing DocType")
+        return result
+
+    def _normalized(value: Any) -> str:
+        if value is None:
+            return ""
+        return str(value)
+
+    def property_type_for(property_name: str, value: Any) -> str:
+        if property_name in {"hidden", "read_only", "collapsible"}:
+            return "Check"
+        if property_name == "idx":
+            return "Int"
+        if property_name in {"description", "options"}:
+            return "Text"
+        return "Data"
+
+    def upsert_property_setter(fieldname: str, property_name: str, value: Any) -> None:
+        ps_name = f"Sales Invoice-{fieldname}-{property_name}"
+        desired_value = _normalized(value)
+
+        if frappe.db.exists("Property Setter", ps_name):
+            ps = frappe.get_doc("Property Setter", ps_name)
+            created = False
+        else:
+            ps = frappe.new_doc("Property Setter")
+            ps.name = ps_name
+            created = True
+
+        desired = {
+            "doc_type": "Sales Invoice",
+            "doctype_or_field": "DocField",
+            "field_name": fieldname,
+            "property": property_name,
+            "property_type": property_type_for(property_name, value),
+            "value": desired_value,
+        }
+
+        changed = created
+        for key, expected in desired.items():
+            if _normalized(getattr(ps, key, None)) != _normalized(expected):
+                setattr(ps, key, expected)
+                changed = True
+
+        if changed:
+            ps.flags.ignore_permissions = True
+            ps.save(ignore_permissions=True)
+            result["property_setters"].append(ps_name)
+
+    def ensure_or_update_custom_field(field: dict[str, Any]) -> None:
+        fieldname = field["fieldname"]
+        existing = _get_custom_field_name("Sales Invoice", fieldname)
+
+        if existing:
+            doc = frappe.get_doc("Custom Field", existing)
+            created = False
+        else:
+            doc = frappe.new_doc("Custom Field")
+            doc.dt = "Sales Invoice"
+            doc.fieldname = fieldname
+            doc.module = MODULE_NAME
+            created = True
+
+        changed = False
+
+        for key, value in field.items():
+            if key in {"fieldname"}:
+                continue
+
+            if getattr(doc, key, None) != value:
+                setattr(doc, key, value)
+                changed = True
+
+        if created or changed:
+            doc.flags.ignore_permissions = True
+            doc.save(ignore_permissions=True)
+
+            if created:
+                result["created"].append(f"Sales Invoice.{fieldname}")
+            else:
+                result["updated"].append(f"Sales Invoice.{fieldname}")
+
+        for property_name in [
+            "label",
+            "insert_after",
+            "description",
+            "options",
+            "hidden",
+            "read_only",
+            "collapsible",
+        ]:
+            if property_name in field:
+                upsert_property_setter(fieldname, property_name, field[property_name])
+
+    fields = [
+        {
+            "fieldname": "custom_section_break_gqwpx",
+            "fieldtype": "Section Break",
+            "label": "ZATCA Integration Fields",
+            "insert_after": "amended_from",
+            "collapsible": 1,
+        },
+        {
+            "fieldname": "custom_zatca_tax_category",
+            "fieldtype": "Select",
+            "label": "ZATCA Tax Category",
+            "insert_after": "custom_section_break_gqwpx",
+            "options": "Standard\nZero Rated\nExempted\nServices outside scope of tax / Not subject to VAT",
+            "description": "Invoice-level ZATCA tax category. For mixed tax categories, use Item Tax Template on every item row.",
+        },
+        {
+            "fieldname": "custom_exemption_reason_code",
+            "fieldtype": "Select",
+            "label": "Exemption Reason Code",
+            "insert_after": "custom_zatca_tax_category",
+            "options": "Standard 15%\nVATEX-SA-29\nVATEX-SA-29-7\nVATEX-SA-30\nVATEX-SA-32\nVATEX-SA-33\nVATEX-SA-34-1\nVATEX-SA-34-2\nVATEX-SA-34-3\nVATEX-SA-34-4\nVATEX-SA-34-5\nVATEX-SA-35\nVATEX-SA-36\nVATEX-SA-EDU\nVATEX-SA-HEA\nVATEX-SA-MLTRY\nVATEX-SA-OOS",
+            "description": "Required for Zero Rated, Exempted, Out of Scope, and Export invoices.",
+        },
+        {
+            "fieldname": "custom_zatca_discount_reason_code",
+            "fieldtype": "Data",
+            "label": "ZATCA Discount reason code",
+            "insert_after": "custom_exemption_reason_code",
+            "description": "Optional ZATCA discount reason code when a discount reason must be sent.",
+        },
+        {
+            "fieldname": "custom_zatca_discount_reason",
+            "fieldtype": "Data",
+            "label": "ZATCA Discount reason",
+            "insert_after": "custom_zatca_discount_reason_code",
+            "description": "Optional ZATCA discount reason text when a discount reason must be sent.",
+        },
+        {
+            "fieldname": "custom_submit_line_item_discount_to_zatca",
+            "fieldtype": "Check",
+            "label": "Submit line item discount to ZATCA.",
+            "insert_after": "custom_zatca_discount_reason",
+            "description": "Controls whether line item discounts are submitted to ZATCA as line-level discount data where supported.",
+        },
+        {
+            "fieldname": "custom_column_break_hb6s7",
+            "fieldtype": "Column Break",
+            "label": "",
+            "insert_after": "custom_submit_line_item_discount_to_zatca",
+        },
+        {
+            "fieldname": "custom_zatca_third_party_invoice",
+            "fieldtype": "Check",
+            "label": "ZATCA 3rd party invoice",
+            "insert_after": "custom_column_break_hb6s7",
+            "description": "Marks the invoice as a third-party invoice for ZATCA transaction flags.",
+        },
+        {
+            "fieldname": "custom_zatca_nominal_invoice",
+            "fieldtype": "Check",
+            "label": "ZATCA NOMINAL Invoice",
+            "insert_after": "custom_zatca_third_party_invoice",
+            "description": "Marks a nominal invoice. Existing validation requires a 100% document-level discount.",
+        },
+        {
+            "fieldname": "custom_zatca_export_invoice",
+            "fieldtype": "Check",
+            "label": "ZATCA Export Invoice",
+            "insert_after": "custom_zatca_nominal_invoice",
+            "description": "Marks an export invoice. Customer must not be in Saudi Arabia and a valid exemption or zero-rating reason is required.",
+        },
+        {
+            "fieldname": "custom_summary_invoice",
+            "fieldtype": "Check",
+            "label": "ZATCA Summary Invoice",
+            "insert_after": "custom_zatca_export_invoice",
+            "description": "Marks the invoice as a summary invoice for ZATCA transaction flags.",
+        },
+        {
+            "fieldname": "custom_self_billed_invoice",
+            "fieldtype": "Check",
+            "label": "ZATCA Self billed Invoice",
+            "insert_after": "custom_summary_invoice",
+            "hidden": 1,
+            "description": "Hidden self-billed invoice flag for ZATCA transaction flags.",
+        },
+        {
+            "fieldname": "custom_column_break_h3ntp",
+            "fieldtype": "Column Break",
+            "label": "",
+            "insert_after": "custom_self_billed_invoice",
+        },
+        {
+            "fieldname": "custom_uuid",
+            "fieldtype": "Small Text",
+            "label": "UUID",
+            "insert_after": "custom_column_break_h3ntp",
+            "read_only": 1,
+            "description": "Persisted ZATCA UUID used by the invoice XML and signing flow.",
+        },
+        {
+            "fieldname": "custom_zatca_status",
+            "fieldtype": "Data",
+            "label": "ZATCA Status",
+            "insert_after": "custom_uuid",
+            "read_only": 1,
+            "description": "Read-only ZATCA submission status.",
+        },
+        {
+            "fieldname": "custom_zatca_status_notification",
+            "fieldtype": "HTML",
+            "label": "ZATCA Status Notification",
+            "insert_after": "custom_zatca_status",
+            "description": "Visual ZATCA status notification shown on the invoice.",
+        },
+    ]
+
+    for field in fields:
+        ensure_or_update_custom_field(field)
+
+    frappe.db.commit()
+    frappe.clear_cache(doctype="Sales Invoice")
+    return result
+
+
+
+def finalize_sales_invoice_zatca_field_order_and_cleanup() -> dict[str, list[str]]:
+    """Finalize Sales Invoice ZATCA field order and safely drop removed columns."""
+    result = {
+        "field_order_updated": [],
+        "db_columns_dropped": [],
+        "skipped": [],
+    }
+
+    if not _doctype_exists("Sales Invoice"):
+        result["skipped"].append("Sales Invoice - missing DocType")
+        return result
+
+    user_invoice_field = "custom_user_invoice_number"
+    user_invoice_has_data = False
+
+    try:
+        user_invoice_column_exists = bool(
+            frappe.db.sql(
+                """
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'tabSales Invoice'
+                  AND column_name = %s
+                """,
+                user_invoice_field,
+            )[0][0]
+        )
+
+        if user_invoice_column_exists:
+            non_empty = frappe.db.sql(
+                f"""
+                SELECT COUNT(*)
+                FROM `tabSales Invoice`
+                WHERE COALESCE(`{user_invoice_field}`, '') != ''
+                """
+            )[0][0]
+
+            if non_empty:
+                user_invoice_has_data = True
+                result["skipped"].append(
+                    f"Sales Invoice.{user_invoice_field} physical column has {non_empty} non-empty values"
+                )
+            else:
+                frappe.db.sql(
+                    f"ALTER TABLE `tabSales Invoice` DROP COLUMN `{user_invoice_field}`"
+                )
+                result["db_columns_dropped"].append(
+                    f"tabSales Invoice.{user_invoice_field}"
+                )
+    except Exception as exc:
+        result["skipped"].append(
+            f"Could not drop Sales Invoice.{user_invoice_field}: {exc}"
+        )
+
+    canonical_order = [
+        "custom_section_break_gqwpx",
+        "custom_zatca_tax_category",
+        "custom_exemption_reason_code",
+        "custom_zatca_discount_reason_code",
+        "custom_zatca_discount_reason",
+        "custom_submit_line_item_discount_to_zatca",
+        "custom_column_break_hb6s7",
+        "custom_zatca_third_party_invoice",
+        "custom_zatca_nominal_invoice",
+        "custom_zatca_export_invoice",
+        "custom_summary_invoice",
+        "custom_self_billed_invoice",
+        "custom_column_break_h3ntp",
+        "custom_uuid",
+        "custom_zatca_status",
+        "custom_zatca_status_notification",
+    ]
+
+    managed_fields = set(canonical_order)
+
+    # Remove the deleted field from field_order only when it has no data.
+    if not user_invoice_has_data:
+        managed_fields.add(user_invoice_field)
+
+    import json
+
+    field_order_setters = frappe.get_all(
+        "Property Setter",
+        filters={
+            "doc_type": "Sales Invoice",
+            "property": "field_order",
+        },
+        fields=["name", "value"],
+    )
+
+    for row in field_order_setters:
+        old_value = row.get("value") or ""
+
+        try:
+            current_order = json.loads(old_value)
+        except Exception as exc:
+            result["skipped"].append(
+                f"{row['name']} field_order is not valid JSON: {exc}"
+            )
+            continue
+
+        if not isinstance(current_order, list):
+            result["skipped"].append(f"{row['name']} field_order is not a list")
+            continue
+
+        cleaned_order = [
+            fieldname
+            for fieldname in current_order
+            if fieldname not in managed_fields
+        ]
+
+        anchor = "amended_from"
+        if anchor in cleaned_order:
+            insert_at = cleaned_order.index(anchor) + 1
+        else:
+            insert_at = len(cleaned_order)
+
+        new_order = (
+            cleaned_order[:insert_at]
+            + canonical_order
+            + cleaned_order[insert_at:]
+        )
+
+        new_value = json.dumps(new_order)
+
+        if new_value != old_value:
+            ps = frappe.get_doc("Property Setter", row["name"])
+            ps.value = new_value
+            ps.flags.ignore_permissions = True
+            ps.save(ignore_permissions=True)
+            result["field_order_updated"].append(row["name"])
+
+    frappe.db.commit()
+    frappe.clear_cache(doctype="Sales Invoice")
+    return result
+
+
 def run_zatca_customization_sync_after_migrate() -> None:
     """
     Run ZATCA customization sync after app/site migration.
@@ -3159,6 +3707,10 @@ def sync_all_zatca_customizations() -> dict[str, Any]:
     property_setters_result = sync_property_setters_from_fixture()
     critical_property_setters_result = ensure_critical_property_setters()
     company_zatca_ui_result = sync_company_zatca_fields_and_layout()
+    user_invoice_number_removal_result = remove_unused_sales_invoice_user_invoice_number_field()
+    sales_invoice_zatca_ui_result = sync_sales_invoice_zatca_integration_layout()
+    sales_invoice_zatca_finalize_result = finalize_sales_invoice_zatca_field_order_and_cleanup()
+    zatca_arabic_translations_result = sync_zatca_arabic_translations()
     customer_customize_form_layout_result = {
         "updated": [],
         "skipped": ["superseded by force_customer_arabic_and_tax_layout"],
@@ -3181,6 +3733,10 @@ def sync_all_zatca_customizations() -> dict[str, Any]:
         "property_setters": property_setters_result,
         "critical_property_setters": critical_property_setters_result,
         "company_zatca_ui": company_zatca_ui_result,
+        "sales_invoice_user_invoice_number_removal": user_invoice_number_removal_result,
+        "sales_invoice_zatca_ui": sales_invoice_zatca_ui_result,
+        "sales_invoice_zatca_finalize": sales_invoice_zatca_finalize_result,
+        "zatca_arabic_translations": zatca_arabic_translations_result,
         "customer_customize_form_layout": customer_customize_form_layout_result,
     }
 
@@ -3297,4 +3853,4 @@ def after_sync() -> None:
 
 
 def after_migrate() -> None:
-    sync_all_zatca_customizations()
+    run_zatca_customization_sync_after_migrate()
