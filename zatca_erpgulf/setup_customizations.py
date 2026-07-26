@@ -438,14 +438,14 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
             "fieldname": "advance_reversal_status",
             "label": "Advance Reversal Status",
             "fieldtype": "Select",
-            "options": "Not Cancelled\nPartially Cancelled\nCancelled",
+            "options": "Open\nPartially Reversed\nCancelled",
             "insert_after": "advance_reversal_section",
             "module": MODULE_NAME,
             "translatable": 0,
             "hidden": 0,
             "read_only": 1,
             "reqd": 0,
-            "default": "Not Cancelled",
+            "default": "Open",
             "_alternatives": ["advance_reversal_status"],
             "_fallback_insert_after": ["advance_reversal_section", "total_amount"],
         },
@@ -4312,6 +4312,461 @@ def sync_advance_company_field_visibility() -> dict[str, list[str]]:
 
 
 
+
+def sync_advance_taxes_included_in_paid_amount_default() -> dict[str, list[str]]:
+    """Default Payment Entry advance tax rows to Considered In Paid Amount.
+
+    This prevents users from treating advance payment VAT as an extra amount over
+    the received cash amount when issuing ZATCA Advance Tax Invoices.
+    """
+    result = {
+        "updated": [],
+        "skipped": [],
+    }
+
+    if not _doctype_exists("Advance Taxes and Charges"):
+        result["skipped"].append("Advance Taxes and Charges missing")
+        return result
+
+    if not frappe.get_meta("Advance Taxes and Charges").has_field("included_in_paid_amount"):
+        result["skipped"].append("Advance Taxes and Charges.included_in_paid_amount missing")
+        return result
+
+    setters = [
+        ("default", "1", "Check"),
+        (
+            "description",
+            "For ZATCA advance payments, VAT should normally be considered inside the paid amount.",
+            "Data",
+        ),
+    ]
+
+    for prop, value, property_type in setters:
+        name = frappe.db.get_value(
+            "Property Setter",
+            {
+                "doc_type": "Advance Taxes and Charges",
+                "field_name": "included_in_paid_amount",
+                "property": prop,
+            },
+            "name",
+        )
+
+        if name:
+            ps = frappe.get_doc("Property Setter", name)
+            changed = False
+
+            if ps.value != value:
+                ps.value = value
+                changed = True
+
+            if ps.property_type != property_type:
+                ps.property_type = property_type
+                changed = True
+
+            if changed:
+                ps.save(ignore_permissions=True)
+
+            result["updated"].append(name)
+        else:
+            ps = frappe.get_doc({
+                "doctype": "Property Setter",
+                "doctype_or_field": "DocField",
+                "doc_type": "Advance Taxes and Charges",
+                "field_name": "included_in_paid_amount",
+                "property": prop,
+                "value": value,
+                "property_type": property_type,
+            })
+            ps.insert(ignore_permissions=True)
+            result["updated"].append(ps.name)
+
+    frappe.clear_cache(doctype="Advance Taxes and Charges")
+    frappe.clear_cache(doctype="Payment Entry")
+    frappe.db.commit()
+    return result
+
+
+
+def sync_sales_invoice_advance_deduction_detail_table_field() -> dict[str, list[str]]:
+    result = {
+        "ensured": [],
+        "updated": [],
+        "skipped": [],
+    }
+
+    if not _doctype_exists("Sales Invoice"):
+        result["skipped"].append("Sales Invoice missing")
+        return result
+
+    if not _doctype_exists("ZATCA Sales Invoice Advance Deduction"):
+        result["skipped"].append("ZATCA Sales Invoice Advance Deduction missing")
+        return result
+
+    spec = {
+        "dt": "Sales Invoice",
+        "fieldname": "custom_zatca_advance_deduction_details",
+        "label": "ZATCA Advance Deduction Details",
+        "fieldtype": "Table",
+        "options": "ZATCA Sales Invoice Advance Deduction",
+        "insert_after": "custom_zatca_advance_deduction_count",
+        "read_only": 1,
+        "no_copy": 1,
+        "allow_on_submit": 0,
+        "module": MODULE_NAME,
+    }
+
+    name = frappe.db.get_value(
+        "Custom Field",
+        {
+            "dt": spec["dt"],
+            "fieldname": spec["fieldname"],
+        },
+        "name",
+    )
+
+    if name:
+        doc = frappe.get_doc("Custom Field", name)
+        changed = False
+
+        for fieldname, value in spec.items():
+            if hasattr(doc, fieldname) and getattr(doc, fieldname) != value:
+                setattr(doc, fieldname, value)
+                changed = True
+
+        if changed:
+            doc.save(ignore_permissions=True)
+            result["updated"].append(spec["fieldname"])
+        else:
+            result["ensured"].append(spec["fieldname"])
+    else:
+        doc = frappe.get_doc({
+            "doctype": "Custom Field",
+            **spec,
+        })
+        doc.insert(ignore_permissions=True)
+        result["ensured"].append(spec["fieldname"])
+
+    frappe.clear_cache(doctype="Sales Invoice")
+    frappe.db.commit()
+    return result
+
+
+
+def sync_sales_invoice_advance_deduction_total_fields() -> dict[str, list[str]]:
+    """Ensure Sales Invoice totals for ZATCA advance deductions.
+
+    These fields are calculated only from Payment Entry rows that have linked,
+    submitted ZATCA Advance Tax Invoices.
+    """
+    result = {
+        "ensured": [],
+        "updated": [],
+        "skipped": [],
+    }
+
+    if not _doctype_exists("Sales Invoice"):
+        result["skipped"].append("Sales Invoice missing")
+        return result
+
+    specs = [
+        {
+            "dt": "Sales Invoice",
+            "fieldname": "custom_zatca_advance_deduction_totals_section",
+            "label": "ZATCA Advance Deduction Totals",
+            "fieldtype": "Section Break",
+            "insert_after": "custom_zatca_advance_deduction_details",
+            "collapsible": 0,
+            "no_copy": 1,
+            "module": MODULE_NAME,
+        },
+        {
+            "dt": "Sales Invoice",
+            "fieldname": "custom_zatca_advance_deducted_taxable_amount",
+            "label": "ZATCA Advance Applied Amount Before VAT",
+            "fieldtype": "Currency",
+            "options": "currency",
+            "insert_after": "custom_zatca_advance_deduction_totals_section",
+            "read_only": 1,
+            "no_copy": 1,
+            "module": MODULE_NAME,
+            "description": "Total taxable amount applied from linked ZATCA Advance Tax Invoices.",
+        },
+        {
+            "dt": "Sales Invoice",
+            "fieldname": "custom_zatca_advance_deducted_vat_amount",
+            "label": "ZATCA Advance Applied VAT Amount",
+            "fieldtype": "Currency",
+            "options": "currency",
+            "insert_after": "custom_zatca_advance_deducted_taxable_amount",
+            "read_only": 1,
+            "no_copy": 1,
+            "module": MODULE_NAME,
+            "description": "Total VAT amount already invoiced through linked ZATCA Advance Tax Invoices.",
+        },
+    ]
+
+    for spec in specs:
+        name = frappe.db.get_value(
+            "Custom Field",
+            {
+                "dt": spec["dt"],
+                "fieldname": spec["fieldname"],
+            },
+            "name",
+        )
+
+        if name:
+            doc = frappe.get_doc("Custom Field", name)
+            changed = False
+
+            for fieldname, value in spec.items():
+                if hasattr(doc, fieldname) and getattr(doc, fieldname) != value:
+                    setattr(doc, fieldname, value)
+                    changed = True
+
+            if changed:
+                doc.save(ignore_permissions=True)
+                result["updated"].append(spec["fieldname"])
+            else:
+                result["ensured"].append(spec["fieldname"])
+        else:
+            doc = frappe.get_doc({
+                "doctype": "Custom Field",
+                **spec,
+            })
+            doc.insert(ignore_permissions=True)
+            result["ensured"].append(spec["fieldname"])
+
+    frappe.clear_cache(doctype="Sales Invoice")
+    frappe.db.commit()
+    return result
+
+
+
+def sync_zatca_advance_reversal_fields_layout() -> dict[str, list[str]]:
+    """Keep advance reversal fields in their own section, not in the generic/standard area."""
+    result = {
+        "updated": [],
+        "ensured": [],
+        "skipped": [],
+    }
+
+    if not _doctype_exists("ZATCA Advance Tax Invoice"):
+        result["skipped"].append("ZATCA Advance Tax Invoice missing")
+        return result
+
+    specs = [
+        {
+            "dt": "ZATCA Advance Tax Invoice",
+            "fieldname": "advance_reversal_section",
+            "label": "Advance Reversal",
+            "fieldtype": "Section Break",
+            "insert_after": "qr_code",
+            "collapsible": 1,
+            "read_only": 0,
+            "hidden": 0,
+            "no_copy": 1,
+            "module": MODULE_NAME,
+        },
+        {
+            "dt": "ZATCA Advance Tax Invoice",
+            "fieldname": "advance_reversal_status",
+            "label": "Advance Reversal Status",
+            "fieldtype": "Select",
+            "options": "Open\nPartially Reversed\nFully Reversed\nCancelled",
+            "insert_after": "advance_reversal_section",
+            "read_only": 1,
+            "hidden": 0,
+            "no_copy": 1,
+            "module": MODULE_NAME,
+        },
+    ]
+
+    for spec in specs:
+        name = frappe.db.get_value(
+            "Custom Field",
+            {
+                "dt": spec["dt"],
+                "fieldname": spec["fieldname"],
+            },
+            "name",
+        )
+
+        if not name:
+            doc = frappe.get_doc({
+                "doctype": "Custom Field",
+                **spec,
+            })
+            doc.insert(ignore_permissions=True)
+            result["ensured"].append(spec["fieldname"])
+            continue
+
+        doc = frappe.get_doc("Custom Field", name)
+        changed = False
+
+        for fieldname, value in spec.items():
+            if hasattr(doc, fieldname) and getattr(doc, fieldname) != value:
+                setattr(doc, fieldname, value)
+                changed = True
+
+        if changed:
+            doc.save(ignore_permissions=True)
+            result["updated"].append(spec["fieldname"])
+        else:
+            result["ensured"].append(spec["fieldname"])
+
+    frappe.clear_cache(doctype="ZATCA Advance Tax Invoice")
+    frappe.db.commit()
+    return result
+
+
+
+def sync_zatca_advance_final_invoice_layout() -> dict[str, list[str]]:
+    """Unified layout sync for final invoice advance deduction and advance reversal fields."""
+    result = {
+        "ensured": [],
+        "updated": [],
+        "skipped": [],
+    }
+
+    def upsert_custom_field(spec):
+        name = frappe.db.get_value(
+            "Custom Field",
+            {
+                "dt": spec["dt"],
+                "fieldname": spec["fieldname"],
+            },
+            "name",
+        )
+
+        if name:
+            doc = frappe.get_doc("Custom Field", name)
+            changed = False
+
+            for fieldname, value in spec.items():
+                if hasattr(doc, fieldname) and getattr(doc, fieldname) != value:
+                    setattr(doc, fieldname, value)
+                    changed = True
+
+            if changed:
+                doc.save(ignore_permissions=True)
+                result["updated"].append(f'{spec["dt"]}.{spec["fieldname"]}')
+            else:
+                result["ensured"].append(f'{spec["dt"]}.{spec["fieldname"]}')
+            return
+
+        doc = frappe.get_doc({
+            "doctype": "Custom Field",
+            **spec,
+        })
+        doc.insert(ignore_permissions=True)
+        result["ensured"].append(f'{spec["dt"]}.{spec["fieldname"]}')
+
+    if _doctype_exists("Sales Invoice") and _doctype_exists("ZATCA Sales Invoice Advance Deduction"):
+        sales_invoice_specs = [
+            {
+                "dt": "Sales Invoice",
+                "fieldname": "custom_zatca_advance_deduction_details",
+                "label": "ZATCA Advance Deduction Details",
+                "fieldtype": "Table",
+                "options": "ZATCA Sales Invoice Advance Deduction",
+                "insert_after": "custom_zatca_advance_deduction_count",
+                "read_only": 1,
+                "no_copy": 1,
+                "allow_on_submit": 0,
+                "module": MODULE_NAME,
+            },
+            {
+                "dt": "Sales Invoice",
+                "fieldname": "custom_zatca_advance_deduction_totals_section",
+                "label": "ZATCA Advance Deduction Totals",
+                "fieldtype": "Section Break",
+                "insert_after": "custom_zatca_advance_deduction_details",
+                "collapsible": 0,
+                "no_copy": 1,
+                "module": MODULE_NAME,
+            },
+            {
+                "dt": "Sales Invoice",
+                "fieldname": "custom_zatca_advance_deducted_taxable_amount",
+                "label": "ZATCA Advance Applied Amount Before VAT",
+                "fieldtype": "Currency",
+                "options": "currency",
+                "insert_after": "custom_zatca_advance_deduction_totals_section",
+                "read_only": 1,
+                "no_copy": 1,
+                "module": MODULE_NAME,
+                "description": "Total taxable amount applied from linked ZATCA Advance Tax Invoices.",
+            },
+            {
+                "dt": "Sales Invoice",
+                "fieldname": "custom_zatca_advance_deduction_totals_column_break",
+                "label": "",
+                "fieldtype": "Column Break",
+                "insert_after": "custom_zatca_advance_deducted_taxable_amount",
+                "no_copy": 1,
+                "module": MODULE_NAME,
+            },
+            {
+                "dt": "Sales Invoice",
+                "fieldname": "custom_zatca_advance_deducted_vat_amount",
+                "label": "ZATCA Advance Applied VAT Amount",
+                "fieldtype": "Currency",
+                "options": "currency",
+                "insert_after": "custom_zatca_advance_deduction_totals_column_break",
+                "read_only": 1,
+                "no_copy": 1,
+                "module": MODULE_NAME,
+                "description": "Total VAT amount already invoiced through linked ZATCA Advance Tax Invoices.",
+            },
+        ]
+
+        for spec in sales_invoice_specs:
+            upsert_custom_field(spec)
+
+        frappe.clear_cache(doctype="Sales Invoice")
+    else:
+        result["skipped"].append("Sales Invoice or ZATCA Sales Invoice Advance Deduction missing")
+
+    if _doctype_exists("ZATCA Advance Tax Invoice"):
+        zadv_specs = [
+            {
+                "dt": "ZATCA Advance Tax Invoice",
+                "fieldname": "advance_reversal_section",
+                "label": "Advance Reversal",
+                "fieldtype": "Section Break",
+                "insert_after": "qr_code",
+                "collapsible": 1,
+                "hidden": 0,
+                "no_copy": 1,
+                "module": MODULE_NAME,
+            },
+            {
+                "dt": "ZATCA Advance Tax Invoice",
+                "fieldname": "advance_reversal_status",
+                "label": "Advance Reversal Status",
+                "fieldtype": "Select",
+                "options": "Open\nPartially Reversed\nFully Reversed\nCancelled",
+                "insert_after": "advance_reversal_section",
+                "read_only": 1,
+                "hidden": 0,
+                "no_copy": 1,
+                "module": MODULE_NAME,
+            },
+        ]
+
+        for spec in zadv_specs:
+            upsert_custom_field(spec)
+
+        frappe.clear_cache(doctype="ZATCA Advance Tax Invoice")
+    else:
+        result["skipped"].append("ZATCA Advance Tax Invoice missing")
+
+    frappe.db.commit()
+    return result
+
+
 def run_zatca_customization_sync_after_migrate() -> None:
     """
     Run ZATCA customization sync after app/site migration.
@@ -4354,6 +4809,11 @@ def sync_all_zatca_customizations() -> dict[str, Any]:
     critical_fields_result = ensure_critical_custom_fields()
     payment_entry_advance_fields_result = sync_payment_entry_advance_fields()
     advance_company_field_visibility_result = sync_advance_company_field_visibility()
+    advance_taxes_included_default_result = sync_advance_taxes_included_in_paid_amount_default()
+    sales_invoice_advance_detail_table_result = sync_sales_invoice_advance_deduction_detail_table_field()
+    sales_invoice_advance_total_fields_result = sync_sales_invoice_advance_deduction_total_fields()
+    zatca_advance_final_invoice_layout_result = sync_zatca_advance_final_invoice_layout()
+    zatca_advance_reversal_layout_result = sync_zatca_advance_reversal_fields_layout()
     arabic_name_cleanup_result = cleanup_arabic_name_fields()
     arabic_name_layout_result = normalize_arabic_name_field_layout()
     force_customer_layout_result = force_customer_arabic_and_tax_layout()
@@ -4392,6 +4852,11 @@ def sync_all_zatca_customizations() -> dict[str, Any]:
         "critical_custom_fields": critical_fields_result,
         "payment_entry_advance_fields": payment_entry_advance_fields_result,
         "advance_company_field_visibility": advance_company_field_visibility_result,
+        "advance_taxes_included_default": advance_taxes_included_default_result,
+        "sales_invoice_advance_detail_table": sales_invoice_advance_detail_table_result,
+        "sales_invoice_advance_total_fields": sales_invoice_advance_total_fields_result,
+        "zatca_advance_final_invoice_layout": zatca_advance_final_invoice_layout_result,
+        "zatca_advance_reversal_layout": zatca_advance_reversal_layout_result,
         "arabic_name_cleanup": arabic_name_cleanup_result,
         "arabic_name_layout": arabic_name_layout_result,
         "customer_zatca_tax_layout": customer_zatca_tax_layout_result,

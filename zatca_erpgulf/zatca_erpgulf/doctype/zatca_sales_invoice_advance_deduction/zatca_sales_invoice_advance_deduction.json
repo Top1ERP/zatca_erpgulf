@@ -1,0 +1,133 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-07-26 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "payment_entry",
+  "zatca_advance_tax_invoice",
+  "advance_invoice_date",
+  "advance_status",
+  "currency",
+  "column_break_1",
+  "advance_total_amount",
+  "advance_taxable_amount",
+  "advance_tax_amount",
+  "section_break_1",
+  "allocated_total_amount",
+  "allocated_taxable_amount",
+  "allocated_tax_amount",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "payment_entry",
+   "fieldtype": "Link",
+   "label": "Payment Entry",
+   "options": "Payment Entry",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "zatca_advance_tax_invoice",
+   "fieldtype": "Link",
+   "label": "ZATCA Advance Tax Invoice",
+   "options": "ZATCA Advance Tax Invoice",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "advance_invoice_date",
+   "fieldtype": "Date",
+   "label": "Advance Invoice Date",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "advance_status",
+   "fieldtype": "Data",
+   "label": "Advance Status",
+   "read_only": 1
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "advance_total_amount",
+   "fieldtype": "Currency",
+   "label": "Advance Total Amount Incl. VAT",
+   "options": "currency",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "advance_taxable_amount",
+   "fieldtype": "Currency",
+   "label": "Advance Taxable Amount",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "advance_tax_amount",
+   "fieldtype": "Currency",
+   "label": "Advance VAT Amount",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_1",
+   "fieldtype": "Section Break",
+   "label": "Applied In Final Invoice"
+  },
+  {
+   "fieldname": "allocated_total_amount",
+   "fieldtype": "Currency",
+   "label": "Applied Total Incl. VAT",
+   "options": "currency",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "allocated_taxable_amount",
+   "fieldtype": "Currency",
+   "label": "Applied Taxable Amount",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "allocated_tax_amount",
+   "fieldtype": "Currency",
+   "label": "Applied VAT Deduction",
+   "options": "currency",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks",
+   "read_only": 1
+  }
+ ],
+ "idx": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-26 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Zatca Erpgulf",
+ "name": "ZATCA Sales Invoice Advance Deduction",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

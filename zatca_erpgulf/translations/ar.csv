@@ -416,3 +416,65 @@ Phase 1 QR generated locally. No XML file and no ZATCA API submission were perfo
 Company postal code is missing.,الرمز البريدي للشركة غير موجود.
 Warning: {0},تحذير: {0}
 Local Only / Phase 1 QR validation warning(s): {0},تحذيرات تحقق محلية لرمز QR للمرحلة الأولى: {0}
+"For ZATCA Advance Tax Invoice, VAT must be marked as Considered In Paid Amount on the Payment Entry tax row.",لإصدار فاتورة دفعة مقدمة - زاتكا، يجب تفعيل خيار احتساب الضريبة ضمن مبلغ الدفع في سطر ضريبة سند القبض.
+Advance payment total amount must be greater than zero.,يجب أن يكون إجمالي مبلغ الدفعة المقدمة أكبر من صفر.
+"ZATCA Advance Tax Invoice taxable amount must be greater than zero. Paid Amount {0}, Tax Amount {1}.",يجب أن يكون المبلغ الخاضع للضريبة في فاتورة الدفعة المقدمة - زاتكا أكبر من صفر. مبلغ الدفع {0}، مبلغ الضريبة {1}.
+"ZATCA Advance Tax Invoice amount validation failed. Expected Total Amount {0} = Taxable Amount {1} + Tax Amount {2}, but found {3}.",فشل التحقق من مبلغ فاتورة الدفعة المقدمة - زاتكا. المبلغ الإجمالي المتوقع {0} = المبلغ الخاضع للضريبة {1} + مبلغ الضريبة {2}، لكن الموجود {3}.
+"ZATCA Advance Tax Invoice base amount validation failed. Expected Base Total Amount {0} = Base Taxable Amount {1} + Base Tax Amount {2}, but found {3}.",فشل التحقق من مبلغ الأساس لفاتورة الدفعة المقدمة - زاتكا. إجمالي الأساس المتوقع {0} = مبلغ الأساس الخاضع للضريبة {1} + ضريبة الأساس {2}، لكن الموجود {3}.
+Cancelled,ملغاة
+ZATCA Advance Tax Invoice submitted and Phase 1 QR generated.,تم اعتماد فاتورة الدفعة المقدمة - زاتكا وإنشاء رمز QR للمرحلة الأولى.
+Cannot {0} ZATCA Advance Tax Invoice {1} because it is in Phase 2/API mode or has already been reported/cleared.,لا يمكن {0} فاتورة الدفعة المقدمة - زاتكا {1} لأنها في وضع المرحلة الثانية/API أو تم الإبلاغ عنها/اعتمادها مسبقًا.
+Cannot {0} ZATCA Advance Tax Invoice {1} because its Payment Entry is used in Sales Invoice(s): {2}.,لا يمكن {0} فاتورة الدفعة المقدمة - زاتكا {1} لأن سند القبض المستخدم فيها مرتبط بفواتير مبيعات: {2}.
+Cannot {0} ZATCA Advance Tax Invoice {1} because a later advance tax invoice exists for the same company. Delete/cancel the latest invoice first.,لا يمكن {0} فاتورة الدفعة المقدمة - زاتكا {1} لوجود فاتورة دفعة مقدمة لاحقة لنفس الشركة. احذف/ألغِ الفاتورة الأحدث أولًا.
+Cannot continue because ZATCA preflight validation failed: {0},لا يمكن المتابعة لأن تحقق زاتكا المسبق فشل: {0}
+ZATCA Preflight Failed,فشل التحقق المسبق من زاتكا
+ZATCA Sales Invoice Advance Deduction,تفاصيل خصم الدفعات المقدمة - زاتكا
+ZATCA Advance Deduction Details,تفاصيل خصم الدفعات المقدمة - زاتكا
+Advance Invoice Date,تاريخ فاتورة الدفعة المقدمة
+Advance Status,حالة الدفعة المقدمة
+Advance Total Amount Incl. VAT,إجمالي الدفعة شامل الضريبة
+Advance Taxable Amount,قيمة الدفعة قبل الضريبة
+Advance VAT Amount,ضريبة الدفعة المقدمة
+Applied In Final Invoice,المحتسب في الفاتورة النهائية
+Applied Total Incl. VAT,الإجمالي المحتسب شامل الضريبة
+Applied Taxable Amount,المبلغ المحتسب قبل الضريبة
+Applied VAT Deduction,ضريبة الدفعة المخصومة
+No amount allocated yet. Set Allocated Amount to apply this advance.,لم يتم تخصيص مبلغ بعد. أدخل المبلغ المخصص لتطبيق هذه الدفعة.
+Payment Entry {0} is linked to missing ZATCA Advance Tax Invoice {1}.,سند القبض {0} مرتبط بفاتورة دفعة مقدمة - زاتكا غير موجودة {1}.
+"Payment Entry {0} is linked to ZATCA Advance Tax Invoice {1}, but its status is '{2}' and docstatus is {3}. Only submitted advance tax invoices with REPORTED, CLEARED, or PHASE 1 QR CREATED status can be deducted in the final invoice.",سند القبض {0} مرتبط بفاتورة دفعة مقدمة - زاتكا {1}، لكن حالتها '{2}' وحالة المستند {3}. يمكن خصم فواتير الدفعات المقدمة المعتمدة فقط إذا كانت حالتها REPORTED أو CLEARED أو PHASE 1 QR CREATED.
+"ZATCA Advance Tax Invoice {0} belongs to company {1}, but this Sales Invoice belongs to {2}.",فاتورة الدفعة المقدمة - زاتكا {0} تخص الشركة {1}، بينما فاتورة المبيعات تخص {2}.
+"ZATCA Advance Tax Invoice {0} belongs to customer {1}, but this Sales Invoice belongs to {2}.",فاتورة الدفعة المقدمة - زاتكا {0} تخص العميل {1}، بينما فاتورة المبيعات تخص {2}.
+"ZATCA Advance Tax Invoice {0} currency is {1}, but this Sales Invoice currency is {2}.",عملة فاتورة الدفعة المقدمة - زاتكا {0} هي {1}، بينما عملة فاتورة المبيعات هي {2}.
+ZATCA Advance Tax Invoice {0} total amount must be greater than zero.,يجب أن يكون إجمالي فاتورة الدفعة المقدمة - زاتكا {0} أكبر من صفر.
+ZATCA Advance Tax Invoice {0} taxable amount must be greater than zero.,يجب أن يكون المبلغ الخاضع للضريبة في فاتورة الدفعة المقدمة - زاتكا {0} أكبر من صفر.
+Cannot add ZATCA advance VAT deduction because the Sales Invoice has no positive VAT tax row.,لا يمكن إضافة خصم ضريبة الدفعة المقدمة - زاتكا لأن فاتورة المبيعات لا تحتوي على سطر ضريبة VAT موجب.
+Cannot add ZATCA advance VAT deduction because VAT account is missing.,لا يمكن إضافة خصم ضريبة الدفعة المقدمة - زاتكا لأن حساب ضريبة VAT غير موجود.
+ZATCA Advance VAT Deduction {0},خصم ضريبة دفعة مقدمة - زاتكا {0}
+"ZATCA advance VAT deduction cannot exceed the Sales Invoice VAT amount. Advance VAT {0}, Sales Invoice VAT {1}.",لا يمكن أن يتجاوز خصم ضريبة الدفعة المقدمة - زاتكا مبلغ ضريبة فاتورة المبيعات. ضريبة الدفعة المقدمة {0}، ضريبة فاتورة المبيعات {1}.
+"ZATCA advance deduction cannot exceed the Sales Invoice total including VAT. Advance total {0}, Sales Invoice total {1}.",لا يمكن أن يتجاوز خصم الدفعة المقدمة - زاتكا إجمالي فاتورة المبيعات شامل الضريبة. إجمالي الدفعة المقدمة {0}، إجمالي فاتورة المبيعات {1}.
+ZATCA Advance Deduction Totals,إجماليات خصم الدفعات المقدمة - زاتكا
+Automatically summarizes accepted ZATCA advance deductions from ERPNext standard Advance Payments.,يلخص تلقائيًا الدفعات المقدمة المقبولة من جدول الدفعات المقدمة القياسي في ERPNext.
+ZATCA Advance Applied Amount Before VAT,مجموع الدفعات المقدمة المحتسب قبل الضريبة
+ZATCA Advance Applied VAT Amount,مجموع ضريبة الدفعات المقدمة المحتسبة
+Total taxable amount applied from linked ZATCA Advance Tax Invoices.,مجموع المبالغ قبل الضريبة المحتسبة من فواتير الدفعة المقدمة - زاتكا المرتبطة.
+Total VAT amount already invoiced through linked ZATCA Advance Tax Invoices.,مجموع ضريبة القيمة المضافة التي تم إصدارها مسبقًا من خلال فواتير الدفعة المقدمة - زاتكا المرتبطة.
+Payment Entry,سند القبض
+Currency,العملة
+Remarks,ملاحظات
+Advance Reversal,عكس/تسوية الدفعة المقدمة
+Advance Reversal Status,حالة عكس/تسوية الدفعة المقدمة
+Open,مفتوحة
+Partially Reversed,معكوسة جزئيًا
+Fully Reversed,معكوسة بالكامل
+Force Cancel ZATCA Advance Tax Invoice,إلغاء إجباري لفاتورة الدفعة المقدمة - زاتكا
+ZATCA Status is {0}.,حالة زاتكا هي {0}.
+Document status is {0}.,حالة المستند هي {0}.
+The company is configured for Phase 2/API advance invoice handling.,الشركة مهيأة لمعالجة فواتير الدفعات المقدمة عبر المرحلة الثانية/API.
+A later ZATCA Advance Tax Invoice exists for this company.,توجد فاتورة دفعة مقدمة - زاتكا لاحقة لهذه الشركة.
+This ZATCA Advance Tax Invoice is linked to active transaction(s): {0}. Cancel or reverse those transaction(s) first.,فاتورة الدفعة المقدمة - زاتكا مرتبطة بحركة/حركات فعالة: {0}. يجب إلغاء أو عكس تلك الحركات أولًا.
+This ZATCA Advance Tax Invoice cannot be cancelled by this user. Only System Manager or Administrator can force-cancel a reported/cleared/protected advance invoice.,لا يمكن لهذا المستخدم إلغاء فاتورة الدفعة المقدمة - زاتكا. يمكن فقط لمدير النظام أو Administrator إلغاء فاتورة دفعة مقدمة مرحلة/مقبولة/محمية إجباريًا.
+Only System Manager or Administrator can force-cancel a reported/cleared/protected ZATCA Advance Tax Invoice.,يمكن فقط لمدير النظام أو Administrator إلغاء فاتورة دفعة مقدمة - زاتكا مرحلة/مقبولة/محمية إجباريًا.
+"This ZATCA Advance Tax Invoice may already be reported, cleared, or protected by ZATCA rules.<br><br>This cancellation is internal in ERPNext only. It does not reverse, cancel, amend, or notify ZATCA about the reported/cleared invoice.<br><br>If this advance invoice is linked to another active transaction, the system will block cancellation.<br><br>Do you want to continue?",قد تكون فاتورة الدفعة المقدمة - زاتكا مرحلة أو مقبولة أو محمية حسب قواعد زاتكا.<br><br>هذا الإلغاء داخلي داخل ERPNext فقط، ولا يقوم بعكس أو إلغاء أو تعديل أو إشعار زاتكا بخصوص الفاتورة المرحلة/المقبولة.<br><br>إذا كانت فاتورة الدفعة المقدمة مرتبطة بحركة فعالة أخرى، سيمنع النظام الإلغاء.<br><br>هل تريد المتابعة؟
+This ZATCA Advance Tax Invoice cannot be cancelled or deleted by this user. Only System Manager or Administrator can force-cancel or force-delete a reported/cleared/protected advance invoice.,لا يمكن لهذا المستخدم إلغاء أو حذف فاتورة الدفعة المقدمة - زاتكا. يمكن فقط لمدير النظام أو Administrator إلغاء أو حذف فاتورة دفعة مقدمة مرحلة/مقبولة/محمية إجباريًا.
+This ZATCA Advance Tax Invoice is being cancelled/deleted by a System Manager override.,يتم إلغاء/حذف فاتورة الدفعة المقدمة - زاتكا بواسطة استثناء مدير النظام.
+This is an internal ERPNext cancellation/deletion only.,هذا إلغاء/حذف داخلي داخل ERPNext فقط.

@@ -1255,9 +1255,35 @@ def customer_data(invoice, sales_invoice_doc):
 
         cac_partytaxscheme_1 = ET.SubElement(cac_party_2, "cac:PartyTaxScheme")
 
-        if not customer_doc.custom_buyer_id:
+        # Buyer VAT registration number / BT-48.
+        # ZATCA XML path:
+        # /ubl:Invoice/cac:AccountingCustomerParty/cac:Party/cac:PartyTaxScheme/cbc:CompanyID
+        #
+        # Keep PartyIdentification/TIN as an additional buyer identifier if present,
+        # but do not use it as a replacement for the full 15-digit VAT number.
+        buyer_vat_number = ""
+
+        try:
+            buyer_vat_number = str(getattr(sales_invoice_doc, "tax_id", "") or "").strip()
+        except NameError:
+            buyer_vat_number = ""
+
+        if not buyer_vat_number:
+            buyer_vat_number = str(getattr(customer_doc, "tax_id", "") or "").strip()
+
+        buyer_vat_number = "".join(ch for ch in buyer_vat_number if ch.isdigit())
+
+        is_export_invoice = bool(getattr(sales_invoice_doc, "custom_zatca_export_invoice", 0))
+
+        if (
+            not is_export_invoice
+            and buyer_vat_number
+            and len(buyer_vat_number) == 15
+            and buyer_vat_number.startswith("3")
+            and buyer_vat_number.endswith("3")
+        ):
             cbc_company_id = ET.SubElement(cac_partytaxscheme_1, "cbc:CompanyID")
-            cbc_company_id.text = customer_doc.tax_id
+            cbc_company_id.text = buyer_vat_number
 
         cac_taxscheme_1 = ET.SubElement(cac_partytaxscheme_1, "cac:TaxScheme")
         cbc_id_5 = ET.SubElement(cac_taxscheme_1, "cbc:ID")

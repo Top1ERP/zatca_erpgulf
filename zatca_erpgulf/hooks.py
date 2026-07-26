@@ -256,9 +256,15 @@ doc_events = {
         "on_submit": [
             # "zatca_erpgulf.zatca_erpgulf.sales_invoice_hooks.rename_invoice_on_submit",
             "zatca_erpgulf.zatca_erpgulf.sign_invoice.zatca_background_on_submit",
+            "zatca_erpgulf.zatca_erpgulf.phase2_artifacts.ensure_phase2_sales_invoice_artifacts",
             "zatca_erpgulf.zatca_erpgulf.advance_credit_note.update_advance_invoice_reversal_status_from_sales_invoice",
+            "zatca_erpgulf.zatca_erpgulf.advance_deduction.ensure_final_sales_invoice_qr_for_print",
         ],
         "on_cancel": "zatca_erpgulf.zatca_erpgulf.advance_credit_note.update_advance_invoice_reversal_status_from_sales_invoice",
+        "on_update_after_submit": [
+            "zatca_erpgulf.zatca_erpgulf.phase2_artifacts.ensure_phase2_sales_invoice_artifacts",
+            "zatca_erpgulf.zatca_erpgulf.advance_deduction.ensure_final_sales_invoice_qr_for_print",
+        ],
     },
     "POS Invoice": {
         "validate": "zatca_erpgulf.zatca_erpgulf.tax_error.validate_negative_item_values_on_save",

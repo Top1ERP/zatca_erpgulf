@@ -543,6 +543,22 @@ def _run_preflight_or_throw_for_local_phase1_qr(doc) -> None:
 
 
 
+
+def _submit_advance_tax_invoice_if_draft(doc):
+    """Submit ZATCA Advance Tax Invoice after successful local issue.
+
+    The Payment Entry action issues the advance tax invoice, so after preflight
+    passes the document should be submitted and should generate its Phase-1 QR.
+    """
+    if not doc:
+        return doc
+
+    if int(doc.docstatus or 0) == 0:
+        doc.submit()
+        doc.reload()
+
+    return doc
+
 @frappe.whitelist()
 def validate_advance_for_zatca(advance_invoice_name: str) -> dict:
     doc = frappe.get_doc("ZATCA Advance Tax Invoice", advance_invoice_name)
@@ -623,11 +639,17 @@ def issue_advance_tax_invoice_from_payment_entry(payment_entry_name: str) -> dic
         frappe.db.commit()
         raise
 
+    # Preflight passed. Now submit the ZATCA Advance Tax Invoice so it does
+    # not remain Draft/Save-only after being issued from Payment Entry.
+    doc = _submit_advance_tax_invoice_if_draft(doc)
+
     _set_payment_entry_advance_fields(
         payment_entry.name,
         doc,
-        status=doc.zatca_status or "Preflight Passed",
-        full_response="Linked ZATCA Advance Tax Invoice: " + get_link_to_form("ZATCA Advance Tax Invoice", doc.name),
+        status=doc.zatca_status or doc.status or "Submitted",
+        file_url=doc.qr_code or "",
+        full_response=doc.full_response
+        or "Issued ZATCA Advance Tax Invoice: " + get_link_to_form("ZATCA Advance Tax Invoice", doc.name),
     )
     frappe.db.commit()
 
