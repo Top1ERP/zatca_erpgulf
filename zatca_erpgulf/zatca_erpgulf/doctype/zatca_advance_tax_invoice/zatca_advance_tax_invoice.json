@@ -360,7 +360,7 @@
       "fieldname": "zatca_status",
       "fieldtype": "Select",
       "label": "ZATCA Status",
-      "options": "Not Submitted\nDebug XML Created\nPreflight Passed\nQueued\nSending\nCleared\nReported\nFailed\nWarning",
+      "options": "Not Submitted\nDebug XML Created\nPreflight Passed\nPhase 1 QR Created\nQueued\nSending\nCleared\nReported\nFailed\nWarning",
       "read_only": 1,
       "in_list_view": 1,
       "in_standard_filter": 1,

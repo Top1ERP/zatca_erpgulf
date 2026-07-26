@@ -376,7 +376,7 @@ def _normalize_zatca_status(value):
 
 def _get_prepaid_amount_from_standard_advances(sales_invoice_doc):
     # Get tax-inclusive prepaid amount from ERPNext standard Sales Invoice advances.
-    # Only Payment Entries linked to a REPORTED/CLEARED ZATCA Advance Tax Invoice are counted.
+    # Only Payment Entries linked to a REPORTED/CLEARED/PHASE-1-QR ZATCA Advance Tax Invoice are counted.
     rows = getattr(sales_invoice_doc, "advances", None) or []
     total = Decimal("0.00")
 
