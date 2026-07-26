@@ -1,70 +1,362 @@
 - ... and {0} more invalid values.,- ... و{0} قيم غير صحيحة إضافية.
 "- Row {0}, Item {1}, {2}: {3}. {4}",- السطر {0}، الصنف {1}، {2}: {3}. {4}
 "- Row {0}, {1}: {2}. {3}",- السطر {0}، {1}: {2}. {3}
+100: Special rebate,100: خصم خاص
+102: Fixed long term,102: خصم طويل الأجل ثابت
+103: Temporary,103: خصم مؤقت
+104: Standard,104: قياسي
+105: Yearly turnover,105: مبيعات سنوية
+41: Bonus for works ahead of schedule,41: مكافأة لإنجاز الأعمال قبل الموعد المحدد
+42: Other bonus,42: مكافأة أخرى
+60: Manufacturer's consumer discount,60: خصم المستهلك من الشركة المصنعة
+62: Due to military status,62: بسبب الوضع العسكري
+63: Due to work accident,63: بسبب حادث عمل
+64: Special agreement,64: اتفاقية خاصة
+65: Production error discount,65: خصم بسبب خطأ في الإنتاج
+66: New outlet discount,66: خصم افتتاح منفذ جديد
+67: Sample discount,67: خصم على العينة
+68: End of range discount,68: خصم نهاية خط الإنتاج
+700: National Establishment Number,700: الرقم الموحد للمنشأة
+70: Incoterm discount,70: خصم شروط التجارة الدولية
+71: Point of sales threshold allowance,71: تخفيض حد نقاط البيع
+88: Material surcharge/deduction,88: رسوم أو خصم المواد
+95: Discount,95: خصم
 All item rows must have an Item Tax Template when any row uses an Item Tax Template. Missing rows: {0}.,يجب أن تحتوي جميع أسطر الأصناف على Item Tax Template إذا كان أي سطر يستخدم Item Tax Template. الأسطر الناقصة: {0}.
 Amount,المبلغ
 Base Amount,المبلغ بالعملة الأساسية
 Base Net Amount,صافي المبلغ بالعملة الأساسية
 Base Rate,السعر بالعملة الأساسية
+Bonus for works ahead of schedule,مكافأة لإنجاز الأعمال قبل الموعد المحدد
 CLEARED,تمت الموافقة
-Controls whether line item discounts are submitted to ZATCA as line-level discount data where supported.,يتحكم فيما إذا كان خصم السطر يُرسل إلى زاتكا كبيانات خصم على مستوى السطر عند دعم ذلك.
+CRN: Commercial Registration Number issued by the Ministry of Commerce,CRN: رقم السجل التجاري الصادر عن وزارة التجارة
+Controls whether line item discounts are submitted to ZATCA as line-level discount data where supported.,يتحكم فيما إذا كان خصم السطر يُرسل إلى ZATCA كبيانات خصم على مستوى السطر عند دعم ذلك.
+Customer ID Type for ZATCA. Select the type that matches the customer identification number.,نوع معرف العميل لZATCA. اختر النوع المطابق لرقم تعريف العميل.
+Discount,خصم
+"Discount reason code. Optional in the invoice, but use the official code when a discount reason is submitted.",رمز سبب الخصم. هو اختياري في الفاتورة، لكن عند إرسال سبب الخصم استخدم الرمز الرسمي.
 Document {0} {1} contains invalid item values:,المستند {0} {1} يحتوي على قيم أصناف غير صحيحة:
+Due to military status,بسبب الوضع العسكري
+Due to work accident,بسبب حادث عمل
+E: Exempt from tax.,E: معفى من الضريبة.
+End of range discount,خصم نهاية خط الإنتاج
 Exempted,معفاة
 Exemption Reason Code,رمز سبب الإعفاء
+Export invoice: used when the supplier and customer intend the goods or services to be supplied outside the GCC / Saudi VAT scope according to the applicable export rules.,فاتورة تصدير: تستخدم عندما يكون توريد السلع أو الخدمات خارج نطاق ضريبة القيمة المضافة السعودية/الخليجية وفق قواعد التصدير المطبقة.
 FAILED,فشل
+Fixed long term,خصم طويل الأجل ثابت
 For returns / credit notes:,للمرتجعات وإشعارات الدائن:
 For standard invoices and debit notes:,للفواتير القياسية وإشعارات المدين:
-Hidden self-billed invoice flag for ZATCA transaction flags.,مؤشر مخفي للفاتورة ذاتية الإصدار ضمن مؤشرات معاملة زاتكا.
+GCC: GCC National ID,GCC: رقم هوية مواطني دول مجلس التعاون الخليجي
+Hidden self-billed invoice flag for ZATCA transaction flags.,مؤشر مخفي للفاتورة ذاتية الإصدار ضمن مؤشرات معاملة ZATCA.
+IQA: Saudi residence permit / Iqama,IQA: رقم هوية المقيم / الإقامة في المملكة
 "If a row represents a discount, use the discount fields.",إذا كان السطر يمثل خصمًا، استخدم حقول الخصم.
-"If it represents an advance payment, create a Payment Entry and issue an Advance Tax Invoice (386).",إذا كان يمثل دفعة مقدمة، أنشئ Payment Entry وأصدر فاتورة دفعة مقدمة حسب إعدادات زاتكا.
+"If it represents an advance payment, create a Payment Entry and issue an Advance Tax Invoice (386).",إذا كان يمثل دفعة مقدمة، أنشئ Payment Entry وأصدر فاتورة دفعة مقدمة حسب إعدادات ZATCA.
 "If it represents retention or deduction, use the taxes and deductions table.",إذا كان يمثل احتجازًا أو استقطاعًا، استخدم جدول الضرائب والاستقطاعات.
-"Invoice-level ZATCA tax category. For mixed tax categories, use Item Tax Template on every item row.",فئة ضريبة زاتكا على مستوى الفاتورة. عند وجود فئات ضريبية متعددة، استخدم قالب ضريبة الصنف لكل سطر.
+Incoterm discount,خصم شروط التجارة الدولية
+"Invoice-level ZATCA tax category. For mixed tax categories, use Item Tax Template on every item row.",فئة ضريبة ZATCA على مستوى الفاتورة. عند وجود فئات ضريبية متعددة، استخدم قالب ضريبة الصنف لكل سطر.
+Invoice-level ZATCA tax category. Use Item Tax Template on every item row when the invoice contains mixed tax categories.,فئة ضريبة ZATCA على مستوى الفاتورة. استخدم قالب ضريبة الصنف لكل سطر عندما تحتوي الفاتورة على فئات ضريبية متعددة.
 Item quantity must not be negative.,لا يجوز أن تكون كمية الصنف سالبة.
 Item quantity must not be positive.,لا يجوز أن تكون كمية الصنف موجبة.
 Item rates must not be negative.,لا يجوز أن يكون سعر الصنف سالبًا.
 "Item rates, prices, and amounts must not be negative.",لا يجوز أن تكون أسعار أو قيم أو مبالغ السطر سالبة.
+MLS: MOMRAH license for municipal activities,MLS: رخصة وزارة الشؤون البلدية والقروية والإسكان للأنشطة التي تتطلب ترخيصًا بلديًا
+MOM: MHRSD license for labor-related activities,MOM: رخصة وزارة الموارد البشرية والتنمية الاجتماعية للأنشطة المرتبطة بشؤون العمل
+Manufacturer's consumer discount,خصم المستهلك من الشركة المصنعة
 Marks a nominal invoice. Existing validation requires a 100% document-level discount.,يعلّم الفاتورة كفاتورة اسمية. يتطلب التحقق الحالي خصمًا بنسبة 100% على مستوى المستند.
 Marks an export invoice. Customer must not be in Saudi Arabia and a valid exemption or zero-rating reason is required.,يعلّم الفاتورة كفاتورة تصدير. يجب ألا يكون العميل داخل السعودية، ويجب تحديد سبب إعفاء أو تصفير صحيح.
-Marks the invoice as a summary invoice for ZATCA transaction flags.,يعلّم الفاتورة كفاتورة ملخصة ضمن مؤشرات معاملة زاتكا.
-Marks the invoice as a third-party invoice for ZATCA transaction flags.,يعلّم الفاتورة كفاتورة لطرف ثالث ضمن مؤشرات معاملة زاتكا.
+Marks the invoice as a summary invoice for ZATCA transaction flags.,يعلّم الفاتورة كفاتورة ملخصة ضمن مؤشرات معاملة ZATCA.
+Marks the invoice as a third-party invoice for ZATCA transaction flags.,يعلّم الفاتورة كفاتورة لطرف ثالث ضمن مؤشرات معاملة ZATCA.
+Material surcharge/deduction,رسوم أو خصم المواد
+NAT: Saudi National ID,NAT: رقم الهوية الوطنية للسعوديين
 Net Amount,صافي المبلغ
+New outlet discount,خصم افتتاح منفذ جديد
+Nominal invoice: used when goods or services are supplied for free or at a reduced price as part of a promotional activity.,فاتورة اسمية: تستخدم عند تقديم سلع أو خدمات مجانًا أو بسعر مخفض ضمن نشاط ترويجي.
 Not Submitted,لم يتم الإرسال
-Optional ZATCA discount reason code when a discount reason must be sent.,رمز اختياري لسبب الخصم في زاتكا عند الحاجة لإرسال سبب الخصم.
-Optional ZATCA discount reason text when a discount reason must be sent.,نص اختياري لسبب الخصم في زاتكا عند الحاجة لإرسال سبب الخصم.
-Persisted ZATCA UUID used by the invoice XML and signing flow.,معرّف UUID محفوظ لزاتكا ويُستخدم في XML الفاتورة ومسار التوقيع.
+O: Outside scope of tax / not subject to VAT.,O: خارج نطاق الضريبة / غير خاضع لضريبة القيمة المضافة.
+OTH: Other ID when none of the listed IDs applies,OTH: معرّف آخر عند عدم انطباق أي من الأنواع السابقة
+Optional ZATCA discount reason code used when a discount reason must be submitted.,رمز اختياري لسبب الخصم في ZATCA عند الحاجة لإرسال سبب الخصم.
+Optional ZATCA discount reason code when a discount reason must be sent.,رمز اختياري لسبب الخصم في ZATCA عند الحاجة لإرسال سبب الخصم.
+Optional ZATCA discount reason text used when a discount reason must be submitted.,نص اختياري لسبب الخصم في ZATCA عند الحاجة لإرسال سبب الخصم.
+Optional ZATCA discount reason text when a discount reason must be sent.,نص اختياري لسبب الخصم في ZATCA عند الحاجة لإرسال سبب الخصم.
+Other bonus,مكافأة أخرى
+PAS: Passport number for non-resident individuals,PAS: رقم جواز السفر للأفراد غير المقيمين
+Persisted ZATCA UUID used by the invoice XML and signing flow.,معرّف UUID محفوظ لZATCA ويُستخدم في XML الفاتورة ومسار التوقيع.
+Point of sales threshold allowance,تخفيض حد نقاط البيع
+Production error discount,خصم بسبب خطأ في الإنتاج
 Quantity,الكمية
 REPORTED,تم الإبلاغ
 Rate,السعر
-Read-only ZATCA submission status.,حالة إرسال زاتكا للقراءة فقط.
+Read-only ZATCA submission status.,حالة إرسال ZATCA للقراءة فقط.
 "Required for Zero Rated, Exempted, Out of Scope, and Export invoices.",مطلوب للفواتير الخاضعة لنسبة صفرية أو المعفاة أو خارج نطاق الضريبة أو فواتير التصدير.
+"Required when the invoice is Zero Rated, Exempted, Out of Scope, or marked as Export Invoice.",مطلوب عندما تكون الفاتورة خاضعة لنسبة صفرية أو معفاة أو خارج نطاق الضريبة أو محددة كفاتورة تصدير.
 Return / credit note item quantity must be zero or negative.,يجب أن تكون كمية صنف المرتجع أو إشعار الدائن صفرًا أو سالبة.
+S: Standard rate.,S: النسبة القياسية.
+SAG: MISA license for foreign companies and investors,SAG: رخصة وزارة الاستثمار السعودية للشركات الأجنبية والمستثمرين
+Sample discount,خصم على العينة
+Self-billed invoice: issued by the buyer on behalf of the supplier under a self-billing agreement.,فاتورة ذاتية الإصدار: يصدرها المشتري نيابة عن المورد بموجب اتفاقية فوترة ذاتية.
 Services outside scope of tax / Not subject to VAT,خدمات خارج نطاق الضريبة / غير خاضعة لضريبة القيمة المضافة
-Standard,قياسية
+Special agreement,اتفاقية خاصة
+Special rebate,خصم خاص
+Standard,قياسي (15%)
 Standard 15%,قياسي 15%
 Standard invoice and debit note item quantity must be zero or greater.,يجب أن تكون كمية صنف الفاتورة القياسية أو إشعار المدين صفرًا أو أكبر.
-Submit line item discount to ZATCA,إرسال خصم السطر إلى زاتكا
-Submit line item discount to ZATCA.,إرسال خصم السطر إلى زاتكا.
+Submit line item discount to ZATCA,إرسال خصم السطر إلى ZATCA
+Submit line item discount to ZATCA.,إرسال خصم السطر إلى ZATCA
+Summary invoice: used to combine more than one supply of goods or services within a specific period into one summary tax invoice.,فاتورة ملخصة: تستخدم لتجميع أكثر من توريد للسلع أو الخدمات خلال فترة محددة في فاتورة ضريبية ملخصة واحدة.
+TIN: Tax Identification Number issued by ZATCA; usually the first 10 digits of the VAT number,TIN: رقم التعريف الضريبي (أول 10 أرقام من VAT)
+Tax category code values:,قيم رمز الفئة الضريبية:
+"Tax exemption / exception reason code. Required for Zero Rated, Exempted, Out of Scope, and Export cases.",رمز سبب الإعفاء أو الاستثناء الضريبي. مطلوب للحالات الخاضعة لنسبة صفرية أو المعفاة أو خارج النطاق أو التصدير.
+Temporary,خصم مؤقت
+"Third-party invoice: issued by an external party, such as an accounting office, on behalf of the seller after meeting the VAT requirements.",فاتورة طرف ثالث: تصدر من طرف خارجي مثل مكتب محاسبة نيابة عن البائع بعد استيفاء متطلبات ضريبة القيمة المضافة.
 UUID,المعرّف UUID
-Visual ZATCA status notification shown on the invoice.,تنبيه مرئي لحالة زاتكا يظهر داخل الفاتورة.
-ZATCA 3rd party invoice,فاتورة زاتكا لطرف ثالث
-ZATCA Discount reason,سبب الخصم في زاتكا
-ZATCA Discount reason code,رمز سبب الخصم في زاتكا
-ZATCA Export Invoice,فاتورة تصدير زاتكا
-ZATCA Integration Feilds,حقول تكامل زاتكا
-ZATCA Integration Fields,حقول تكامل زاتكا
-ZATCA NOMINAL Invoice,فاتورة زاتكا اسمية
-ZATCA Self billed Invoice,فاتورة زاتكا ذاتية الإصدار
-ZATCA Status,حالة زاتكا
-ZATCA Status Notification,تنبيه حالة زاتكا
-ZATCA Summary Invoice,فاتورة زاتكا ملخصة
-ZATCA Tax Category,فئة ضريبة زاتكا
-ZATCA Tax Category is required in Item Tax Template {0} used by row {1}.,فئة ضريبة زاتكا مطلوبة في قالب ضريبة الصنف {0} المستخدم في السطر {1}.
-ZATCA Tax Category is required when ZATCA Export Invoice is enabled.,فئة ضريبة زاتكا مطلوبة عند تفعيل فاتورة تصدير زاتكا.
-ZATCA exemption reason is required in Item Tax Template {0} for row {1} because the ZATCA tax category is {2}.,سبب الإعفاء/التصفير مطلوب في قالب ضريبة الصنف {0} للسطر {1} لأن فئة ضريبة زاتكا هي {2}.
-ZATCA exemption reason is required when ZATCA Export Invoice is enabled.,سبب الإعفاء/التصفير مطلوب عند تفعيل فاتورة تصدير زاتكا.
-ZATCA exemption reason is required when the ZATCA tax category is {0}.,سبب الإعفاء/التصفير مطلوب عندما تكون فئة ضريبة زاتكا هي {0}.
-ZATCA item line validation failed.,فشل تحقق أسطر الفاتورة حسب متطلبات زاتكا.
+"VAT note: if the 11th digit in the VAT number is 1, it indicates Group VAT. Otherwise, it is Single VAT.",ملاحظة ضريبة القيمة المضافة: إذا كان الرقم الحادي عشر في رقم الضريبة هو 1 فهذا يدل على ضريبة مجموعة، وإلا فهي ضريبة فردية.
+VATEX-SA-29-7: Life insurance services mentioned in Article 29 of the VAT Regulations,VATEX-SA-29-7: خدمات التأمين على الحياة المذكورة في المادة 29 من اللائحة التنفيذية لضريبة القيمة المضافة
+VATEX-SA-29: Financial services mentioned in Article 29 of the VAT Regulations,VATEX-SA-29: الخدمات المالية المذكورة في المادة 29 من اللائحة التنفيذية لضريبة القيمة المضافة
+VATEX-SA-30: Real estate transactions mentioned in Article 30 of the VAT Regulations,VATEX-SA-30: التوريدات العقارية المعفاة من الضريبة المذكورة في المادة 30 من اللائحة التنفيذية
+VATEX-SA-32: Export of goods,VATEX-SA-32: صادرات السلع من المملكة
+VATEX-SA-33: Export of services,VATEX-SA-33: صادرات الخدمات من المملكة
+VATEX-SA-34-1: The international transport of goods,VATEX-SA-34-1: النقل الدولي للسلع
+VATEX-SA-34-2: International transport of passengers,VATEX-SA-34-2: النقل الدولي للركاب
+VATEX-SA-34-3: Services directly connected and incidental to international passenger transport,VATEX-SA-34-3: الخدمات المرتبطة مباشرة أو عرضيًا بتوريد النقل الدولي للركاب
+VATEX-SA-34-4: Supply of a qualifying means of transport,VATEX-SA-34-4: توريد وسائل النقل المؤهلة
+VATEX-SA-34-5: Services relating to goods or passenger transportation,VATEX-SA-34-5: الخدمات المتعلقة بنقل السلع أو الركاب وفقًا للمادة 25 من اللائحة التنفيذية
+VATEX-SA-35: Medicines and medical equipment,VATEX-SA-35: الأدوية والمعدات الطبية
+VATEX-SA-36: Qualifying metals,VATEX-SA-36: المعادن المؤهلة
+VATEX-SA-EDU: Private education to citizen,VATEX-SA-EDU: الخدمات التعليمية الخاصة للمواطنين
+VATEX-SA-HEA: Private healthcare to citizen,VATEX-SA-HEA: الخدمات الصحية الخاصة للمواطنين
+VATEX-SA-MLTRY: Supply of qualified military goods,VATEX-SA-MLTRY: توريد السلع العسكرية المؤهلة
+VATEX-SA-OOS: Services outside scope of tax / reason provided by taxpayer case by case,VATEX-SA-OOS: خدمات خارج نطاق الضريبة، ويحدد المكلف السبب حسب كل حالة
+Visual ZATCA status notification shown on the invoice.,تنبيه مرئي لحالة ZATCA يظهر داخل الفاتورة.
+"When the invoice contains mixed tax categories, use Item Tax Template on every item row.",عندما تحتوي الفاتورة على فئات ضريبية متعددة، استخدم قالب ضريبة الصنف في كل سطر.
+Yearly turnover,مبيعات سنوية
+Z: Zero rated goods or services.,Z: سلع أو خدمات خاضعة لنسبة صفرية.
+ZATCA,ZATCA
+ZATCA 3rd party invoice,فاتورة لطرف ثالث ZATCA
+ZATCA Discount reason,سبب الخصم لدى ZATCA
+ZATCA Discount reason code,رمز سبب الخصم لدى ZATCA
+ZATCA Export Invoice,فاتورة تصدير ZATCA
+ZATCA Integration Feilds,حقول تكامل ZATCA
+ZATCA Integration Fields,حقول تكامل ZATCA
+ZATCA NOMINAL Invoice,فاتورة اسمية ZATCA
+ZATCA Self billed Invoice,فاتورة ذاتية الإصدار ZATCA
+ZATCA Status,حالة ZATCA
+ZATCA Status Notification,تنبيه حالة ZATCA
+ZATCA Summary Invoice,فاتورة ملخصة ZATCA
+ZATCA Tax Category,فئة ضريبة ZATCA
+ZATCA Tax Category is required in Item Tax Template {0} used by row {1}.,فئة ضريبة ZATCA مطلوبة في قالب ضريبة الصنف {0} المستخدم في السطر {1}.
+ZATCA Tax Category is required when ZATCA Export Invoice is enabled.,فئة ضريبة ZATCA مطلوبة عند تفعيل فاتورة تصدير ZATCA.
+ZATCA exemption reason is required in Item Tax Template {0} for row {1} because the ZATCA tax category is {2}.,سبب الإعفاء/التصفير مطلوب في قالب ضريبة الصنف {0} للسطر {1} لأن فئة ضريبة ZATCA هي {2}.
+ZATCA exemption reason is required when ZATCA Export Invoice is enabled.,سبب الإعفاء/التصفير مطلوب عند تفعيل فاتورة تصدير ZATCA.
+ZATCA exemption reason is required when the ZATCA tax category is {0}.,سبب الإعفاء/التصفير مطلوب عندما تكون فئة ضريبة ZATCA هي {0}.
+ZATCA item line validation failed.,فشل تحقق أسطر الفاتورة حسب متطلبات ZATCA.
 Zero Rated,خاضعة لنسبة صفرية
-Zero quantity and zero monetary values are allowed by this ZATCA validation layer.,الكمية صفر والقيم الصفرية مسموحة في طبقة تحقق زاتكا هذه.
-Zero quantity is allowed by this ZATCA validation layer.,الكمية صفر مسموحة في طبقة تحقق زاتكا هذه.
+Zero quantity and zero monetary values are allowed by this ZATCA validation layer.,الكمية صفر والقيم الصفرية مسموحة في طبقة تحقق ZATCA هذه.
+Zero quantity is allowed by this ZATCA validation layer.,الكمية صفر مسموحة في طبقة تحقق ZATCA هذه.
 new document,مستند جديد
+ZATCA POS Machine name,اسم جهاز نقطة البيع ZATCA
+Offline-Integrations,التكاملات غير المتصلة
+Offline Integrations,التكاملات غير المتصلة
+ZATCA Advance Deductions,خصومات الدفعات المقدمة ZATCA
+Automatically summarizes accepted ZATCA advance deductions from standard ERPNext advance payments.,يلخص تلقائيًا خصومات الدفعات المقدمة المقبولة في هيئة الزكاة والضرائب من الدفعات المقدمة القياسية في النظام.
+ZATCA Prepaid Amount,مبلغ الدفعة المقدمة ZATCA
+Tax-inclusive prepaid amount used for cbc:PrepaidAmount,مبلغ الدفعة المقدمة شامل الضريبة المستخدم في cbc:PrepaidAmount
+Tax-inclusive prepaid amount used for cbc:PrepaidAmount.,مبلغ الدفعة المقدمة شامل الضريبة المستخدم في cbc:PrepaidAmount.
+ZATCA Advance Deduction Count,عدد خصومات الدفعات المقدمة ZATCA
+Number of linked advance tax invoices,عدد فواتير الدفعات المقدمة المرتبطة
+Number of linked advance tax invoices.,عدد فواتير الدفعات المقدمة المرتبطة.
+Enforce ZATCA tax category source validation,فرض التحقق من مصدر فئة ضريبة ZATCA
+"When enabled, the system validates ZATCA tax category source and consistency using Item Tax Template or Sales Taxes and Charges Template.",عند التفعيل، يتحقق النظام من مصدر فئة ضريبة ZATCA وتوافقها باستخدام قالب ضريبة الصنف أو قالب الضرائب والرسوم على المبيعات.
+ZATCA Tax Category is required in {0}. Please configure the tax template before submitting the invoice.,فئة ضريبة ZATCA مطلوبة في {0}. يرجى ضبط قالب الضريبة قبل إرسال الفاتورة.
+Standard ZATCA tax category requires a tax rate greater than zero in {0}.,فئة ZATCA القياسية تتطلب نسبة ضريبة أكبر من صفر في {0}.
+"Standard ZATCA tax category requires a tax amount on the invoice. Add VAT, or use a supported exception such as Nominal Invoice, Export Invoice, or accepted Advance Deductions.",فئة ZATCA القياسية تتطلب وجود مبلغ ضريبة في الفاتورة. أضف ضريبة، أو استخدم حالة استثنائية مدعومة مثل الفاتورة الاسمية أو فاتورة التصدير أو خصومات الدفعات المقدمة المقبولة.
+"Zero-rated, exempt, or out-of-scope ZATCA categories must have a zero tax rate in {0}.",فئات ZATCA الصفرية أو المعفاة أو خارج نطاق الضريبة يجب أن تكون بنسبة ضريبة صفر في {0}.
+"Zero-rated, exempt, or out-of-scope ZATCA categories must not produce a tax amount on the invoice.",فئات ZATCA الصفرية أو المعفاة أو خارج نطاق الضريبة يجب ألا تنتج مبلغ ضريبة في الفاتورة.
+ZATCA exemption or exception reason code is required in {0} when the category is {1}.,رمز سبب الإعفاء أو الاستثناء في ZATCA مطلوب في {0} عندما تكون الفئة {1}.
+A ZATCA discount reason code and reason are required when the invoice contains a discount.,يجب تحديد رمز سبب الخصم وسبب الخصم في ZATCA عندما تحتوي الفاتورة على خصم.
+Item Tax Template {0},قالب ضريبة الصنف {0}
+Sales Invoice ZATCA fields,حقول ZATCA في فاتورة المبيعات
+ZATCA Setting,إعدادات ZATCA
+Tax,الضرائب
+ZATCA - Registration Type,نوع التسجيل في ZATCA
+ZATCA - Registration Number,رقم التسجيل في ZATCA
+ZATCA - Location for CSR Configuration,الرمز المختصر للعنوان الوطني ZATCA
+ZATCA - Company category for CSR Configuration,نشاط الشركة CSR ZATCA
+700,الرقم الموحد للمنشأة
+Contracting,مقاولات
+ZATCA Settings,إعدادات ZATCA
+Details,تفاصيل
+Enable ZATCA E-Invoicing,تفعيل الفوترة الإلكترونية ZATCA
+Main switch for ZATCA validation and invoice submission for this company,المفتاح الرئيسي لتفعيل تحقق ZATCA وإرسال الفواتير لهذه الشركة
+ZATCA Environment,بيئة ZATCA
+Select the ZATCA portal used for API calls. Production is for live submissions; Simulation/Sandbox are for testing.,اختر بوابة ZATCA المستخدمة لاستدعاءات API. الإنتاج للإرسال الفعلي، أما المحاكاة/Sandbox فهي للتجارب.
+ZATCA Phase,مرحلة ZATCA
+Phase-1,المرحلة الأولى
+Phase-2,المرحلة الثانية
+Phase-1 keeps QR/XML behavior limited. Phase-2 enables ZATCA signing and submission flow,المرحلة الأولى تبقي سلوك QR/XML محدودًا. المرحلة الثانية تفعّل التوقيع والإرسال إلى ZATCA.
+Use Cost Center as ZATCA Branch,استخدام مركز التكلفة كفرع ZATCA
+"When enabled, each invoice/POS invoice must have a Cost Center. ZATCA branch CRN and address are read from the selected Cost Center",عند التفعيل، يجب أن تحتوي كل فاتورة/فاتورة نقطة بيع على مركز تكلفة. يتم أخذ رقم السجل والعنوان لفرع ZATCA من مركز التكلفة المختار.
+Show ZATCA Response on Screen,إظهار استجابة ZATCA على الشاشة
+"When checked, users see ZATCA responses during submission. When unchecked, submission is more silent where supported by the sending flow",عند التفعيل، تظهر استجابات ZATCA للمستخدم أثناء الإرسال. عند التعطيل، يكون الإرسال أكثر هدوءًا حيث يدعم مسار الإرسال ذلك.
+B2C/POS Submission Method,طريقة إرسال B2C/POS
+Live,فوري
+Live sends immediately. Batches/Background are for scheduled B2C/POS processing. B2B remains live according to ZATCA behavior in the app,الإرسال الفوري يرسل مباشرة. الدُفعات/الخلفية مخصصة لمعالجة B2C/POS المجدولة. تبقى B2B فورية حسب سلوك ZATCA في التطبيق.
+Auto-submit Draft B2C/POS before ZATCA Background Submission,إرسال مسودات B2C/POS تلقائيًا قبل إرسال ZATCA الخلفي
+"When enabled, the background job may submit draft B2C/POS invoices before sending them to ZATCA. Keep disabled unless this workflow is intended",عند التفعيل، قد تقوم المهمة الخلفية بإرسال مسودات B2C/POS قبل إرسالها إلى ZATCA. اتركه معطلًا ما لم يكن هذا المسار مقصودًا.
+CSR Configuration and Data,إعدادات وبيانات CSR
+Create CSR Configuration,إنشاء إعدادات CSR
+Generates the CSR configuration text from company data. Review it before creating the CSR,ينشئ نص إعدادات CSR من بيانات الشركة. راجعه قبل إنشاء CSR.
+CSR Configuration,إعدادات CSR
+CSR configuration used to generate CSR data. Usually generated from the button above and edited only by an administrator,إعدادات CSR المستخدمة لإنشاء بيانات CSR. غالبًا يتم إنشاؤها من الزر أعلاه ولا يعدلها إلا مسؤول النظام.
+Create CSR,إنشاء CSR
+Creates CSR data from the CSR Configuration and selected ZATCA Environment,ينشئ بيانات CSR من إعدادات CSR وبيئة ZATCA المحددة.
+CSR Data,بيانات CSR
+ZATCA Validation Settings,إعدادات تحقق ZATCA
+ZATCA Negative Line Validation Mode,وضع التحقق من الأسطر السالبة في ZATCA
+Strict,صارم
+Warn Only,تحذير فقط
+Disabled,معطل
+Customer ID Type for ZATCA,نوع معرف العميل ZATCA
+TIN,رقم التعريف الضريبي (أول 10 أرقام من VAT)
+Tax Identification Number issued by ZATCA; usually the first 10 digits of the VAT number,رقم التعريف الضريبي (أول 10 أرقام من VAT)
+CRN,رقم السجل التجاري
+National Establishment Number,الرقم الموحد للمنشأة
+ZATCA- Location for CSR Configuratoin,الرمز المختصر للعنوان الوطني ZATCA
+ZATCA - Location for CSR Configuratoin,الرمز المختصر للعنوان الوطني ZATCA
+ZATCA- Company category for CSR Configuratoin,نشاط الشركة CSR ZATCA
+Background,خلفي
+Background Submission Schedule,جدول الإرسال الخلفي
+Background End Time,وقت نهاية الإرسال الخلفي
+Background Start Time,وقت بداية الإرسال الخلفي
+End of the first allowed background-submission window,نهاية نافذة الإرسال الخلفي الأولى المسموحة
+Start of the first allowed background-submission window,بداية نافذة الإرسال الخلفي الأولى المسموحة
+End of the second allowed background-submission window,نهاية نافذة الإرسال الخلفي الثانية المسموحة
+Start of the second allowed background-submission window,بداية نافذة الإرسال الخلفي الثانية المسموحة
+Generated CSR payload. Do not edit manually unless instructed by the ZATCA administrator,بيانات CSR الناتجة. لا تعدلها يدويًا إلا بتوجيه من مسؤول ZATCA.
+Optional / Legacy Output Attachments,مرفقات المخرجات الاختيارية / القديمة
+ZATCA Chain State,حالة سلسلة ZATCA
+Previous Invoice Hash (PIH),هاش الفاتورة السابقة (PIH)
+Technical ZATCA state. It is updated by the signing/submission flow and should not be manually changed except during controlled troubleshooting,حالة تقنية لـ ZATCA. يتم تحديثها من مسار التوقيع/الإرسال ولا يجب تعديلها يدويًا إلا أثناء استكشاف أخطاء مضبوط.
+Keys and Certificates for ZATCA,المفاتيح والشهادات لـ ZATCA
+Private Key,المفتاح الخاص
+Sensitive signing key generated by CSR flow. Do not share or edit manually,مفتاح توقيع حساس يتم إنشاؤه من مسار CSR. لا تشاركه ولا تعدله يدويًا.
+Public Key,المفتاح العام
+Public key generated from the CSR/certificate process,المفتاح العام الناتج من عملية CSR/الشهادة.
+Certificate,الشهادة
+ZATCA certificate returned by CSID generation,شهادة ZATCA الناتجة من إنشاء CSID.
+URLs / API Endpoints,روابط / نقاط اتصال API
+ZATCA API endpoints. Modify only if ZATCA changes endpoints or for a controlled testing environment,نقاط اتصال API الخاصة بـ ZATCA. لا تعدلها إلا إذا غيّرت ZATCA الروابط أو ضمن بيئة اختبار مضبوطة.
+Sandbox URL,رابط Sandbox
+Sandbox/developer portal base URL used when ZATCA Environment is Sandbox,رابط بوابة Sandbox/developer المستخدم عندما تكون بيئة ZATCA هي Sandbox.
+Simulation URL,رابط المحاكاة
+Simulation base URL used when ZATCA Environment is Simulation,رابط المحاكاة المستخدم عندما تكون بيئة ZATCA هي Simulation.
+Production URL,رابط الإنتاج
+Production base URL used for live ZATCA submission. No leading or trailing spaces should exist,رابط الإنتاج المستخدم للإرسال الفعلي إلى ZATCA. يجب ألا يحتوي على مسافات في البداية أو النهاية.
+Compliance CSID Generation,إنشاء Compliance CSID
+Generate and store the compliance CSID using OTP and CSR data,إنشاء وحفظ Compliance CSID باستخدام رمز OTP وبيانات CSR.
+OTP,رمز OTP
+One-time password from ZATCA portal used to generate the Compliance CSID,رمز يستخدم لمرة واحدة من بوابة ZATCA لإنشاء Compliance CSID.
+Generate Compliance CSID,إنشاء Compliance CSID
+Calls ZATCA to generate Compliance CSID using CSR data and OTP,يستدعي ZATCA لإنشاء Compliance CSID باستخدام بيانات CSR ورمز OTP.
+Compliance CSID Attach,مرفق Compliance CSID
+Encoded Compliance CSID credential returned by ZATCA. Used during compliance checks,اعتماد Compliance CSID المشفر الصادر من ZATCA. يُستخدم أثناء فحوصات الامتثال.
+Compliance Request ID,رقم طلب الامتثال
+Request ID returned by ZATCA during Compliance CSID generation,رقم الطلب الصادر من ZATCA أثناء إنشاء Compliance CSID.
+ZATCA Compliance Check,فحص امتثال ZATCA
+Use these controls to test sample invoices and credit/debit notes before final production CSID,استخدم هذه الأدوات لاختبار فواتير وإشعارات دائن/مدين قبل CSID النهائي للإنتاج.
+Validation Type,نوع الفحص
+Select one document type to run a single compliance check. Run All Compliance tests all listed document types,اختر نوع مستند واحد لتشغيل فحص امتثال منفرد. خيار تشغيل كل فحوصات الامتثال يفحص كل أنواع المستندات المدرجة.
+Sample Invoice Number to Test,رقم الفاتورة التجريبية للفحص
+Existing Sales Invoice/POS Invoice number used for compliance testing,رقم فاتورة مبيعات/نقطة بيع موجودة لاستخدامه في فحص الامتثال.
+Check Compliance,فحص الامتثال
+Runs compliance check for the selected Validation Type and sample invoice,يشغل فحص الامتثال لنوع الفحص والفاتورة التجريبية المحددين.
+Run All Compliance,تشغيل كل فحوصات الامتثال
+"Runs compliance checks for all supported invoices, credit notes, and debit notes types",يشغل فحوصات الامتثال لكل الفواتير وإشعارات الدائن والمدين المدعومة.
+Final CSID Generation,إنشاء CSID النهائي
+Generate Final CSID,إنشاء CSID النهائي
+Final Auth CSID,اعتماد CSID النهائي
+Generate the final production CSID after successful compliance checks,إنشاء CSID النهائي للإنتاج بعد نجاح فحوصات الامتثال.
+Calls ZATCA to generate the final production CSID used for live submission,يستدعي ZATCA لإنشاء CSID النهائي المستخدم للإرسال الفعلي.
+Encoded production CSID credential used by live ZATCA submission flows,اعتماد CSID الإنتاج المشفر المستخدم في مسارات الإرسال الفعلي إلى ZATCA.
+ZATCA Advance Tax Invoice behavior,سلوك فواتير الدفعات المقدمة ZATCA
+Controls ZATCA Advance Tax Invoice behavior for this company. Keep disabled unless the advance-payment workflow is enabled,يتحكم في سلوك فواتير الدفعات المقدمة ZATCA لهذه الشركة. اتركه معطلًا ما لم يكن مسار الدفعات المقدمة مفعّلًا.
+Enable creating/using a ZATCA Advance Tax Invoice for this company,تفعيل إنشاء/استخدام فاتورة دفعة مقدمة ZATCA لهذه الشركة.
+Controls extra local validation before ZATCA submission,يتحكم في التحقق المحلي الإضافي قبل الإرسال إلى ZATCA.
+Strict blocks negative quantities/prices/amounts where ZATCA does not allow them. Warn Only shows warnings. Disabled turns off this local guard,الوضع الصارم يمنع الكميات/الأسعار/المبالغ السالبة عندما لا تسمح بها ZATCA. التحذير فقط يعرض تنبيهات. التعطيل يوقف هذا الحارس المحلي.
+POS / Offline Machine Settings,إعدادات نقطة البيع / الأجهزة غير المتصلة
+POS and offline-machine related ZATCA options,خيارات ZATCA المتعلقة بنقطة البيع والأجهزة غير المتصلة.
+Optional ZATCA offline/POS machine configuration table,جدول اختياري لإعدادات أجهزة ZATCA غير المتصلة/نقطة البيع.
+Submit POS Line Item Discount to ZATCA,إرسال خصم سطر نقطة البيع إلى ZATCA
+Controls whether POS line item discount details are submitted in the ZATCA XML,يتحكم فيما إذا كانت تفاصيل خصم سطر نقطة البيع تُرسل داخل XML الخاص بـ ZATCA.
+Details and Verification Code,التفاصيل ورمز التحقق
+Main switch for ZATCA validation and invoice submission for this company.,المفتاح الرئيسي لتفعيل تحقق ZATCA وإرسال الفواتير لهذه الشركة.
+Phase-1 keeps QR/XML behavior limited. Phase-2 enables ZATCA signing and submission flow.,المرحلة الأولى تبقي سلوك QR/XML محدودًا. المرحلة الثانية تفعّل التوقيع والإرسال إلى ZATCA.
+"When enabled, each invoice/POS invoice must have a Cost Center. ZATCA branch CRN and address are read from the selected Cost Center.",عند التفعيل، يجب أن تحتوي كل فاتورة/فاتورة نقطة بيع على مركز تكلفة. يتم أخذ رقم السجل والعنوان لفرع ZATCA من مركز التكلفة المختار.
+Background Start Time - Section 2,وقت بداية الإرسال الخلفي - الفترة الثانية
+Background End Time - Section 2,وقت نهاية الإرسال الخلفي - الفترة الثانية
+All item rows must either have an Item Tax Template or none of them should have one. Missing Item Tax Template in rows: {0}.,يجب أن تكون جميع أسطر الأصناف إما تحتوي على Item Tax Template أو لا يحتوي أي سطر عليه. الأسطر التي لا تحتوي على Item Tax Template: {0}.
+Sales Taxes and Charges Template {0},قالب الضرائب والرسوم على المبيعات {0}
+Sales Taxes and Charges Template {0} or Sales Invoice ZATCA fields,قالب الضرائب والرسوم على المبيعات {0} أو حقول ZATCA في فاتورة المبيعات
+Keys and Certificate for ZATCA,المفاتيح والشهادة لـ ZATCA
+Technical certificate material used by ZATCA signing. Keep this section restricted to administrators,مواد الشهادة التقنية المستخدمة في توقيع ZATCA. يجب حصر هذا القسم على مسؤولي النظام.
+Technical certificate material used by ZATCA signing. Keep this section restricted to administrators.,مواد الشهادة التقنية المستخدمة في توقيع ZATCA. يجب حصر هذا القسم على مسؤولي النظام.
+ZATCA API endpoints. Modify only if ZATCA changes endpoints or for a controlled testing environment.,نقاط اتصال API الخاصة بـ ZATCA. لا تعدلها إلا إذا غيّرت ZATCA الروابط أو ضمن بيئة اختبار مضبوطة.
+Sandbox/developer portal base URL used when ZATCA Environment is Sandbox.,رابط بوابة Sandbox/developer المستخدم عندما تكون بيئة ZATCA هي Sandbox.
+Simulation base URL used when ZATCA Environment is Simulation.,رابط المحاكاة المستخدم عندما تكون بيئة ZATCA هي Simulation.
+Production base URL used for live ZATCA submissions. No leading or trailing spaces should exist,رابط الإنتاج المستخدم للإرسال الفعلي إلى ZATCA. يجب ألا يحتوي على مسافات في البداية أو النهاية.
+Production base URL used for live ZATCA submissions. No leading or trailing spaces should exist.,رابط الإنتاج المستخدم للإرسال الفعلي إلى ZATCA. يجب ألا يحتوي على مسافات في البداية أو النهاية.
+Production base URL used for live ZATCA submission. No leading or trailing spaces should exist.,رابط الإنتاج المستخدم للإرسال الفعلي إلى ZATCA. يجب ألا يحتوي على مسافات في البداية أو النهاية.
+Generate and store the compliance CSID using OTP and CSR data.,إنشاء وحفظ Compliance CSID باستخدام رمز OTP وبيانات CSR.
+One-time password from ZATCA portal used to generate the Compliance CSID.,رمز يستخدم لمرة واحدة من بوابة ZATCA لإنشاء Compliance CSID.
+Calls ZATCA to generate Compliance CSID using CSR data and OTP.,يستدعي ZATCA لإنشاء Compliance CSID باستخدام بيانات CSR ورمز OTP.
+Encoded Compliance CSID credential returned by ZATCA. Used during compliance checks.,اعتماد Compliance CSID المشفر الصادر من ZATCA. يُستخدم أثناء فحوصات الامتثال.
+Request ID returned by ZATCA during Compliance CSID generation.,رقم الطلب الصادر من ZATCA أثناء إنشاء Compliance CSID.
+Generate the final production CSID after successful compliance checks.,إنشاء CSID النهائي للإنتاج بعد نجاح فحوصات الامتثال.
+Calls ZATCA to generate the final production CSID used for live submission.,يستدعي ZATCA لإنشاء CSID النهائي المستخدم للإرسال الفعلي.
+Encoded production CSID credential used by live ZATCA submission flows.,اعتماد CSID الإنتاج المشفر المستخدم في مسارات الإرسال الفعلي إلى ZATCA.
+Use these controls to test sample invoices and credit/debit notes before final production CSID.,استخدم هذه الأدوات لاختبار فواتير وإشعارات دائن/مدين قبل CSID النهائي للإنتاج.
+Select one document type to run a single compliance check. Run All Compliance tests all listed document types.,اختر نوع مستند واحد لتشغيل فحص امتثال منفرد. خيار تشغيل كل فحوصات الامتثال يفحص كل أنواع المستندات المدرجة.
+Existing Sales Invoice/POS Invoice number used for compliance testing.,رقم فاتورة مبيعات/نقطة بيع موجودة لاستخدامه في فحص الامتثال.
+Runs compliance check for the selected Validation Type and sample invoice.,يشغل فحص الامتثال لنوع الفحص والفاتورة التجريبية المحددين.
+"Runs compliance checks for all supported invoices, credit notes, and debit notes types.",يشغل فحوصات الامتثال لكل الفواتير وإشعارات الدائن والمدين المدعومة.
+"When checked, users see ZATCA responses during submission. When unchecked, submission is more silent where supported by the sending flow.",عند التفعيل، تظهر استجابات ZATCA للمستخدم أثناء الإرسال. عند التعطيل، يكون الإرسال أكثر هدوءًا حيث يدعم مسار الإرسال ذلك.
+Live sends immediately. Batches/Background are for scheduled B2C/POS processing. B2B remains live according to ZATCA behavior in the app.,الإرسال الفوري يرسل مباشرة. الدُفعات/الخلفية مخصصة لمعالجة B2C/POS المجدولة. تبقى B2B فورية حسب سلوك ZATCA في التطبيق.
+Used only when B2C/POS Submission Method is set to Background.,يُستخدم فقط عندما تكون طريقة إرسال B2C/POS مضبوطة على الإرسال الخلفي.
+Used only when B2C/POS Submission Method is set to Background,يُستخدم فقط عندما تكون طريقة إرسال B2C/POS مضبوطة على الإرسال الخلفي.
+Generates the CSR configuration text from company data. Review it before creating the CSR.,ينشئ نص إعدادات CSR من بيانات الشركة. راجعه قبل إنشاء CSR.
+CSR configuration used to generate CSR data. Usually generated from the button above and edited only by an administrator.,إعدادات CSR المستخدمة لإنشاء بيانات CSR. غالبًا يتم إنشاؤها من الزر أعلاه ولا يعدلها إلا مسؤول النظام.
+Creates CSR data from the CSR Configuration and selected ZATCA Environment.,ينشئ بيانات CSR من إعدادات CSR وبيئة ZATCA المحددة.
+Generated CSR payload. Do not edit manually unless instructed by the ZATCA administrator.,بيانات CSR الناتجة. لا تعدلها يدويًا إلا بتوجيه من مسؤول ZATCA.
+Technical ZATCA state. It is updated by the signing/submission flow and should not be manually changed except during controlled troubleshooting.,حالة تقنية لـ ZATCA. يتم تحديثها من مسار التوقيع/الإرسال ولا يجب تعديلها يدويًا إلا أثناء استكشاف أخطاء مضبوط.
+"Runs compliance checks for all supported invoice, credit note, and debit note types.",يشغل فحوصات الامتثال لكل الفواتير وإشعارات الدائن والمدين المدعومة.
+"Runs compliance checks for all supported invoice, credit note, and debit note types",يشغل فحوصات الامتثال لكل الفواتير وإشعارات الدائن والمدين المدعومة.
+Calls ZATCA to generate the final production CSID used for live submissions.,يستدعي ZATCA لإنشاء CSID النهائي المستخدم للإرسال الفعلي.
+Calls ZATCA to generate the final production CSID used for live submissions,يستدعي ZATCA لإنشاء CSID النهائي المستخدم للإرسال الفعلي.
+Controls ZATCA Advance Tax Invoice behavior for this company. Keep disabled unless the advance-payment workflow is enabled.,يتحكم في سلوك فواتير الدفعات المقدمة ZATCA لهذه الشركة. اتركه معطلًا ما لم يكن مسار الدفعات المقدمة مفعّلًا.
+Enable creation/use of ZATCA Advance Tax Invoice for this company.,تفعيل إنشاء/استخدام فاتورة دفعة مقدمة ZATCA لهذه الشركة.
+Enable creation/use of ZATCA Advance Tax Invoice for this company,تفعيل إنشاء/استخدام فاتورة دفعة مقدمة ZATCA لهذه الشركة.
+Enable creating/using a ZATCA Advance Tax Invoice for this company.,تفعيل إنشاء/استخدام فاتورة دفعة مقدمة ZATCA لهذه الشركة.
+Local Only keeps advance invoices inside ERPNext. Submit to ZATCA requires tested signing/API controls. Disabled blocks advance-payment flow.,وضع محلي فقط يبقي فواتير الدفعات المقدمة داخل النظام. الإرسال إلى ZATCA يتطلب اختبار التوقيع وواجهات API. التعطيل يمنع مسار الدفعات المقدمة.
+Local Only keeps advance invoices inside ERPNext. Submit to ZATCA requires tested signing/API controls. Disabled blocks advance-payment flow,وضع محلي فقط يبقي فواتير الدفعات المقدمة داخل النظام. الإرسال إلى ZATCA يتطلب اختبار التوقيع وواجهات API. التعطيل يمنع مسار الدفعات المقدمة.
+Default Terms and Conditions copied into new ZATCA Advance Tax Invoice records.,الشروط والأحكام الافتراضية التي تُنسخ إلى سجلات فواتير الدفعات المقدمة ZATCA الجديدة.
+Default Terms and Conditions copied into new ZATCA Advance Tax Invoice records,الشروط والأحكام الافتراضية التي تُنسخ إلى سجلات فواتير الدفعات المقدمة ZATCA الجديدة.
+Advanced technical switch. Enable only after advance invoice signing is tested.,خيار تقني متقدم. لا تفعّله إلا بعد اختبار توقيع فاتورة الدفعة المقدمة.
+Advanced technical switch. Enable only after advance invoice signing is tested,خيار تقني متقدم. لا تفعّله إلا بعد اختبار توقيع فاتورة الدفعة المقدمة.
+Advanced technical switch. Enable only after advance invoice API submission is tested.,خيار تقني متقدم. لا تفعّله إلا بعد اختبار إرسال فاتورة الدفعة المقدمة عبر API.
+Advanced technical switch. Enable only after advance invoice API submission is tested,خيار تقني متقدم. لا تفعّله إلا بعد اختبار إرسال فاتورة الدفعة المقدمة عبر API.
+Controls extra local validations before ZATCA submission.,يتحكم في التحققات المحلية الإضافية قبل الإرسال إلى ZATCA.
+Controls extra local validations before ZATCA submission,يتحكم في التحققات المحلية الإضافية قبل الإرسال إلى ZATCA.
+Controls extra local validation before ZATCA submission.,يتحكم في التحقق المحلي الإضافي قبل الإرسال إلى ZATCA.
+Strict blocks negative quantities/prices/amounts where ZATCA does not allow them. Warn Only shows warnings. Disabled turns off this local guard.,الوضع الصارم يمنع الكميات/الأسعار/المبالغ السالبة عندما لا تسمح بها ZATCA. التحذير فقط يعرض تنبيهات. التعطيل يوقف هذا الحارس المحلي.
+Optional ZATCA offline/POS machine configuration table.,جدول اختياري لإعدادات أجهزة ZATCA غير المتصلة/نقطة البيع.
+Controls whether POS line item discount details are submitted in the ZATCA XML.,يتحكم فيما إذا كانت تفاصيل خصم سطر نقطة البيع تُرسل داخل XML الخاص بـ ZATCA.
+Attach XML with invoice,إرفاق XML مع الفاتورة
+Attach XML with QR code,إرفاق XML مع رمز QR
+Compliance CSID Basic Auth,اعتماد Basic Auth لـ Compliance CSID
+ZATCA Compliance Checks,فحوصات امتثال ZATCA
+ZATCA Offline Machines,أجهزة ZATCA غير المتصلة
+Attach e-Invoice Send Status with Invoice,إرفاق حالة إرسال الفاتورة الإلكترونية مع الفاتورة
+Attach QR Code Doctype,نوع مستند مرفق رمز QR
+ZATCA Advance Payment Enabled,تفعيل الدفعات المقدمة ZATCA
+ZATCA Advance Payment Submission Mode,طريقة إرسال الدفعات المقدمة ZATCA
+ZATCA Advance Default Terms and Conditions,الشروط والأحكام الافتراضية للدفعات المقدمة ZATCA
+ZATCA Advance Signing Enabled,تفعيل توقيع الدفعات المقدمة ZATCA
+ZATCA Advance API Submission Enabled,تفعيل إرسال الدفعات المقدمة ZATCA عبر API

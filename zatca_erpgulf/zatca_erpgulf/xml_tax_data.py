@@ -209,10 +209,39 @@ def _sum_line_net_amounts(sales_invoice_doc):
     return q2(total)
 
 
+
+def _get_invoice_level_zatca_tax_source(sales_invoice_doc):
+    """Resolve invoice-level ZATCA tax category from Sales Taxes Template, then invoice fallback."""
+    template_category = None
+    template_exemption_reason = None
+
+    taxes_and_charges = sales_invoice_doc.get("taxes_and_charges")
+
+    if taxes_and_charges:
+        try:
+            template_doc = frappe.get_doc("Sales Taxes and Charges Template", taxes_and_charges)
+            template_category = template_doc.get("custom_zatca_tax_category")
+            template_exemption_reason = template_doc.get("custom_exemption_reason_code")
+        except Exception:
+            template_category = None
+            template_exemption_reason = None
+
+    tax_category = (
+        template_category
+        or sales_invoice_doc.get("custom_zatca_tax_category")
+        or "Standard"
+    )
+    exemption_reason_code = (
+        template_exemption_reason
+        or sales_invoice_doc.get("custom_exemption_reason_code")
+    )
+
+    return tax_category, exemption_reason_code
+
+
 def _get_tax_breakdown_without_template(sales_invoice_doc):
     """Build VAT breakdown from line net amounts for invoices without item tax template."""
-    tax_category = sales_invoice_doc.get("custom_zatca_tax_category") or "Standard"
-    exemption_reason_code = sales_invoice_doc.get("custom_exemption_reason_code")
+    tax_category, exemption_reason_code = _get_invoice_level_zatca_tax_source(sales_invoice_doc)
 
     taxable_amount = _sum_line_net_amounts(sales_invoice_doc)
 

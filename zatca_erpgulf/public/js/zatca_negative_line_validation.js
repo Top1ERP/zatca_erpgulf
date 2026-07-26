@@ -255,34 +255,36 @@
         let issue_text = shown_issues.map((issue) => `- ${issue}`).join("<br>");
 
         if (more_count > 0) {
-            issue_text += `<br>- ... and ${more_count} more invalid values.`;
+            issue_text += `<br>- ${__("- ... and {0} more invalid values.", [more_count])}`;
         }
+
+        const document_name = frm.doc.name || __("new document");
 
         return `
             <div>
-                <p><b>ZATCA item line validation failed.</b></p>
+                <p><b>${__("ZATCA item line validation failed.")}</b></p>
 
-                <p><b>For standard invoices and debit notes:</b></p>
+                <p><b>${__("For standard invoices and debit notes:")}</b></p>
                 <ul>
-                    <li>Item quantity must not be negative.</li>
-                    <li>Item rates, prices, and amounts must not be negative.</li>
-                    <li>Zero quantity and zero monetary values are allowed by this ZATCA validation layer.</li>
+                    <li>${__("Item quantity must not be negative.")}</li>
+                    <li>${__("Item rates, prices, and amounts must not be negative.")}</li>
+                    <li>${__("Zero quantity and zero monetary values are allowed by this ZATCA validation layer.")}</li>
                 </ul>
 
-                <p><b>For returns / credit notes:</b></p>
+                <p><b>${__("For returns / credit notes:")}</b></p>
                 <ul>
-                    <li>Item quantity must not be positive.</li>
-                    <li>Item rates must not be negative.</li>
-                    <li>Zero quantity is allowed by this ZATCA validation layer.</li>
+                    <li>${__("Item quantity must not be positive.")}</li>
+                    <li>${__("Item rates must not be negative.")}</li>
+                    <li>${__("Zero quantity is allowed by this ZATCA validation layer.")}</li>
                 </ul>
 
-                <p><b>${frm.doctype} ${frm.doc.name || "(new document)"} contains invalid item values:</b></p>
+                <p><b>${__("Document {0} {1} contains invalid item values:", [frm.doctype, document_name])}</b></p>
                 <p>${issue_text}</p>
 
                 <p>
-                    If a row represents a discount, use the discount fields.<br>
-                    If it represents retention or deduction, use the taxes and deductions table.<br>
-                    If it represents an advance payment, create a Payment Entry and issue an Advance Tax Invoice (386).
+                    ${__("If a row represents a discount, use the discount fields.")}<br>
+                    ${__("If it represents retention or deduction, use the taxes and deductions table.")}<br>
+                    ${__("If it represents an advance payment, create a Payment Entry and issue an Advance Tax Invoice (386).")}
                 </p>
             </div>
         `;
@@ -304,7 +306,7 @@
 
         frappe.show_alert(
             {
-                message: `<b>ZATCA:</b> ${issues[0]}`,
+                message: `<b>${__("ZATCA")}:</b> ${issues[0]}`,
                 indicator: "red",
             },
             5

@@ -205,51 +205,133 @@ frappe.ui.form.on("Sales Invoice", {
 
 frappe.ui.form.on('Sales Invoice', {
     refresh: function (frm) {
+        const taxCategoryHelp = [
+                    __("Tax category code values:"),
+                    __("S: Standard rate."),
+                    __("Z: Zero rated goods or services."),
+                    __("E: Exempt from tax."),
+                    __("O: Outside scope of tax / not subject to VAT."),
+                    __("When the invoice contains mixed tax categories, use Item Tax Template on every item row."),
+                ].join("<br>");
+
+        const taxExemptionCodeHelp = [
+                    __("Tax exemption / exception reason code. Required for Zero Rated, Exempted, Out of Scope, and Export cases."),
+                    __("VATEX-SA-29: Financial services mentioned in Article 29 of the VAT Regulations"),
+                    __("VATEX-SA-29-7: Life insurance services mentioned in Article 29 of the VAT Regulations"),
+                    __("VATEX-SA-30: Real estate transactions mentioned in Article 30 of the VAT Regulations"),
+                    __("VATEX-SA-32: Export of goods"),
+                    __("VATEX-SA-33: Export of services"),
+                    __("VATEX-SA-34-1: The international transport of goods"),
+                    __("VATEX-SA-34-2: International transport of passengers"),
+                    __("VATEX-SA-34-3: Services directly connected and incidental to international passenger transport"),
+                    __("VATEX-SA-34-4: Supply of a qualifying means of transport"),
+                    __("VATEX-SA-34-5: Services relating to goods or passenger transportation"),
+                    __("VATEX-SA-35: Medicines and medical equipment"),
+                    __("VATEX-SA-36: Qualifying metals"),
+                    __("VATEX-SA-EDU: Private education to citizen"),
+                    __("VATEX-SA-HEA: Private healthcare to citizen"),
+                    __("VATEX-SA-MLTRY: Supply of qualified military goods"),
+                    __("VATEX-SA-OOS: Services outside scope of tax / reason provided by taxpayer case by case"),
+                ].join("<br>");
+
+        const discountReasonHelp = [
+                    __("Discount reason code. Optional in the invoice, but use the official code when a discount reason is submitted."),
+                    __("41: Bonus for works ahead of schedule"),
+                    __("42: Other bonus"),
+                    __("60: Manufacturer's consumer discount"),
+                    __("62: Due to military status"),
+                    __("63: Due to work accident"),
+                    __("64: Special agreement"),
+                    __("65: Production error discount"),
+                    __("66: New outlet discount"),
+                    __("67: Sample discount"),
+                    __("68: End of range discount"),
+                    __("70: Incoterm discount"),
+                    __("71: Point of sales threshold allowance"),
+                    __("88: Material surcharge/deduction"),
+                    __("95: Discount"),
+                    __("100: Special rebate"),
+                    __("102: Fixed long term"),
+                    __("103: Temporary"),
+                    __("104: Standard"),
+                    __("105: Yearly turnover"),
+                ].join("<br>");
+
         const fieldsWithTooltips = [
             {
+                fieldname: "custom_zatca_tax_category",
+                text: taxCategoryHelp,
+                links: [],
+            },
+            {
+                fieldname: "custom_exemption_reason_code",
+                text: taxExemptionCodeHelp,
+                links: [],
+            },
+            {
+                fieldname: "custom_zatca_discount_reason_code",
+                text: discountReasonHelp,
+                links: [],
+            },
+            {
+                fieldname: "custom_zatca_discount_reason",
+                text: discountReasonHelp,
+                links: [],
+            },
+            {
+                fieldname: "custom_submit_line_item_discount_to_zatca",
+                text: __("Controls whether line item discounts are submitted to ZATCA as line-level discount data where supported."),
+                links: [],
+            },
+            {
                 fieldname: "custom_zatca_third_party_invoice",
-                text: `
-                    An external party such as an accounting firm can issue invoices on behalf of the seller after fulfilling specific requirements as mentioned in the VAT legislation.
-                `,
-                links: [
-                    "https://docs.claudion.com/Claudion-Docs/Third%20party",
-                ],
+                text: [
+                    __("Third-party invoice: issued by an external party, such as an accounting office, on behalf of the seller after meeting the VAT requirements."),
+                ].join("<br>"),
+                links: [],
             },
             {
                 fieldname: "custom_zatca_nominal_invoice",
-                text: `
-                    A taxable person provides goods or services to a customer at no cost or at a reduced price, typically as part of a promotional activity.
-                `,
-                links: [
-                    "https://docs.claudion.com/Claudion-Docs/nominal",
-                ],
+                text: [
+                    __("Nominal invoice: used when goods or services are supplied for free or at a reduced price as part of a promotional activity."),
+                ].join("<br>"),
+                links: [],
             },
             {
                 fieldname: "custom_zatca_export_invoice",
-                text: `
-                    The supplier and customer both intend that the goods are transported outside the GCC territory as a consequence of that supply.
-                `,
-                links: [
-                    "https://docs.claudion.com/Claudion-Docs/export",
-                ],
+                text: [
+                    __("Export invoice: used when the supplier and customer intend the goods or services to be supplied outside the GCC / Saudi VAT scope according to the applicable export rules."),
+                ].join("<br>"),
+                links: [],
             },
             {
                 fieldname: "custom_summary_invoice",
-                text: `
-                    Summary tax invoices are issued where there is more than one supply of goods or services.
-                `,
-                links: [
-                    "https://docs.claudion.com/Claudion-Docs/Summary%20invoice",
-                ],
+                text: [
+                    __("Summary invoice: used to combine more than one supply of goods or services within a specific period into one summary tax invoice."),
+                ].join("<br>"),
+                links: [],
             },
             {
                 fieldname: "custom_self_billed_invoice",
-                text: `
-                    Self-billing is a case where the buyer raises a tax invoice for the goods and services received on behalf of the vendor.
-                `,
-                links: [
-                    "https://docs.claudion.com/Claudion-Docs/selfbilled",
-                ],
+                text: [
+                    __("Self-billed invoice: issued by the buyer on behalf of the supplier under a self-billing agreement."),
+                ].join("<br>"),
+                links: [],
+            },
+            {
+                fieldname: "custom_uuid",
+                text: __("Persisted ZATCA UUID used by the invoice XML and signing flow."),
+                links: [],
+            },
+            {
+                fieldname: "custom_zatca_status",
+                text: __("Read-only ZATCA submission status."),
+                links: [],
+            },
+            {
+                fieldname: "custom_zatca_status_notification",
+                text: __("Visual ZATCA status notification shown on the invoice."),
+                links: [],
             },
         ];
         applyTooltips(frm, fieldsWithTooltips);
