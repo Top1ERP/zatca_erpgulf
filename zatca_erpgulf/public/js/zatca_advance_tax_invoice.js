@@ -8,6 +8,7 @@ frappe.ui.form.on("ZATCA Advance Tax Invoice", {
             const color = {
                 "Cleared": "green",
                 "Reported": "green",
+                "Phase 1 QR Created": "green",
                 "Failed": "red",
                 "Warning": "orange",
                 "Debug XML Created": "blue",
@@ -16,7 +17,7 @@ frappe.ui.form.on("ZATCA Advance Tax Invoice", {
             }[frm.doc.zatca_status] || "gray";
 
             frm.dashboard.set_headline_alert(
-                `<b>ZATCA Status:</b> ${frappe.utils.escape_html(frm.doc.zatca_status)}`,
+                `<b>${__("ZATCA Status")}:</b> ${frappe.utils.escape_html(__(frm.doc.zatca_status))}`,
                 color
             );
         }
@@ -41,29 +42,51 @@ frappe.ui.form.on("ZATCA Advance Tax Invoice", {
         }, __("ZATCA"));
 
         if (frm.doc.status === "Draft") {
-            frm.add_custom_button(__("Finalize"), function () {
-                frappe.confirm(__("Finalize this advance tax invoice?"), function () {
+            frm.add_custom_button(__("Finalize and Generate QR Code"), function () {
+                frappe.confirm(__("Finalize this advance tax invoice and generate the Phase 1 QR Code?"), function () {
                     frappe.call({
                         method: "zatca_erpgulf.zatca_erpgulf.advance_payment_debug.finalize_advance_tax_invoice",
                         args: { advance_invoice_name: frm.doc.name },
                         freeze: true,
-                        freeze_message: __("Finalizing..."),
-                        callback: function () { frm.reload_doc(); }
+                        freeze_message: __("Finalizing and generating QR Code..."),
+                        callback: function (r) {
+                            frm.reload_doc();
+                            if (r.message && r.message.qr_code) {
+                                frappe.show_alert({ message: __("QR Code generated successfully."), indicator: "green" });
+                            }
+                        }
                     });
                 });
             }, __("ZATCA"));
         }
 
-        if (frm.doc.status === "Final" && !["Cleared", "Reported"].includes(frm.doc.zatca_status)) {
-            frm.add_custom_button(__("Send to ZATCA"), function () {
-                frappe.call({
-                    method: "zatca_erpgulf.zatca_erpgulf.advance_payment_debug.send_advance_to_zatca",
-                    args: { advance_invoice_name: frm.doc.name },
-                    freeze: true,
-                    freeze_message: __("Sending to ZATCA..."),
-                    callback: function () { frm.reload_doc(); }
-                });
-            }, __("ZATCA"));
+        if (frm.doc.status === "Final" && !["Cleared", "Reported", "Phase 1 QR Created"].includes(frm.doc.zatca_status)) {
+            frappe.db.get_value(
+                "Company",
+                frm.doc.company,
+                [
+                    "custom_zatca_advance_payment_submission_mode",
+                    "custom_zatca_advance_signing_enabled",
+                    "custom_zatca_advance_api_submission_enabled"
+                ]
+            ).then((r) => {
+                const c = r.message || {};
+                if (
+                    c.custom_zatca_advance_payment_submission_mode === "Submit to ZATCA"
+                    && cint(c.custom_zatca_advance_signing_enabled)
+                    && cint(c.custom_zatca_advance_api_submission_enabled)
+                ) {
+                    frm.add_custom_button(__("Send to ZATCA"), function () {
+                        frappe.call({
+                            method: "zatca_erpgulf.zatca_erpgulf.advance_payment_debug.send_advance_to_zatca",
+                            args: { advance_invoice_name: frm.doc.name },
+                            freeze: true,
+                            freeze_message: __("Sending to ZATCA..."),
+                            callback: function () { frm.reload_doc(); }
+                        });
+                    }, __("ZATCA"));
+                }
+            });
         }
 
         if (frm.doc.zatca_status === "Failed") {
@@ -78,10 +101,10 @@ frappe.ui.form.on("ZATCA Advance Tax Invoice", {
             }, __("ZATCA"));
         }
 
-        const locked = frm.doc.status === "Final" || ["Submitted", "Cleared", "Reported"].includes(frm.doc.zatca_status);
+        const locked = frm.doc.status === "Final" || ["Submitted", "Cleared", "Reported", "Phase 1 QR Created"].includes(frm.doc.zatca_status);
         if (!locked || frappe.user.has_role("System Manager")) {
             frm.add_custom_button(__("Delete and Unlink Payment Entry"), function () {
-                frappe.confirm(__("This will delete this ZATCA Advance Tax Invoice, remove its XML attachment, and clear the linked Payment Entry fields. Continue?"), function () {
+                frappe.confirm(__("This will delete this ZATCA Advance Tax Invoice, remove its attachments, and clear the linked Payment Entry fields. Continue?"), function () {
                     frappe.call({
                         method: "zatca_erpgulf.zatca_erpgulf.advance_payment_debug.delete_advance_tax_invoice",
                         args: { advance_invoice_name: frm.doc.name },

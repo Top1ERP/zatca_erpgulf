@@ -360,3 +360,59 @@ ZATCA Advance Payment Submission Mode,طريقة إرسال الدفعات ال�
 ZATCA Advance Default Terms and Conditions,الشروط والأحكام الافتراضية للدفعات المقدمة ZATCA
 ZATCA Advance Signing Enabled,تفعيل توقيع الدفعات المقدمة ZATCA
 ZATCA Advance API Submission Enabled,تفعيل إرسال الدفعات المقدمة ZATCA عبر API
+ZATCA Advance Payment,الدفعة المقدمة - زاتكا
+Is ZATCA Advance Payment,دفعة مقدمة زاتكا
+ZATCA Advance Tax Invoice,فاتورة ضريبية لدفعة مقدمة - زاتكا
+ZATCA Advance Invoice Status,حالة فاتورة الدفعة المقدمة - زاتكا
+ZATCA Advance Invoice UUID,المعرف UUID لفاتورة الدفعة المقدمة - زاتكا
+ZATCA Advance QR Code,رمز QR لفاتورة الدفعة المقدمة - زاتكا
+ZATCA Advance XML,ملف XML لفاتورة الدفعة المقدمة - زاتكا
+ZATCA Advance Last Debug At,آخر وقت فحص تقني لفاتورة الدفعة المقدمة - زاتكا
+ZATCA Advance Full Response,الاستجابة الكاملة لفاتورة الدفعة المقدمة - زاتكا
+Not Created,لم يتم الإنشاء
+Draft,مسودة
+Preflight Passed,تم اجتياز الفحص الأولي
+Phase 1 QR Created,تم إنشاء رمز QR للمرحلة الأولى
+Debug XML Created,تم إنشاء XML للفحص التقني
+Final,نهائية
+Failed,فشل
+Cleared,تمت الموافقة
+Reported,تم الإبلاغ
+Open ZATCA Advance Tax Invoice,فتح فاتورة الدفعة المقدمة - زاتكا
+Issue ZATCA Advance Tax Invoice,إصدار فاتورة ضريبية لدفعة مقدمة - زاتكا
+Issue a local Phase 1 ZATCA Advance Tax Invoice from this submitted Payment Entry?,هل تريد إصدار فاتورة ضريبية محلية للدفعة المقدمة - زاتكا للمرحلة الأولى من سند القبض المعتمد؟
+Issuing ZATCA Advance Tax Invoice...,جاري إصدار فاتورة الدفعة المقدمة - زاتكا...
+ZATCA Advance Tax Invoice Issued,تم إصدار فاتورة الدفعة المقدمة - زاتكا
+ZATCA Advance Tax Invoice was issued successfully.,تم إصدار فاتورة الدفعة المقدمة - زاتكا بنجاح.
+Advance Tax Invoice,فاتورة ضريبية لدفعة مقدمة
+Open Advance Tax Invoice,فتح فاتورة الدفعة المقدمة
+Connections,الارتباطات
+Validate for ZATCA,فحص بيانات زاتكا
+Validating ZATCA data...,جاري فحص بيانات زاتكا...
+Preflight validation passed.,تم اجتياز الفحص الأولي.
+Finalize and Generate QR Code,اعتماد وإنشاء رمز QR
+Finalize this advance tax invoice and generate the Phase 1 QR Code?,هل تريد اعتماد فاتورة الدفعة المقدمة وإنشاء رمز QR للمرحلة الأولى؟
+Finalizing and generating QR Code...,جاري الاعتماد وإنشاء رمز QR...
+QR Code generated successfully.,تم إنشاء رمز QR بنجاح.
+Send to ZATCA,إرسال إلى زاتكا
+Sending to ZATCA...,جاري الإرسال إلى زاتكا...
+Retry Send,إعادة محاولة الإرسال
+Retrying ZATCA submission...,جاري إعادة محاولة الإرسال إلى زاتكا...
+Delete and Unlink Payment Entry,حذف وفك الارتباط من سند القبض
+"This will delete this ZATCA Advance Tax Invoice, remove its attachments, and clear the linked Payment Entry fields. Continue?",سيتم حذف فاتورة الدفعة المقدمة - زاتكا، وإزالة مرفقاتها، وتفريغ حقول الربط في سند القبض المرتبط. هل تريد المتابعة؟
+Deleting and unlinking...,جاري الحذف وفك الارتباط...
+Deleted and unlinked successfully.,تم الحذف وفك الارتباط بنجاح.
+Payment Entry name is required.,اسم سند القبض مطلوب.
+Payment Entry must be submitted before issuing a ZATCA Advance Tax Invoice.,يجب اعتماد سند القبض قبل إصدار فاتورة الدفعة المقدمة - زاتكا.
+ZATCA Advance Tax Invoice is supported only for Receive Payment Entries.,فاتورة الدفعة المقدمة - زاتكا مدعومة فقط لسندات القبض من نوع استلام.
+ZATCA Advance Tax Invoice requires Party Type to be Customer.,فاتورة الدفعة المقدمة - زاتكا تتطلب أن يكون نوع الطرف عميلاً.
+Company is required.,الشركة مطلوبة.
+Payment Entry must have an unallocated amount greater than zero.,يجب أن يحتوي سند القبض على مبلغ غير مخصص أكبر من صفر.
+Payment Entry must include VAT taxes before issuing a ZATCA Advance Tax Invoice.,يجب أن يحتوي سند القبض على ضريبة قيمة مضافة قبل إصدار فاتورة الدفعة المقدمة - زاتكا.
+Company Arabic name is required for Phase 1 QR generation.,اسم الشركة باللغة العربية مطلوب لإنشاء رمز QR للمرحلة الأولى.
+Company VAT number is required for Phase 1 QR generation.,الرقم الضريبي للشركة مطلوب لإنشاء رمز QR للمرحلة الأولى.
+Phase 1 QR generated locally. No XML file and no ZATCA API submission were performed.,تم إنشاء رمز QR للمرحلة الأولى محليًا. لم يتم إنشاء ملف XML ولم يتم الإرسال إلى واجهة زاتكا.
+"ZATCA Advance Tax Invoice linked, but preflight validation failed.",تم ربط فاتورة الدفعة المقدمة - زاتكا، لكن الفحص الأولي فشل.
+Company postal code is missing.,الرمز البريدي للشركة غير موجود.
+Warning: {0},تحذير: {0}
+Local Only / Phase 1 QR validation warning(s): {0},تحذيرات تحقق محلية لرمز QR للمرحلة الأولى: {0}

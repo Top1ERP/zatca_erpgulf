@@ -4089,6 +4089,229 @@ def remove_extra_sales_invoice_zatca_column_breaks() -> dict[str, list[str]]:
     return result
 
 
+
+def sync_payment_entry_advance_fields() -> dict[str, list[str]]:
+    """Ensure Payment Entry has ZATCA advance invoice linkage fields."""
+    from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+
+    result = {
+        "ensured": [],
+        "updated": [],
+        "skipped": [],
+    }
+
+    if not _doctype_exists("Payment Entry"):
+        result["skipped"].append("Payment Entry missing")
+        return result
+
+    custom_fields = {
+        "Payment Entry": [
+            {
+                "fieldname": "custom_zatca_advance_section",
+                "label": "ZATCA Advance Payment",
+                "fieldtype": "Section Break",
+                "insert_after": "remarks",
+                "module": MODULE_NAME,
+                "collapsible": 1,
+                "no_copy": 1,
+            },
+            {
+                "fieldname": "custom_zatca_is_advance_payment",
+                "label": "Is ZATCA Advance Payment",
+                "fieldtype": "Check",
+                "insert_after": "custom_zatca_advance_section",
+                "module": MODULE_NAME,
+                "hidden": 1,
+                "read_only": 1,
+                "no_copy": 1,
+                "description": "Technical marker set automatically when a ZATCA Advance Tax Invoice is issued from this Payment Entry.",
+            },
+            {
+                "fieldname": "custom_zatca_advance_tax_invoice",
+                "label": "ZATCA Advance Tax Invoice",
+                "fieldtype": "Link",
+                "options": "ZATCA Advance Tax Invoice",
+                "insert_after": "custom_zatca_is_advance_payment",
+                "module": MODULE_NAME,
+                "read_only": 1,
+                "no_copy": 1,
+            },
+            {
+                "fieldname": "custom_zatca_advance_invoice_status",
+                "label": "ZATCA Advance Invoice Status",
+                "fieldtype": "Select",
+                "options": "Not Created\nDraft\nPreflight Passed\nPhase 1 QR Created\nDebug XML Created\nFinal\nFailed\nCleared\nReported",
+                "default": "Not Created",
+                "insert_after": "custom_zatca_advance_tax_invoice",
+                "module": MODULE_NAME,
+                "read_only": 1,
+                "no_copy": 1,
+            },
+            {
+                "fieldname": "custom_zatca_advance_invoice_uuid",
+                "label": "ZATCA Advance Invoice UUID",
+                "fieldtype": "Data",
+                "insert_after": "custom_zatca_advance_invoice_status",
+                "module": MODULE_NAME,
+                "read_only": 1,
+                "no_copy": 1,
+            },
+            {
+                "fieldname": "custom_zatca_advance_qr_code",
+                "label": "ZATCA Advance QR Code",
+                "fieldtype": "Attach Image",
+                "insert_after": "custom_zatca_advance_invoice_uuid",
+                "module": MODULE_NAME,
+                "hidden": 1,
+                "read_only": 1,
+                "no_copy": 1,
+            },
+            {
+                "fieldname": "custom_zatca_advance_xml",
+                "label": "ZATCA Advance XML",
+                "fieldtype": "Attach",
+                "insert_after": "custom_zatca_advance_qr_code",
+                "module": MODULE_NAME,
+                "hidden": 1,
+                "read_only": 1,
+                "no_copy": 1,
+            },
+            {
+                "fieldname": "custom_zatca_advance_last_debug_at",
+                "label": "ZATCA Advance Last Debug At",
+                "fieldtype": "Datetime",
+                "insert_after": "custom_zatca_advance_xml",
+                "module": MODULE_NAME,
+                "hidden": 1,
+                "read_only": 1,
+                "no_copy": 1,
+            },
+            {
+                "fieldname": "custom_zatca_advance_full_response",
+                "label": "ZATCA Advance Full Response",
+                "fieldtype": "Long Text",
+                "insert_after": "custom_zatca_advance_last_debug_at",
+                "module": MODULE_NAME,
+                "hidden": 1,
+                "read_only": 1,
+                "no_copy": 1,
+            },
+        ]
+    }
+
+    create_custom_fields(custom_fields, update=True)
+
+    for field in custom_fields["Payment Entry"]:
+        result["ensured"].append(field["fieldname"])
+
+    frappe.clear_cache(doctype="Payment Entry")
+    frappe.db.commit()
+    return result
+
+
+def sync_advance_company_field_visibility() -> dict[str, list[str]]:
+    """Hide reserved ZATCA Advance signing/API switches until implementation is wired.
+
+    Property Setters may override Custom Field.hidden/read_only, so this sync updates both
+    the Custom Field row and the effective Property Setter values.
+    """
+    result = {
+        "updated": [],
+        "property_setters": [],
+        "skipped": [],
+    }
+
+    if not _doctype_exists("Company"):
+        result["skipped"].append("Company missing")
+        return result
+
+    reserved_fields = {
+        "custom_zatca_advance_signing_enabled": (
+            "Reserved for future ZATCA advance-payment signing/API integration. "
+            "Phase 1 advance invoices generate QR locally and do not require this switch."
+        ),
+        "custom_zatca_advance_api_submission_enabled": (
+            "Reserved for future ZATCA advance-payment API integration. "
+            "Phase 1 advance invoices generate QR locally and do not submit to ZATCA API."
+        ),
+    }
+
+    def set_property_setter(fieldname: str, prop: str, value: str, property_type: str) -> None:
+        name = frappe.db.get_value(
+            "Property Setter",
+            {
+                "doc_type": "Company",
+                "field_name": fieldname,
+                "property": prop,
+            },
+            "name",
+        )
+
+        if name:
+            ps = frappe.get_doc("Property Setter", name)
+            changed = False
+
+            if ps.value != value:
+                ps.value = value
+                changed = True
+
+            if ps.property_type != property_type:
+                ps.property_type = property_type
+                changed = True
+
+            if changed:
+                ps.flags.ignore_permissions = True
+                ps.save(ignore_permissions=True)
+
+            result["property_setters"].append(name)
+            return
+
+        ps = frappe.get_doc({
+            "doctype": "Property Setter",
+            "doctype_or_field": "DocField",
+            "doc_type": "Company",
+            "field_name": fieldname,
+            "property": prop,
+            "value": value,
+            "property_type": property_type,
+        })
+        ps.insert(ignore_permissions=True)
+        result["property_setters"].append(ps.name)
+
+    for fieldname, description in reserved_fields.items():
+        custom_field = frappe.db.get_value(
+            "Custom Field",
+            {"dt": "Company", "fieldname": fieldname},
+            "name",
+        )
+
+        if not custom_field:
+            result["skipped"].append(f"Company.{fieldname} missing")
+            continue
+
+        frappe.db.set_value(
+            "Custom Field",
+            custom_field,
+            {
+                "hidden": 1,
+                "read_only": 1,
+                "description": description,
+            },
+            update_modified=False,
+        )
+
+        set_property_setter(fieldname, "hidden", "1", "Check")
+        set_property_setter(fieldname, "read_only", "1", "Check")
+        set_property_setter(fieldname, "description", description, "Data")
+
+        result["updated"].append(fieldname)
+
+    frappe.clear_cache(doctype="Company")
+    frappe.db.commit()
+    return result
+
+
+
 def run_zatca_customization_sync_after_migrate() -> None:
     """
     Run ZATCA customization sync after app/site migration.
@@ -4129,6 +4352,8 @@ def sync_all_zatca_customizations() -> dict[str, Any]:
 
     custom_fields_result = sync_custom_fields_from_fixture()
     critical_fields_result = ensure_critical_custom_fields()
+    payment_entry_advance_fields_result = sync_payment_entry_advance_fields()
+    advance_company_field_visibility_result = sync_advance_company_field_visibility()
     arabic_name_cleanup_result = cleanup_arabic_name_fields()
     arabic_name_layout_result = normalize_arabic_name_field_layout()
     force_customer_layout_result = force_customer_arabic_and_tax_layout()
@@ -4165,6 +4390,8 @@ def sync_all_zatca_customizations() -> dict[str, Any]:
         "frappe_major": frappe_major,
         "custom_fields": custom_fields_result,
         "critical_custom_fields": critical_fields_result,
+        "payment_entry_advance_fields": payment_entry_advance_fields_result,
+        "advance_company_field_visibility": advance_company_field_visibility_result,
         "arabic_name_cleanup": arabic_name_cleanup_result,
         "arabic_name_layout": arabic_name_layout_result,
         "customer_zatca_tax_layout": customer_zatca_tax_layout_result,

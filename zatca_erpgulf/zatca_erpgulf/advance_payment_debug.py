@@ -9,15 +9,21 @@ This module:
 
 from __future__ import annotations
 
+import io
+import os
 import re
 import uuid
 import xml.etree.ElementTree as ET
+from base64 import b64encode
 from decimal import Decimal, ROUND_HALF_UP
 from xml.dom import minidom
 
 import frappe
 from frappe import _
-from frappe.utils import cint, get_link_to_form, now_datetime
+from frappe.utils import add_to_date, cint, get_link_to_form, get_time, getdate, now_datetime
+from pyqrcode import create as qr_create
+
+from zatca_erpgulf.zatca_erpgulf.create_qr import get_company_arabic_name
 
 
 TWOPLACES = Decimal("0.01")
@@ -80,6 +86,92 @@ def _require_company_advance_enabled(company: str) -> None:
     if mode == "Disabled":
         frappe.throw(_("ZATCA Advance Payment Submission Mode is Disabled for this company."))
 
+
+
+def _select_has_option(doc, fieldname: str, option: str) -> bool:
+    df = doc.meta.get_field(fieldname)
+    if not df:
+        return False
+    return option in (df.options or "").splitlines()
+
+
+def _set_payment_entry_advance_fields(payment_entry_name: str, advance_doc, status: str = "", file_url: str = "", full_response: str = "") -> None:
+    if not payment_entry_name or not frappe.db.exists("Payment Entry", payment_entry_name):
+        return
+
+    meta = frappe.get_meta("Payment Entry")
+    values = {
+        "custom_zatca_is_advance_payment": 1,
+        "custom_zatca_advance_tax_invoice": advance_doc.name,
+        "custom_zatca_advance_invoice_status": status or getattr(advance_doc, "zatca_status", None) or getattr(advance_doc, "status", None),
+        "custom_zatca_advance_invoice_uuid": getattr(advance_doc, "zatca_uuid", None),
+        "custom_zatca_advance_qr_code": getattr(advance_doc, "qr_code", None),
+        "custom_zatca_advance_xml": file_url or getattr(advance_doc, "debug_xml", None),
+        "custom_zatca_advance_last_debug_at": getattr(advance_doc, "last_debug_at", None),
+        "custom_zatca_advance_full_response": full_response or getattr(advance_doc, "full_response", None),
+    }
+
+    for fieldname, value in values.items():
+        if meta.has_field(fieldname):
+            frappe.db.set_value("Payment Entry", payment_entry_name, fieldname, value, update_modified=False)
+
+
+def _build_phase1_advance_qr_base64(doc) -> str:
+    seller_name = get_company_arabic_name(doc.company) or _doc_value(doc, "company_name_arabic") or _doc_value(doc, "company_name") or doc.company
+    vat_number = _doc_value(doc, "company_vat_number") or frappe.db.get_value("Company", doc.company, "tax_id")
+
+    if not seller_name:
+        frappe.throw(_("Company Arabic name is required for Phase 1 QR generation."))
+    if not vat_number:
+        frappe.throw(_("Company VAT number is required for Phase 1 QR generation."))
+
+    posting_date = getdate(doc.posting_date)
+    posting_time = get_time(doc.posting_time or "00:00:00")
+    seconds = posting_time.hour * 60 * 60 + posting_time.minute * 60 + posting_time.second
+    timestamp = add_to_date(posting_date, seconds=seconds).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    values = [
+        (1, seller_name),
+        (2, vat_number),
+        (3, timestamp),
+        (4, str(_q2(doc.total_amount))),
+        (5, str(_q2(doc.tax_amount))),
+    ]
+
+    tlv = b""
+    for tag, value in values:
+        raw = str(value).encode("utf-8")
+        if len(raw) > 255:
+            frappe.throw(_("ZATCA Phase 1 QR value is too long for TLV tag {0}.").format(tag))
+        tlv += bytes([tag]) + bytes([len(raw)]) + raw
+
+    return b64encode(tlv).decode("utf-8")
+
+
+def _attach_phase1_advance_qr_code(doc) -> str:
+    if doc.qr_code and frappe.db.exists({"doctype": "File", "file_url": doc.qr_code}):
+        return doc.qr_code
+
+    qrcodeb64 = _build_phase1_advance_qr_base64(doc)
+
+    qr_image = io.BytesIO()
+    qr = qr_create(qrcodeb64, error="L")
+    qr.png(qr_image, scale=4, quiet_zone=1)
+
+    filename = f"QR-Phase1-ZATCA-Advance-{doc.name}.png".replace(os.path.sep, "__")
+    file_doc = frappe.get_doc({
+        "doctype": "File",
+        "file_name": filename,
+        "is_private": 0,
+        "content": qr_image.getvalue(),
+        "attached_to_doctype": doc.doctype,
+        "attached_to_name": doc.name,
+        "attached_to_field": "qr_code",
+    })
+    file_doc.insert(ignore_permissions=True)
+
+    doc.qr_code = file_doc.file_url
+    return file_doc.file_url
 
 def _get_or_create_advance_tax_invoice(payment_entry):
     existing = frappe.db.get_value("ZATCA Advance Tax Invoice", {"payment_entry": payment_entry.name}, "name")
@@ -365,12 +457,187 @@ def _attach_xml(doc, xml_content: str) -> str:
     return file_doc.file_url
 
 
+_LOCAL_PHASE1_QR_WARNING_PATTERNS = (
+    "company postal code is missing",
+)
+
+
+def _is_local_phase1_qr_mode(company: str) -> bool:
+    """Return True when advance invoices should be finalized locally with Phase-1 QR only."""
+    company_doc = frappe.get_doc("Company", company)
+    mode = _safe_text(getattr(company_doc, "custom_zatca_advance_payment_submission_mode", "Local Only"))
+    api_enabled = cint(getattr(company_doc, "custom_zatca_advance_api_submission_enabled", 0))
+    return mode != "Submit to ZATCA" or not api_enabled
+
+
+def _extract_preflight_issue_lines(raw) -> list[str]:
+    """Extract readable preflight issues from plain text or frappe HTML validation output."""
+    import re as _re
+
+    raw_text = frappe.as_unicode(raw or "")
+    raw_text = _re.sub(r"<[^>]+>", "\n", raw_text)
+
+    issues = []
+    for line in raw_text.splitlines():
+        line = line.strip(" \t\r\n-•")
+        if not line:
+            continue
+        if "Cannot continue because ZATCA preflight validation failed" in line:
+            continue
+
+        line = line.rstrip(".")
+        if line:
+            issues.append(line + ".")
+
+    return issues
+
+
+def _is_allowed_local_phase1_qr_warning(issue: str) -> bool:
+    import re as _re
+
+    normalized = _re.sub(r"[^a-z0-9]+", " ", frappe.as_unicode(issue).lower()).strip()
+    return any(pattern in normalized for pattern in _LOCAL_PHASE1_QR_WARNING_PATTERNS)
+
+
+def _run_preflight_or_throw_for_local_phase1_qr(doc) -> None:
+    """Run strict preflight, but downgrade postal-code-only failures to warnings for Local Only QR.
+
+    Phase-1 QR generation itself requires seller name, VAT number, timestamp, total and VAT amount.
+    Company postal code is useful invoice master data, but it should not block Local Only QR.
+    It remains blocking for Submit to ZATCA/API mode and for any other preflight issue.
+    """
+    try:
+        _run_preflight_or_throw(doc)
+        return
+    except Exception as exc:
+        try:
+            doc.reload()
+        except Exception:
+            pass
+
+        if not _is_local_phase1_qr_mode(doc.company):
+            raise
+
+        raw_details = doc.get("preflight_details") or exc
+        issues = _extract_preflight_issue_lines(raw_details)
+
+        if not issues or not all(_is_allowed_local_phase1_qr_warning(issue) for issue in issues):
+            raise
+
+        if doc.meta.has_field("preflight_status"):
+            doc.preflight_status = "Passed"
+
+        if doc.meta.has_field("zatca_status") and _select_has_option(doc, "zatca_status", "Preflight Passed"):
+            doc.zatca_status = "Preflight Passed"
+
+        if doc.meta.has_field("preflight_details"):
+            doc.preflight_details = "\n".join(f"- Warning: {issue}" for issue in issues)
+
+        if doc.meta.has_field("full_response"):
+            doc.full_response = (
+                "Local Only / Phase 1 QR validation warning(s): "
+                + "; ".join(issues)
+            )
+
+        doc.save(ignore_permissions=True)
+
+
+
 @frappe.whitelist()
 def validate_advance_for_zatca(advance_invoice_name: str) -> dict:
     doc = frappe.get_doc("ZATCA Advance Tax Invoice", advance_invoice_name)
-    _run_preflight_or_throw(doc)
+    _run_preflight_or_throw_for_local_phase1_qr(doc)
     return {"ok": True, "advance_tax_invoice": doc.name, "preflight_status": doc.preflight_status}
 
+
+
+@frappe.whitelist()
+def issue_advance_tax_invoice_from_payment_entry(payment_entry_name: str) -> dict:
+    """Issue a local Phase-1 ZATCA Advance Tax Invoice from a submitted Payment Entry."""
+    if not payment_entry_name:
+        frappe.throw(_("Payment Entry name is required."))
+
+    payment_entry = frappe.get_doc("Payment Entry", payment_entry_name)
+
+    if payment_entry.docstatus != 1:
+        frappe.throw(_("Payment Entry must be submitted before issuing a ZATCA Advance Tax Invoice."))
+    if payment_entry.payment_type != "Receive":
+        frappe.throw(_("ZATCA Advance Tax Invoice is supported only for Receive Payment Entries."))
+    if payment_entry.party_type != "Customer":
+        frappe.throw(_("ZATCA Advance Tax Invoice requires Party Type to be Customer."))
+    if not payment_entry.company:
+        frappe.throw(_("Company is required."))
+
+    _require_company_advance_enabled(payment_entry.company)
+
+    if _q2(getattr(payment_entry, "unallocated_amount", 0)) <= Decimal("0.00"):
+        frappe.throw(_("Payment Entry must have an unallocated amount greater than zero."))
+    if _q2(getattr(payment_entry, "total_taxes_and_charges", 0)) <= Decimal("0.00"):
+        frappe.throw(_("Payment Entry must include VAT taxes before issuing a ZATCA Advance Tax Invoice."))
+
+    doc = _get_or_create_advance_tax_invoice(payment_entry)
+
+    if doc.status == "Final":
+        _set_payment_entry_advance_fields(
+            payment_entry.name,
+            doc,
+            status=doc.zatca_status or doc.status,
+            full_response=doc.full_response
+            or "Linked ZATCA Advance Tax Invoice: " + get_link_to_form("ZATCA Advance Tax Invoice", doc.name),
+        )
+        frappe.db.commit()
+
+        return {
+            "payment_entry": payment_entry.name,
+            "advance_tax_invoice": doc.name,
+            "uuid": doc.zatca_uuid,
+            "status": doc.status,
+            "zatca_status": doc.zatca_status,
+        }
+
+    doc.status = "Draft"
+
+    if doc.meta.has_field("zatca_status") and doc.zatca_status in {"Failed", "Debug XML Created"}:
+        doc.zatca_status = "Not Submitted"
+
+    # Link first. If preflight fails, the user can still open the ZATCA Advance Tax Invoice
+    # and inspect/fix preflight_details instead of losing the generated document link.
+    _set_payment_entry_advance_fields(
+        payment_entry.name,
+        doc,
+        status=doc.zatca_status or doc.status or "Draft",
+        full_response="Linked ZATCA Advance Tax Invoice: " + get_link_to_form("ZATCA Advance Tax Invoice", doc.name),
+    )
+    frappe.db.commit()
+
+    try:
+        _run_preflight_or_throw_for_local_phase1_qr(doc)
+    except Exception:
+        doc.reload()
+        _set_payment_entry_advance_fields(
+            payment_entry.name,
+            doc,
+            status=doc.zatca_status or "Failed",
+            full_response=doc.full_response or "ZATCA Advance Tax Invoice linked, but preflight validation failed.",
+        )
+        frappe.db.commit()
+        raise
+
+    _set_payment_entry_advance_fields(
+        payment_entry.name,
+        doc,
+        status=doc.zatca_status or "Preflight Passed",
+        full_response="Linked ZATCA Advance Tax Invoice: " + get_link_to_form("ZATCA Advance Tax Invoice", doc.name),
+    )
+    frappe.db.commit()
+
+    return {
+        "payment_entry": payment_entry.name,
+        "advance_tax_invoice": doc.name,
+        "uuid": doc.zatca_uuid,
+        "status": doc.status,
+        "zatca_status": doc.zatca_status,
+    }
 
 @frappe.whitelist()
 def create_advance_xml_for_debug(payment_entry_name: str) -> dict:
@@ -395,6 +662,25 @@ def create_advance_xml_for_debug(payment_entry_name: str) -> dict:
         frappe.throw(_("Advance payment amount must be greater than zero."))
 
     doc = _get_or_create_advance_tax_invoice(payment_entry)
+
+    if doc.status == "Final":
+        _set_payment_entry_advance_fields(
+            payment_entry.name,
+            doc,
+            status=doc.zatca_status or doc.status,
+            full_response=doc.full_response
+            or "Linked ZATCA Advance Tax Invoice: " + get_link_to_form("ZATCA Advance Tax Invoice", doc.name),
+        )
+        frappe.db.commit()
+
+        return {
+            "payment_entry": payment_entry.name,
+            "advance_tax_invoice": doc.name,
+            "uuid": doc.zatca_uuid,
+            "status": doc.status,
+            "zatca_status": doc.zatca_status,
+        }
+
     doc.status = "Draft"
     doc.zatca_status = "Debug XML Created"
     doc.validate()
@@ -409,13 +695,13 @@ def create_advance_xml_for_debug(payment_entry_name: str) -> dict:
     doc.zatca_status = "Debug XML Created"
     doc.save(ignore_permissions=True)
 
-    payment_entry.db_set("custom_zatca_is_advance_payment", 1, update_modified=False)
-    payment_entry.db_set("custom_zatca_advance_tax_invoice", doc.name, update_modified=False)
-    payment_entry.db_set("custom_zatca_advance_invoice_status", "Debug XML Created", update_modified=False)
-    payment_entry.db_set("custom_zatca_advance_invoice_uuid", doc.zatca_uuid, update_modified=False)
-    payment_entry.db_set("custom_zatca_advance_xml", file_url, update_modified=False)
-    payment_entry.db_set("custom_zatca_advance_last_debug_at", now_datetime(), update_modified=False)
-    payment_entry.db_set("custom_zatca_advance_full_response", "Linked ZATCA Advance Tax Invoice: " + get_link_to_form("ZATCA Advance Tax Invoice", doc.name), update_modified=False)
+    _set_payment_entry_advance_fields(
+        payment_entry.name,
+        doc,
+        status="Debug XML Created",
+        file_url=file_url,
+        full_response="Linked ZATCA Advance Tax Invoice: " + get_link_to_form("ZATCA Advance Tax Invoice", doc.name),
+    )
 
     return {"payment_entry": payment_entry.name, "advance_tax_invoice": doc.name, "uuid": doc.zatca_uuid, "file_url": file_url, "status": "Debug XML Created"}
 
@@ -423,12 +709,44 @@ def create_advance_xml_for_debug(payment_entry_name: str) -> dict:
 @frappe.whitelist()
 def finalize_advance_tax_invoice(advance_invoice_name: str) -> dict:
     doc = frappe.get_doc("ZATCA Advance Tax Invoice", advance_invoice_name)
-    _run_preflight_or_throw(doc)
+    _run_preflight_or_throw_for_local_phase1_qr(doc)
+
+    company_doc = frappe.get_doc("Company", doc.company)
+    mode = _safe_text(getattr(company_doc, "custom_zatca_advance_payment_submission_mode", "Local Only"))
+    api_enabled = cint(getattr(company_doc, "custom_zatca_advance_api_submission_enabled", 0))
+
     doc.status = "Final"
-    if doc.zatca_status in {"Not Submitted", "Preflight Passed"}:
+
+    qr_url = ""
+    if mode != "Submit to ZATCA" or not api_enabled:
+        qr_url = _attach_phase1_advance_qr_code(doc)
+        if _select_has_option(doc, "zatca_status", "Phase 1 QR Created"):
+            doc.zatca_status = "Phase 1 QR Created"
+        else:
+            doc.zatca_status = "Preflight Passed"
+        doc.full_response = "Phase 1 QR generated locally. No XML file and no ZATCA API submission were performed."
+    elif doc.zatca_status in {"Not Submitted", "Preflight Passed"}:
         doc.zatca_status = "Not Submitted"
+
     doc.save(ignore_permissions=True)
-    return {"ok": True, "advance_tax_invoice": doc.name, "status": doc.status, "zatca_status": doc.zatca_status}
+
+    if doc.payment_entry:
+        _set_payment_entry_advance_fields(
+            doc.payment_entry,
+            doc,
+            status=doc.zatca_status,
+            full_response=doc.full_response,
+        )
+
+    frappe.db.commit()
+
+    return {
+        "ok": True,
+        "advance_tax_invoice": doc.name,
+        "status": doc.status,
+        "zatca_status": doc.zatca_status,
+        "qr_code": qr_url or doc.qr_code,
+    }
 
 
 @frappe.whitelist()
