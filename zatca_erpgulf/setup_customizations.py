@@ -3390,6 +3390,7 @@ def sync_sales_invoice_zatca_integration_layout() -> dict[str, list[str]]:
     fields = [
         {
             "fieldname": "custom_section_break_gqwpx",
+            "idx": 33,
             "fieldtype": "Section Break",
             "label": "ZATCA Integration Fields",
             "insert_after": "amended_from",
@@ -3397,6 +3398,7 @@ def sync_sales_invoice_zatca_integration_layout() -> dict[str, list[str]]:
         },
         {
             "fieldname": "custom_zatca_tax_category",
+            "idx": 34,
             "fieldtype": "Select",
             "label": "ZATCA Tax Category",
             "insert_after": "custom_section_break_gqwpx",
@@ -3405,6 +3407,7 @@ def sync_sales_invoice_zatca_integration_layout() -> dict[str, list[str]]:
         },
         {
             "fieldname": "custom_exemption_reason_code",
+            "idx": 35,
             "fieldtype": "Select",
             "label": "Exemption Reason Code",
             "insert_after": "custom_zatca_tax_category",
@@ -3413,6 +3416,7 @@ def sync_sales_invoice_zatca_integration_layout() -> dict[str, list[str]]:
         },
         {
             "fieldname": "custom_zatca_discount_reason_code",
+            "idx": 36,
             "fieldtype": "Select",
             "options": "\n41\n42\n60\n62\n63\n64\n65\n66\n67\n68\n70\n71\n88\n95\n100\n102\n103\n104\n105",
             "label": "ZATCA Discount reason code",
@@ -3421,6 +3425,7 @@ def sync_sales_invoice_zatca_integration_layout() -> dict[str, list[str]]:
         },
         {
             "fieldname": "custom_zatca_discount_reason",
+            "idx": 37,
             "fieldtype": "Select",
             "options": "\nBonus for works ahead of schedule\nOther bonus\nManufacturer's consumer discount\nDue to military status\nDue to work accident\nSpecial agreement\nProduction error discount\nNew outlet discount\nSample discount\nEnd of range discount\nIncoterm discount\nPoint of sales threshold allowance\nMaterial surcharge/deduction\nDiscount\nSpecial rebate\nFixed long term\nTemporary\nStandard\nYearly turnover",
             "label": "ZATCA Discount reason",
@@ -3429,6 +3434,7 @@ def sync_sales_invoice_zatca_integration_layout() -> dict[str, list[str]]:
         },
         {
             "fieldname": "custom_submit_line_item_discount_to_zatca",
+            "idx": 38,
             "fieldtype": "Check",
             "label": "Submit line item discount to ZATCA.",
             "insert_after": "custom_zatca_discount_reason",
@@ -3436,12 +3442,14 @@ def sync_sales_invoice_zatca_integration_layout() -> dict[str, list[str]]:
         },
         {
             "fieldname": "custom_column_break_hb6s7",
+            "idx": 42,
             "fieldtype": "Column Break",
             "label": "",
             "insert_after": "custom_zatca_status",
         },
         {
             "fieldname": "custom_zatca_third_party_invoice",
+            "idx": 43,
             "fieldtype": "Check",
             "label": "ZATCA 3rd party invoice",
             "insert_after": "custom_column_break_hb6s7",
@@ -3449,6 +3457,7 @@ def sync_sales_invoice_zatca_integration_layout() -> dict[str, list[str]]:
         },
         {
             "fieldname": "custom_zatca_nominal_invoice",
+            "idx": 44,
             "fieldtype": "Check",
             "label": "ZATCA NOMINAL Invoice",
             "insert_after": "custom_zatca_third_party_invoice",
@@ -3456,6 +3465,7 @@ def sync_sales_invoice_zatca_integration_layout() -> dict[str, list[str]]:
         },
         {
             "fieldname": "custom_zatca_export_invoice",
+            "idx": 45,
             "fieldtype": "Check",
             "label": "ZATCA Export Invoice",
             "insert_after": "custom_zatca_nominal_invoice",
@@ -3463,6 +3473,7 @@ def sync_sales_invoice_zatca_integration_layout() -> dict[str, list[str]]:
         },
         {
             "fieldname": "custom_summary_invoice",
+            "idx": 46,
             "fieldtype": "Check",
             "label": "ZATCA Summary Invoice",
             "insert_after": "custom_zatca_export_invoice",
@@ -3470,6 +3481,7 @@ def sync_sales_invoice_zatca_integration_layout() -> dict[str, list[str]]:
         },
         {
             "fieldname": "custom_self_billed_invoice",
+            "idx": 47,
             "fieldtype": "Check",
             "label": "ZATCA Self billed Invoice",
             "insert_after": "custom_summary_invoice",
@@ -3478,12 +3490,14 @@ def sync_sales_invoice_zatca_integration_layout() -> dict[str, list[str]]:
         },
         {
             "fieldname": "custom_column_break_h3ntp",
+            "idx": 39,
             "fieldtype": "Column Break",
             "label": "",
             "insert_after": "custom_submit_line_item_discount_to_zatca",
         },
         {
             "fieldname": "custom_uuid",
+            "idx": 40,
             "fieldtype": "Small Text",
             "label": "UUID",
             "insert_after": "custom_column_break_h3ntp",
@@ -3492,6 +3506,7 @@ def sync_sales_invoice_zatca_integration_layout() -> dict[str, list[str]]:
         },
         {
             "fieldname": "custom_zatca_status",
+            "idx": 41,
             "fieldtype": "Data",
             "label": "ZATCA Status",
             "insert_after": "custom_uuid",
@@ -3500,6 +3515,7 @@ def sync_sales_invoice_zatca_integration_layout() -> dict[str, list[str]]:
         },
         {
             "fieldname": "custom_zatca_status_notification",
+            "idx": 19,
             "fieldtype": "HTML",
             "label": "ZATCA Status Notification",
             "insert_after": "column_break_14",
