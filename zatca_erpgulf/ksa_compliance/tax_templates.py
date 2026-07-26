@@ -12,7 +12,7 @@ KSA_TAX_DEFINITIONS = [
         "description": "VAT 15%",
         "is_sales_default": True,
         "zatca_tax_category": "Standard",
-        "exemption_reason_code": "Standard 15%",
+        "exemption_reason_code": "",
     },
     {
         "title": "KSA VAT 5%",
@@ -21,7 +21,7 @@ KSA_TAX_DEFINITIONS = [
         "description": "VAT 5%",
         "is_sales_default": False,
         "zatca_tax_category": "Standard",
-        "exemption_reason_code": "Standard 15%",
+        "exemption_reason_code": "",
     },
     {
         "title": "KSA VAT Zero",
@@ -48,7 +48,7 @@ KSA_TAX_DEFINITIONS = [
         "description": "Services outside scope of tax / Not subject to VAT",
         "is_sales_default": False,
         "zatca_tax_category": "Services outside scope of tax / Not subject to VAT",
-        "exemption_reason_code": "",
+        "exemption_reason_code": "VATEX-SA-OOS",
     },
     {
         "title": "KSA Excise 50%",
@@ -56,8 +56,8 @@ KSA_TAX_DEFINITIONS = [
         "rate": 50.0,
         "description": "Excise 50%",
         "is_sales_default": False,
-        "zatca_tax_category": "Standard",
-        "exemption_reason_code": "Standard 15%",
+        "zatca_tax_category": "",
+        "exemption_reason_code": "",
     },
     {
         "title": "KSA Excise 100%",
@@ -65,8 +65,8 @@ KSA_TAX_DEFINITIONS = [
         "rate": 100.0,
         "description": "Excise 100%",
         "is_sales_default": False,
-        "zatca_tax_category": "Standard",
-        "exemption_reason_code": "Standard 15%",
+        "zatca_tax_category": "",
+        "exemption_reason_code": "",
     },
 ]
 
@@ -285,6 +285,14 @@ def ensure_sales_tax_template(company_doc, tax_def: dict, account_name: str) -> 
     doc.disabled = 0
     doc.is_default = 1 if tax_def.get("is_sales_default") else 0
 
+    sales_tax_template_meta = frappe.get_meta("Sales Taxes and Charges Template")
+
+    if sales_tax_template_meta.has_field("custom_zatca_tax_category"):
+        doc.custom_zatca_tax_category = tax_def.get("zatca_tax_category") or ""
+
+    if sales_tax_template_meta.has_field("custom_exemption_reason_code"):
+        doc.custom_exemption_reason_code = tax_def.get("exemption_reason_code") or ""
+
     doc.set("taxes", [])
     doc.append(
         "taxes",
@@ -490,6 +498,8 @@ def get_template_row_status(company: str) -> dict:
                 st.company,
                 st.disabled,
                 st.is_default,
+                st.custom_zatca_tax_category,
+                st.custom_exemption_reason_code,
                 tc.account_head,
                 tc.rate,
                 tc.description

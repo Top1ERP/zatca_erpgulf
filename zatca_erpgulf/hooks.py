@@ -295,6 +295,7 @@ doctype_js = {
     ],
     "Payment Entry": "public/js/zatca_advance_payment_debug.js",
     "ZATCA Advance Tax Invoice": "public/js/zatca_advance_tax_invoice.js",
+    "Customer": "public/js/customer_zatca_tooltips.js",
 }
 
 doctype_list_js = {
