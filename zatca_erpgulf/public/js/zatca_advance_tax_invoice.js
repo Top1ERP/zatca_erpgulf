@@ -132,3 +132,52 @@ frappe.ui.form.on("ZATCA Advance Tax Invoice", {
         });
     }
 });
+
+frappe.ui.form.on("ZATCA Advance Tax Invoice", {
+	before_cancel(frm) {
+		const zatca_status = String(frm.doc.zatca_status || "").toUpperCase().replaceAll("-", " ");
+		const status = String(frm.doc.status || "").toUpperCase().replaceAll("-", " ");
+
+		const protected_statuses = [
+			"REPORTED",
+			"CLEARED",
+			"PHASE 2 REPORTED",
+			"PHASE 2 CLEARED",
+			"PHASE 2 CLEARANCE",
+			"PHASE 2 REPORTING",
+			"PHASE 1 QR CREATED",
+			"PHASE 1 QR GENERATED",
+			"FINAL",
+			"SUBMITTED"
+		];
+
+		const is_protected =
+			protected_statuses.includes(zatca_status) ||
+			protected_statuses.includes(status);
+
+		if (!is_protected) {
+			return;
+		}
+
+		if (!frappe.user.has_role("System Manager")) {
+			frappe.throw(
+				__(
+					"Only System Manager or Administrator can force-cancel a reported/cleared/protected ZATCA Advance Tax Invoice."
+				)
+			);
+		}
+
+		return new Promise((resolve, reject) => {
+			frappe.confirm(
+				__(
+					"This ZATCA Advance Tax Invoice may already be reported, cleared, or protected by ZATCA rules.<br><br>" +
+					"This cancellation is internal in ERPNext only. It does not reverse, cancel, amend, or notify ZATCA about the reported/cleared invoice.<br><br>" +
+					"If this advance invoice is linked to another active transaction, the system will block cancellation.<br><br>" +
+					"Do you want to continue?"
+				),
+				() => resolve(),
+				() => reject()
+			);
+		});
+	}
+});

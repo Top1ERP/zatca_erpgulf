@@ -712,3 +712,167 @@ class ZATCAAdvanceTaxInvoice(Document):
 
         clear_payment_entry_advance_link(payment_entry)
         reset_zadv_series_to_highest_existing(current_name)
+
+def _zadv_user_can_force_cancel():
+    """Allow force-cancel only for Administrator/System Manager."""
+    if frappe.session.user == "Administrator":
+        return True
+
+    return "System Manager" in set(frappe.get_roles(frappe.session.user))
+
+
+def _active_transaction_links_for_zadv(doc):
+    """Return active business transactions that use this advance invoice.
+
+    Payment Entry itself is the source document and is not considered a blocking
+    downstream transaction. Final Sales Invoices using the advance are blocking.
+    """
+    links = set()
+
+    # Direct detail table reference created by this app.
+    if frappe.db.exists("DocType", "ZATCA Sales Invoice Advance Deduction"):
+        rows = frappe.get_all(
+            "ZATCA Sales Invoice Advance Deduction",
+            filters={
+                "zatca_advance_tax_invoice": doc.name,
+                "parenttype": "Sales Invoice",
+            },
+            fields=["parent"],
+        )
+
+        for row in rows:
+            if row.parent and frappe.db.exists("Sales Invoice", row.parent):
+                si_docstatus = frappe.db.get_value("Sales Invoice", row.parent, "docstatus")
+                if int(si_docstatus or 0) != 2:
+                    links.add(f"Sales Invoice {row.parent}")
+
+    # Standard ERPNext advance allocation through Payment Entry.
+    payment_entry = doc.get("payment_entry")
+    if payment_entry and frappe.db.exists("DocType", "Sales Invoice Advance"):
+        rows = frappe.get_all(
+            "Sales Invoice Advance",
+            filters={
+                "reference_type": "Payment Entry",
+                "reference_name": payment_entry,
+                "parenttype": "Sales Invoice",
+            },
+            fields=["parent"],
+        )
+
+        for row in rows:
+            if row.parent and frappe.db.exists("Sales Invoice", row.parent):
+                si_docstatus = frappe.db.get_value("Sales Invoice", row.parent, "docstatus")
+                if int(si_docstatus or 0) != 2:
+                    links.add(f"Sales Invoice {row.parent}")
+
+    return sorted(links)
+
+
+def _zadv_status_requires_system_manager_override(doc):
+    """Return override warning reasons for reported/cleared/protected ZADV."""
+    reasons = []
+
+    zatca_status = (doc.get("zatca_status") or "").strip()
+    normalized_zatca_status = zatca_status.upper().replace("-", " ")
+
+    status = (doc.get("status") or "").strip()
+    normalized_status = status.upper().replace("-", " ")
+
+    protected_statuses = {
+        "REPORTED",
+        "CLEARED",
+        "PHASE 2 REPORTED",
+        "PHASE 2 CLEARED",
+        "PHASE 2 CLEARANCE",
+        "PHASE 2 REPORTING",
+        "PHASE 1 QR CREATED",
+        "PHASE 1 QR GENERATED",
+    }
+
+    if normalized_zatca_status in protected_statuses:
+        reasons.append(frappe._("ZATCA Status is {0}.").format(zatca_status))
+
+    if normalized_status in {"FINAL", "SUBMITTED"}:
+        reasons.append(frappe._("Document status is {0}.").format(status))
+
+    if company_phase2_advance_mode(doc.company):
+        reasons.append(
+            frappe._("The company is configured for Phase 2/API advance invoice handling.")
+        )
+
+    if later_zadv_in_same_company_exists(doc.company, doc.name):
+        reasons.append(
+            frappe._("A later ZATCA Advance Tax Invoice exists for this company.")
+        )
+
+    return reasons
+
+
+def _zadv_force_cancel_warning(doc, reasons):
+    reason_items = "".join(
+        f"<li>{frappe.utils.escape_html(str(reason))}</li>"
+        for reason in reasons
+    )
+
+    frappe.msgprint(
+        title=frappe._("Force Cancel ZATCA Advance Tax Invoice"),
+        indicator="orange",
+        msg=frappe._(
+            """
+            <b>Warning:</b> This ZATCA Advance Tax Invoice is being cancelled/deleted by a System Manager override.
+            <br><br>
+            This is an internal ERPNext cancellation/deletion only. It does not reverse, cancel, amend, or notify ZATCA about any invoice already reported or cleared.
+            <br><br>
+            Reasons:
+            <ul>{0}</ul>
+            """
+        ).format(reason_items),
+    )
+
+
+def assert_zadv_can_cancel_or_delete(doc, action="cancel"):
+    """Validate cancel/delete for ZATCA Advance Tax Invoice.
+
+    Rules:
+    - Normal users cannot cancel/delete protected/reported/cleared advance invoices.
+    - System Manager/Administrator can force-cancel or force-delete protected documents.
+    - No one can cancel/delete if the advance invoice is linked to active downstream transactions.
+    """
+    action_text = str(action or "cancel").lower()
+
+    is_cancel_action = (
+        "cancel" in action_text
+        or "إلغاء" in action_text
+    )
+
+    is_delete_action = (
+        "delete" in action_text
+        or "trash" in action_text
+        or "حذف" in action_text
+    )
+
+    is_protected_action = is_cancel_action or is_delete_action
+    system_manager_override_allowed = is_protected_action and _zadv_user_can_force_cancel()
+
+    active_links = _active_transaction_links_for_zadv(doc)
+    if active_links:
+        frappe.throw(
+            frappe._(
+                "This ZATCA Advance Tax Invoice is linked to active transaction(s): {0}. "
+                "Cancel or reverse those transaction(s) first."
+            ).format(", ".join(active_links))
+        )
+
+    override_reasons = _zadv_status_requires_system_manager_override(doc)
+
+    if override_reasons:
+        if system_manager_override_allowed:
+            _zadv_force_cancel_warning(doc, override_reasons)
+            return
+
+        frappe.throw(
+            frappe._(
+                "This ZATCA Advance Tax Invoice cannot be cancelled or deleted by this user. "
+                "Only System Manager or Administrator can force-cancel or force-delete a reported/cleared/protected advance invoice."
+            )
+        )

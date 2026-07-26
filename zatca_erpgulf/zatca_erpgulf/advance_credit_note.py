@@ -10,8 +10,8 @@ from frappe.utils import cint, flt, now_datetime
 ADVANCE_DOCTYPE = "ZATCA Advance Tax Invoice"
 SALES_INVOICE_DOCTYPE = "Sales Invoice"
 
-REVERSAL_STATUS_NOT_CANCELLED = "Not Cancelled"
-REVERSAL_STATUS_PARTIALLY_CANCELLED = "Partially Cancelled"
+REVERSAL_STATUS_NOT_CANCELLED = "Open"
+REVERSAL_STATUS_PARTIALLY_CANCELLED = "Partially Reversed"
 REVERSAL_STATUS_CANCELLED = "Cancelled"
 
 AMOUNT_TOLERANCE = 0.01
