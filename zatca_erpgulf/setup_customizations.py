@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import frappe
-from frappe.utils import cint
+from frappe.utils import cint, flt
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 
@@ -3785,6 +3785,11 @@ def sync_tax_template_zatca_source_fields() -> dict[str, list[str]]:
 
     return result
 
+
+
+def _safe_str(value: Any) -> str:
+    """Return a stripped string for customization sync helpers."""
+    return str(value or "").strip()
 
 
 def infer_zatca_source_values_from_tax_template(title: str, rate: Any, description: str = "") -> tuple[str, str]:
