@@ -3486,7 +3486,7 @@ def sync_sales_invoice_zatca_integration_layout() -> dict[str, list[str]]:
             "fieldname": "custom_uuid",
             "fieldtype": "Small Text",
             "label": "UUID",
-            "insert_after": "custom_column_break_h3ntp",
+            "insert_after": "column_break_14",
             "read_only": 1,
             "description": "",
         },
