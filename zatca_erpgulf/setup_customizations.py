@@ -3502,7 +3502,7 @@ def sync_sales_invoice_zatca_integration_layout() -> dict[str, list[str]]:
             "fieldname": "custom_zatca_status_notification",
             "fieldtype": "HTML",
             "label": "ZATCA Status Notification",
-            "insert_after": "custom_column_break_h3ntp",
+            "insert_after": "column_break_14",
             "description": "",
         },
     ]
