@@ -156,7 +156,7 @@ ZATCA POS Machine name,اسم جهاز نقطة البيع ZATCA
 Offline-Integrations,التكاملات غير المتصلة
 Offline Integrations,التكاملات غير المتصلة
 ZATCA Advance Deductions,خصومات الدفعات المقدمة ZATCA
-Automatically summarizes accepted ZATCA advance deductions from standard ERPNext advance payments.,يلخص تلقائيًا خصومات الدفعات المقدمة المقبولة في هيئة الزكاة والضرائب من الدفعات المقدمة القياسية في النظام.
+Automatically summarizes accepted ZATCA advance deductions from standard advance payments in the system.,يلخص تلقائيًا خصومات الدفعات المقدمة المقبولة في هيئة الزكاة والضرائب من الدفعات المقدمة القياسية في النظام.
 ZATCA Prepaid Amount,مبلغ الدفعة المقدمة ZATCA
 Tax-inclusive prepaid amount used for cbc:PrepaidAmount,مبلغ الدفعة المقدمة شامل الضريبة المستخدم في cbc:PrepaidAmount
 Tax-inclusive prepaid amount used for cbc:PrepaidAmount.,مبلغ الدفعة المقدمة شامل الضريبة المستخدم في cbc:PrepaidAmount.
@@ -334,8 +334,8 @@ Controls ZATCA Advance Tax Invoice behavior for this company. Keep disabled unle
 Enable creation/use of ZATCA Advance Tax Invoice for this company.,تفعيل إنشاء/استخدام فاتورة دفعة مقدمة ZATCA لهذه الشركة.
 Enable creation/use of ZATCA Advance Tax Invoice for this company,تفعيل إنشاء/استخدام فاتورة دفعة مقدمة ZATCA لهذه الشركة.
 Enable creating/using a ZATCA Advance Tax Invoice for this company.,تفعيل إنشاء/استخدام فاتورة دفعة مقدمة ZATCA لهذه الشركة.
-Local Only keeps advance invoices inside ERPNext. Submit to ZATCA requires tested signing/API controls. Disabled blocks advance-payment flow.,وضع محلي فقط يبقي فواتير الدفعات المقدمة داخل النظام. الإرسال إلى ZATCA يتطلب اختبار التوقيع وواجهات API. التعطيل يمنع مسار الدفعات المقدمة.
-Local Only keeps advance invoices inside ERPNext. Submit to ZATCA requires tested signing/API controls. Disabled blocks advance-payment flow,وضع محلي فقط يبقي فواتير الدفعات المقدمة داخل النظام. الإرسال إلى ZATCA يتطلب اختبار التوقيع وواجهات API. التعطيل يمنع مسار الدفعات المقدمة.
+Local Only keeps advance invoices inside the system. Submit to ZATCA requires tested signing/API controls. Disabled blocks advance-payment flow.,وضع محلي فقط يبقي فواتير الدفعات المقدمة داخل النظام. الإرسال إلى ZATCA يتطلب اختبار التوقيع وواجهات API. التعطيل يمنع مسار الدفعات المقدمة.
+Local Only keeps advance invoices inside the system. Submit to ZATCA requires tested signing/API controls. Disabled blocks advance-payment flow,وضع محلي فقط يبقي فواتير الدفعات المقدمة داخل النظام. الإرسال إلى ZATCA يتطلب اختبار التوقيع وواجهات API. التعطيل يمنع مسار الدفعات المقدمة.
 Default Terms and Conditions copied into new ZATCA Advance Tax Invoice records.,الشروط والأحكام الافتراضية التي تُنسخ إلى سجلات فواتير الدفعات المقدمة ZATCA الجديدة.
 Default Terms and Conditions copied into new ZATCA Advance Tax Invoice records,الشروط والأحكام الافتراضية التي تُنسخ إلى سجلات فواتير الدفعات المقدمة ZATCA الجديدة.
 Advanced technical switch. Enable only after advance invoice signing is tested.,خيار تقني متقدم. لا تفعّله إلا بعد اختبار توقيع فاتورة الدفعة المقدمة.
@@ -453,7 +453,7 @@ ZATCA Advance VAT Deduction {0},خصم ضريبة دفعة مقدمة - زاتك
 "ZATCA advance VAT deduction cannot exceed the Sales Invoice VAT amount. Advance VAT {0}, Sales Invoice VAT {1}.",لا يمكن أن يتجاوز خصم ضريبة الدفعة المقدمة - زاتكا مبلغ ضريبة فاتورة المبيعات. ضريبة الدفعة المقدمة {0}، ضريبة فاتورة المبيعات {1}.
 "ZATCA advance deduction cannot exceed the Sales Invoice total including VAT. Advance total {0}, Sales Invoice total {1}.",لا يمكن أن يتجاوز خصم الدفعة المقدمة - زاتكا إجمالي فاتورة المبيعات شامل الضريبة. إجمالي الدفعة المقدمة {0}، إجمالي فاتورة المبيعات {1}.
 ZATCA Advance Deduction Totals,إجماليات خصم الدفعات المقدمة - زاتكا
-Automatically summarizes accepted ZATCA advance deductions from ERPNext standard Advance Payments.,يلخص تلقائيًا الدفعات المقدمة المقبولة من جدول الدفعات المقدمة القياسي في ERPNext.
+Automatically summarizes accepted ZATCA advance deductions from standard Advance Payments in the system.,يلخص تلقائيًا الدفعات المقدمة المقبولة من جدول الدفعات المقدمة القياسي في النظام.
 ZATCA Advance Applied Amount Before VAT,مجموع الدفعات المقدمة المحتسب قبل الضريبة
 ZATCA Advance Applied VAT Amount,مجموع ضريبة الدفعات المقدمة المحتسبة
 Total taxable amount applied from linked ZATCA Advance Tax Invoices.,مجموع المبالغ قبل الضريبة المحتسبة من فواتير الدفعة المقدمة - زاتكا المرتبطة.
@@ -474,7 +474,7 @@ A later ZATCA Advance Tax Invoice exists for this company.,توجد فاتورة
 This ZATCA Advance Tax Invoice is linked to active transaction(s): {0}. Cancel or reverse those transaction(s) first.,فاتورة الدفعة المقدمة - زاتكا مرتبطة بحركة/حركات فعالة: {0}. يجب إلغاء أو عكس تلك الحركات أولًا.
 This ZATCA Advance Tax Invoice cannot be cancelled by this user. Only System Manager or Administrator can force-cancel a reported/cleared/protected advance invoice.,لا يمكن لهذا المستخدم إلغاء فاتورة الدفعة المقدمة - زاتكا. يمكن فقط لمدير النظام أو Administrator إلغاء فاتورة دفعة مقدمة مرحلة/مقبولة/محمية إجباريًا.
 Only System Manager or Administrator can force-cancel a reported/cleared/protected ZATCA Advance Tax Invoice.,يمكن فقط لمدير النظام أو Administrator إلغاء فاتورة دفعة مقدمة - زاتكا مرحلة/مقبولة/محمية إجباريًا.
-"This ZATCA Advance Tax Invoice may already be reported, cleared, or protected by ZATCA rules.<br><br>This cancellation is internal in ERPNext only. It does not reverse, cancel, amend, or notify ZATCA about the reported/cleared invoice.<br><br>If this advance invoice is linked to another active transaction, the system will block cancellation.<br><br>Do you want to continue?",قد تكون فاتورة الدفعة المقدمة - زاتكا مرحلة أو مقبولة أو محمية حسب قواعد زاتكا.<br><br>هذا الإلغاء داخلي داخل ERPNext فقط، ولا يقوم بعكس أو إلغاء أو تعديل أو إشعار زاتكا بخصوص الفاتورة المرحلة/المقبولة.<br><br>إذا كانت فاتورة الدفعة المقدمة مرتبطة بحركة فعالة أخرى، سيمنع النظام الإلغاء.<br><br>هل تريد المتابعة؟
+"This ZATCA Advance Tax Invoice may already be reported, cleared, or protected by ZATCA rules.<br><br>This cancellation is internal in the system only. It does not reverse, cancel, amend, or notify ZATCA about the reported/cleared invoice.<br><br>If this advance invoice is linked to another active transaction, the system will block cancellation.<br><br>Do you want to continue?",قد تكون فاتورة الدفعة المقدمة - زاتكا مرحلة أو مقبولة أو محمية حسب قواعد زاتكا.<br><br>هذا الإلغاء داخلي داخل النظام فقط، ولا يقوم بعكس أو إلغاء أو تعديل أو إشعار زاتكا بخصوص الفاتورة المرحلة/المقبولة.<br><br>إذا كانت فاتورة الدفعة المقدمة مرتبطة بحركة فعالة أخرى، سيمنع النظام الإلغاء.<br><br>هل تريد المتابعة؟
 This ZATCA Advance Tax Invoice cannot be cancelled or deleted by this user. Only System Manager or Administrator can force-cancel or force-delete a reported/cleared/protected advance invoice.,لا يمكن لهذا المستخدم إلغاء أو حذف فاتورة الدفعة المقدمة - زاتكا. يمكن فقط لمدير النظام أو Administrator إلغاء أو حذف فاتورة دفعة مقدمة مرحلة/مقبولة/محمية إجباريًا.
 This ZATCA Advance Tax Invoice is being cancelled/deleted by a System Manager override.,يتم إلغاء/حذف فاتورة الدفعة المقدمة - زاتكا بواسطة استثناء مدير النظام.
-This is an internal ERPNext cancellation/deletion only.,هذا إلغاء/حذف داخلي داخل ERPNext فقط.
+This is an internal system cancellation/deletion only.,هذا إلغاء/حذف داخلي داخل النظام فقط.

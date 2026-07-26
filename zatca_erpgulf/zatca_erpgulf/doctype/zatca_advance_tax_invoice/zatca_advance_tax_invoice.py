@@ -821,7 +821,7 @@ def _zadv_force_cancel_warning(doc, reasons):
             """
             <b>Warning:</b> This ZATCA Advance Tax Invoice is being cancelled/deleted by a System Manager override.
             <br><br>
-            This is an internal ERPNext cancellation/deletion only. It does not reverse, cancel, amend, or notify ZATCA about any invoice already reported or cleared.
+            This is an internal system cancellation/deletion only. It does not reverse, cancel, amend, or notify ZATCA about any invoice already reported or cleared.
             <br><br>
             Reasons:
             <ul>{0}</ul>

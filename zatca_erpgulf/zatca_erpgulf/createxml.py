@@ -308,7 +308,7 @@ def _validate_supplier_address_for_zatca(address):
         problems.append("Seller postal code must be exactly 5 digits.")
     if _is_placeholder_value(district):
         problems.append(
-            "Seller district is mandatory. In ERPNext this is currently read from Address Line 2."
+            "Seller district is mandatory. In the system this is currently read from Address Line 2."
         )
 
     _throw_zatca_address_error("ZATCA seller address validation failed.", problems)
@@ -358,7 +358,7 @@ def _validate_customer_b2b_address_for_zatca(customer_doc, address, customer_cou
 
         if _is_placeholder_value(district):
             problems.append(
-                "Saudi buyer district is mandatory. In ERPNext this is currently read from Address Line 2."
+                "Saudi buyer district is mandatory. In the system this is currently read from Address Line 2."
             )
 
         if not _is_placeholder_postal_code(postal_code) and not re.fullmatch(r"\d{5}", postal_code):
