@@ -1,7 +1,7 @@
 app_name = "zatca_erpgulf"
 app_title = "Zatca Erpgulf"
 app_publisher = "ERPGulf"
-app_description = "Implementaiton of Saudi E-Invoicing Phase-2 on Frappe ERPNext"
+app_description = "Saudi E-Invoicing Phase-2 integration for Frappe"
 app_email = "support@ERPGulf.com"
 app_license = "mit"
 

@@ -373,7 +373,7 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
             "read_only": 0,
             "reqd": 0,
             "no_copy": 1,
-            "description": "Automatically summarizes accepted ZATCA advance deductions from ERPNext standard Advance Payments.",
+            "description": "Automatically summarizes accepted ZATCA advance deductions from standard Advance Payments in the system.",
             "_fallback_insert_after": [
                 "custom_zatca_full_response",
                 "custom_integrations",

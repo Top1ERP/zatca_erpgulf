@@ -171,7 +171,7 @@ frappe.ui.form.on("ZATCA Advance Tax Invoice", {
 			frappe.confirm(
 				__(
 					"This ZATCA Advance Tax Invoice may already be reported, cleared, or protected by ZATCA rules.<br><br>" +
-					"This cancellation is internal in ERPNext only. It does not reverse, cancel, amend, or notify ZATCA about the reported/cleared invoice.<br><br>" +
+					"This cancellation is internal in the system only. It does not reverse, cancel, amend, or notify ZATCA about the reported/cleared invoice.<br><br>" +
 					"If this advance invoice is linked to another active transaction, the system will block cancellation.<br><br>" +
 					"Do you want to continue?"
 				),
