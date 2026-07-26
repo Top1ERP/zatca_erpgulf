@@ -7,7 +7,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 from frappe.model.naming import make_autoname
-from frappe.utils import money_in_words
+from frappe.utils import cint, money_in_words
 
 
 TWOPLACES = Decimal("0.01")
@@ -140,6 +140,300 @@ def address_values(address_name: str) -> dict:
     }
 
 
+
+def payment_tax_included_in_paid_amount(payment_entry) -> bool:
+    """Return True when any Advance Taxes and Charges row is considered inside paid amount."""
+    for row in getattr(payment_entry, "taxes", []) or []:
+        if cint(getattr(row, "included_in_paid_amount", 0)):
+            return True
+    return False
+
+
+def payment_entry_advance_amounts(payment_entry) -> dict:
+    """Compute ZATCA advance invoice amounts from Payment Entry.
+
+    Required policy for ZATCA advance payments:
+    - VAT must be Considered In Paid Amount.
+    - paid_amount is tax-inclusive.
+    - taxable_amount = paid_amount - tax_amount.
+    - total_amount = paid_amount.
+    """
+    tax_amount = q2(getattr(payment_entry, "total_taxes_and_charges", 0))
+    base_tax_amount = q2(getattr(payment_entry, "base_total_taxes_and_charges", 0))
+
+    tax_included = payment_tax_included_in_paid_amount(payment_entry)
+
+    if tax_amount > Decimal("0.00") and not tax_included:
+        frappe.throw(
+            _(
+                "For ZATCA Advance Tax Invoice, VAT must be marked as Considered In Paid Amount "
+                "on the Payment Entry tax row."
+            )
+        )
+
+    total_amount = q2(getattr(payment_entry, "paid_amount_after_tax", 0))
+    if total_amount <= Decimal("0.00"):
+        total_amount = q2(getattr(payment_entry, "paid_amount", 0))
+
+    base_total_amount = q2(getattr(payment_entry, "base_paid_amount_after_tax", 0))
+    if base_total_amount <= Decimal("0.00"):
+        base_total_amount = q2(getattr(payment_entry, "base_paid_amount", 0))
+
+    taxable_amount = q2(total_amount - tax_amount)
+    base_taxable_amount = q2(base_total_amount - base_tax_amount)
+
+    if total_amount <= Decimal("0.00"):
+        frappe.throw(_("Advance payment total amount must be greater than zero."))
+
+    if taxable_amount <= Decimal("0.00"):
+        frappe.throw(
+            _(
+                "ZATCA Advance Tax Invoice taxable amount must be greater than zero. "
+                "Paid Amount {0}, Tax Amount {1}."
+            ).format(total_amount, tax_amount)
+        )
+
+    if q2(taxable_amount + tax_amount) != total_amount:
+        frappe.throw(
+            _(
+                "ZATCA Advance Tax Invoice amount validation failed. "
+                "Expected Total Amount {0} = Taxable Amount {1} + Tax Amount {2}, but found {3}."
+            ).format(q2(taxable_amount + tax_amount), taxable_amount, tax_amount, total_amount)
+        )
+
+    if q2(base_taxable_amount + base_tax_amount) != base_total_amount:
+        frappe.throw(
+            _(
+                "ZATCA Advance Tax Invoice base amount validation failed. "
+                "Expected Base Total Amount {0} = Base Taxable Amount {1} + Base Tax Amount {2}, but found {3}."
+            ).format(
+                q2(base_taxable_amount + base_tax_amount),
+                base_taxable_amount,
+                base_tax_amount,
+                base_total_amount,
+            )
+        )
+
+    return {
+        "taxable_amount": taxable_amount,
+        "tax_amount": tax_amount,
+        "total_amount": total_amount,
+        "base_taxable_amount": base_taxable_amount,
+        "base_tax_amount": base_tax_amount,
+        "base_total_amount": base_total_amount,
+        "tax_included_in_paid_amount": tax_included,
+    }
+
+
+
+def select_has_option(doc, fieldname: str, option: str) -> bool:
+    df = doc.meta.get_field(fieldname)
+    if not df:
+        return False
+    return option in (df.options or "").splitlines()
+
+
+def set_select_if_allowed(doc, fieldname: str, value: str) -> None:
+    if doc.meta.has_field(fieldname) and select_has_option(doc, fieldname, value):
+        setattr(doc, fieldname, value)
+
+
+def zadv_series_prefix_and_number(name: str):
+    match = re.search(r"(\d+)$", str(name or ""))
+    if not match:
+        return "", 0
+    return str(name)[: match.start(1)], int(match.group(1))
+
+
+def company_phase2_advance_mode(company: str) -> bool:
+    if not company or not frappe.db.exists("Company", company):
+        return False
+
+    company_doc = frappe.get_doc("Company", company)
+    mode = safe_text(getattr(company_doc, "custom_zatca_advance_payment_submission_mode", "Local Only"))
+    signing_enabled = int(getattr(company_doc, "custom_zatca_advance_signing_enabled", 0) or 0)
+    api_enabled = int(getattr(company_doc, "custom_zatca_advance_api_submission_enabled", 0) or 0)
+
+    return mode == "Submit to ZATCA" or signing_enabled or api_enabled
+
+
+def active_sales_invoices_using_payment_entry(payment_entry: str) -> list[str]:
+    if not payment_entry:
+        return []
+
+    parents = frappe.get_all(
+        "Sales Invoice Advance",
+        filters={
+            "reference_type": "Payment Entry",
+            "reference_name": payment_entry,
+            "parenttype": "Sales Invoice",
+        },
+        pluck="parent",
+    )
+
+    result = []
+    for name in parents:
+        docstatus = frappe.db.get_value("Sales Invoice", name, "docstatus")
+        if docstatus is not None and int(docstatus) != 2:
+            result.append(name)
+
+    return result
+
+
+def later_zadv_in_same_company_exists(company: str, current_name: str) -> bool:
+    prefix, number = zadv_series_prefix_and_number(current_name)
+    if not prefix or not number:
+        return False
+
+    candidates = frappe.get_all(
+        "ZATCA Advance Tax Invoice",
+        filters={
+            "company": company,
+            "name": ["like", prefix + "%"],
+            "name": ["!=", current_name],
+        },
+        fields=["name"],
+    )
+
+    for row in candidates:
+        _, other_number = zadv_series_prefix_and_number(row.name)
+        if other_number > number:
+            return True
+
+    return False
+
+
+def reset_zadv_series_to_highest_existing(deleted_name: str) -> None:
+    prefix, _number = zadv_series_prefix_and_number(deleted_name)
+    if not prefix:
+        return
+
+    existing = frappe.get_all(
+        "ZATCA Advance Tax Invoice",
+        filters={"name": ["like", prefix + "%"]},
+        pluck="name",
+    )
+
+    max_number = 0
+    for name in existing:
+        _, n = zadv_series_prefix_and_number(name)
+        if n > max_number:
+            max_number = n
+
+    if frappe.db.exists("Series", prefix):
+        frappe.db.set_value("Series", prefix, "current", max_number, update_modified=False)
+
+
+def clear_payment_entry_advance_link(payment_entry: str) -> None:
+    if not payment_entry or not frappe.db.exists("Payment Entry", payment_entry):
+        return
+
+    values = {
+        "custom_zatca_is_advance_payment": 0,
+        "custom_zatca_advance_tax_invoice": "",
+        "custom_zatca_advance_invoice_status": "Not Created",
+        "custom_zatca_advance_invoice_uuid": "",
+        "custom_zatca_advance_qr_code": "",
+        "custom_zatca_advance_xml": "",
+        "custom_zatca_advance_last_debug_at": None,
+        "custom_zatca_advance_full_response": "",
+    }
+
+    payment_entry_meta = frappe.get_meta("Payment Entry")
+    for fieldname, value in values.items():
+        if payment_entry_meta.has_field(fieldname):
+            frappe.db.set_value("Payment Entry", payment_entry, fieldname, value, update_modified=False)
+
+
+def assert_zadv_can_cancel_or_delete(doc, action: str) -> None:
+    """Block cancel/delete if the advance invoice is fiscally unsafe to remove."""
+    if company_phase2_advance_mode(doc.company) or safe_text(getattr(doc, "zatca_status", "")).upper() in {"REPORTED", "CLEARED"}:
+        frappe.throw(
+            _(
+                "Cannot {0} ZATCA Advance Tax Invoice {1} because it is in Phase 2/API mode "
+                "or has already been reported/cleared."
+            ).format(action, doc.name)
+        )
+
+    sales_invoices = active_sales_invoices_using_payment_entry(doc.payment_entry)
+    if sales_invoices:
+        frappe.throw(
+            _(
+                "Cannot {0} ZATCA Advance Tax Invoice {1} because its Payment Entry is used "
+                "in Sales Invoice(s): {2}."
+            ).format(action, doc.name, ", ".join(sales_invoices))
+        )
+
+    if later_zadv_in_same_company_exists(doc.company, doc.name):
+        frappe.throw(
+            _(
+                "Cannot {0} ZATCA Advance Tax Invoice {1} because a later advance tax invoice "
+                "exists for the same company. Delete/cancel the latest invoice first."
+            ).format(action, doc.name)
+        )
+
+
+
+def local_only_phase1_qr_mode(company: str) -> bool:
+    if not company or not frappe.db.exists("Company", company):
+        return True
+
+    company_doc = frappe.get_doc("Company", company)
+    mode = safe_text(getattr(company_doc, "custom_zatca_advance_payment_submission_mode", "Local Only"))
+    signing_enabled = int(getattr(company_doc, "custom_zatca_advance_signing_enabled", 0) or 0)
+    api_enabled = int(getattr(company_doc, "custom_zatca_advance_api_submission_enabled", 0) or 0)
+
+    return mode != "Submit to ZATCA" and not signing_enabled and not api_enabled
+
+
+def run_local_phase1_preflight_without_save(doc) -> None:
+    """Run advance preflight during Submit without calling doc.save().
+
+    Do not call advance_payment_debug._run_preflight_or_throw here because that helper
+    persists the document and causes TimestampMismatchError inside Frappe submit.
+    """
+    from zatca_erpgulf.zatca_erpgulf.advance_payment_debug import (
+        _preflight_issues,
+        _set_preflight_result,
+    )
+
+    issues = _preflight_issues(doc)
+
+    ignored_warnings = []
+    blocking_issues = list(issues)
+
+    if local_only_phase1_qr_mode(doc.company):
+        # Phase-1 local QR should not be blocked only because the company postal code is missing.
+        ignored_warnings = [
+            issue for issue in blocking_issues
+            if str(issue).strip() == "Company postal code is missing."
+        ]
+        blocking_issues = [
+            issue for issue in blocking_issues
+            if str(issue).strip() != "Company postal code is missing."
+        ]
+
+    _set_preflight_result(doc, blocking_issues)
+
+    if ignored_warnings and not blocking_issues:
+        if doc.meta.has_field("preflight_status"):
+            doc.preflight_status = "Passed"
+        if doc.meta.has_field("preflight_details"):
+            doc.preflight_details = _(
+                "Local Only / Phase 1 QR validation warning(s): {0}"
+            ).format("; ".join(ignored_warnings))
+        if doc.meta.has_field("zatca_status"):
+            doc.zatca_status = "Preflight Passed"
+
+    if blocking_issues:
+        frappe.throw(
+            _(
+                "Cannot continue because ZATCA preflight validation failed: {0}"
+            ).format("; ".join(blocking_issues)),
+            title=_("ZATCA Preflight Failed"),
+        )
+
+
 class ZATCAAdvanceTaxInvoice(Document):
     def autoname(self):
         abbr = company_abbr(self.company)
@@ -204,18 +498,20 @@ class ZATCAAdvanceTaxInvoice(Document):
         if self.meta.has_field("tc_name") and not self.tc_name:
             self._set_default_terms_template(payment_entry.company)
 
-        self.advance_amount = q2(getattr(payment_entry, "paid_amount", 0))
-        self.taxable_amount = self.advance_amount
-        self.tax_amount = q2(getattr(payment_entry, "total_taxes_and_charges", 0))
-        self.total_amount = q2(getattr(payment_entry, "paid_amount_after_tax", 0)) or q2(self.taxable_amount + self.tax_amount)
+        amounts = payment_entry_advance_amounts(payment_entry)
+
+        self.advance_amount = amounts["taxable_amount"]
+        self.taxable_amount = amounts["taxable_amount"]
+        self.tax_amount = amounts["tax_amount"]
+        self.total_amount = amounts["total_amount"]
         self.tax_rate = self._payment_tax_rate(payment_entry)
 
         if self.meta.has_field("base_taxable_amount"):
-            self.base_taxable_amount = q2(getattr(payment_entry, "base_paid_amount", 0))
+            self.base_taxable_amount = amounts["base_taxable_amount"]
         if self.meta.has_field("base_tax_amount"):
-            self.base_tax_amount = q2(getattr(payment_entry, "base_total_taxes_and_charges", 0))
+            self.base_tax_amount = amounts["base_tax_amount"]
         if self.meta.has_field("base_total_amount"):
-            self.base_total_amount = q2(getattr(payment_entry, "base_paid_amount_after_tax", 0)) or q2(self.base_taxable_amount + self.base_tax_amount)
+            self.base_total_amount = amounts["base_total_amount"]
 
         if self.meta.has_field("tax_account"):
             self.tax_account = self._payment_tax_account(payment_entry)
@@ -343,11 +639,12 @@ class ZATCAAdvanceTaxInvoice(Document):
         expected_total = q2(taxable_amount + tax_amount)
 
         if total_amount != expected_total:
-            frappe.throw(_(
-                f"ZATCA Advance Tax Invoice amount validation failed. Expected Total Amount "
-                f"{expected_total} = Taxable Amount {taxable_amount} + Tax Amount {tax_amount}, "
-                f"but found {total_amount}."
-            ))
+            frappe.throw(
+                _(
+                    "ZATCA Advance Tax Invoice amount validation failed. "
+                    "Expected Total Amount {0} = Taxable Amount {1} + Tax Amount {2}, but found {3}."
+                ).format(expected_total, taxable_amount, tax_amount, total_amount)
+            )
 
         if self.meta.has_field("base_taxable_amount"):
             base_taxable_amount = q2(self.base_taxable_amount)
@@ -356,11 +653,12 @@ class ZATCAAdvanceTaxInvoice(Document):
             expected_base_total = q2(base_taxable_amount + base_tax_amount)
 
             if base_total_amount != expected_base_total:
-                frappe.throw(_(
-                    f"ZATCA Advance Tax Invoice base amount validation failed. Expected Base Total Amount "
-                    f"{expected_base_total} = Base Taxable Amount {base_taxable_amount} + Base Tax Amount "
-                    f"{base_tax_amount}, but found {base_total_amount}."
-                ))
+                frappe.throw(
+                    _(
+                        "ZATCA Advance Tax Invoice base amount validation failed. "
+                        "Expected Base Total Amount {0} = Base Taxable Amount {1} + Base Tax Amount {2}, but found {3}."
+                    ).format(expected_base_total, base_taxable_amount, base_tax_amount, base_total_amount)
+                )
 
     def _set_amount_in_words(self):
         if self.meta.has_field("in_words"):
@@ -371,21 +669,46 @@ class ZATCAAdvanceTaxInvoice(Document):
             base_total = self.base_total_amount if self.meta.has_field("base_total_amount") else self.total_amount
             self.base_in_words = money_in_words(base_total, base_currency)
 
+
+    def before_submit(self):
+        """Standard ERPNext Submit should finalize local Phase-1 QR advance invoice."""
+        self._sync_from_payment_entry()
+        self._validate_unique_payment_entry()
+        self._validate_amount_equations()
+
+        from zatca_erpgulf.zatca_erpgulf.advance_payment_debug import _attach_phase1_advance_qr_code
+
+        run_local_phase1_preflight_without_save(self)
+        _attach_phase1_advance_qr_code(self)
+
+        self.status = "Final"
+        if self.meta.has_field("zatca_status"):
+            self.zatca_status = "Phase 1 QR Created"
+
+    def on_submit(self):
+        from zatca_erpgulf.zatca_erpgulf.advance_payment_debug import _set_payment_entry_advance_fields
+
+        _set_payment_entry_advance_fields(
+            self.payment_entry,
+            self,
+            status=self.zatca_status or self.status,
+            full_response="ZATCA Advance Tax Invoice submitted and Phase 1 QR generated.",
+        )
+    def before_cancel(self):
+        assert_zadv_can_cancel_or_delete(self, "cancel")
+
+    def on_cancel(self):
+        set_select_if_allowed(self, "status", "Cancelled")
+        set_select_if_allowed(self, "zatca_status", "Cancelled")
+        clear_payment_entry_advance_link(self.payment_entry)
+
+
+
     def on_trash(self):
-        if not self.payment_entry or not frappe.db.exists("Payment Entry", self.payment_entry):
-            return
+        assert_zadv_can_cancel_or_delete(self, "delete")
 
-        values = {
-            "custom_zatca_is_advance_payment": 0,
-            "custom_zatca_advance_tax_invoice": "",
-            "custom_zatca_advance_invoice_status": "Not Created",
-            "custom_zatca_advance_invoice_uuid": "",
-            "custom_zatca_advance_xml": "",
-            "custom_zatca_advance_last_debug_at": None,
-            "custom_zatca_advance_full_response": "",
-        }
+        payment_entry = self.payment_entry
+        current_name = self.name
 
-        payment_entry_meta = frappe.get_meta("Payment Entry")
-        for fieldname, value in values.items():
-            if payment_entry_meta.has_field(fieldname):
-                frappe.db.set_value("Payment Entry", self.payment_entry, fieldname, value, update_modified=False)
+        clear_payment_entry_advance_link(payment_entry)
+        reset_zadv_series_to_highest_existing(current_name)

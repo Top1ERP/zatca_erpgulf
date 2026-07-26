@@ -4312,6 +4312,81 @@ def sync_advance_company_field_visibility() -> dict[str, list[str]]:
 
 
 
+
+def sync_advance_taxes_included_in_paid_amount_default() -> dict[str, list[str]]:
+    """Default Payment Entry advance tax rows to Considered In Paid Amount.
+
+    This prevents users from treating advance payment VAT as an extra amount over
+    the received cash amount when issuing ZATCA Advance Tax Invoices.
+    """
+    result = {
+        "updated": [],
+        "skipped": [],
+    }
+
+    if not _doctype_exists("Advance Taxes and Charges"):
+        result["skipped"].append("Advance Taxes and Charges missing")
+        return result
+
+    if not frappe.get_meta("Advance Taxes and Charges").has_field("included_in_paid_amount"):
+        result["skipped"].append("Advance Taxes and Charges.included_in_paid_amount missing")
+        return result
+
+    setters = [
+        ("default", "1", "Check"),
+        (
+            "description",
+            "For ZATCA advance payments, VAT should normally be considered inside the paid amount.",
+            "Data",
+        ),
+    ]
+
+    for prop, value, property_type in setters:
+        name = frappe.db.get_value(
+            "Property Setter",
+            {
+                "doc_type": "Advance Taxes and Charges",
+                "field_name": "included_in_paid_amount",
+                "property": prop,
+            },
+            "name",
+        )
+
+        if name:
+            ps = frappe.get_doc("Property Setter", name)
+            changed = False
+
+            if ps.value != value:
+                ps.value = value
+                changed = True
+
+            if ps.property_type != property_type:
+                ps.property_type = property_type
+                changed = True
+
+            if changed:
+                ps.save(ignore_permissions=True)
+
+            result["updated"].append(name)
+        else:
+            ps = frappe.get_doc({
+                "doctype": "Property Setter",
+                "doctype_or_field": "DocField",
+                "doc_type": "Advance Taxes and Charges",
+                "field_name": "included_in_paid_amount",
+                "property": prop,
+                "value": value,
+                "property_type": property_type,
+            })
+            ps.insert(ignore_permissions=True)
+            result["updated"].append(ps.name)
+
+    frappe.clear_cache(doctype="Advance Taxes and Charges")
+    frappe.clear_cache(doctype="Payment Entry")
+    frappe.db.commit()
+    return result
+
+
 def run_zatca_customization_sync_after_migrate() -> None:
     """
     Run ZATCA customization sync after app/site migration.
@@ -4354,6 +4429,7 @@ def sync_all_zatca_customizations() -> dict[str, Any]:
     critical_fields_result = ensure_critical_custom_fields()
     payment_entry_advance_fields_result = sync_payment_entry_advance_fields()
     advance_company_field_visibility_result = sync_advance_company_field_visibility()
+    advance_taxes_included_default_result = sync_advance_taxes_included_in_paid_amount_default()
     arabic_name_cleanup_result = cleanup_arabic_name_fields()
     arabic_name_layout_result = normalize_arabic_name_field_layout()
     force_customer_layout_result = force_customer_arabic_and_tax_layout()
@@ -4392,6 +4468,7 @@ def sync_all_zatca_customizations() -> dict[str, Any]:
         "critical_custom_fields": critical_fields_result,
         "payment_entry_advance_fields": payment_entry_advance_fields_result,
         "advance_company_field_visibility": advance_company_field_visibility_result,
+        "advance_taxes_included_default": advance_taxes_included_default_result,
         "arabic_name_cleanup": arabic_name_cleanup_result,
         "arabic_name_layout": arabic_name_layout_result,
         "customer_zatca_tax_layout": customer_zatca_tax_layout_result,

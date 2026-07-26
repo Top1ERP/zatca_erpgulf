@@ -416,3 +416,15 @@ Phase 1 QR generated locally. No XML file and no ZATCA API submission were perfo
 Company postal code is missing.,الرمز البريدي للشركة غير موجود.
 Warning: {0},تحذير: {0}
 Local Only / Phase 1 QR validation warning(s): {0},تحذيرات تحقق محلية لرمز QR للمرحلة الأولى: {0}
+"For ZATCA Advance Tax Invoice, VAT must be marked as Considered In Paid Amount on the Payment Entry tax row.",لإصدار فاتورة دفعة مقدمة - زاتكا، يجب تفعيل خيار احتساب الضريبة ضمن مبلغ الدفع في سطر ضريبة سند القبض.
+Advance payment total amount must be greater than zero.,يجب أن يكون إجمالي مبلغ الدفعة المقدمة أكبر من صفر.
+"ZATCA Advance Tax Invoice taxable amount must be greater than zero. Paid Amount {0}, Tax Amount {1}.",يجب أن يكون المبلغ الخاضع للضريبة في فاتورة الدفعة المقدمة - زاتكا أكبر من صفر. مبلغ الدفع {0}، مبلغ الضريبة {1}.
+"ZATCA Advance Tax Invoice amount validation failed. Expected Total Amount {0} = Taxable Amount {1} + Tax Amount {2}, but found {3}.",فشل التحقق من مبلغ فاتورة الدفعة المقدمة - زاتكا. المبلغ الإجمالي المتوقع {0} = المبلغ الخاضع للضريبة {1} + مبلغ الضريبة {2}، لكن الموجود {3}.
+"ZATCA Advance Tax Invoice base amount validation failed. Expected Base Total Amount {0} = Base Taxable Amount {1} + Base Tax Amount {2}, but found {3}.",فشل التحقق من مبلغ الأساس لفاتورة الدفعة المقدمة - زاتكا. إجمالي الأساس المتوقع {0} = مبلغ الأساس الخاضع للضريبة {1} + ضريبة الأساس {2}، لكن الموجود {3}.
+Cancelled,ملغاة
+ZATCA Advance Tax Invoice submitted and Phase 1 QR generated.,تم اعتماد فاتورة الدفعة المقدمة - زاتكا وإنشاء رمز QR للمرحلة الأولى.
+Cannot {0} ZATCA Advance Tax Invoice {1} because it is in Phase 2/API mode or has already been reported/cleared.,لا يمكن {0} فاتورة الدفعة المقدمة - زاتكا {1} لأنها في وضع المرحلة الثانية/API أو تم الإبلاغ عنها/اعتمادها مسبقًا.
+Cannot {0} ZATCA Advance Tax Invoice {1} because its Payment Entry is used in Sales Invoice(s): {2}.,لا يمكن {0} فاتورة الدفعة المقدمة - زاتكا {1} لأن سند القبض المستخدم فيها مرتبط بفواتير مبيعات: {2}.
+Cannot {0} ZATCA Advance Tax Invoice {1} because a later advance tax invoice exists for the same company. Delete/cancel the latest invoice first.,لا يمكن {0} فاتورة الدفعة المقدمة - زاتكا {1} لوجود فاتورة دفعة مقدمة لاحقة لنفس الشركة. احذف/ألغِ الفاتورة الأحدث أولًا.
+Cannot continue because ZATCA preflight validation failed: {0},لا يمكن المتابعة لأن تحقق زاتكا المسبق فشل: {0}
+ZATCA Preflight Failed,فشل التحقق المسبق من زاتكا
