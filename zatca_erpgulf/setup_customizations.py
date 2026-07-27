@@ -4824,6 +4824,7 @@ def force_sales_invoice_zatca_field_order_property_setter() -> dict[str, Any]:
         "custom_zatca_discount_reason",
         "custom_submit_line_item_discount_to_zatca",
         "custom_column_break_h3ntp",
+        "company_tax_id",
         "custom_uuid",
         "custom_zatca_status",
         "custom_column_break_hb6s7",
