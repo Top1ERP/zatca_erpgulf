@@ -287,11 +287,11 @@ def later_zadv_in_same_company_exists(company: str, current_name: str) -> bool:
 
     candidates = frappe.get_all(
         "ZATCA Advance Tax Invoice",
-        filters={
-            "company": company,
-            "name": ["like", prefix + "%"],
-            "name": ["!=", current_name],
-        },
+        filters=[
+            ["ZATCA Advance Tax Invoice", "company", "=", company],
+            ["ZATCA Advance Tax Invoice", "name", "like", prefix + "%"],
+            ["ZATCA Advance Tax Invoice", "name", "!=", current_name],
+        ],
         fields=["name"],
     )
 
@@ -310,7 +310,10 @@ def reset_zadv_series_to_highest_existing(deleted_name: str) -> None:
 
     existing = frappe.get_all(
         "ZATCA Advance Tax Invoice",
-        filters={"name": ["like", prefix + "%"]},
+        filters=[
+            ["ZATCA Advance Tax Invoice", "name", "like", prefix + "%"],
+            ["ZATCA Advance Tax Invoice", "name", "!=", deleted_name],
+        ],
         pluck="name",
     )
 
@@ -320,8 +323,11 @@ def reset_zadv_series_to_highest_existing(deleted_name: str) -> None:
         if n > max_number:
             max_number = n
 
-    if frappe.db.exists("Series", prefix):
-        frappe.db.set_value("Series", prefix, "current", max_number, update_modified=False)
+    if frappe.db.sql("select name from `tabSeries` where name = %s", prefix):
+        frappe.db.sql(
+            "update `tabSeries` set current = %s where name = %s",
+            (max_number, prefix),
+        )
 
 
 def clear_payment_entry_advance_link(payment_entry: str) -> None:
