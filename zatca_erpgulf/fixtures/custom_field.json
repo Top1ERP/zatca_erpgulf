@@ -2847,7 +2847,8 @@
   "sort_options": 0,
   "translatable": 1,
   "unique": 0,
-  "width": null
+  "width": null,
+  "idx": 40
  },
  {
   "allow_in_quick_entry": 0,
@@ -2904,7 +2905,8 @@
   "sort_options": 0,
   "translatable": 1,
   "unique": 0,
-  "width": null
+  "width": null,
+  "idx": 41
  },
  {
   "allow_in_quick_entry": 0,
@@ -2961,7 +2963,8 @@
   "sort_options": 0,
   "translatable": 0,
   "unique": 0,
-  "width": null
+  "width": null,
+  "idx": 19
  },
  {
   "allow_in_quick_entry": 0,
@@ -3588,7 +3591,8 @@
   "sort_options": 0,
   "translatable": 0,
   "unique": 0,
-  "width": null
+  "width": null,
+  "idx": 33
  },
  {
   "allow_in_quick_entry": 0,
@@ -3702,7 +3706,8 @@
   "sort_options": 0,
   "translatable": 0,
   "unique": 0,
-  "width": null
+  "width": null,
+  "idx": 42
  },
  {
   "allow_in_quick_entry": 0,
@@ -3816,7 +3821,8 @@
   "sort_options": 0,
   "translatable": 0,
   "unique": 0,
-  "width": null
+  "width": null,
+  "idx": 43
  },
  {
   "allow_in_quick_entry": 0,
@@ -3873,7 +3879,8 @@
   "sort_options": 0,
   "translatable": 0,
   "unique": 0,
-  "width": null
+  "width": null,
+  "idx": 44
  },
  {
   "allow_in_quick_entry": 0,
@@ -3930,7 +3937,8 @@
   "sort_options": 0,
   "translatable": 0,
   "unique": 0,
-  "width": null
+  "width": null,
+  "idx": 45
  },
  {
   "allow_in_quick_entry": 0,
@@ -3987,7 +3995,8 @@
   "sort_options": 0,
   "translatable": 0,
   "unique": 0,
-  "width": null
+  "width": null,
+  "idx": 46
  },
  {
   "allow_in_quick_entry": 0,
@@ -4044,7 +4053,8 @@
   "sort_options": 0,
   "translatable": 0,
   "unique": 0,
-  "width": null
+  "width": null,
+  "idx": 47
  },
  {
   "allow_in_quick_entry": 0,
@@ -4101,7 +4111,8 @@
   "sort_options": 0,
   "translatable": 0,
   "unique": 0,
-  "width": null
+  "width": null,
+  "idx": 39
  },
  {
   "allow_in_quick_entry": 0,
@@ -4158,7 +4169,8 @@
   "sort_options": 0,
   "translatable": 1,
   "unique": 0,
-  "width": null
+  "width": null,
+  "idx": 34
  },
  {
   "allow_in_quick_entry": 0,
@@ -4215,7 +4227,8 @@
   "sort_options": 0,
   "translatable": 1,
   "unique": 0,
-  "width": null
+  "width": null,
+  "idx": 35
  },
  {
   "allow_in_quick_entry": 0,
@@ -4272,7 +4285,8 @@
   "sort_options": 0,
   "translatable": 1,
   "unique": 0,
-  "width": null
+  "width": null,
+  "idx": 36
  },
  {
   "allow_in_quick_entry": 0,
@@ -4329,7 +4343,8 @@
   "sort_options": 0,
   "translatable": 1,
   "unique": 0,
-  "width": null
+  "width": null,
+  "idx": 37
  },
  {
   "allow_in_quick_entry": 0,
