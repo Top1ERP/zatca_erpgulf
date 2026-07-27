@@ -4803,6 +4803,156 @@ def run_zatca_customization_sync_after_migrate() -> None:
         )
         _log("ZATCA customization sync from after_migrate hook failed. See Error Log.")
 
+
+def force_sales_invoice_zatca_field_order_property_setter() -> dict[str, Any]:
+    """Force the approved Sales Invoice field_order Property Setter.
+
+    Sales Invoice can have a DocType-level field_order Property Setter. When it
+    exists, it controls the visual field order even if Custom Field insert_after
+    and idx are correct.
+    """
+
+    import json
+
+    badge_field = "custom_zatca_status_notification"
+
+    zatca_order = [
+        "custom_section_break_gqwpx",
+        "custom_zatca_tax_category",
+        "custom_exemption_reason_code",
+        "custom_zatca_discount_reason_code",
+        "custom_zatca_discount_reason",
+        "custom_submit_line_item_discount_to_zatca",
+        "custom_column_break_h3ntp",
+        "custom_uuid",
+        "custom_zatca_status",
+        "custom_column_break_hb6s7",
+        "custom_zatca_third_party_invoice",
+        "custom_zatca_nominal_invoice",
+        "custom_zatca_export_invoice",
+        "custom_summary_invoice",
+        "custom_self_billed_invoice",
+    ]
+
+    result = {
+        "updated": 0,
+        "created": 0,
+        "skipped": [],
+        "missing_fields": [],
+        "before": {},
+        "after": {},
+    }
+
+    property_setter_name = frappe.db.get_value(
+        "Property Setter",
+        {
+            "doc_type": "Sales Invoice",
+            "doctype_or_field": "DocType",
+            "property": "field_order",
+        },
+        "name",
+    )
+
+    if property_setter_name:
+        property_setter = frappe.get_doc("Property Setter", property_setter_name)
+        try:
+            order = json.loads(property_setter.value or "[]")
+        except Exception:
+            result["skipped"].append("Could not parse Sales Invoice field_order JSON.")
+            return result
+    else:
+        meta = frappe.get_meta("Sales Invoice")
+        order = [df.fieldname for df in meta.fields if df.fieldname]
+        property_setter = frappe.get_doc(
+            {
+                "doctype": "Property Setter",
+                "doc_type": "Sales Invoice",
+                "doctype_or_field": "DocType",
+                "field_name": None,
+                "property": "field_order",
+                "property_type": "Data",
+            }
+        )
+
+    unique_order = []
+    seen = set()
+    for fieldname in order:
+        if fieldname and fieldname not in seen:
+            unique_order.append(fieldname)
+            seen.add(fieldname)
+
+    order = unique_order
+
+    required_anchors = ["column_break_14", "is_pos", "amended_from"]
+    for fieldname in required_anchors:
+        if fieldname not in order:
+            result["skipped"].append(f"Missing required anchor: {fieldname}")
+
+    if result["skipped"]:
+        return result
+
+    controlled = set()
+    available_zatca_order = []
+
+    if frappe.db.exists("Custom Field", {"dt": "Sales Invoice", "fieldname": badge_field}) or badge_field in order:
+        controlled.add(badge_field)
+    else:
+        result["missing_fields"].append(badge_field)
+
+    for fieldname in zatca_order:
+        if frappe.db.exists("Custom Field", {"dt": "Sales Invoice", "fieldname": fieldname}) or fieldname in order:
+            controlled.add(fieldname)
+            available_zatca_order.append(fieldname)
+        else:
+            result["missing_fields"].append(fieldname)
+
+    targets = [
+        "column_break_14",
+        badge_field,
+        "is_pos",
+        "amended_from",
+        *zatca_order,
+    ]
+
+    for fieldname in targets:
+        result["before"][fieldname] = order.index(fieldname) if fieldname in order else None
+
+    new_order = []
+    for fieldname in order:
+        if fieldname not in controlled:
+            new_order.append(fieldname)
+
+    pos = new_order.index("column_break_14")
+    if badge_field in controlled:
+        new_order.insert(pos + 1, badge_field)
+
+    pos = new_order.index("amended_from")
+    for offset, fieldname in enumerate(available_zatca_order, start=1):
+        new_order.insert(pos + offset, fieldname)
+
+    for fieldname in targets:
+        result["after"][fieldname] = new_order.index(fieldname) if fieldname in new_order else None
+
+    new_value = json.dumps(new_order, ensure_ascii=False)
+
+    if property_setter.value != new_value:
+        property_setter.value = new_value
+
+        if property_setter.is_new():
+            property_setter.insert(ignore_permissions=True)
+            result["created"] = 1
+        else:
+            property_setter.save(ignore_permissions=True)
+            result["updated"] = 1
+
+        frappe.db.commit()
+
+    frappe.clear_cache(doctype="Sales Invoice")
+    frappe.clear_document_cache("DocType", "Sales Invoice")
+
+    return result
+
+
 def sync_all_zatca_customizations() -> dict[str, Any]:
     """
     Main idempotent sync function.
@@ -4849,6 +4999,7 @@ def sync_all_zatca_customizations() -> dict[str, Any]:
     sales_invoice_zatca_ui_result = sync_sales_invoice_zatca_integration_layout()
     sales_invoice_zatca_column_cleanup_result = remove_extra_sales_invoice_zatca_column_breaks()
     sales_invoice_zatca_finalize_result = finalize_sales_invoice_zatca_field_order_and_cleanup()
+    sales_invoice_zatca_field_order_property_setter_result = force_sales_invoice_zatca_field_order_property_setter()
     tax_template_zatca_source_fields_result = sync_tax_template_zatca_source_fields()
     existing_tax_template_zatca_values_result = sync_existing_tax_template_zatca_values()
     zatca_arabic_translations_result = sync_zatca_arabic_translations()
