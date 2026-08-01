@@ -98,11 +98,22 @@ def _assert_no_legacy_data() -> None:
         ("ToDo", "reference_type"),
     )
 
+    deleted_comment_audit_filter = (
+        " AND NOT ("
+        "COALESCE(`comment_type`, '') = 'Deleted' "
+        "AND COALESCE(`reference_name`, '') = ''"
+        ")"
+    )
+
     for doctype, fieldname in reference_checks:
         if not _column_exists(doctype, fieldname):
             continue
 
-        count = _count_rows(doctype, f"`{fieldname}` = %s", (LEGACY_DOCTYPE,))
+        where_sql = f"`{fieldname}` = %s"
+        if doctype == "Comment":
+            where_sql += deleted_comment_audit_filter
+
+        count = _count_rows(doctype, where_sql, (LEGACY_DOCTYPE,))
         if count:
             blockers.append(f"{doctype}.{fieldname}: {count} reference(s)")
 

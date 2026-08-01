@@ -154,3 +154,58 @@ class TestLegacyAdvanceRetirementPatch(FrappeTestCase):
     ):
         with self.assertRaisesRegex(frappe.ValidationError, LEGACY_DOCTYPE):
             _assert_no_legacy_data()
+
+    @patch(
+        "zatca_erpgulf.patches.remove_legacy_advance_doctype_20260801._column_exists",
+        return_value=True,
+    )
+    @patch(
+        "zatca_erpgulf.patches.remove_legacy_advance_doctype_20260801._count_rows"
+    )
+    @patch(
+        "zatca_erpgulf.patches.remove_legacy_advance_doctype_20260801._table_exists",
+        return_value=True,
+    )
+    def test_deleted_comment_audit_rows_are_excluded_from_guard(
+        self,
+        _table_exists,
+        count_rows,
+        _column_exists,
+    ):
+        count_rows.return_value = 0
+
+        _assert_no_legacy_data()
+
+        comment_calls = [
+            call
+            for call in count_rows.call_args_list
+            if call.args and call.args[0] == "Comment"
+        ]
+        self.assertEqual(len(comment_calls), 1)
+        comment_sql = comment_calls[0].args[1]
+        self.assertIn("`reference_doctype` = %s", comment_sql)
+        self.assertIn("`comment_type`", comment_sql)
+        self.assertIn("'Deleted'", comment_sql)
+        self.assertIn("`reference_name`", comment_sql)
+        self.assertEqual(comment_calls[0].args[2], (LEGACY_DOCTYPE,))
+
+    @patch(
+        "zatca_erpgulf.patches.remove_legacy_advance_doctype_20260801._column_exists",
+        return_value=True,
+    )
+    @patch(
+        "zatca_erpgulf.patches.remove_legacy_advance_doctype_20260801._count_rows",
+        return_value=0,
+    )
+    @patch(
+        "zatca_erpgulf.patches.remove_legacy_advance_doctype_20260801._table_exists",
+        return_value=True,
+    )
+    def test_non_comment_reference_checks_remain_strict(
+        self, _table_exists, count_rows, _column_exists
+    ):
+        _assert_no_legacy_data()
+        file_call = next(
+            call for call in count_rows.call_args_list if call.args[0] == "File"
+        )
+        self.assertEqual(file_call.args[1], "`attached_to_doctype` = %s")
