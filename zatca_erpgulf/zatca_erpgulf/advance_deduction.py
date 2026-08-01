@@ -5,6 +5,8 @@ from decimal import Decimal
 import frappe
 from frappe import _
 
+from zatca_erpgulf.zatca_erpgulf.zatca_runtime import is_advance_payment_invoice
+
 
 ACCEPTED_ZATCA_ADVANCE_STATUSES = {
     "REPORTED",
@@ -376,6 +378,15 @@ def validate_sales_invoice_advance_deductions(doc, event=None) -> None:
 
         _clear_advance_deduction_derived_fields(doc)
         return
+
+    if is_advance_payment_invoice(doc) and _get_positive_zatca_advance_allocations(doc):
+        frappe.throw(
+            _(
+                "A Sales Invoice cannot be both an advance payment invoice and a "
+                "final invoice that deducts an earlier ZATCA advance. Clear the "
+                "advance-payment marker or remove the positive ZATCA advance allocation."
+            )
+        )
 
     _remove_existing_zatca_advance_vat_deduction_rows(doc)
 

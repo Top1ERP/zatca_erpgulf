@@ -307,6 +307,28 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
     ],
     "Sales Invoice": [
         {
+            "fieldname": "is_advance_payment",
+            "label": "Is Advance Payment Invoice",
+            "fieldtype": "Check",
+            "insert_after": "is_debit_note",
+            "default": "0",
+            "module": MODULE_NAME,
+            "translatable": 0,
+            "hidden": 0,
+            "read_only": 0,
+            "reqd": 0,
+            "no_copy": 1,
+            "_alternatives": [
+                "is_advance_payment",
+                "custom_is_advance_payment",
+            ],
+            "_fallback_insert_after": [
+                "is_debit_note",
+                "is_return",
+                "customer",
+            ],
+        },
+        {
             "fieldname": "custom_is_advance_credit_note",
             "label": "Is Advance Credit Note",
             "fieldtype": "Check",
