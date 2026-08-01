@@ -244,6 +244,7 @@ doc_events = {
         # "before_insert": "zatca_erpgulf.zatca_erpgulf.sales_invoice_hooks.set_draft_series",
         "validate": [
             "zatca_erpgulf.zatca_erpgulf.tax_error.validate_negative_item_values_on_save",
+            "zatca_erpgulf.zatca_erpgulf.advance_payment_entry.validate_sales_invoice_payment_entry_link",
             "zatca_erpgulf.zatca_erpgulf.advance_deduction.validate_sales_invoice_advance_deductions",
             "zatca_erpgulf.zatca_erpgulf.advance_credit_note.validate_advance_credit_note_against_original",
         ],
@@ -262,6 +263,7 @@ doc_events = {
         ],
         "on_cancel": "zatca_erpgulf.zatca_erpgulf.advance_credit_note.update_advance_invoice_reversal_status_from_sales_invoice",
         "on_update_after_submit": [
+            "zatca_erpgulf.zatca_erpgulf.advance_payment_entry.validate_sales_invoice_payment_entry_link",
             "zatca_erpgulf.zatca_erpgulf.phase2_artifacts.ensure_phase2_sales_invoice_artifacts",
             "zatca_erpgulf.zatca_erpgulf.advance_deduction.ensure_final_sales_invoice_qr_for_print",
         ],
@@ -288,6 +290,7 @@ doctype_js = {
     "Sales Invoice": [
         # "public/js/draft.js",
         "public/js/our_sales_invoice.js",
+        "public/js/zatca_advance_income_account_query.js",
         "public/js/zatca_negative_line_validation.js",
         "public/js/print.js",
         "public/js/badge.js"

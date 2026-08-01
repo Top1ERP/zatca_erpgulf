@@ -329,6 +329,35 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
             ],
         },
         {
+            "fieldname": "custom_zatca_payment_entry",
+            "label": "ZATCA Payment Entry",
+            "fieldtype": "Link",
+            "options": "Payment Entry",
+            "insert_after": "is_advance_payment",
+            "module": MODULE_NAME,
+            "translatable": 0,
+            "hidden": 0,
+            "read_only": 0,
+            "reqd": 0,
+            "allow_on_submit": 1,
+            "no_copy": 1,
+            "depends_on": (
+                "eval:doc.is_advance_payment || doc.custom_is_advance_payment"
+            ),
+            "description": (
+                "Optional submitted Receive Payment Entry used to create or link "
+                "this advance payment Sales Invoice."
+            ),
+            "_alternatives": [
+                "custom_zatca_payment_entry",
+            ],
+            "_fallback_insert_after": [
+                "is_advance_payment",
+                "custom_is_advance_payment",
+                "customer",
+            ],
+        },
+        {
             "fieldname": "custom_is_advance_credit_note",
             "label": "Is Advance Credit Note",
             "fieldtype": "Check",

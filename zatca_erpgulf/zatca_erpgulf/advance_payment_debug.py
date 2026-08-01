@@ -174,6 +174,12 @@ def _attach_phase1_advance_qr_code(doc) -> str:
     return file_doc.file_url
 
 def _get_or_create_advance_tax_invoice(payment_entry):
+    from zatca_erpgulf.zatca_erpgulf.advance_payment_entry import (
+        ensure_payment_entry_has_no_active_standard_advance_invoice,
+    )
+
+    ensure_payment_entry_has_no_active_standard_advance_invoice(payment_entry.name)
+
     existing = frappe.db.get_value("ZATCA Advance Tax Invoice", {"payment_entry": payment_entry.name}, "name")
     if existing:
         return frappe.get_doc("ZATCA Advance Tax Invoice", existing)
