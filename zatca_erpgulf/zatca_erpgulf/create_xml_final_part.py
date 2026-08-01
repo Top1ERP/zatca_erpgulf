@@ -29,6 +29,104 @@ ZERO_RATED = "Zero Rated"
 OUTSIDE_SCOPE = "Services outside scope of tax / Not subject to VAT"
 
 
+def _direct_advance_rows(sales_invoice_doc):
+    return [
+        row
+        for row in sales_invoice_doc.get(
+            "custom_zatca_advance_deduction_details", []
+        ) or []
+        if row.get("advance_invoice")
+        and _nominal_q2(row.get("allocated_total_amount")) > Decimal("0.00")
+    ]
+
+
+def _append_direct_advance_reference_lines(invoice, sales_invoice_doc):
+    """Add one ZATCA 386 reference line for each directly allocated advance invoice."""
+    rows = _direct_advance_rows(sales_invoice_doc)
+    start_line_id = len(sales_invoice_doc.items) + 1
+
+    for offset, row in enumerate(rows):
+        advance = frappe.get_doc("Sales Invoice", row.advance_invoice)
+        taxable = _nominal_q2(row.allocated_taxable_amount)
+        tax = _nominal_q2(row.allocated_tax_amount)
+        tax_rate = (
+            _nominal_q2(tax * Decimal("100") / taxable)
+            if taxable > Decimal("0.00")
+            else Decimal("0.00")
+        )
+        category = advance.get("custom_zatca_tax_category") or "Standard"
+
+        line = ET.SubElement(invoice, "cac:InvoiceLine")
+        ET.SubElement(line, "cbc:ID").text = str(start_line_id + offset)
+        ET.SubElement(line, "cbc:InvoicedQuantity", unitCode="PCE").text = "0.000000"
+        ET.SubElement(
+            line,
+            "cbc:LineExtensionAmount",
+            currencyID=sales_invoice_doc.currency,
+        ).text = "0.00"
+
+        docref = ET.SubElement(line, "cac:DocumentReference")
+        ET.SubElement(docref, "cbc:ID").text = str(advance.name)
+        if advance.get("custom_uuid"):
+            ET.SubElement(docref, "cbc:UUID").text = str(advance.custom_uuid)
+        ET.SubElement(docref, "cbc:IssueDate").text = str(advance.posting_date)
+        ET.SubElement(docref, "cbc:IssueTime").text = get_time_string(
+            advance.get("posting_time")
+        )
+        ET.SubElement(docref, "cbc:DocumentTypeCode").text = "386"
+
+        tax_total = ET.SubElement(line, "cac:TaxTotal")
+        ET.SubElement(
+            tax_total,
+            "cbc:TaxAmount",
+            currencyID=sales_invoice_doc.currency,
+        ).text = "0.00"
+        ET.SubElement(
+            tax_total,
+            "cbc:RoundingAmount",
+            currencyID=sales_invoice_doc.currency,
+        ).text = "0.00"
+
+        subtotal = ET.SubElement(tax_total, "cac:TaxSubtotal")
+        ET.SubElement(
+            subtotal,
+            "cbc:TaxableAmount",
+            currencyID=sales_invoice_doc.currency,
+        ).text = str(taxable)
+        ET.SubElement(
+            subtotal,
+            "cbc:TaxAmount",
+            currencyID=sales_invoice_doc.currency,
+        ).text = str(tax)
+
+        tax_category = ET.SubElement(subtotal, "cac:TaxCategory")
+        ET.SubElement(tax_category, "cbc:ID").text = get_tax_code(category)
+        ET.SubElement(tax_category, "cbc:Percent").text = f"{tax_rate:.2f}"
+        ET.SubElement(
+            ET.SubElement(tax_category, "cac:TaxScheme"),
+            "cbc:ID",
+        ).text = "VAT"
+
+        item = ET.SubElement(line, "cac:Item")
+        ET.SubElement(item, "cbc:Name").text = "Advance Payment"
+        classified_tax = ET.SubElement(item, "cac:ClassifiedTaxCategory")
+        ET.SubElement(classified_tax, "cbc:ID").text = get_tax_code(category)
+        ET.SubElement(classified_tax, "cbc:Percent").text = f"{tax_rate:.2f}"
+        ET.SubElement(
+            ET.SubElement(classified_tax, "cac:TaxScheme"),
+            "cbc:ID",
+        ).text = "VAT"
+
+        price = ET.SubElement(line, "cac:Price")
+        ET.SubElement(
+            price,
+            "cbc:PriceAmount",
+            currencyID=sales_invoice_doc.currency,
+        ).text = "0.00"
+
+    return invoice
+
+
 def _nominal_q2(value):
     """Round to 2 decimals using HALF_UP."""
     return Decimal(str(value or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
@@ -625,7 +723,11 @@ def item_data_advance_invoice(invoice, sales_invoice_doc):
                 price, "cbc:PriceAmount", currencyID=sales_invoice_doc.currency
             ).text = _format_price_amount(line_net_rate)
 
+        _append_direct_advance_reference_lines(invoice, sales_invoice_doc)
+
         if (
+            not _direct_advance_rows(sales_invoice_doc)
+            and
             "claudion4saudi" in frappe.get_installed_apps()
             and hasattr(sales_invoice_doc, "custom_advances_copy")
             and sales_invoice_doc.custom_advances_copy
@@ -901,7 +1003,11 @@ def item_data_with_template_advance_invoice(invoice, sales_invoice_doc):
                 price, "cbc:PriceAmount", currencyID=sales_invoice_doc.currency
             ).text = _format_price_amount(line_net_rate)
 
+        _append_direct_advance_reference_lines(invoice, sales_invoice_doc)
+
         if (
+            not _direct_advance_rows(sales_invoice_doc)
+            and
             "claudion4saudi" in frappe.get_installed_apps()
             and hasattr(sales_invoice_doc, "custom_advances_copy")
             and sales_invoice_doc.custom_advances_copy

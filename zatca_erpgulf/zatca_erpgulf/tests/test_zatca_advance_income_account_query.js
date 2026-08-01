@@ -14,9 +14,35 @@ const source = fs.readFileSync(sourcePath, "utf8");
 
 let registeredDoctype = null;
 let registeredHandlers = null;
+let companyAccountValues = {
+    default_deferred_revenue_account: "Customer Advances - TC",
+    default_income_account: "Sales - TC"
+};
+const alerts = [];
 
 const context = {
     frappe: {
+        db: {
+            get_value() {
+                return {
+                    then(callback) {
+                        callback({
+                            message: Object.assign({}, companyAccountValues)
+                        });
+                    }
+                };
+            }
+        },
+        model: {
+            set_value(doctype, name, fieldname, value) {
+                const row = activeRows.find((candidate) => candidate.name === name);
+                assert.ok(row, `Missing row ${name}`);
+                row[fieldname] = value;
+            }
+        },
+        show_alert(message) {
+            alerts.push(message);
+        },
         ui: {
             form: {
                 on(doctype, handlers) {
@@ -29,8 +55,13 @@ const context = {
     cint(value) {
         const parsed = Number.parseInt(value || 0, 10);
         return Number.isNaN(parsed) ? 0 : parsed;
+    },
+    __(value) {
+        return value;
     }
 };
+
+let activeRows = [];
 
 vm.runInNewContext(source, context, {
     filename: sourcePath
@@ -41,6 +72,7 @@ function normalize(value) {
 }
 
 function createForm(doc) {
+    activeRows = doc.items || [];
     return {
         doc: Object.assign({}, doc),
         queryRegistrations: [],
@@ -128,7 +160,19 @@ assert.deepStrictEqual(
 const standardAdvanceResult = applyAndReadQuery("setup", {
     company: "Test Company",
     is_advance_payment: 1,
-    custom_is_advance_payment: 0
+    custom_is_advance_payment: 0,
+    items: [
+        {
+            doctype: "Sales Invoice Item",
+            name: "ROW-1",
+            income_account: "Sales - TC"
+        },
+        {
+            doctype: "Sales Invoice Item",
+            name: "ROW-2",
+            income_account: "Manually Selected - TC"
+        }
+    ]
 });
 
 assert.deepStrictEqual(
@@ -159,6 +203,18 @@ assert.strictEqual(
     "The expanded advance-payment filter must not call the standard income-only query"
 );
 
+assert.strictEqual(
+    standardAdvanceResult.frm.doc.items[0].income_account,
+    "Customer Advances - TC",
+    "The Company deferred-revenue default must replace the ordinary default account"
+);
+
+assert.strictEqual(
+    standardAdvanceResult.frm.doc.items[1].income_account,
+    "Manually Selected - TC",
+    "A manually selected account must not be overwritten"
+);
+
 const compatibilityAdvanceResult = applyAndReadQuery("setup", {
     company: "Test Company",
     is_advance_payment: 0,
@@ -182,6 +238,37 @@ assert.strictEqual(
     "",
     "An unset company must be represented safely as an empty filter value"
 );
+
+companyAccountValues = {
+    default_deferred_revenue_account: "",
+    default_income_account: "Sales - TC"
+};
+alerts.length = 0;
+
+const noDefaultResult = applyAndReadQuery("refresh", {
+    company: "Test Company",
+    is_advance_payment: 1,
+    custom_is_advance_payment: 0,
+    items: [
+        {
+            doctype: "Sales Invoice Item",
+            name: "ROW-3",
+            income_account: "Manual Advance Account - TC"
+        }
+    ]
+});
+
+assert.strictEqual(
+    noDefaultResult.frm.doc.items[0].income_account,
+    "Manual Advance Account - TC",
+    "The manual account must remain available when Company has no deferred-revenue default"
+);
+assert.strictEqual(alerts.length, 1, "A missing Company default must show guidance");
+
+companyAccountValues = {
+    default_deferred_revenue_account: "Customer Advances - TC",
+    default_income_account: "Sales - TC"
+};
 
 const toggleForm = createForm({
     company: "Test Company",

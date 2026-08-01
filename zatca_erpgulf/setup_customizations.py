@@ -223,7 +223,7 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
             "read_only": 0,
             "reqd": 0,
             "no_copy": 1,
-            "description": "Automatically summarizes accepted ZATCA advance deductions from standard Advance Payments in the system.",
+            "description": "Allocate submitted advance payment Sales Invoices directly in the final invoice.",
             "_fallback_insert_after": [
                 "custom_zatca_full_response",
                 "custom_integrations",
@@ -3863,7 +3863,7 @@ def sync_sales_invoice_advance_deduction_detail_table_field() -> dict[str, list[
         "fieldtype": "Table",
         "options": "ZATCA Sales Invoice Advance Deduction",
         "insert_after": "custom_zatca_advance_deduction_count",
-        "read_only": 1,
+        "read_only": 0,
         "no_copy": 1,
         "allow_on_submit": 0,
         "module": MODULE_NAME,
@@ -3909,8 +3909,7 @@ def sync_sales_invoice_advance_deduction_detail_table_field() -> dict[str, list[
 def sync_sales_invoice_advance_deduction_total_fields() -> dict[str, list[str]]:
     """Ensure Sales Invoice totals for ZATCA advance deductions.
 
-    These fields are calculated only from Payment Entry rows linked to accepted,
-    submitted advance-payment Sales Invoices.
+    These fields are calculated from the independent direct-allocation child table.
     """
     result = {
         "ensured": [],
@@ -4047,7 +4046,7 @@ def sync_zatca_advance_final_invoice_layout() -> dict[str, list[str]]:
                 "fieldtype": "Table",
                 "options": "ZATCA Sales Invoice Advance Deduction",
                 "insert_after": "custom_zatca_advance_deduction_count",
-                "read_only": 1,
+                "read_only": 0,
                 "no_copy": 1,
                 "allow_on_submit": 0,
                 "module": MODULE_NAME,

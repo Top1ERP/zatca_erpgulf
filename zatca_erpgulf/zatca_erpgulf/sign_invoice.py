@@ -1027,8 +1027,16 @@ def zatca_call(
             hasattr(sales_invoice_doc, "custom_advances_copy")
             and sales_invoice_doc.custom_advances_copy
         )
+        has_direct_advance_allocation = any(
+            row.get("advance_invoice") and row.get("allocated_total_amount")
+            for row in sales_invoice_doc.get(
+                "custom_zatca_advance_deduction_details", []
+            ) or []
+        )
 
-        if is_claudion_installed and has_advance_copy:
+        if has_direct_advance_allocation or (
+            is_claudion_installed and has_advance_copy
+        ):
             if not any_item_has_tax_template:
                 invoice = item_data_advance_invoice(invoice, sales_invoice_doc)
             else:

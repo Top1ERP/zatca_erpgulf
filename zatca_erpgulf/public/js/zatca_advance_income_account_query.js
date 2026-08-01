@@ -38,12 +38,52 @@
         });
     }
 
+    function apply_preferred_advance_account(frm) {
+        if (!is_advance_payment_invoice(frm) || !frm.doc.company) return;
+
+        frappe.db.get_value(
+            "Company",
+            frm.doc.company,
+            ["default_deferred_revenue_account", "default_income_account"]
+        ).then(function (response) {
+            const values = (response && response.message) || {};
+            const preferred = values.default_deferred_revenue_account || "";
+            const ordinary = values.default_income_account || "";
+
+            if (!preferred) {
+                frappe.show_alert({
+                    indicator: "orange",
+                    message: __(
+                        "Default Deferred Revenue Account is not configured. Choose the advance Income Account manually."
+                    )
+                });
+                return;
+            }
+
+            (frm.doc.items || []).forEach(function (row) {
+                if (!row.income_account || row.income_account === ordinary) {
+                    frappe.model.set_value(
+                        row.doctype,
+                        row.name,
+                        "income_account",
+                        preferred
+                    );
+                }
+            });
+        });
+    }
+
+    function configure_advance_income_account(frm) {
+        apply_income_account_query(frm);
+        apply_preferred_advance_account(frm);
+    }
+
     frappe.ui.form.on("Sales Invoice", {
-        setup: apply_income_account_query,
-        onload: apply_income_account_query,
-        refresh: apply_income_account_query,
-        company: apply_income_account_query,
-        is_advance_payment: apply_income_account_query,
-        custom_is_advance_payment: apply_income_account_query
+        setup: configure_advance_income_account,
+        onload: configure_advance_income_account,
+        refresh: configure_advance_income_account,
+        company: configure_advance_income_account,
+        is_advance_payment: configure_advance_income_account,
+        custom_is_advance_payment: configure_advance_income_account
     });
 })();

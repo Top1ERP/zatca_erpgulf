@@ -380,3 +380,25 @@ Currency,العملة
 Remarks,ملاحظات
 Open,مفتوحة
 "ZATCA advance deductions cannot be applied directly to a return or credit note. Remove the positive ZATCA advance allocation; advance reversal is handled separately.",لا يمكن تطبيق خصومات الدفعات المقدمة لزاتكا مباشرة على مردود أو إشعار دائن. أزل تخصيص دفعة زاتكا الموجب؛ تتم معالجة عكس الدفعة المقدمة بشكل منفصل.
+Company is required on an advance payment invoice.,الشركة مطلوبة في فاتورة الدفعة المقدمة.
+Row {0}: choose an Income Account for the advance payment. You may configure Default Deferred Revenue Account in Company Accounts or select another account manually.,الصف {0}: اختر حسابًا للدفعة المقدمة. يمكنك إعداد حساب الإيرادات المؤجلة الافتراضي في حسابات الشركة أو اختيار حساب آخر يدويًا.
+Row {0}: Company Default Income Account {1} cannot be used for an advance payment invoice. Configure Default Deferred Revenue Account or choose another account manually.,الصف {0}: لا يمكن استخدام حساب إيرادات الشركة الافتراضي {1} في فاتورة الدفعة المقدمة. أعدّ حساب الإيرادات المؤجلة الافتراضي أو اختر حسابًا آخر يدويًا.
+Row {0}: Account {1} does not exist.,الصف {0}: الحساب {1} غير موجود.
+Row {0}: Account {1} does not belong to Company {2}.,الصف {0}: الحساب {1} لا يتبع الشركة {2}.
+Row {0}: Account {1} is a group account.,الصف {0}: الحساب {1} حساب تجميعي.
+Row {0}: Account {1} is disabled.,الصف {0}: الحساب {1} معطل.
+Row {0}: Account {1} is frozen.,الصف {0}: الحساب {1} مجمد.
+Row {0}: Receivable and Payable accounts cannot be used as the advance payment Income Account.,الصف {0}: لا يمكن استخدام حسابات الذمم المدينة أو الدائنة بوصفها حساب الدفعة المقدمة.
+All Item rows in one advance payment invoice must use the same Income Account. Create separate advance invoices when multiple accounts are required.,يجب أن تستخدم جميع بنود فاتورة الدفعة المقدمة حسابًا واحدًا. أنشئ فواتير دفعات مقدمة منفصلة عند الحاجة إلى عدة حسابات.
+Default Deferred Revenue Account is not configured. Choose the advance Income Account manually.,حساب الإيرادات المؤجلة الافتراضي غير معد. اختر حساب الدفعة المقدمة يدويًا.
+Advance Payment Invoice,فاتورة الدفعة المقدمة
+Advance Status,حالة فاتورة الدفعة المقدمة
+Advance Total Amount Incl. VAT,إجمالي فاتورة الدفعة المقدمة شامل الضريبة
+Advance Taxable Amount,وعاء فاتورة الدفعة المقدمة
+Advance VAT Amount,ضريبة فاتورة الدفعة المقدمة
+Applied VAT Deduction,الضريبة المحتسبة
+Available before this allocation: {0},الرصيد المتاح قبل هذا التخصيص: {0}
+Available after this allocation: {0},الرصيد المتاح بعد هذا التخصيص: {0}
+Advance allocation from {0},تسوية دفعة مقدمة من {0}
+Advance VAT allocation from {0},تسوية ضريبة دفعة مقدمة من {0}
+Advance payment applied from {0},دفعة مقدمة محتسبة من {0}

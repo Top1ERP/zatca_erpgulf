@@ -1,66 +1,54 @@
 from __future__ import annotations
 
-from decimal import Decimal
+from collections import defaultdict
+from decimal import Decimal, ROUND_HALF_UP
 
 import frappe
 from frappe import _
 
 from zatca_erpgulf.zatca_erpgulf.advance_lifecycle import (
-    get_advance_sales_invoice_for_payment_entry,
+    ACCEPTED_ZATCA_ADVANCE_STATUSES,
+    is_accepted_advance_sales_invoice,
 )
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import is_advance_payment_invoice
 
 ZATCA_ADVANCE_VAT_DEDUCTION_MARKER = "[ZATCA Advance VAT Deduction]"
+DETAIL_FIELD = "custom_zatca_advance_deduction_details"
+DETAIL_DOCTYPE = "ZATCA Sales Invoice Advance Deduction"
+AMOUNT_TOLERANCE = Decimal("0.01")
 
 
 def q2(value) -> Decimal:
-    return Decimal(str(value or 0)).quantize(Decimal("0.01"))
-
-
-def normalize_status(value) -> str:
-    return str(value or "").strip().upper()
-
-
-def _get_advance_row_reference_name(row) -> str:
-    return (
-        getattr(row, "reference_name", None)
-        or getattr(row, "reference", None)
-        or getattr(row, "payment_entry", None)
-        or ""
+    return Decimal(str(value or 0)).quantize(
+        Decimal("0.01"),
+        rounding=ROUND_HALF_UP,
     )
-
-
-def _get_advance_row_allocated_amount(row) -> Decimal:
-    amount = (
-        getattr(row, "allocated_amount", None)
-        or 0
-    )
-    return q2(amount)
 
 
 def _is_return_invoice(doc) -> bool:
     return int(getattr(doc, "is_return", 0) or 0) == 1
 
 
-def _get_positive_zatca_advance_allocations(doc) -> list:
-    """Return positive advance rows linked to standard advance Sales Invoices."""
-    allocations = []
+def _row_value(row, fieldname, default=None):
+    getter = getattr(row, "get", None)
+    if callable(getter):
+        return getter(fieldname, default)
+    return getattr(row, fieldname, default)
 
-    for row in doc.get("advances", []) or []:
-        if _get_advance_row_allocated_amount(row) <= Decimal("0.00"):
-            continue
 
-        payment_entry = _get_advance_row_reference_name(row)
-        if not payment_entry:
-            continue
+def _detail_rows(doc) -> list:
+    getter = getattr(doc, "get", None)
+    if callable(getter):
+        return list(getter(DETAIL_FIELD, []) or [])
+    return list(getattr(doc, DETAIL_FIELD, []) or [])
 
-        if get_advance_sales_invoice_for_payment_entry(
-            payment_entry,
-            require_accepted=False,
-        ):
-            allocations.append(row)
 
-    return allocations
+def _set_row_value(row, fieldname, value) -> None:
+    setter = getattr(row, "set", None)
+    if callable(setter):
+        setter(fieldname, value)
+    else:
+        setattr(row, fieldname, value)
 
 
 def _is_zatca_advance_vat_deduction_tax(row) -> bool:
@@ -74,39 +62,6 @@ def _remove_existing_zatca_advance_vat_deduction_rows(doc) -> None:
             taxes.append(row)
 
     doc.set("taxes", taxes)
-
-
-def _get_positive_invoice_vat_amount(doc) -> Decimal:
-    total = Decimal("0.00")
-    for row in doc.get("taxes", []) or []:
-        if _is_zatca_advance_vat_deduction_tax(row):
-            continue
-
-        amount = q2(getattr(row, "tax_amount", 0))
-        if amount > Decimal("0.00"):
-            total += amount
-
-    return q2(total)
-
-
-def _get_default_vat_tax_row(doc):
-    for row in doc.get("taxes", []) or []:
-        if _is_zatca_advance_vat_deduction_tax(row):
-            continue
-
-        amount = q2(getattr(row, "tax_amount", 0))
-        account = getattr(row, "account_head", None)
-        if account and amount > Decimal("0.00"):
-            return row
-
-    return None
-
-
-def _get_advance_doc(payment_entry: str, strict: bool = False):
-    return get_advance_sales_invoice_for_payment_entry(
-        payment_entry,
-        strict=strict,
-    )
 
 
 def _validate_same_party_and_currency(sales_invoice_doc, advance) -> None:
@@ -133,186 +88,295 @@ def _validate_same_party_and_currency(sales_invoice_doc, advance) -> None:
             ).format(advance.name, advance_currency, invoice_currency)
         )
 
+    invoice_rate = q2(getattr(sales_invoice_doc, "conversion_rate", 1) or 1)
+    advance_rate = q2(getattr(advance, "conversion_rate", 1) or 1)
+    if invoice_rate != advance_rate:
+        frappe.throw(
+            _(
+                "Advance payment Sales Invoice {0} exchange rate is {1}, but this "
+                "Sales Invoice exchange rate is {2}."
+            ).format(advance.name, advance_rate, invoice_rate)
+        )
 
-def _allocated_amounts_from_advance(row_allocated_amount: Decimal, advance) -> dict:
-    advance_taxable = q2(
-        getattr(advance, "net_total", 0) or getattr(advance, "total", 0)
+
+def _advance_taxable_amount(advance) -> Decimal:
+    return q2(getattr(advance, "net_total", 0) or getattr(advance, "total", 0))
+
+
+def _advance_tax_amount(advance) -> Decimal:
+    return q2(getattr(advance, "total_taxes_and_charges", 0))
+
+
+def _advance_total_amount(advance) -> Decimal:
+    """Return ZATCA TaxInclusiveAmount, intentionally excluding ERPNext rounding."""
+    return q2(_advance_taxable_amount(advance) + _advance_tax_amount(advance))
+
+
+def _submitted_credit_note_total(advance_invoice: str) -> Decimal:
+    rows = frappe.get_all(
+        "Sales Invoice",
+        filters={
+            "docstatus": 1,
+            "is_return": 1,
+            "return_against": advance_invoice,
+        },
+        fields=["grand_total"],
     )
-    advance_tax = q2(getattr(advance, "total_taxes_and_charges", 0))
-    advance_total = q2(
-        getattr(advance, "rounded_total", 0) or getattr(advance, "grand_total", 0)
+    return q2(sum((abs(q2(_row_value(row, "grand_total", 0))) for row in rows), Decimal("0.00")))
+
+
+def _submitted_final_allocation_total(
+    advance_invoice: str,
+    *,
+    exclude_sales_invoice: str | None = None,
+) -> Decimal:
+    exclude_sql = ""
+    if exclude_sales_invoice:
+        exclude_sql = " and parent_invoice.name != %s"
+
+    result = frappe.db.sql(
+        f"""
+        select coalesce(sum(detail.allocated_total_amount), 0)
+          from `tab{DETAIL_DOCTYPE}` detail
+          inner join `tabSales Invoice` parent_invoice
+                  on parent_invoice.name = detail.parent
+                 and detail.parenttype = 'Sales Invoice'
+                 and detail.parentfield = %s
+         where detail.advance_invoice = %s
+           and parent_invoice.docstatus = 1
+           {exclude_sql}
+        """,
+        [DETAIL_FIELD, advance_invoice]
+        + ([exclude_sales_invoice] if exclude_sales_invoice else []),
+    )
+    return q2(result[0][0] if result else 0)
+
+
+def get_advance_available_amount(
+    advance,
+    *,
+    exclude_sales_invoice: str | None = None,
+) -> Decimal:
+    available = (
+        _advance_total_amount(advance)
+        - _submitted_credit_note_total(advance.name)
+        - _submitted_final_allocation_total(
+            advance.name,
+            exclude_sales_invoice=exclude_sales_invoice,
+        )
+    )
+    return max(q2(available), Decimal("0.00"))
+
+
+def _lock_advance_invoice(advance_invoice: str) -> None:
+    frappe.db.sql(
+        "select name from `tabSales Invoice` where name = %s for update",
+        advance_invoice,
     )
 
-    if advance_total <= Decimal("0.00"):
-        frappe.throw(_("Advance payment Sales Invoice {0} total amount must be greater than zero.").format(advance.name))
 
-    if advance_taxable <= Decimal("0.00"):
-        frappe.throw(_("Advance payment Sales Invoice {0} taxable amount must be greater than zero.").format(advance.name))
+def _allocate_proportionally(total: Decimal, components: list[Decimal]) -> list[Decimal]:
+    total = q2(total)
+    source_total = sum(components, Decimal("0.00"))
+    if total <= 0 or source_total <= 0:
+        return [Decimal("0.00") for _ in components]
 
-    requested = q2(row_allocated_amount)
-    if requested <= Decimal("0.00"):
-        return {
-            "allocated_taxable_amount": Decimal("0.00"),
-            "allocated_tax_amount": Decimal("0.00"),
-            "allocated_total_amount": Decimal("0.00"),
-        }
-
-    # Standard ERPNext allocated amount should be taxable amount.
-    # If a user/system passes gross amount, convert it proportionally.
-    if requested > advance_taxable:
-        requested_total = min(requested, advance_total)
-        ratio = requested_total / advance_total
-        allocated_taxable = q2(advance_taxable * ratio)
-        allocated_tax = q2(advance_tax * ratio)
-    else:
-        allocated_taxable = min(requested, advance_taxable)
-        ratio = allocated_taxable / advance_taxable
-        allocated_tax = q2(advance_tax * ratio)
-
-    allocated_total = q2(allocated_taxable + allocated_tax)
-
-    return {
-        "allocated_taxable_amount": q2(allocated_taxable),
-        "allocated_tax_amount": q2(allocated_tax),
-        "allocated_total_amount": q2(allocated_total),
-    }
+    allocated: list[Decimal] = []
+    running = Decimal("0.00")
+    for index, component in enumerate(components):
+        if index == len(components) - 1:
+            value = q2(total - running)
+        else:
+            value = q2(total * component / source_total)
+            running += value
+        allocated.append(value)
+    return allocated
 
 
-def get_standard_advance_deduction_rows(sales_invoice_doc, strict: bool = False) -> list[dict]:
-    rows = getattr(sales_invoice_doc, "advances", None) or []
-    result: list[dict] = []
-
-    for row in rows:
-        payment_entry = _get_advance_row_reference_name(row)
-        row_allocated_amount = _get_advance_row_allocated_amount(row)
-
-        if not payment_entry:
+def _source_income_breakdown(advance, allocated_taxable: Decimal) -> list[dict]:
+    source_rows = []
+    for item in advance.get("items", []) or []:
+        amount = q2(getattr(item, "net_amount", 0) or getattr(item, "amount", 0))
+        if amount <= 0:
             continue
-
-        advance = _get_advance_doc(payment_entry, strict=strict and row_allocated_amount > Decimal("0.00"))
-        if not advance:
-            continue
-
-        _validate_same_party_and_currency(sales_invoice_doc, advance)
-        amounts = _allocated_amounts_from_advance(row_allocated_amount, advance)
-
-        result.append(
+        account = str(getattr(item, "income_account", "") or "").strip()
+        if not account:
+            frappe.throw(
+                _("Advance payment Sales Invoice {0} has an item without an Income Account.").format(
+                    advance.name
+                )
+            )
+        source_rows.append(
             {
-                "payment_entry": payment_entry,
-                "advance_invoice": advance.name,
-                "allocated_amount": amounts["allocated_taxable_amount"],
-                "allocated_taxable_amount": amounts["allocated_taxable_amount"],
-                "allocated_tax_amount": amounts["allocated_tax_amount"],
-                "allocated_total_amount": amounts["allocated_total_amount"],
-                "zatca_uuid": advance.get("custom_uuid"),
-                "posting_date": advance.get("posting_date"),
-                "advance_total_amount": q2(
-                    advance.get("rounded_total") or advance.get("grand_total")
-                ),
-                "advance_taxable_amount": q2(
-                    advance.get("net_total") or advance.get("total")
-                ),
-                "advance_tax_amount": q2(advance.get("total_taxes_and_charges")),
-                "status": advance.get("status"),
-                "zatca_status": advance.get("custom_zatca_status"),
-                "tax_account": None,
-                "tax_rate": Decimal("0.00"),
-                "currency": advance.get("currency"),
+                "account": account,
+                "cost_center": getattr(item, "cost_center", None),
+                "project": getattr(item, "project", None),
+                "source_amount": amount,
             }
         )
 
-    return result
-
-
-def get_standard_advance_prepaid_amount(sales_invoice_doc, strict: bool = False) -> Decimal:
-    return q2(
-        sum(
-            (
-                row["allocated_total_amount"]
-                for row in get_standard_advance_deduction_rows(sales_invoice_doc, strict=strict)
-                if row["allocated_total_amount"] > Decimal("0.00")
-            ),
-            Decimal("0.00"),
+    accounts = {row["account"] for row in source_rows}
+    if not source_rows or len(accounts) != 1:
+        frappe.throw(
+            _(
+                "Advance payment Sales Invoice {0} must contain one Income Account "
+                "across all positive item rows."
+            ).format(advance.name)
         )
+
+    amounts = _allocate_proportionally(
+        allocated_taxable,
+        [row["source_amount"] for row in source_rows],
     )
+    for row, amount in zip(source_rows, amounts):
+        row["allocated_amount"] = amount
+    return source_rows
 
 
-def _sync_advance_rows_allocated_amounts(doc, active_rows: list[dict]) -> None:
-    by_payment_entry = {
-        row["payment_entry"]: row for row in active_rows
+def _source_tax_breakdown(advance, allocated_tax: Decimal) -> list[dict]:
+    if allocated_tax <= 0:
+        return []
+
+    grouped: dict[tuple[str, str | None], Decimal] = defaultdict(Decimal)
+    for tax in advance.get("taxes", []) or []:
+        amount = q2(
+            getattr(tax, "tax_amount_after_discount_amount", 0)
+            or getattr(tax, "tax_amount", 0)
+        )
+        account = str(getattr(tax, "account_head", "") or "").strip()
+        if amount > 0 and account:
+            grouped[(account, getattr(tax, "cost_center", None))] += amount
+
+    source_total = q2(sum(grouped.values(), Decimal("0.00")))
+    expected_tax = _advance_tax_amount(advance)
+    if not grouped or abs(source_total - expected_tax) > AMOUNT_TOLERANCE:
+        frappe.throw(
+            _(
+                "Advance payment Sales Invoice {0} VAT amount cannot be mapped "
+                "completely to its tax accounts."
+            ).format(advance.name)
+        )
+
+    keys = list(grouped)
+    amounts = _allocate_proportionally(
+        allocated_tax,
+        [q2(grouped[key]) for key in keys],
+    )
+    return [
+        {
+            "account": account,
+            "cost_center": cost_center,
+            "allocated_amount": amount,
+        }
+        for (account, cost_center), amount in zip(keys, amounts)
+    ]
+
+
+def _validate_and_enrich_row(
+    sales_invoice_doc,
+    row,
+    *,
+    lock: bool,
+) -> dict:
+    advance_invoice = str(_row_value(row, "advance_invoice", "") or "").strip()
+    if not advance_invoice:
+        frappe.throw(
+            _("Row {0}: Advance Payment Invoice is required.").format(
+                _row_value(row, "idx", "?")
+            )
+        )
+
+    if advance_invoice == getattr(sales_invoice_doc, "name", None):
+        frappe.throw(_("A Sales Invoice cannot allocate itself as an advance payment invoice."))
+
+    if lock:
+        _lock_advance_invoice(advance_invoice)
+
+    if not frappe.db.exists("Sales Invoice", advance_invoice):
+        frappe.throw(_("Sales Invoice not found: {0}").format(advance_invoice))
+
+    advance = frappe.get_doc("Sales Invoice", advance_invoice)
+    if not is_accepted_advance_sales_invoice(advance):
+        frappe.throw(
+            _(
+                "Advance payment Sales Invoice {0} must be submitted, marked as an "
+                "advance payment invoice, and have REPORTED, CLEARED, or Phase-1 "
+                "QR Generated status."
+            ).format(advance_invoice)
+        )
+
+    _validate_same_party_and_currency(sales_invoice_doc, advance)
+
+    requested_total = q2(_row_value(row, "allocated_total_amount", 0))
+    if requested_total <= 0:
+        frappe.throw(
+            _("Row {0}: Applied Total Incl. VAT must be greater than zero.").format(
+                _row_value(row, "idx", "?")
+            )
+        )
+
+    available = get_advance_available_amount(
+        advance,
+        exclude_sales_invoice=getattr(sales_invoice_doc, "name", None),
+    )
+    if requested_total > available + AMOUNT_TOLERANCE:
+        frappe.throw(
+            _(
+                "Row {0}: Applied amount {1} exceeds the available balance {2} "
+                "of advance payment Sales Invoice {3}."
+            ).format(
+                _row_value(row, "idx", "?"),
+                requested_total,
+                available,
+                advance_invoice,
+            )
+        )
+
+    advance_total = _advance_total_amount(advance)
+    advance_taxable = _advance_taxable_amount(advance)
+    advance_tax = _advance_tax_amount(advance)
+    if advance_total <= 0 or advance_taxable <= 0:
+        frappe.throw(
+            _("Advance payment Sales Invoice {0} total must be greater than zero.").format(
+                advance_invoice
+            )
+        )
+
+    ratio = requested_total / advance_total
+    allocated_taxable = q2(advance_taxable * ratio)
+    allocated_tax = q2(requested_total - allocated_taxable)
+
+    payment_entry = str(advance.get("custom_zatca_payment_entry") or "").strip()
+    values = {
+        "payment_entry": payment_entry or None,
+        "advance_invoice_date": advance.get("posting_date"),
+        "advance_status": advance.get("custom_zatca_status"),
+        "currency": advance.get("currency"),
+        "advance_total_amount": float(advance_total),
+        "advance_taxable_amount": float(advance_taxable),
+        "advance_tax_amount": float(advance_tax),
+        "allocated_total_amount": float(requested_total),
+        "allocated_taxable_amount": float(allocated_taxable),
+        "allocated_tax_amount": float(allocated_tax),
+        "remarks": _("Available after this allocation: {0}").format(
+            q2(available - requested_total)
+        ),
     }
+    for fieldname, value in values.items():
+        _set_row_value(row, fieldname, value)
 
-    for adv_row in doc.get("advances", []) or []:
-        payment_entry = _get_advance_row_reference_name(adv_row)
-        deduction = by_payment_entry.get(payment_entry)
-        if not deduction:
-            continue
-
-        taxable_amount = float(deduction["allocated_taxable_amount"])
-        adv_row.allocated_amount = taxable_amount
-
-
-def _sync_detail_table(doc, rows: list[dict]) -> None:
-    if not doc.meta.has_field("custom_zatca_advance_deduction_details"):
-        return
-
-    doc.set("custom_zatca_advance_deduction_details", [])
-
-    for row in rows:
-        allocated_total = q2(row["allocated_total_amount"])
-        remarks = ""
-        if allocated_total <= Decimal("0.00"):
-            remarks = _("No amount allocated yet. Set Allocated Amount to apply this advance.")
-
-        detail = doc.append("custom_zatca_advance_deduction_details", {})
-        detail.payment_entry = row["payment_entry"]
-        detail.advance_invoice = row["advance_invoice"]
-        detail.advance_invoice_date = row["posting_date"]
-        detail.advance_status = row["zatca_status"]
-        detail.currency = row["currency"]
-        detail.advance_total_amount = float(row["advance_total_amount"])
-        detail.advance_taxable_amount = float(row["advance_taxable_amount"])
-        detail.advance_tax_amount = float(row["advance_tax_amount"])
-        detail.allocated_total_amount = float(row["allocated_total_amount"])
-        detail.allocated_taxable_amount = float(row["allocated_taxable_amount"])
-        detail.allocated_tax_amount = float(row["allocated_tax_amount"])
-        detail.remarks = remarks
-
-
-def _append_negative_vat_deduction_tax_row(doc, active_rows: list[dict]) -> None:
-    total_advance_tax = q2(sum((row["allocated_tax_amount"] for row in active_rows), Decimal("0.00")))
-    if total_advance_tax <= Decimal("0.00"):
-        return
-
-    default_tax_row = _get_default_vat_tax_row(doc)
-    if not default_tax_row:
-        frappe.throw(_("Cannot add ZATCA advance VAT deduction because the Sales Invoice has no positive VAT tax row."))
-
-    account_head = getattr(default_tax_row, "account_head", None)
-    if not account_head:
-        frappe.throw(_("Cannot add ZATCA advance VAT deduction because VAT account is missing."))
-
-    description = _("ZATCA Advance VAT Deduction {0}").format(ZATCA_ADVANCE_VAT_DEDUCTION_MARKER)
-
-    tax_row = doc.append("taxes", {})
-    tax_row.charge_type = "Actual"
-    tax_row.account_head = account_head
-    tax_row.rate = 0
-    tax_row.tax_amount = float(-total_advance_tax)
-    tax_row.description = description
-
-    if hasattr(tax_row, "add_deduct_tax"):
-        tax_row.add_deduct_tax = "Add"
-
-    for fieldname in ("cost_center", "project"):
-        if hasattr(tax_row, fieldname) and hasattr(default_tax_row, fieldname):
-            setattr(tax_row, fieldname, getattr(default_tax_row, fieldname))
+    return {
+        "advance": advance,
+        "advance_invoice": advance_invoice,
+        "allocated_total_amount": requested_total,
+        "allocated_taxable_amount": allocated_taxable,
+        "allocated_tax_amount": allocated_tax,
+        "income_breakdown": _source_income_breakdown(advance, allocated_taxable),
+        "tax_breakdown": _source_tax_breakdown(advance, allocated_tax),
+    }
 
 
 def _clear_advance_deduction_derived_fields(doc) -> None:
-    """Clear values derived from applying advances to a positive final invoice."""
-    _sync_detail_table(doc, [])
-
     field_defaults = {
         "custom_zatca_prepaid_amount": 0.0,
         "custom_zatca_advance_deducted_taxable_amount": 0.0,
@@ -325,77 +389,101 @@ def _clear_advance_deduction_derived_fields(doc) -> None:
             setattr(doc, fieldname, value)
 
 
-def validate_sales_invoice_advance_deductions(doc, event=None) -> None:
+def _validate_sales_invoice_advance_deductions(doc, *, lock: bool) -> list[dict]:
     if int(getattr(doc, "docstatus", 0) or 0) == 2:
-        return
+        return []
+
+    rows = _detail_rows(doc)
+
+    # Remove draft residue created by the superseded Payment Entry implementation.
+    tax_count_before = len(doc.get("taxes", []) or [])
+    _remove_existing_zatca_advance_vat_deduction_rows(doc)
+    if len(doc.get("taxes", []) or []) != tax_count_before and hasattr(doc, "calculate_taxes_and_totals"):
+        doc.calculate_taxes_and_totals()
 
     if _is_return_invoice(doc):
-        if _get_positive_zatca_advance_allocations(doc):
+        if rows:
             frappe.throw(
                 _(
                     "ZATCA advance deductions cannot be applied directly to a return "
-                    "or credit note. Remove the positive ZATCA advance allocation; "
+                    "or credit note. Remove the ZATCA advance deduction rows; "
                     "advance reversal is handled separately."
                 )
             )
-
-        _remove_existing_zatca_advance_vat_deduction_rows(doc)
-
-        if hasattr(doc, "calculate_taxes_and_totals"):
-            doc.calculate_taxes_and_totals()
-
         _clear_advance_deduction_derived_fields(doc)
-        return
+        return []
 
-    if is_advance_payment_invoice(doc) and _get_positive_zatca_advance_allocations(doc):
+    if is_advance_payment_invoice(doc) and rows:
         frappe.throw(
             _(
                 "A Sales Invoice cannot be both an advance payment invoice and a "
                 "final invoice that deducts an earlier ZATCA advance. Clear the "
-                "advance-payment marker or remove the positive ZATCA advance allocation."
+                "advance-payment marker or remove the ZATCA advance deduction rows."
             )
         )
 
-    _remove_existing_zatca_advance_vat_deduction_rows(doc)
-
-    rows = get_standard_advance_deduction_rows(
-        doc,
-        strict=bool(int(getattr(doc, "docstatus", 0) or 0) == 1),
-    )
-    active_rows = [
-        row for row in rows
-        if row["allocated_total_amount"] > Decimal("0.00")
+    seen: set[str] = set()
+    active_rows: list[dict] = []
+    references = [
+        str(_row_value(row, "advance_invoice", "") or "").strip()
+        for row in rows
     ]
+    if lock:
+        for reference in sorted({value for value in references if value}):
+            _lock_advance_invoice(reference)
+
+    for row in rows:
+        reference = str(_row_value(row, "advance_invoice", "") or "").strip()
+        if reference and reference in seen:
+            frappe.throw(
+                _("Advance payment Sales Invoice {0} may appear only once in the deduction table.").format(
+                    reference
+                )
+            )
+        if reference:
+            seen.add(reference)
+        active_rows.append(_validate_and_enrich_row(doc, row, lock=False))
+
+    selected_payment_entries = {
+        str(row["advance"].get("custom_zatca_payment_entry") or "").strip()
+        for row in active_rows
+        if row["advance"].get("custom_zatca_payment_entry")
+    }
+    for standard_row in doc.get("advances", []) or []:
+        reference = str(
+            getattr(standard_row, "reference_name", None)
+            or getattr(standard_row, "reference", None)
+            or ""
+        ).strip()
+        allocated = q2(getattr(standard_row, "allocated_amount", 0))
+        if reference in selected_payment_entries and allocated > Decimal("0.00"):
+            frappe.throw(
+                _(
+                    "Payment Entry {0} is already represented by directly allocated "
+                    "advance payment Sales Invoice {1}. Remove that Payment Entry "
+                    "from the standard Advances table to avoid reducing receivables twice."
+                ).format(
+                    reference,
+                    next(
+                        row["advance_invoice"]
+                        for row in active_rows
+                        if row["advance"].get("custom_zatca_payment_entry") == reference
+                    ),
+                )
+            )
 
     total_taxable = q2(sum((row["allocated_taxable_amount"] for row in active_rows), Decimal("0.00")))
     total_tax = q2(sum((row["allocated_tax_amount"] for row in active_rows), Decimal("0.00")))
     total_inclusive = q2(sum((row["allocated_total_amount"] for row in active_rows), Decimal("0.00")))
 
-    original_positive_vat = _get_positive_invoice_vat_amount(doc)
-    original_tax_inclusive = q2(q2(getattr(doc, "net_total", 0)) + original_positive_vat)
-
-    if active_rows and total_tax > original_positive_vat:
-        frappe.throw(
-            _(
-                "ZATCA advance VAT deduction cannot exceed the Sales Invoice VAT amount. "
-                "Advance VAT {0}, Sales Invoice VAT {1}."
-            ).format(total_tax, original_positive_vat)
-        )
-
-    if active_rows and total_inclusive > original_tax_inclusive:
+    final_tax_inclusive = q2(getattr(doc, "grand_total", 0))
+    if active_rows and total_inclusive > final_tax_inclusive + AMOUNT_TOLERANCE:
         frappe.throw(
             _(
                 "ZATCA advance deduction cannot exceed the Sales Invoice total including VAT. "
                 "Advance total {0}, Sales Invoice total {1}."
-            ).format(total_inclusive, original_tax_inclusive)
+            ).format(total_inclusive, final_tax_inclusive)
         )
-
-    _sync_advance_rows_allocated_amounts(doc, active_rows)
-    _sync_detail_table(doc, rows)
-    _append_negative_vat_deduction_tax_row(doc, active_rows)
-
-    if hasattr(doc, "calculate_taxes_and_totals"):
-        doc.calculate_taxes_and_totals()
 
     if hasattr(doc, "custom_zatca_prepaid_amount"):
         doc.custom_zatca_prepaid_amount = float(total_inclusive)
@@ -408,6 +496,287 @@ def validate_sales_invoice_advance_deductions(doc, event=None) -> None:
 
     if hasattr(doc, "custom_zatca_advance_deduction_count"):
         doc.custom_zatca_advance_deduction_count = len(active_rows)
+
+    if not getattr(doc, "flags", None):
+        doc.flags = frappe._dict()
+    doc.flags.zatca_direct_advance_rows = active_rows
+    return active_rows
+
+
+def validate_sales_invoice_advance_deductions(doc, event=None) -> None:
+    _validate_sales_invoice_advance_deductions(doc, lock=False)
+
+
+def validate_sales_invoice_advance_deductions_on_submit(doc, event=None) -> None:
+    """Recheck available balances under row locks immediately before submission."""
+    _validate_sales_invoice_advance_deductions(doc, lock=True)
+
+
+def get_direct_advance_deduction_rows(sales_invoice_doc, strict: bool = False) -> list[dict]:
+    if not _detail_rows(sales_invoice_doc):
+        return []
+    return _validate_sales_invoice_advance_deductions(
+        sales_invoice_doc,
+        lock=False,
+    )
+
+
+def get_direct_advance_prepaid_amount(sales_invoice_doc, strict: bool = False) -> Decimal:
+    rows = get_direct_advance_deduction_rows(sales_invoice_doc, strict=strict)
+    return q2(sum((row["allocated_total_amount"] for row in rows), Decimal("0.00")))
+
+
+def append_advance_deduction_gl_entries(sales_invoice_doc, gl_entries: list) -> list:
+    """Append the accounting release for directly allocated advance invoices.
+
+    The original advance invoice credited its selected advance-income account and
+    its VAT account. The final invoice therefore debits those same accounts and
+    credits the customer's receivable by the applied tax-inclusive amount.
+    """
+    if _is_return_invoice(sales_invoice_doc) or is_advance_payment_invoice(sales_invoice_doc):
+        return gl_entries
+
+    rows = getattr(
+        getattr(sales_invoice_doc, "flags", None),
+        "zatca_direct_advance_rows",
+        None,
+    )
+    if rows is None:
+        rows = get_direct_advance_deduction_rows(sales_invoice_doc, strict=False)
+    if not rows:
+        return gl_entries
+
+    from erpnext.accounts.utils import get_account_currency
+
+    company_currency = str(getattr(sales_invoice_doc, "company_currency", "") or "")
+    invoice_currency = str(getattr(sales_invoice_doc, "currency", "") or "")
+    conversion_rate = q2(getattr(sales_invoice_doc, "conversion_rate", 1) or 1)
+    party_account_currency = str(
+        getattr(sales_invoice_doc, "party_account_currency", "") or company_currency
+    )
+
+    def account_amount(account: str, transaction_amount: Decimal) -> tuple[Decimal, Decimal]:
+        base_amount = q2(transaction_amount * conversion_rate)
+        currency = get_account_currency(account)
+        if currency == company_currency:
+            return base_amount, base_amount
+        if currency == invoice_currency:
+            return base_amount, transaction_amount
+        frappe.throw(
+            _(
+                "Account {0} currency {1} must match either Company Currency {2} "
+                "or Sales Invoice Currency {3} for an advance deduction."
+            ).format(account, currency, company_currency, invoice_currency)
+        )
+
+    custom_entries = []
+    for allocation in rows:
+        allocation_start = len(custom_entries)
+        debit_accounts: list[str] = []
+
+        for component in allocation["income_breakdown"]:
+            amount = q2(component["allocated_amount"])
+            if amount <= 0:
+                continue
+            account = component["account"]
+            base_amount, amount_in_account_currency = account_amount(account, amount)
+            debit_accounts.append(account)
+            custom_entries.append(
+                sales_invoice_doc.get_gl_dict(
+                    {
+                        "account": account,
+                        "against": sales_invoice_doc.customer,
+                        "debit": float(base_amount),
+                        "debit_in_account_currency": float(amount_in_account_currency),
+                        "debit_in_transaction_currency": float(amount),
+                        "cost_center": component.get("cost_center"),
+                        "project": component.get("project"),
+                        "remarks": _("Advance allocation from {0}").format(
+                            allocation["advance_invoice"]
+                        ),
+                    },
+                    get_account_currency(account),
+                    item=sales_invoice_doc,
+                )
+            )
+
+        for component in allocation["tax_breakdown"]:
+            amount = q2(component["allocated_amount"])
+            if amount <= 0:
+                continue
+            account = component["account"]
+            base_amount, amount_in_account_currency = account_amount(account, amount)
+            debit_accounts.append(account)
+            custom_entries.append(
+                sales_invoice_doc.get_gl_dict(
+                    {
+                        "account": account,
+                        "against": sales_invoice_doc.customer,
+                        "debit": float(base_amount),
+                        "debit_in_account_currency": float(amount_in_account_currency),
+                        "debit_in_transaction_currency": float(amount),
+                        "cost_center": component.get("cost_center"),
+                        "remarks": _("Advance VAT allocation from {0}").format(
+                            allocation["advance_invoice"]
+                        ),
+                    },
+                    get_account_currency(account),
+                    item=sales_invoice_doc,
+                )
+            )
+
+        gross_amount = q2(allocation["allocated_total_amount"])
+        base_gross = q2(gross_amount * conversion_rate)
+        allocation_debits = custom_entries[allocation_start:]
+        base_debit_total = q2(
+            sum(
+                (q2(entry.get("debit", 0)) for entry in allocation_debits),
+                Decimal("0.00"),
+            )
+        )
+        base_rounding_delta = q2(base_gross - base_debit_total)
+        if base_rounding_delta and allocation_debits:
+            last_debit = allocation_debits[-1]
+            last_debit["debit"] = float(
+                q2(last_debit.get("debit", 0)) + base_rounding_delta
+            )
+            if last_debit.get("account_currency") == company_currency:
+                last_debit["debit_in_account_currency"] = last_debit["debit"]
+
+        if party_account_currency == company_currency:
+            credit_in_account_currency = base_gross
+        elif party_account_currency == invoice_currency:
+            credit_in_account_currency = gross_amount
+        else:
+            frappe.throw(
+                _(
+                    "Customer account currency {0} must match either Company Currency {1} "
+                    "or Sales Invoice Currency {2} for an advance deduction."
+                ).format(party_account_currency, company_currency, invoice_currency)
+            )
+
+        custom_entries.append(
+            sales_invoice_doc.get_gl_dict(
+                {
+                    "account": sales_invoice_doc.debit_to,
+                    "party_type": "Customer",
+                    "party": sales_invoice_doc.customer,
+                    "against": ", ".join(sorted(set(debit_accounts))),
+                    "credit": float(base_gross),
+                    "credit_in_account_currency": float(credit_in_account_currency),
+                    "credit_in_transaction_currency": float(gross_amount),
+                    "against_voucher_type": "Sales Invoice",
+                    "against_voucher": sales_invoice_doc.name,
+                    "cost_center": getattr(sales_invoice_doc, "cost_center", None),
+                    "project": getattr(sales_invoice_doc, "project", None),
+                    "remarks": _("Advance payment applied from {0}").format(
+                        allocation["advance_invoice"]
+                    ),
+                },
+                party_account_currency,
+                item=sales_invoice_doc,
+            )
+        )
+
+    sales_invoice_doc.set_transaction_currency_and_rate_in_gl_map(custom_entries)
+    gl_entries.extend(custom_entries)
+    return gl_entries
+
+
+@frappe.whitelist()
+def get_advance_allocation_details(advance_invoice: str, final_invoice: str | None = None):
+    advance_invoice = str(advance_invoice or "").strip()
+    if not advance_invoice or not frappe.db.exists("Sales Invoice", advance_invoice):
+        frappe.throw(_("Sales Invoice not found: {0}").format(advance_invoice))
+
+    advance = frappe.get_doc("Sales Invoice", advance_invoice)
+    if not frappe.has_permission("Sales Invoice", "read", doc=advance):
+        frappe.throw(_("Not permitted to read Sales Invoice {0}.").format(advance_invoice), frappe.PermissionError)
+    if not is_accepted_advance_sales_invoice(advance):
+        frappe.throw(_("Sales Invoice {0} is not an accepted advance payment invoice.").format(advance_invoice))
+
+    return {
+        "payment_entry": advance.get("custom_zatca_payment_entry"),
+        "advance_invoice_date": advance.get("posting_date"),
+        "advance_status": advance.get("custom_zatca_status"),
+        "currency": advance.get("currency"),
+        "advance_total_amount": float(_advance_total_amount(advance)),
+        "advance_taxable_amount": float(_advance_taxable_amount(advance)),
+        "advance_tax_amount": float(_advance_tax_amount(advance)),
+        "available_amount": float(
+            get_advance_available_amount(
+                advance,
+                exclude_sales_invoice=str(final_invoice or "").strip() or None,
+            )
+        ),
+    }
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def get_available_advance_invoice_query(
+    doctype,
+    txt,
+    searchfield,
+    start,
+    page_len,
+    filters,
+):
+    """Link query for accepted advance invoices with a remaining direct balance."""
+    filters = frappe._dict(filters or {})
+    meta = frappe.get_meta("Sales Invoice")
+    marker_field = (
+        "is_advance_payment"
+        if meta.has_field("is_advance_payment")
+        else "custom_is_advance_payment"
+    )
+
+    query_filters = {
+        "docstatus": 1,
+        "is_return": 0,
+        marker_field: 1,
+        "custom_zatca_status": [
+            "in",
+            sorted(ACCEPTED_ZATCA_ADVANCE_STATUSES),
+        ],
+        "name": ["like", f"%{txt}%"],
+    }
+    for fieldname in ("company", "customer", "currency"):
+        if filters.get(fieldname):
+            query_filters[fieldname] = filters[fieldname]
+
+    start = max(int(start or 0), 0)
+    page_len = max(int(page_len or 20), 1)
+    candidates = frappe.get_list(
+        "Sales Invoice",
+        filters=query_filters,
+        fields=["name", "posting_date", "grand_total", "currency"],
+        order_by="posting_date desc, name desc",
+        start=0,
+        page_length=max((start + page_len) * 5, 20),
+    )
+
+    result = []
+    for candidate in candidates:
+        advance = frappe.get_doc("Sales Invoice", candidate.name)
+        available = get_advance_available_amount(
+            advance,
+            exclude_sales_invoice=filters.get("final_invoice") or None,
+        )
+        if available <= Decimal("0.00"):
+            continue
+        result.append(
+            (
+                candidate.name,
+                candidate.posting_date,
+                float(available),
+                candidate.currency,
+            )
+        )
+        if len(result) >= start + page_len:
+            break
+
+    return result[start : start + page_len]
 
 
 def ensure_final_sales_invoice_qr_for_print(doc, event=None, force=False):

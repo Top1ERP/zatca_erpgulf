@@ -115,9 +115,9 @@ from . import __version__ as app_version
 # ---------------
 # Override standard doctype classes
 
-# override_doctype_class = {
-# 	"ToDo": "custom_app.overrides.CustomToDo"
-# }
+override_doctype_class = {
+    "Sales Invoice": "zatca_erpgulf.overrides.sales_invoice.ZatcaSalesInvoice",
+}
 
 # Document Events
 # ---------------
@@ -251,6 +251,7 @@ doc_events = {
         "before_cancel": "zatca_erpgulf.zatca_erpgulf.validations.before_save",
         "before_submit": [
             "zatca_erpgulf.zatca_erpgulf.tax_error.validate_sales_invoice_taxes",
+            "zatca_erpgulf.zatca_erpgulf.advance_deduction.validate_sales_invoice_advance_deductions_on_submit",
             "zatca_erpgulf.zatca_erpgulf.advance_credit_note.validate_advance_credit_note_against_original",
         ],
         "after_insert": "zatca_erpgulf.zatca_erpgulf.validations.duplicating_invoice",
@@ -289,6 +290,7 @@ doctype_js = {
         # "public/js/draft.js",
         "public/js/our_sales_invoice.js",
         "public/js/zatca_advance_income_account_query.js",
+        "public/js/zatca_advance_direct_allocation.js",
         "public/js/zatca_negative_line_validation.js",
         "public/js/print.js",
         "public/js/badge.js"
