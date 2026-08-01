@@ -8,3 +8,6 @@ zatca_erpgulf.patches.create_arabic_name_fields
 zatca_erpgulf.patches.ensure_zatca_customizations_v3_20260610 # 2026-06-10 sync custom fields/property setters for v15-v16
 zatca_erpgulf.patches.ensure_address_arabic_field_20260611 # 2026-06-11 ensure Address.address_in_arabic field
 zatca_erpgulf.patches.remove_legacy_advance_doctype_20260801 # 2026-08-01 retire legacy advance DocType after older field patches
+
+zatca_erpgulf.patches.cleanup_legacy_advance_artifacts_20260801 # 2026-08-01 permanently clean retired legacy advance artifacts
+zatca_erpgulf.patches.cleanup_legacy_advance_residue_20260801_v2 # 2026-08-01 remove orphan metadata/translations recreated after the initial retirement patch

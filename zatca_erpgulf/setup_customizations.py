@@ -63,12 +63,6 @@ PYTHON_MANAGED_COMPANY_ZATCA_FIELDS = {
     ("Company", "custom_production__csid__generation"),
     ("Company", "custom_generate_production_csids"),
     ("Company", "custom_basic_auth_from_production"),
-    ("Company", "custom_zatca_advance_payment_section"),
-    ("Company", "custom_zatca_advance_payment_enabled"),
-    ("Company", "custom_zatca_advance_payment_submission_mode"),
-    ("Company", "custom_zatca_advance_default_tc_name"),
-    ("Company", "custom_zatca_advance_signing_enabled"),
-    ("Company", "custom_zatca_advance_api_submission_enabled"),
     ("Company", "custom_zatca_validation_section"),
     ("Company", "custom_zatca_negative_line_validation_mode"),
     ("Company", "custom_section_break_hwvcd"),
@@ -120,7 +114,7 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
             "fieldname": "custom_zatca_validation_section",
             "label": "ZATCA Validation Settings",
             "fieldtype": "Section Break",
-            "insert_after": "custom_zatca_advance_api_submission_enabled",
+            "insert_after": "custom_basic_auth_from_production",
             "module": MODULE_NAME,
             "translatable": 0,
             "hidden": 0,
@@ -133,9 +127,6 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
                 "custom_zatca_validation_section",
             ],
             "_fallback_insert_after": [
-                "custom_zatca_advance_api_submission_enabled",
-                "custom_zatca_advance_signing_enabled",
-                "custom_zatca_advance_payment_section",
                 "custom_basic_auth_from_production",
                 "custom_zatca_invoice_enabled",
                 "company_name",
@@ -166,142 +157,6 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
                 "company_name",
                 "abbr",
                 "default_currency",
-            ],
-        },
-        {
-            "fieldname": "custom_zatca_advance_payment_section",
-            "label": "ZATCA Advance Payment Settings",
-            "fieldtype": "Section Break",
-            "insert_after": "custom_basic_auth_from_production",
-            "module": MODULE_NAME,
-            "translatable": 0,
-            "hidden": 0,
-            "read_only": 0,
-            "reqd": 0,
-            "no_copy": 1,
-            "collapsible": 0,
-            "description": "Controls ZATCA advance tax invoice behavior for this company.",
-            "_fallback_insert_after": [
-                "custom_basic_auth_from_production",
-                "custom_generate_production_csids",
-                "custom_send_einvoice_background",
-                "custom_zatca_invoice_enabled",
-                "company_name",
-            ],
-        },
-        {
-            "fieldname": "custom_zatca_advance_payment_enabled",
-            "label": "ZATCA Advance Payment Enabled",
-            "fieldtype": "Check",
-            "default": "0",
-            "insert_after": "custom_zatca_advance_payment_section",
-            "module": MODULE_NAME,
-            "translatable": 0,
-            "hidden": 0,
-            "read_only": 0,
-            "reqd": 0,
-            "no_copy": 1,
-            "description": "Enable ZATCA advance payment tax invoice foundation for this company.",
-            "_fallback_insert_after": [
-                "custom_zatca_advance_payment_section",
-                "custom_zatca_negative_line_validation_mode",
-                "custom_zatca_invoice_enabled",
-                "company_name",
-            ],
-        },
-        {
-            "fieldname": "custom_zatca_advance_payment_submission_mode",
-            "label": "ZATCA Advance Payment Submission Mode",
-            "fieldtype": "Select",
-            "options": "Local Only\nSubmit to ZATCA\nDisabled",
-            "default": "Local Only",
-            "insert_after": "custom_zatca_advance_payment_enabled",
-            "module": MODULE_NAME,
-            "translatable": 0,
-            "hidden": 0,
-            "read_only": 0,
-            "reqd": 0,
-            "no_copy": 1,
-            "depends_on": "eval:doc.custom_zatca_advance_payment_enabled",
-            "description": "Controls whether advance payment tax invoices are kept local only, submitted to ZATCA, or disabled for this company.",
-            "_fallback_insert_after": [
-                "custom_zatca_advance_payment_enabled",
-                "custom_zatca_advance_payment_section",
-                "custom_zatca_negative_line_validation_mode",
-                "custom_zatca_invoice_enabled",
-                "company_name",
-            ],
-        },
-        {
-            "fieldname": "custom_zatca_advance_default_tc_name",
-            "label": "ZATCA Advance Default Terms Template",
-            "fieldtype": "Link",
-            "options": "Terms and Conditions",
-            "insert_after": "custom_zatca_advance_payment_submission_mode",
-            "module": MODULE_NAME,
-            "translatable": 0,
-            "hidden": 0,
-            "read_only": 0,
-            "reqd": 0,
-            "no_copy": 1,
-            "depends_on": "eval:doc.custom_zatca_advance_payment_enabled",
-            "description": "Default Terms and Conditions template for ZATCA Advance Tax Invoice.",
-            "_fallback_insert_after": [
-                "custom_zatca_advance_payment_submission_mode",
-                "custom_zatca_advance_payment_enabled",
-                "custom_zatca_advance_payment_section",
-                "custom_zatca_negative_line_validation_mode",
-                "custom_zatca_invoice_enabled",
-                "company_name",
-            ],
-        },
-        {
-            "fieldname": "custom_zatca_advance_signing_enabled",
-            "label": "ZATCA Advance Signing Enabled",
-            "fieldtype": "Check",
-            "default": "0",
-            "insert_after": "custom_zatca_advance_default_tc_name",
-            "module": MODULE_NAME,
-            "translatable": 0,
-            "hidden": 0,
-            "read_only": 0,
-            "reqd": 0,
-            "no_copy": 1,
-            "depends_on": "eval:doc.custom_zatca_advance_payment_enabled",
-            "description": "Advanced technical control. Enable only after advance tax invoice signing is fully tested.",
-            "_fallback_insert_after": [
-                "custom_zatca_advance_default_tc_name",
-                "custom_zatca_advance_payment_submission_mode",
-                "custom_zatca_advance_payment_enabled",
-                "custom_zatca_advance_payment_section",
-                "custom_zatca_negative_line_validation_mode",
-                "custom_zatca_invoice_enabled",
-                "company_name",
-            ],
-        },
-        {
-            "fieldname": "custom_zatca_advance_api_submission_enabled",
-            "label": "ZATCA Advance API Submission Enabled",
-            "fieldtype": "Check",
-            "default": "0",
-            "insert_after": "custom_zatca_advance_signing_enabled",
-            "module": MODULE_NAME,
-            "translatable": 0,
-            "hidden": 0,
-            "read_only": 0,
-            "reqd": 0,
-            "no_copy": 1,
-            "depends_on": "eval:doc.custom_zatca_advance_payment_enabled",
-            "description": "Advanced technical control. Enable only after advance tax invoice API submission is fully tested.",
-            "_fallback_insert_after": [
-                "custom_zatca_advance_signing_enabled",
-                "custom_zatca_advance_default_tc_name",
-                "custom_zatca_advance_payment_submission_mode",
-                "custom_zatca_advance_payment_enabled",
-                "custom_zatca_advance_payment_section",
-                "custom_zatca_negative_line_validation_mode",
-                "custom_zatca_invoice_enabled",
-                "company_name",
             ],
         },
     ],
@@ -358,62 +213,6 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
             ],
         },
         {
-            "fieldname": "custom_is_advance_credit_note",
-            "label": "Is Advance Credit Note",
-            "fieldtype": "Check",
-            "insert_after": "return_against",
-            "module": MODULE_NAME,
-            "translatable": 0,
-            "hidden": 0,
-            "read_only": 0,
-            "reqd": 0,
-            "no_copy": 1,
-            "depends_on": "eval:doc.is_return",
-            "description": (
-                "Enable this when the credit note cancels or reverses a ZATCA "
-                "advance payment invoice."
-            ),
-            "_alternatives": [
-                "custom_is_advance_credit_note",
-            ],
-            "_fallback_insert_after": [
-                "return_against",
-                "is_return",
-                "remarks",
-            ],
-        },
-        {
-            "fieldname": "custom_advance_invoice_reference",
-            "label": "Advance Invoice Reference",
-            "fieldtype": "Link",
-            "options": "ZATCA Advance Tax Invoice",
-            "insert_after": "custom_is_advance_credit_note",
-            "module": MODULE_NAME,
-            "translatable": 0,
-            "hidden": 0,
-            "read_only": 0,
-            "reqd": 0,
-            "no_copy": 1,
-            "depends_on": "eval:doc.is_return && doc.custom_is_advance_credit_note",
-            "mandatory_depends_on": "eval:doc.is_return && doc.custom_is_advance_credit_note",
-            "description": (
-                "Reference to the original ZATCA advance payment invoice when this "
-                "credit note cancels or reverses an advance payment invoice."
-            ),
-            "_alternatives": [
-                "custom_advance_invoice_reference",
-            ],
-            "_fallback_insert_after": [
-                "custom_is_advance_credit_note",
-                "return_against",
-                "is_return",
-                "remarks",
-            ],
-        },
-
-
-
-        {
             "fieldname": "custom_zatca_advance_deduction_section",
             "label": "ZATCA Advance Deductions",
             "fieldtype": "Section Break",
@@ -463,7 +262,7 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
             "read_only": 1,
             "reqd": 0,
             "no_copy": 1,
-            "description": "Number of linked advance tax invoices.",
+            "description": "Number of linked advance-payment Sales Invoices.",
             "_fallback_insert_after": [
                 "custom_zatca_prepaid_amount",
                 "custom_zatca_advance_deductions",
@@ -471,103 +270,6 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
             ],
         },
     ],
-    "ZATCA Advance Tax Invoice": [
-        {
-            "fieldname": "advance_reversal_section",
-            "label": "Advance Reversal",
-            "fieldtype": "Section Break",
-            "insert_after": "total_amount",
-            "module": MODULE_NAME,
-            "translatable": 0,
-            "hidden": 0,
-            "read_only": 0,
-            "reqd": 0,
-            "_alternatives": ["advance_reversal_section"],
-            "_fallback_insert_after": ["total_amount", "zatca_status", "status"],
-        },
-        {
-            "fieldname": "advance_reversal_status",
-            "label": "Advance Reversal Status",
-            "fieldtype": "Select",
-            "options": "Open\nPartially Reversed\nCancelled",
-            "insert_after": "advance_reversal_section",
-            "module": MODULE_NAME,
-            "translatable": 0,
-            "hidden": 0,
-            "read_only": 1,
-            "reqd": 0,
-            "default": "Open",
-            "_alternatives": ["advance_reversal_status"],
-            "_fallback_insert_after": ["advance_reversal_section", "total_amount"],
-        },
-        {
-            "fieldname": "credited_amount",
-            "label": "Credited Amount",
-            "fieldtype": "Currency",
-            "insert_after": "advance_reversal_status",
-            "module": MODULE_NAME,
-            "translatable": 0,
-            "hidden": 0,
-            "read_only": 1,
-            "reqd": 0,
-            "_alternatives": ["credited_amount"],
-            "_fallback_insert_after": ["advance_reversal_status", "total_amount"],
-        },
-        {
-            "fieldname": "remaining_amount",
-            "label": "Remaining Amount",
-            "fieldtype": "Currency",
-            "insert_after": "credited_amount",
-            "module": MODULE_NAME,
-            "translatable": 0,
-            "hidden": 0,
-            "read_only": 1,
-            "reqd": 0,
-            "_alternatives": ["remaining_amount"],
-            "_fallback_insert_after": ["credited_amount", "total_amount"],
-        },
-        {
-            "fieldname": "advance_credit_note_count",
-            "label": "Advance Credit Note Count",
-            "fieldtype": "Int",
-            "insert_after": "remaining_amount",
-            "module": MODULE_NAME,
-            "translatable": 0,
-            "hidden": 0,
-            "read_only": 1,
-            "reqd": 0,
-            "_alternatives": ["advance_credit_note_count"],
-            "_fallback_insert_after": ["remaining_amount", "total_amount"],
-        },
-        {
-            "fieldname": "last_advance_credit_note",
-            "label": "Last Advance Credit Note",
-            "fieldtype": "Link",
-            "options": "Sales Invoice",
-            "insert_after": "advance_credit_note_count",
-            "module": MODULE_NAME,
-            "translatable": 0,
-            "hidden": 0,
-            "read_only": 1,
-            "reqd": 0,
-            "_alternatives": ["last_advance_credit_note"],
-            "_fallback_insert_after": ["advance_credit_note_count", "total_amount"],
-        },
-        {
-            "fieldname": "last_reversal_update_at",
-            "label": "Last Reversal Update At",
-            "fieldtype": "Datetime",
-            "insert_after": "last_advance_credit_note",
-            "module": MODULE_NAME,
-            "translatable": 0,
-            "hidden": 0,
-            "read_only": 1,
-            "reqd": 0,
-            "_alternatives": ["last_reversal_update_at"],
-            "_fallback_insert_after": ["last_advance_credit_note", "total_amount"],
-        },
-    ],
-
     "Customer": [
         {
             "fieldname": "custom_customer_name_in_arabic",
@@ -593,42 +295,6 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
         }
     ],
 }
-
-
-OBSOLETE_LEGACY_ADVANCE_FIELDS = {
-    "Company": {
-        "custom_zatca_advance_payment_section",
-        "custom_zatca_advance_payment_enabled",
-        "custom_zatca_advance_payment_submission_mode",
-        "custom_zatca_advance_default_tc_name",
-        "custom_zatca_advance_signing_enabled",
-        "custom_zatca_advance_api_submission_enabled",
-    },
-    "Payment Entry": {
-        "custom_zatca_advance_section",
-        "custom_zatca_is_advance_payment",
-        "custom_zatca_advance_tax_invoice",
-        "custom_zatca_advance_invoice_status",
-        "custom_zatca_advance_invoice_uuid",
-        "custom_zatca_advance_qr_code",
-        "custom_zatca_advance_xml",
-        "custom_zatca_advance_last_debug_at",
-        "custom_zatca_advance_full_response",
-    },
-    "Sales Invoice": {
-        "custom_is_advance_credit_note",
-        "custom_advance_invoice_reference",
-    },
-}
-
-
-for _doctype, _obsolete_fieldnames in OBSOLETE_LEGACY_ADVANCE_FIELDS.items():
-    if _doctype in CRITICAL_CUSTOM_FIELDS:
-        CRITICAL_CUSTOM_FIELDS[_doctype] = [
-            field
-            for field in CRITICAL_CUSTOM_FIELDS[_doctype]
-            if field.get("fieldname") not in _obsolete_fieldnames
-        ]
 
 
 # If you later add a property_setter.json, this code will sync it.
@@ -1686,13 +1352,7 @@ def normalize_company_zatca_settings_layout() -> dict[str, list[str]]:
         ("custom_send_einvoice_background", "custom_costcenter"),
         ("custom_send_invoice_to_zatca", "custom_send_einvoice_background"),
         ("custom_submit_or_not", "custom_send_invoice_to_zatca"),
-        ("custom_zatca_advance_payment_section", "custom_basic_auth_from_production"),
-        ("custom_zatca_advance_payment_enabled", "custom_zatca_advance_payment_section"),
-        ("custom_zatca_advance_payment_submission_mode", "custom_zatca_advance_payment_enabled"),
-        ("custom_zatca_advance_default_tc_name", "custom_zatca_advance_payment_submission_mode"),
-        ("custom_zatca_advance_signing_enabled", "custom_zatca_advance_default_tc_name"),
-        ("custom_zatca_advance_api_submission_enabled", "custom_zatca_advance_signing_enabled"),
-        ("custom_zatca_validation_section", "custom_zatca_advance_api_submission_enabled"),
+        ("custom_zatca_validation_section", "custom_basic_auth_from_production"),
         ("custom_zatca_negative_line_validation_mode", "custom_zatca_validation_section"),
     ]
 
@@ -2032,12 +1692,6 @@ def normalize_company_zatca_settings_layout_idx() -> dict[str, list[str]]:
         "custom_production__csid__generation",
         "custom_generate_production_csids",
         "custom_basic_auth_from_production",
-        "custom_zatca_advance_payment_section",
-        "custom_zatca_advance_payment_enabled",
-        "custom_zatca_advance_payment_submission_mode",
-        "custom_zatca_advance_default_tc_name",
-        "custom_zatca_advance_signing_enabled",
-        "custom_zatca_advance_api_submission_enabled",
         "custom_zatca_validation_section",
         "custom_zatca_negative_line_validation_mode",
         "custom_section_break_hwvcd",
@@ -3087,12 +2741,6 @@ def sync_company_zatca_fields_and_layout() -> dict[str, list[str]]:
         "custom_production__csid__generation",
         "custom_generate_production_csids",
         "custom_basic_auth_from_production",
-        "custom_zatca_advance_payment_section",
-        "custom_zatca_advance_payment_enabled",
-        "custom_zatca_advance_payment_submission_mode",
-        "custom_zatca_advance_default_tc_name",
-        "custom_zatca_advance_signing_enabled",
-        "custom_zatca_advance_api_submission_enabled",
         "custom_zatca_validation_section",
         "custom_zatca_negative_line_validation_mode",
         "custom_section_break_hwvcd",
@@ -4193,304 +3841,6 @@ def remove_extra_sales_invoice_zatca_column_breaks() -> dict[str, list[str]]:
 
 
 
-def sync_payment_entry_advance_fields() -> dict[str, list[str]]:
-    """Ensure Payment Entry has ZATCA advance invoice linkage fields."""
-    from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
-
-    result = {
-        "ensured": [],
-        "updated": [],
-        "skipped": [],
-    }
-
-    if not _doctype_exists("Payment Entry"):
-        result["skipped"].append("Payment Entry missing")
-        return result
-
-    custom_fields = {
-        "Payment Entry": [
-            {
-                "fieldname": "custom_zatca_advance_section",
-                "label": "ZATCA Advance Payment",
-                "fieldtype": "Section Break",
-                "insert_after": "remarks",
-                "module": MODULE_NAME,
-                "collapsible": 1,
-                "no_copy": 1,
-            },
-            {
-                "fieldname": "custom_zatca_is_advance_payment",
-                "label": "Is ZATCA Advance Payment",
-                "fieldtype": "Check",
-                "insert_after": "custom_zatca_advance_section",
-                "module": MODULE_NAME,
-                "hidden": 1,
-                "read_only": 1,
-                "no_copy": 1,
-                "description": "Technical marker set automatically when a ZATCA Advance Tax Invoice is issued from this Payment Entry.",
-            },
-            {
-                "fieldname": "custom_zatca_advance_tax_invoice",
-                "label": "ZATCA Advance Tax Invoice",
-                "fieldtype": "Link",
-                "options": "ZATCA Advance Tax Invoice",
-                "insert_after": "custom_zatca_is_advance_payment",
-                "module": MODULE_NAME,
-                "read_only": 1,
-                "no_copy": 1,
-            },
-            {
-                "fieldname": "custom_zatca_advance_invoice_status",
-                "label": "ZATCA Advance Invoice Status",
-                "fieldtype": "Select",
-                "options": "Not Created\nDraft\nPreflight Passed\nPhase 1 QR Created\nDebug XML Created\nFinal\nFailed\nCleared\nReported",
-                "default": "Not Created",
-                "insert_after": "custom_zatca_advance_tax_invoice",
-                "module": MODULE_NAME,
-                "read_only": 1,
-                "no_copy": 1,
-            },
-            {
-                "fieldname": "custom_zatca_advance_invoice_uuid",
-                "label": "ZATCA Advance Invoice UUID",
-                "fieldtype": "Data",
-                "insert_after": "custom_zatca_advance_invoice_status",
-                "module": MODULE_NAME,
-                "read_only": 1,
-                "no_copy": 1,
-            },
-            {
-                "fieldname": "custom_zatca_advance_qr_code",
-                "label": "ZATCA Advance QR Code",
-                "fieldtype": "Attach Image",
-                "insert_after": "custom_zatca_advance_invoice_uuid",
-                "module": MODULE_NAME,
-                "hidden": 1,
-                "read_only": 1,
-                "no_copy": 1,
-            },
-            {
-                "fieldname": "custom_zatca_advance_xml",
-                "label": "ZATCA Advance XML",
-                "fieldtype": "Attach",
-                "insert_after": "custom_zatca_advance_qr_code",
-                "module": MODULE_NAME,
-                "hidden": 1,
-                "read_only": 1,
-                "no_copy": 1,
-            },
-            {
-                "fieldname": "custom_zatca_advance_last_debug_at",
-                "label": "ZATCA Advance Last Debug At",
-                "fieldtype": "Datetime",
-                "insert_after": "custom_zatca_advance_xml",
-                "module": MODULE_NAME,
-                "hidden": 1,
-                "read_only": 1,
-                "no_copy": 1,
-            },
-            {
-                "fieldname": "custom_zatca_advance_full_response",
-                "label": "ZATCA Advance Full Response",
-                "fieldtype": "Long Text",
-                "insert_after": "custom_zatca_advance_last_debug_at",
-                "module": MODULE_NAME,
-                "hidden": 1,
-                "read_only": 1,
-                "no_copy": 1,
-            },
-        ]
-    }
-
-    create_custom_fields(custom_fields, update=True)
-
-    for field in custom_fields["Payment Entry"]:
-        result["ensured"].append(field["fieldname"])
-
-    frappe.clear_cache(doctype="Payment Entry")
-    frappe.db.commit()
-    return result
-
-
-def sync_advance_company_field_visibility() -> dict[str, list[str]]:
-    """Hide reserved ZATCA Advance signing/API switches until implementation is wired.
-
-    Property Setters may override Custom Field.hidden/read_only, so this sync updates both
-    the Custom Field row and the effective Property Setter values.
-    """
-    result = {
-        "updated": [],
-        "property_setters": [],
-        "skipped": [],
-    }
-
-    if not _doctype_exists("Company"):
-        result["skipped"].append("Company missing")
-        return result
-
-    reserved_fields = {
-        "custom_zatca_advance_signing_enabled": (
-            "Reserved for future ZATCA advance-payment signing/API integration. "
-            "Phase 1 advance invoices generate QR locally and do not require this switch."
-        ),
-        "custom_zatca_advance_api_submission_enabled": (
-            "Reserved for future ZATCA advance-payment API integration. "
-            "Phase 1 advance invoices generate QR locally and do not submit to ZATCA API."
-        ),
-    }
-
-    def set_property_setter(fieldname: str, prop: str, value: str, property_type: str) -> None:
-        name = frappe.db.get_value(
-            "Property Setter",
-            {
-                "doc_type": "Company",
-                "field_name": fieldname,
-                "property": prop,
-            },
-            "name",
-        )
-
-        if name:
-            ps = frappe.get_doc("Property Setter", name)
-            changed = False
-
-            if ps.value != value:
-                ps.value = value
-                changed = True
-
-            if ps.property_type != property_type:
-                ps.property_type = property_type
-                changed = True
-
-            if changed:
-                ps.flags.ignore_permissions = True
-                ps.save(ignore_permissions=True)
-
-            result["property_setters"].append(name)
-            return
-
-        ps = frappe.get_doc({
-            "doctype": "Property Setter",
-            "doctype_or_field": "DocField",
-            "doc_type": "Company",
-            "field_name": fieldname,
-            "property": prop,
-            "value": value,
-            "property_type": property_type,
-        })
-        ps.insert(ignore_permissions=True)
-        result["property_setters"].append(ps.name)
-
-    for fieldname, description in reserved_fields.items():
-        custom_field = frappe.db.get_value(
-            "Custom Field",
-            {"dt": "Company", "fieldname": fieldname},
-            "name",
-        )
-
-        if not custom_field:
-            result["skipped"].append(f"Company.{fieldname} missing")
-            continue
-
-        frappe.db.set_value(
-            "Custom Field",
-            custom_field,
-            {
-                "hidden": 1,
-                "read_only": 1,
-                "description": description,
-            },
-            update_modified=False,
-        )
-
-        set_property_setter(fieldname, "hidden", "1", "Check")
-        set_property_setter(fieldname, "read_only", "1", "Check")
-        set_property_setter(fieldname, "description", description, "Data")
-
-        result["updated"].append(fieldname)
-
-    frappe.clear_cache(doctype="Company")
-    frappe.db.commit()
-    return result
-
-
-
-
-def sync_advance_taxes_included_in_paid_amount_default() -> dict[str, list[str]]:
-    """Default Payment Entry advance tax rows to Considered In Paid Amount.
-
-    This prevents users from treating advance payment VAT as an extra amount over
-    the received cash amount when issuing ZATCA Advance Tax Invoices.
-    """
-    result = {
-        "updated": [],
-        "skipped": [],
-    }
-
-    if not _doctype_exists("Advance Taxes and Charges"):
-        result["skipped"].append("Advance Taxes and Charges missing")
-        return result
-
-    if not frappe.get_meta("Advance Taxes and Charges").has_field("included_in_paid_amount"):
-        result["skipped"].append("Advance Taxes and Charges.included_in_paid_amount missing")
-        return result
-
-    setters = [
-        ("default", "1", "Check"),
-        (
-            "description",
-            "For ZATCA advance payments, VAT should normally be considered inside the paid amount.",
-            "Data",
-        ),
-    ]
-
-    for prop, value, property_type in setters:
-        name = frappe.db.get_value(
-            "Property Setter",
-            {
-                "doc_type": "Advance Taxes and Charges",
-                "field_name": "included_in_paid_amount",
-                "property": prop,
-            },
-            "name",
-        )
-
-        if name:
-            ps = frappe.get_doc("Property Setter", name)
-            changed = False
-
-            if ps.value != value:
-                ps.value = value
-                changed = True
-
-            if ps.property_type != property_type:
-                ps.property_type = property_type
-                changed = True
-
-            if changed:
-                ps.save(ignore_permissions=True)
-
-            result["updated"].append(name)
-        else:
-            ps = frappe.get_doc({
-                "doctype": "Property Setter",
-                "doctype_or_field": "DocField",
-                "doc_type": "Advance Taxes and Charges",
-                "field_name": "included_in_paid_amount",
-                "property": prop,
-                "value": value,
-                "property_type": property_type,
-            })
-            ps.insert(ignore_permissions=True)
-            result["updated"].append(ps.name)
-
-    frappe.clear_cache(doctype="Advance Taxes and Charges")
-    frappe.clear_cache(doctype="Payment Entry")
-    frappe.db.commit()
-    return result
-
-
-
 def sync_sales_invoice_advance_deduction_detail_table_field() -> dict[str, list[str]]:
     result = {
         "ensured": [],
@@ -4559,8 +3909,8 @@ def sync_sales_invoice_advance_deduction_detail_table_field() -> dict[str, list[
 def sync_sales_invoice_advance_deduction_total_fields() -> dict[str, list[str]]:
     """Ensure Sales Invoice totals for ZATCA advance deductions.
 
-    These fields are calculated only from Payment Entry rows that have linked,
-    submitted ZATCA Advance Tax Invoices.
+    These fields are calculated only from Payment Entry rows linked to accepted,
+    submitted advance-payment Sales Invoices.
     """
     result = {
         "ensured": [],
@@ -4593,7 +3943,7 @@ def sync_sales_invoice_advance_deduction_total_fields() -> dict[str, list[str]]:
             "read_only": 1,
             "no_copy": 1,
             "module": MODULE_NAME,
-            "description": "Total taxable amount applied from linked ZATCA Advance Tax Invoices.",
+            "description": "Total taxable amount applied from linked advance-payment Sales Invoices.",
         },
         {
             "dt": "Sales Invoice",
@@ -4605,7 +3955,7 @@ def sync_sales_invoice_advance_deduction_total_fields() -> dict[str, list[str]]:
             "read_only": 1,
             "no_copy": 1,
             "module": MODULE_NAME,
-            "description": "Total VAT amount already invoiced through linked ZATCA Advance Tax Invoices.",
+            "description": "Total VAT amount already invoiced through linked advance-payment Sales Invoices.",
         },
     ]
 
@@ -4647,86 +3997,8 @@ def sync_sales_invoice_advance_deduction_total_fields() -> dict[str, list[str]]:
 
 
 
-def sync_zatca_advance_reversal_fields_layout() -> dict[str, list[str]]:
-    """Keep advance reversal fields in their own section, not in the generic/standard area."""
-    result = {
-        "updated": [],
-        "ensured": [],
-        "skipped": [],
-    }
-
-    if not _doctype_exists("ZATCA Advance Tax Invoice"):
-        result["skipped"].append("ZATCA Advance Tax Invoice missing")
-        return result
-
-    specs = [
-        {
-            "dt": "ZATCA Advance Tax Invoice",
-            "fieldname": "advance_reversal_section",
-            "label": "Advance Reversal",
-            "fieldtype": "Section Break",
-            "insert_after": "qr_code",
-            "collapsible": 1,
-            "read_only": 0,
-            "hidden": 0,
-            "no_copy": 1,
-            "module": MODULE_NAME,
-        },
-        {
-            "dt": "ZATCA Advance Tax Invoice",
-            "fieldname": "advance_reversal_status",
-            "label": "Advance Reversal Status",
-            "fieldtype": "Select",
-            "options": "Open\nPartially Reversed\nFully Reversed\nCancelled",
-            "insert_after": "advance_reversal_section",
-            "read_only": 1,
-            "hidden": 0,
-            "no_copy": 1,
-            "module": MODULE_NAME,
-        },
-    ]
-
-    for spec in specs:
-        name = frappe.db.get_value(
-            "Custom Field",
-            {
-                "dt": spec["dt"],
-                "fieldname": spec["fieldname"],
-            },
-            "name",
-        )
-
-        if not name:
-            doc = frappe.get_doc({
-                "doctype": "Custom Field",
-                **spec,
-            })
-            doc.insert(ignore_permissions=True)
-            result["ensured"].append(spec["fieldname"])
-            continue
-
-        doc = frappe.get_doc("Custom Field", name)
-        changed = False
-
-        for fieldname, value in spec.items():
-            if hasattr(doc, fieldname) and getattr(doc, fieldname) != value:
-                setattr(doc, fieldname, value)
-                changed = True
-
-        if changed:
-            doc.save(ignore_permissions=True)
-            result["updated"].append(spec["fieldname"])
-        else:
-            result["ensured"].append(spec["fieldname"])
-
-    frappe.clear_cache(doctype="ZATCA Advance Tax Invoice")
-    frappe.db.commit()
-    return result
-
-
-
 def sync_zatca_advance_final_invoice_layout() -> dict[str, list[str]]:
-    """Unified layout sync for final invoice advance deduction and advance reversal fields."""
+    """Sync final-invoice deduction fields for standard advance Sales Invoices."""
     result = {
         "ensured": [],
         "updated": [],
@@ -4800,7 +4072,7 @@ def sync_zatca_advance_final_invoice_layout() -> dict[str, list[str]]:
                 "read_only": 1,
                 "no_copy": 1,
                 "module": MODULE_NAME,
-                "description": "Total taxable amount applied from linked ZATCA Advance Tax Invoices.",
+                "description": "Total taxable amount applied from linked advance-payment Sales Invoices.",
             },
             {
                 "dt": "Sales Invoice",
@@ -4821,7 +4093,7 @@ def sync_zatca_advance_final_invoice_layout() -> dict[str, list[str]]:
                 "read_only": 1,
                 "no_copy": 1,
                 "module": MODULE_NAME,
-                "description": "Total VAT amount already invoiced through linked ZATCA Advance Tax Invoices.",
+                "description": "Total VAT amount already invoiced through linked advance-payment Sales Invoices.",
             },
         ]
 
@@ -4831,40 +4103,6 @@ def sync_zatca_advance_final_invoice_layout() -> dict[str, list[str]]:
         frappe.clear_cache(doctype="Sales Invoice")
     else:
         result["skipped"].append("Sales Invoice or ZATCA Sales Invoice Advance Deduction missing")
-
-    if _doctype_exists("ZATCA Advance Tax Invoice"):
-        zadv_specs = [
-            {
-                "dt": "ZATCA Advance Tax Invoice",
-                "fieldname": "advance_reversal_section",
-                "label": "Advance Reversal",
-                "fieldtype": "Section Break",
-                "insert_after": "qr_code",
-                "collapsible": 1,
-                "hidden": 0,
-                "no_copy": 1,
-                "module": MODULE_NAME,
-            },
-            {
-                "dt": "ZATCA Advance Tax Invoice",
-                "fieldname": "advance_reversal_status",
-                "label": "Advance Reversal Status",
-                "fieldtype": "Select",
-                "options": "Open\nPartially Reversed\nFully Reversed\nCancelled",
-                "insert_after": "advance_reversal_section",
-                "read_only": 1,
-                "hidden": 0,
-                "no_copy": 1,
-                "module": MODULE_NAME,
-            },
-        ]
-
-        for spec in zadv_specs:
-            upsert_custom_field(spec)
-
-        frappe.clear_cache(doctype="ZATCA Advance Tax Invoice")
-    else:
-        result["skipped"].append("ZATCA Advance Tax Invoice missing")
 
     frappe.db.commit()
     return result
