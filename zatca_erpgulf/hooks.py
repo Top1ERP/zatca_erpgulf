@@ -258,10 +258,8 @@ doc_events = {
             # "zatca_erpgulf.zatca_erpgulf.sales_invoice_hooks.rename_invoice_on_submit",
             "zatca_erpgulf.zatca_erpgulf.sign_invoice.zatca_background_on_submit",
             "zatca_erpgulf.zatca_erpgulf.phase2_artifacts.ensure_phase2_sales_invoice_artifacts",
-            "zatca_erpgulf.zatca_erpgulf.advance_credit_note.update_advance_invoice_reversal_status_from_sales_invoice",
             "zatca_erpgulf.zatca_erpgulf.advance_deduction.ensure_final_sales_invoice_qr_for_print",
         ],
-        "on_cancel": "zatca_erpgulf.zatca_erpgulf.advance_credit_note.update_advance_invoice_reversal_status_from_sales_invoice",
         "on_update_after_submit": [
             "zatca_erpgulf.zatca_erpgulf.advance_payment_entry.validate_sales_invoice_payment_entry_link",
             "zatca_erpgulf.zatca_erpgulf.phase2_artifacts.ensure_phase2_sales_invoice_artifacts",
@@ -303,14 +301,12 @@ doctype_js = {
         "public/js/badge_pos.js",
     ],
     "Payment Entry": "public/js/zatca_advance_payment_debug.js",
-    "ZATCA Advance Tax Invoice": "public/js/zatca_advance_tax_invoice.js",
     "Customer": "public/js/customer_zatca_tooltips.js",
 }
 
 doctype_list_js = {
     "Sales Invoice": "public/js/resubmit.js",
     "POS Invoice": "public/js/resubmitpos.js",
-    "ZATCA Advance Tax Invoice": "public/js/zatca_advance_tax_invoice_list.js",
 }
 
 
@@ -372,4 +368,3 @@ after_migrate = "zatca_erpgulf.setup_customizations.after_migrate"
 
 # ZATCA advance payment copy guard
 doc_events.setdefault("Payment Entry", {})
-doc_events["Payment Entry"]["validate"] = "zatca_erpgulf.zatca_erpgulf.advance_payment_debug.cleanup_copied_advance_fields_on_payment_entry_save"

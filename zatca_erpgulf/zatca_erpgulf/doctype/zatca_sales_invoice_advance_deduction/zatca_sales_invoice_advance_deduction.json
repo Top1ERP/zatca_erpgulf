@@ -6,7 +6,7 @@
  "engine": "InnoDB",
  "field_order": [
   "payment_entry",
-  "zatca_advance_tax_invoice",
+  "advance_invoice",
   "advance_invoice_date",
   "advance_status",
   "currency",
@@ -30,10 +30,10 @@
    "in_list_view": 1
   },
   {
-   "fieldname": "zatca_advance_tax_invoice",
+   "fieldname": "advance_invoice",
    "fieldtype": "Link",
-   "label": "ZATCA Advance Tax Invoice",
-   "options": "ZATCA Advance Tax Invoice",
+   "label": "Advance Payment Invoice",
+   "options": "Sales Invoice",
    "read_only": 1,
    "in_list_view": 1
   },

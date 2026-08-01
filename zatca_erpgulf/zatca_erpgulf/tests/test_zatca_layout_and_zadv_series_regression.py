@@ -1,17 +1,9 @@
 import json
-from types import SimpleNamespace
-from unittest.mock import patch
-
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from zatca_erpgulf.setup_customizations import (
     force_sales_invoice_zatca_field_order_property_setter,
-)
-from zatca_erpgulf.zatca_erpgulf.doctype.zatca_advance_tax_invoice.zatca_advance_tax_invoice import (
-    later_zadv_in_same_company_exists,
-    reset_zadv_series_to_highest_existing,
-    zadv_series_prefix_and_number,
 )
 
 
@@ -88,85 +80,4 @@ class TestSalesInvoiceZATCALayoutRegression(FrappeTestCase):
                 "custom_uuid",
                 "custom_zatca_status",
             ],
-        )
-
-
-class TestZADVSeriesRegression(FrappeTestCase):
-    def test_zadv_series_prefix_and_number_parses_standard_name(self):
-        prefix, number = zadv_series_prefix_and_number("ZADV-SA-2026-00042")
-
-        self.assertEqual(prefix, "ZADV-SA-2026-")
-        self.assertEqual(number, 42)
-
-    def test_later_zadv_in_same_company_exists_uses_combined_name_filters(self):
-        rows = [
-            SimpleNamespace(name="ZADV-SA-2026-00001"),
-            SimpleNamespace(name="ZADV-SA-2026-00003"),
-        ]
-
-        with patch(
-            "zatca_erpgulf.zatca_erpgulf.doctype.zatca_advance_tax_invoice.zatca_advance_tax_invoice.frappe.get_all",
-            return_value=rows,
-        ) as mock_get_all:
-            self.assertTrue(
-                later_zadv_in_same_company_exists(
-                    "Square Angles Contacting Company",
-                    "ZADV-SA-2026-00002",
-                )
-            )
-
-        filters = mock_get_all.call_args.kwargs["filters"]
-
-        self.assertIsInstance(filters, list)
-        self.assertIn(
-            ["ZATCA Advance Tax Invoice", "company", "=", "Square Angles Contacting Company"],
-            filters,
-        )
-        self.assertIn(
-            ["ZATCA Advance Tax Invoice", "name", "like", "ZADV-SA-2026-%"],
-            filters,
-        )
-        self.assertIn(
-            ["ZATCA Advance Tax Invoice", "name", "!=", "ZADV-SA-2026-00002"],
-            filters,
-        )
-
-    def test_reset_zadv_series_excludes_deleted_name_and_sets_highest_existing_number(self):
-        sql_calls = []
-
-        def fake_sql(query, values=None, *args, **kwargs):
-            sql_calls.append((query, values))
-            if query.strip().lower().startswith("select name from `tabseries`"):
-                return [("ZADV-SA-2026-",)]
-            return None
-
-        with patch(
-            "zatca_erpgulf.zatca_erpgulf.doctype.zatca_advance_tax_invoice.zatca_advance_tax_invoice.frappe.get_all",
-            return_value=[
-                "ZADV-SA-2026-00001",
-                "ZADV-SA-2026-00003",
-            ],
-        ) as mock_get_all, patch(
-            "zatca_erpgulf.zatca_erpgulf.doctype.zatca_advance_tax_invoice.zatca_advance_tax_invoice.frappe.db.sql",
-            side_effect=fake_sql,
-        ):
-            reset_zadv_series_to_highest_existing("ZADV-SA-2026-00004")
-
-        filters = mock_get_all.call_args.kwargs["filters"]
-
-        self.assertIn(
-            ["ZATCA Advance Tax Invoice", "name", "like", "ZADV-SA-2026-%"],
-            filters,
-        )
-        self.assertIn(
-            ["ZATCA Advance Tax Invoice", "name", "!=", "ZADV-SA-2026-00004"],
-            filters,
-        )
-
-        self.assertIn(
-            (
-                "update `tabSeries` set current = %s where name = %s",
-                (3, "ZADV-SA-2026-"),
-            ),
-            sql_calls,
         )

@@ -803,7 +803,7 @@ def clearance_api(
             invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
             invoice_doc.custom_zatca_full_response = msg
             invoice_doc.custom_uuid = uuid1
-            invoice_doc.custom_zatca_status = "REPORTED"
+            invoice_doc.custom_zatca_status = "CLEARED"
             invoice_doc.save(ignore_permissions=True)
             frappe.db.commit()
             

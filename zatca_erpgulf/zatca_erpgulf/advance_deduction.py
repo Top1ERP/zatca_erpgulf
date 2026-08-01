@@ -5,15 +5,10 @@ from decimal import Decimal
 import frappe
 from frappe import _
 
+from zatca_erpgulf.zatca_erpgulf.advance_lifecycle import (
+    get_advance_sales_invoice_for_payment_entry,
+)
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import is_advance_payment_invoice
-
-
-ACCEPTED_ZATCA_ADVANCE_STATUSES = {
-    "REPORTED",
-    "CLEARED",
-    "PHASE 1 QR CREATED",
-    "PHASE-1 QR GENERATED",
-}
 
 ZATCA_ADVANCE_VAT_DEDUCTION_MARKER = "[ZATCA Advance VAT Deduction]"
 
@@ -59,25 +54,13 @@ def _get_positive_zatca_advance_allocations(doc) -> list:
         if not payment_entry:
             continue
 
-        if _get_linked_zatca_advance_invoice(payment_entry):
+        if get_advance_sales_invoice_for_payment_entry(
+            payment_entry,
+            require_accepted=False,
+        ):
             allocations.append(row)
 
     return allocations
-
-
-def _get_linked_zatca_advance_invoice(payment_entry: str) -> str:
-    if not payment_entry or not frappe.db.exists("Payment Entry", payment_entry):
-        return ""
-
-    meta = frappe.get_meta("Payment Entry")
-    if not meta.has_field("custom_zatca_advance_tax_invoice"):
-        return ""
-
-    return frappe.db.get_value(
-        "Payment Entry",
-        payment_entry,
-        "custom_zatca_advance_tax_invoice",
-    ) or ""
 
 
 def _is_zatca_advance_vat_deduction_tax(row) -> bool:
@@ -120,47 +103,24 @@ def _get_default_vat_tax_row(doc):
 
 
 def _get_advance_doc(payment_entry: str, strict: bool = False):
-    advance_tax_invoice = _get_linked_zatca_advance_invoice(payment_entry)
-    if not advance_tax_invoice:
-        return None
-
-    if not frappe.db.exists("ZATCA Advance Tax Invoice", advance_tax_invoice):
-        frappe.throw(
-            _(
-                "Payment Entry {0} is linked to missing ZATCA Advance Tax Invoice {1}."
-            ).format(payment_entry, advance_tax_invoice)
-        )
-
-    advance = frappe.get_doc("ZATCA Advance Tax Invoice", advance_tax_invoice)
-
-    status = normalize_status(advance.get("zatca_status"))
-    if int(advance.docstatus or 0) != 1 or status not in ACCEPTED_ZATCA_ADVANCE_STATUSES:
-        if strict:
-            frappe.throw(
-                _(
-                    "Payment Entry {0} is linked to ZATCA Advance Tax Invoice {1}, "
-                    "but its status is '{2}' and docstatus is {3}. "
-                    "Only submitted advance tax invoices with REPORTED, CLEARED, or PHASE 1 QR CREATED "
-                    "status can be deducted in the final invoice."
-                ).format(payment_entry, advance.name, advance.get("zatca_status"), advance.docstatus)
-            )
-        return None
-
-    return advance
+    return get_advance_sales_invoice_for_payment_entry(
+        payment_entry,
+        strict=strict,
+    )
 
 
 def _validate_same_party_and_currency(sales_invoice_doc, advance) -> None:
     if advance.company and advance.company != sales_invoice_doc.company:
         frappe.throw(
             _(
-                "ZATCA Advance Tax Invoice {0} belongs to company {1}, but this Sales Invoice belongs to {2}."
+                "Advance payment Sales Invoice {0} belongs to company {1}, but this Sales Invoice belongs to {2}."
             ).format(advance.name, advance.company, sales_invoice_doc.company)
         )
 
     if advance.customer and advance.customer != sales_invoice_doc.customer:
         frappe.throw(
             _(
-                "ZATCA Advance Tax Invoice {0} belongs to customer {1}, but this Sales Invoice belongs to {2}."
+                "Advance payment Sales Invoice {0} belongs to customer {1}, but this Sales Invoice belongs to {2}."
             ).format(advance.name, advance.customer, sales_invoice_doc.customer)
         )
 
@@ -169,21 +129,25 @@ def _validate_same_party_and_currency(sales_invoice_doc, advance) -> None:
     if invoice_currency and advance_currency and invoice_currency != advance_currency:
         frappe.throw(
             _(
-                "ZATCA Advance Tax Invoice {0} currency is {1}, but this Sales Invoice currency is {2}."
+                "Advance payment Sales Invoice {0} currency is {1}, but this Sales Invoice currency is {2}."
             ).format(advance.name, advance_currency, invoice_currency)
         )
 
 
 def _allocated_amounts_from_advance(row_allocated_amount: Decimal, advance) -> dict:
-    advance_taxable = q2(getattr(advance, "advance_amount", 0) or getattr(advance, "taxable_amount", 0))
-    advance_tax = q2(getattr(advance, "tax_amount", 0))
-    advance_total = q2(getattr(advance, "total_amount", 0))
+    advance_taxable = q2(
+        getattr(advance, "net_total", 0) or getattr(advance, "total", 0)
+    )
+    advance_tax = q2(getattr(advance, "total_taxes_and_charges", 0))
+    advance_total = q2(
+        getattr(advance, "rounded_total", 0) or getattr(advance, "grand_total", 0)
+    )
 
     if advance_total <= Decimal("0.00"):
-        frappe.throw(_("ZATCA Advance Tax Invoice {0} total amount must be greater than zero.").format(advance.name))
+        frappe.throw(_("Advance payment Sales Invoice {0} total amount must be greater than zero.").format(advance.name))
 
     if advance_taxable <= Decimal("0.00"):
-        frappe.throw(_("ZATCA Advance Tax Invoice {0} taxable amount must be greater than zero.").format(advance.name))
+        frappe.throw(_("Advance payment Sales Invoice {0} taxable amount must be greater than zero.").format(advance.name))
 
     requested = q2(row_allocated_amount)
     if requested <= Decimal("0.00"):
@@ -235,20 +199,24 @@ def get_standard_advance_deduction_rows(sales_invoice_doc, strict: bool = False)
         result.append(
             {
                 "payment_entry": payment_entry,
-                "advance_tax_invoice": advance.name,
+                "advance_invoice": advance.name,
                 "allocated_amount": amounts["allocated_taxable_amount"],
                 "allocated_taxable_amount": amounts["allocated_taxable_amount"],
                 "allocated_tax_amount": amounts["allocated_tax_amount"],
                 "allocated_total_amount": amounts["allocated_total_amount"],
-                "zatca_uuid": advance.get("zatca_uuid"),
+                "zatca_uuid": advance.get("custom_uuid"),
                 "posting_date": advance.get("posting_date"),
-                "advance_total_amount": q2(advance.get("total_amount")),
-                "advance_taxable_amount": q2(advance.get("advance_amount") or advance.get("taxable_amount")),
-                "advance_tax_amount": q2(advance.get("tax_amount")),
+                "advance_total_amount": q2(
+                    advance.get("rounded_total") or advance.get("grand_total")
+                ),
+                "advance_taxable_amount": q2(
+                    advance.get("net_total") or advance.get("total")
+                ),
+                "advance_tax_amount": q2(advance.get("total_taxes_and_charges")),
                 "status": advance.get("status"),
-                "zatca_status": advance.get("zatca_status"),
-                "tax_account": advance.get("tax_account"),
-                "tax_rate": q2(advance.get("tax_rate")),
+                "zatca_status": advance.get("custom_zatca_status"),
+                "tax_account": None,
+                "tax_rate": Decimal("0.00"),
                 "currency": advance.get("currency"),
             }
         )
@@ -260,7 +228,7 @@ def get_standard_advance_prepaid_amount(sales_invoice_doc, strict: bool = False)
     return q2(
         sum(
             (
-                row["allocated_taxable_amount"]
+                row["allocated_total_amount"]
                 for row in get_standard_advance_deduction_rows(sales_invoice_doc, strict=strict)
                 if row["allocated_total_amount"] > Decimal("0.00")
             ),
@@ -298,7 +266,7 @@ def _sync_detail_table(doc, rows: list[dict]) -> None:
 
         detail = doc.append("custom_zatca_advance_deduction_details", {})
         detail.payment_entry = row["payment_entry"]
-        detail.zatca_advance_tax_invoice = row["advance_tax_invoice"]
+        detail.advance_invoice = row["advance_invoice"]
         detail.advance_invoice_date = row["posting_date"]
         detail.advance_status = row["zatca_status"]
         detail.currency = row["currency"]
