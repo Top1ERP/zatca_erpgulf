@@ -12,7 +12,7 @@
 | Traceability document | `REQUIREMENTS_TRACEABILITY.md` |
 | Implementation plan | `IMPLEMENTATION_PLAN.md` |
 | Migration document | `MIGRATION_AND_ROLLBACK.md` |
-| Current branch | `fix/return-credit-note-advance-validation` |
+| Repository state | Phase 1 merged into `main` through PR `#27` at `63f8952` |
 
 This document defines the required automated, integration, site, accounting, XML, QR, migration, rollback, and regression tests for the standard Sales Invoice advance-payment redesign.
 

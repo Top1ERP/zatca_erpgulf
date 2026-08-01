@@ -10,7 +10,7 @@
 | Audit document | `CURRENT_STATE_AUDIT.md` |
 | Decisions document | `ARCHITECTURE_DECISIONS.md` |
 | Traceability document | `REQUIREMENTS_TRACEABILITY.md` |
-| Current branch | `fix/return-credit-note-advance-validation` |
+| Repository state | Phase 1 merged into `main` through PR `#27` at `63f8952` |
 
 This plan defines the implementation order for replacing the custom ZATCA advance-payment workflow with standard Sales Invoice documents.
 
@@ -201,7 +201,9 @@ The following broader site tests are not claimed as executed:
 - focused and existing automated tests: Passed;
 - Draft site save: Passed;
 - full Git diff review: Passed;
-- commit and Pull Request: Pending.
+- implementation commit: `882cac5`;
+- Pull Request `#27`: Merged;
+- merge commit: `63f8952`.
 
 ### Database and schema changes
 
@@ -220,7 +222,7 @@ None.
 ### Current status
 
 ```text
-Implemented and verified; full diff reviewed; commit and Pull Request pending.
+Complete and merged through PR `#27` at merge commit `63f8952`.
 ```
 
 ## 6. Phase 2 — Standard Sales Invoice advance foundation
@@ -889,7 +891,7 @@ Also update:
 
 ## 21. Next implementation branch
 
-After Phase 1 is reviewed and merged, create:
+Phase 1 was merged through PR `#27`. Create the next branch:
 
 ```text
 feature/standard-sales-invoice-advance-core

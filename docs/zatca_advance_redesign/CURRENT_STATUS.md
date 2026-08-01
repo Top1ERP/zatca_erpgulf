@@ -4,10 +4,10 @@
 
 | Item | Current value |
 |---|---|
-| Overall status | Phase 1 implemented and verified; full diff reviewed; commit and PR pending |
+| Overall status | Phase 1 complete and merged through PR `#27`; Phase 2 is the next implementation phase |
 | Application | `zatca_erpgulf` |
 | Initial test site | `squareangles.top1erp.com` |
-| Current branch | `fix/return-credit-note-advance-validation` |
+| Repository state | Phase 1 merged into `main` through PR `#27` at `63f8952` |
 | Audit baseline commit | `a8a6b07da3a11946fba1ee70015da18147e83ce9` |
 | Phase 0 merge commit | `9b36794` |
 | Application code modified | Yes — return-aware advance-deduction validation |
@@ -33,10 +33,10 @@ Phase 1 — Ordinary credit-note regression
 Current activity:
 
 ```text
-Stage the approved Phase 1 files, review the staged diff, then create the branch commit and Pull Request.
+Prepare the independent Phase 2 branch and complete its pre-implementation audit before modifying application code.
 ```
 
-Next implementation after Phase 1 is reviewed and merged:
+Next implementation phase:
 
 ```text
 Phase 2 — Standard Sales Invoice advance foundation
@@ -53,13 +53,13 @@ feature/standard-sales-invoice-advance-core
 | Item | Value |
 |---|---|
 | Repository path | `/home/top1erp/erpnext-v15/frappe-bench/apps/zatca_erpgulf` |
-| Current branch | `fix/return-credit-note-advance-validation` |
-| Branch base | `9b36794` |
+| Phase 1 merged target branch | `main` |
+| Phase 1 implementation branch base | `9b36794` |
 | Phase 0 documentation commit | `63c2298` |
 | Audit baseline commit | `a8a6b07da3a11946fba1ee70015da18147e83ce9` |
 | Working tree before Phase 1 | Clean |
 
-Current Phase 1 changes include:
+Phase 1 committed files include:
 
 ```text
 zatca_erpgulf/translations/ar.csv
@@ -501,7 +501,7 @@ Remaining manual smoke tests:
 Status:
 
 ```text
-Implemented and verified for automated validation and Draft site save; final diff, commit, and PR pending.
+Complete and merged through PR `#27` at merge commit `63f8952`; automated validation and Draft site-save evidence are recorded.
 ```
 
 ## 18. Phase status table
@@ -509,7 +509,7 @@ Implemented and verified for automated validation and Draft site save; final dif
 | Phase | Scope | Status |
 |---|---|---|
 | Phase 0 | Audit and planning | Complete and merged |
-| Phase 1 | Ordinary credit-note regression | Implemented and verified; full diff reviewed; commit/PR pending |
+| Phase 1 | Ordinary credit-note regression | Complete — merged through PR `#27` at `63f8952` |
 | Phase 2 | Standard Sales Invoice foundation | Not started |
 | Phase 3 | Payment Entry linkage | Not started |
 | Phase 4 | Deferred revenue validation | Not started |
@@ -634,37 +634,61 @@ All eight Phase 0 documentation files exist and have passed:
 - content-integrity checks;
 - staged diff checks.
 
-The committed documentation change must contain only these eight files.
+The Phase 1 implementation merge contained only the eight approved files listed above.
 
 ---
 
 ## 24. Immediate next implementation action
 
-Complete Phase 1 branch delivery:
+The next implementation phase is:
 
-1. normalize the test file ending;
-2. update Phase 1 documentation;
-3. rerun `git diff --check`;
-4. review the complete Phase 1 diff;
-5. stage only the approved Phase 1 files;
-6. review the staged diff;
-7. commit and push `fix/return-credit-note-advance-validation`;
-8. open and review the Phase 1 Pull Request.
+```text
+Phase 2 — Standard Sales Invoice advance foundation
+```
 
-After merge, create:
+Create the independent branch from the latest `main`:
 
 ```text
 feature/standard-sales-invoice-advance-core
 ```
 
-No Phase 2 code belongs in the current branch.
+Before modifying application code:
+
+1. confirm `main` is clean and synchronized with `origin/main`;
+2. audit the existing standard Sales Invoice advance paths;
+3. map Phase 2 requirements to the current implementation;
+4. define the Phase 2 acceptance tests;
+5. keep Payment Entry linkage, deferred revenue, multicurrency settlement,
+   credit-note reversal, XML redesign, and legacy deletion outside the
+   Phase 2 branch unless explicitly approved.
+
+No Phase 2 implementation belongs in the Phase 1 closure branch.
 
 ## 25. Completion statement
 
-Phase 0 audit and planning documentation is complete and merged.
+Phase 0 audit and planning documentation was merged through PR `#26`.
 
-Phase 1 code, translation, focused automated tests, existing regression tests, and Draft site-save verification are complete.
+Phase 1 ordinary credit-note regression work is complete and merged:
 
-Commit, push, Pull Request review, and merge remain pending. Manual Submit and Cancel smoke tests remain explicitly recorded as not run.
+| Item | Value |
+|---|---|
+| Implementation branch | `fix/return-credit-note-advance-validation` |
+| Implementation commit | `882cac5ce7673ab33deff4f0169e19c570e802a9` |
+| Pull Request | `#27` |
+| Merge commit | `63f8952cc4e0337ba0554889b239e9f62c1752e5` |
+| Merged at | `2026-08-01T00:18:57Z` |
+| Target branch | `main` |
+| Focused tests | 12 passed |
+| Existing regression tests | 10 passed |
+| Total automated tests | 22 passed |
+| Draft site save | Passed — `CN-RET-2026-00002` |
+| Migration or schema change | None |
 
-Current official ZATCA verification remains a mandatory later gate before Phase 8 XML and compliance acceptance.
+Manual site Submit, Cancel, and GL-reversal smoke tests remain explicitly
+recorded as not run. They are not represented as completed evidence.
+
+Current official ZATCA verification remains a mandatory later gate before
+Phase 8 XML and compliance acceptance.
+
+The next implementation phase is Phase 2 on an independent branch created
+from the updated `main`.
