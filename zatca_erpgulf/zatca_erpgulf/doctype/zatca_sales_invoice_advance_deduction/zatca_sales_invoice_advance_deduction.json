@@ -34,7 +34,7 @@
    "fieldtype": "Link",
    "label": "Advance Payment Invoice",
    "options": "Sales Invoice",
-   "read_only": 1,
+   "reqd": 1,
    "in_list_view": 1
   },
   {
@@ -93,7 +93,7 @@
    "fieldtype": "Currency",
    "label": "Applied Total Incl. VAT",
    "options": "currency",
-   "read_only": 1,
+   "reqd": 1,
    "in_list_view": 1
   },
   {

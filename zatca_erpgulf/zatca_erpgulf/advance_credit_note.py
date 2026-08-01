@@ -18,14 +18,14 @@ def _get_money(value):
 
 
 def _get_invoice_total(doc_or_row):
-    value = _get_money(getattr(doc_or_row, "rounded_total", 0))
-    if not value and hasattr(doc_or_row, "get"):
-        value = _get_money(doc_or_row.get("rounded_total"))
-
-    if not value:
-        value = _get_money(getattr(doc_or_row, "grand_total", 0))
+    value = _get_money(getattr(doc_or_row, "grand_total", 0))
     if not value and hasattr(doc_or_row, "get"):
         value = _get_money(doc_or_row.get("grand_total"))
+
+    if not value:
+        value = _get_money(getattr(doc_or_row, "rounded_total", 0))
+    if not value and hasattr(doc_or_row, "get"):
+        value = _get_money(doc_or_row.get("rounded_total"))
 
     return abs(value)
 
@@ -115,13 +115,29 @@ def validate_advance_credit_note_against_original(doc, event=None):
         )
     )
 
-    total_after_current = previous_total + current_total
+    # A credit note may reverse only the portion that has not already been
+    # consumed by submitted final invoices. This uses the direct-allocation
+    # child table and is deliberately independent of Payment Entry.
+    from zatca_erpgulf.zatca_erpgulf.advance_deduction import (
+        _lock_advance_invoice,
+        _submitted_final_allocation_total,
+    )
+
+    if int(getattr(doc, "docstatus", 0) or 0) == 1:
+        _lock_advance_invoice(advance_invoice.name)
+
+    allocated_total = float(
+        _submitted_final_allocation_total(advance_invoice.name)
+    )
+
+    total_after_current = previous_total + allocated_total + current_total
     if total_after_current > original_total + AMOUNT_TOLERANCE:
-        remaining = max(original_total - previous_total, 0)
+        remaining = max(original_total - previous_total - allocated_total, 0)
         frappe.throw(
             _(
                 "Total advance credit notes cannot exceed the original advance "
-                "payment Sales Invoice total amount. Remaining amount: {0}"
+                "payment Sales Invoice balance after submitted final-invoice "
+                "allocations. Remaining amount: {0}"
             ).format(
                 frappe.format_value(remaining, {"fieldtype": "Currency"})
             )

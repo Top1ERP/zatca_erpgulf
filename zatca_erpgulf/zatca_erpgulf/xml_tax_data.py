@@ -367,48 +367,18 @@ def _append_tax_totals(invoice, currency, tax_breakdown, sales_invoice_doc):
     return total_tax, q2(subtotal_tax_sum)
 
 
-def _get_prepaid_amount_from_standard_advances(sales_invoice_doc):
+def _get_prepaid_amount_from_direct_allocations(sales_invoice_doc):
     from zatca_erpgulf.zatca_erpgulf.advance_deduction import (
-        get_standard_advance_deduction_rows,
+        get_direct_advance_prepaid_amount,
     )
 
-    return q2(
-        sum(
-            (
-                row["allocated_total_amount"]
-                for row in get_standard_advance_deduction_rows(
-                    sales_invoice_doc,
-                    strict=True,
-                )
-                if row["allocated_total_amount"] > Decimal("0.00")
-            ),
-            Decimal("0.00"),
-        )
-    )
+    return q2(get_direct_advance_prepaid_amount(sales_invoice_doc, strict=True))
 
 
 def _get_prepaid_amount(sales_invoice_doc):
-    # Get prepaid amount from ERPNext standard advances first.
-    standard_advance_total = _get_prepaid_amount_from_standard_advances(sales_invoice_doc)
-    if standard_advance_total > Decimal("0.00"):
-        return standard_advance_total
-
-    # Legacy fallback for older/custom installations.
-    if not hasattr(sales_invoice_doc, "custom_advances_copy"):
-        return Decimal("0.00")
-
-    if not sales_invoice_doc.custom_advances_copy:
-        return Decimal("0.00")
-
-    valid_advances = [
-        x for x in sales_invoice_doc.custom_advances_copy
-        if getattr(x, "reference_name", None)
-    ]
-    if not valid_advances:
-        return Decimal("0.00")
-
-    total = sum(Decimal(str(x.advance_amount)) for x in valid_advances)
-    return q2(total)
+    # The independent child table is the sole source of final-invoice allocation.
+    # Payment Entry, Sales Invoice.advances, and legacy custom tables are excluded.
+    return _get_prepaid_amount_from_direct_allocations(sales_invoice_doc)
 
 
 def _validate_tax_equations(

@@ -279,8 +279,10 @@ class _DeductionDoc(_Doc):
             custom_is_advance_payment=marker,
             docstatus=0,
             net_total=-100 if is_return else 100,
+            grand_total=-115 if is_return else 115,
             taxes=[],
             advances=[],
+            custom_zatca_advance_deduction_details=[],
             custom_zatca_prepaid_amount=0,
             custom_zatca_advance_deducted_taxable_amount=0,
             custom_zatca_advance_deducted_vat_amount=0,
@@ -297,27 +299,33 @@ class _DeductionDoc(_Doc):
 
 class TestPhase2MutualExclusion(FrappeTestCase):
     def _validate(self, doc, *, has_positive_allocation):
+        doc.custom_zatca_advance_deduction_details = (
+            [SimpleNamespace(advance_invoice="SINV-ADV", allocated_total_amount=115)]
+            if has_positive_allocation
+            else []
+        )
         with patch(
             "zatca_erpgulf.zatca_erpgulf.advance_deduction."
-            "_get_positive_zatca_advance_allocations",
-            return_value=has_positive_allocation,
-        ), patch(
-            "zatca_erpgulf.zatca_erpgulf.advance_deduction."
-            "get_standard_advance_deduction_rows",
-            return_value=[],
+            "_validate_and_enrich_row",
+            return_value={
+                "advance": _Doc(custom_zatca_payment_entry=None),
+                "allocated_total_amount": 115,
+                "allocated_taxable_amount": 100,
+                "allocated_tax_amount": 15,
+            },
         ):
             validate_sales_invoice_advance_deductions(doc)
 
     def test_mut_001_advance_without_deductions_is_allowed(self):
         doc = _DeductionDoc(marker=1)
         self._validate(doc, has_positive_allocation=False)
-        self.assertEqual(doc.calculate_calls, 1)
+        self.assertEqual(doc.calculate_calls, 0)
 
     def test_mut_002_advance_with_empty_rows_is_allowed(self):
         doc = _DeductionDoc(marker=1)
         doc.advances = []
         self._validate(doc, has_positive_allocation=False)
-        self.assertEqual(doc.calculate_calls, 1)
+        self.assertEqual(doc.calculate_calls, 0)
 
     def test_mut_003_advance_with_positive_deduction_is_blocked(self):
         doc = _DeductionDoc(marker=1)
@@ -330,13 +338,13 @@ class TestPhase2MutualExclusion(FrappeTestCase):
     def test_mut_004_final_invoice_with_positive_deduction_remains_allowed(self):
         doc = _DeductionDoc(marker=0)
         self._validate(doc, has_positive_allocation=True)
-        self.assertEqual(doc.calculate_calls, 1)
+        self.assertEqual(doc.calculate_calls, 0)
 
     def test_mut_005_advance_with_zero_allocation_is_allowed(self):
         doc = _DeductionDoc(marker=1)
         doc.advances = [SimpleNamespace(reference_name="ACC-PAY-ZERO", allocated_amount=0)]
         self._validate(doc, has_positive_allocation=False)
-        self.assertEqual(doc.calculate_calls, 1)
+        self.assertEqual(doc.calculate_calls, 0)
 
     def test_mut_006_return_uses_existing_credit_note_rule(self):
         doc = _DeductionDoc(is_return=1, marker=1)
