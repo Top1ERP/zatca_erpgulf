@@ -41,6 +41,28 @@ def _get_advance_row_allocated_amount(row) -> Decimal:
     return q2(amount)
 
 
+def _is_return_invoice(doc) -> bool:
+    return int(getattr(doc, "is_return", 0) or 0) == 1
+
+
+def _get_positive_zatca_advance_allocations(doc) -> list:
+    """Return positive advance rows linked to the legacy ZATCA advance flow."""
+    allocations = []
+
+    for row in doc.get("advances", []) or []:
+        if _get_advance_row_allocated_amount(row) <= Decimal("0.00"):
+            continue
+
+        payment_entry = _get_advance_row_reference_name(row)
+        if not payment_entry:
+            continue
+
+        if _get_linked_zatca_advance_invoice(payment_entry):
+            allocations.append(row)
+
+    return allocations
+
+
 def _get_linked_zatca_advance_invoice(payment_entry: str) -> str:
     if not payment_entry or not frappe.db.exists("Payment Entry", payment_entry):
         return ""
@@ -317,8 +339,42 @@ def _append_negative_vat_deduction_tax_row(doc, active_rows: list[dict]) -> None
             setattr(tax_row, fieldname, getattr(default_tax_row, fieldname))
 
 
+def _clear_advance_deduction_derived_fields(doc) -> None:
+    """Clear values derived from applying advances to a positive final invoice."""
+    _sync_detail_table(doc, [])
+
+    field_defaults = {
+        "custom_zatca_prepaid_amount": 0.0,
+        "custom_zatca_advance_deducted_taxable_amount": 0.0,
+        "custom_zatca_advance_deducted_vat_amount": 0.0,
+        "custom_zatca_advance_deduction_count": 0,
+    }
+
+    for fieldname, value in field_defaults.items():
+        if hasattr(doc, fieldname):
+            setattr(doc, fieldname, value)
+
+
 def validate_sales_invoice_advance_deductions(doc, event=None) -> None:
     if int(getattr(doc, "docstatus", 0) or 0) == 2:
+        return
+
+    if _is_return_invoice(doc):
+        if _get_positive_zatca_advance_allocations(doc):
+            frappe.throw(
+                _(
+                    "ZATCA advance deductions cannot be applied directly to a return "
+                    "or credit note. Remove the positive ZATCA advance allocation; "
+                    "advance reversal is handled separately."
+                )
+            )
+
+        _remove_existing_zatca_advance_vat_deduction_rows(doc)
+
+        if hasattr(doc, "calculate_taxes_and_totals"):
+            doc.calculate_taxes_and_totals()
+
+        _clear_advance_deduction_derived_fields(doc)
         return
 
     _remove_existing_zatca_advance_vat_deduction_rows(doc)
@@ -339,7 +395,7 @@ def validate_sales_invoice_advance_deductions(doc, event=None) -> None:
     original_positive_vat = _get_positive_invoice_vat_amount(doc)
     original_tax_inclusive = q2(q2(getattr(doc, "net_total", 0)) + original_positive_vat)
 
-    if total_tax > original_positive_vat:
+    if active_rows and total_tax > original_positive_vat:
         frappe.throw(
             _(
                 "ZATCA advance VAT deduction cannot exceed the Sales Invoice VAT amount. "
@@ -347,7 +403,7 @@ def validate_sales_invoice_advance_deductions(doc, event=None) -> None:
             ).format(total_tax, original_positive_vat)
         )
 
-    if total_inclusive > original_tax_inclusive:
+    if active_rows and total_inclusive > original_tax_inclusive:
         frappe.throw(
             _(
                 "ZATCA advance deduction cannot exceed the Sales Invoice total including VAT. "

@@ -12,7 +12,7 @@
 | Traceability document | `REQUIREMENTS_TRACEABILITY.md` |
 | Implementation plan | `IMPLEMENTATION_PLAN.md` |
 | Migration document | `MIGRATION_AND_ROLLBACK.md` |
-| Current branch | `audit/zatca-advance-current-state` |
+| Current branch | `fix/return-credit-note-advance-validation` |
 
 This document defines the required automated, integration, site, accounting, XML, QR, migration, rollback, and regression tests for the standard Sales Invoice advance-payment redesign.
 
@@ -138,12 +138,12 @@ Use stable values for:
 | ID | Test | Severity | Expected result | Status |
 |---|---|---|---|---|
 | BASE-001 | Run existing `zatca_erpgulf` test suite before changes | Critical | All baseline tests pass | Passed |
-| BASE-002 | Run baseline suite after each phase | Critical | No unexplained regression | Not Run |
-| BASE-003 | Compile changed Python files | High | No syntax or import error | Not Run |
-| BASE-004 | Validate changed JSON files | High | Valid JSON | Not Run |
-| BASE-005 | Run `git diff --check` | High | No whitespace or conflict errors | Not Run |
-| BASE-006 | Review changed-file list | High | Only intended files changed | Not Run |
-| BASE-007 | Review full phase diff | High | No unrelated behavior change | Not Run |
+| BASE-002 | Run baseline suite after each phase | Critical | No unexplained regression | Passed |
+| BASE-003 | Compile changed Python files | High | No syntax or import error | Passed |
+| BASE-004 | Validate changed JSON files | High | Valid JSON | Not Applicable |
+| BASE-005 | Run `git diff --check` | High | No whitespace or conflict errors | Passed after final-newline normalization |
+| BASE-006 | Review changed-file list | High | Only intended files changed | Passed |
+| BASE-007 | Review full phase diff | High | No unrelated behavior change | Passed |
 
 ---
 
@@ -153,23 +153,23 @@ Use stable values for:
 
 | ID | Scenario | Severity | Expected result | Status |
 |---|---|---|---|---|
-| CN-R-001 | Ordinary return invoice with no deduction rows | Critical | Save and submit are not blocked by advance-total validation | Not Run |
-| CN-R-002 | Ordinary return invoice with empty deduction child table | Critical | No advance-total comparison occurs | Not Run |
-| CN-R-003 | Ordinary return invoice with zero-value child rows | Critical | Zero total is not compared with negative invoice total | Not Run |
-| CN-R-004 | Positive final invoice with deduction above total | Critical | Validation blocks the document | Not Run |
-| CN-R-005 | Positive final invoice with valid deduction | Critical | Validation passes | Not Run |
-| CN-R-006 | Advance-related credit note with valid reversal | High | Advance reversal validation remains active | Not Run |
-| CN-R-007 | Advance-related credit note above reversible amount | Critical | Validation blocks excessive reversal | Not Run |
-| CN-R-008 | Ordinary non-return invoice without deductions | High | Existing submit behavior remains unchanged | Not Run |
+| CN-R-001 | Ordinary return invoice with no deduction rows | Critical | Save and submit are not blocked by advance-total validation | Passed — automated validation; site Submit remains CN-S-001 Not Run |
+| CN-R-002 | Ordinary return invoice with empty deduction child table | Critical | No advance-total comparison occurs | Passed |
+| CN-R-003 | Ordinary return invoice with zero-value child rows | Critical | Zero total is not compared with negative invoice total | Passed |
+| CN-R-004 | Positive final invoice with deduction above total | Critical | Validation blocks the document | Passed |
+| CN-R-005 | Positive final invoice with valid deduction | Critical | Validation passes | Passed |
+| CN-R-006 | Advance-related credit note with valid reversal | High | Advance reversal validation remains active | Passed |
+| CN-R-007 | Advance-related credit note above reversible amount | Critical | Validation blocks excessive reversal | Passed |
+| CN-R-008 | Ordinary non-return invoice without deductions | High | Existing submit behavior remains unchanged | Passed — automated validation; site Submit remains CN-S-003 Not Run |
 
 ### 7.2 Code-review checks
 
 | ID | Check | Severity | Expected result | Status |
 |---|---|---|---|---|
-| CN-C-001 | No unconditional bypass for every return | High | Condition is narrow and contextual | Not Run |
-| CN-C-002 | No blind `abs()` normalization | High | Signs retain business meaning | Not Run |
-| CN-C-003 | Positive-invoice limit still executes | Critical | Existing protection remains | Not Run |
-| CN-C-004 | No database or schema change in Phase 1 | High | Diff contains validation and tests only | Not Run |
+| CN-C-001 | No unconditional bypass for every return | High | Condition is narrow and contextual | Passed |
+| CN-C-002 | No blind `abs()` normalization | High | Signs retain business meaning | Passed |
+| CN-C-003 | Positive-invoice limit still executes | Critical | Existing protection remains | Passed |
+| CN-C-004 | No database or schema change in Phase 1 | High | Diff contains validation and tests only | Passed |
 
 ### 7.3 Site smoke tests
 
@@ -178,6 +178,7 @@ Use stable values for:
 | CN-S-001 | Create ordinary credit note on test site | Critical | Submit succeeds when otherwise valid | Not Run |
 | CN-S-002 | Cancel ordinary credit note | High | Cancel succeeds and GL reverses normally | Not Run |
 | CN-S-003 | Submit ordinary positive invoice | High | Unaffected | Not Run |
+| CN-S-004 | Save ordinary Draft credit note on the initial test site | Critical | Draft saves without the zero-versus-negative advance error | Passed — `CN-RET-2026-00002` against `SINV-2026-00024` |
 
 ---
 
@@ -1092,7 +1093,7 @@ Actual ZATCA status:
 |---|---|
 | Baseline tests | Passed |
 | Audit read-only checks | Passed |
-| Phase 1 regression tests | Not Run |
+| Phase 1 regression tests | Passed — 12 focused tests; site Submit/Cancel still Not Run |
 | Phase 2 foundation tests | Not Run |
 | Phase 3 Payment Entry tests | Not Run |
 | Phase 4 deferred revenue tests | Not Run |
@@ -1107,29 +1108,33 @@ Actual ZATCA status:
 
 ---
 
-## 58. Immediate next test batch
+## 58. Phase 1 execution evidence and remaining tests
 
-The immediate test batch belongs to:
-
-```text
-fix/return-credit-note-advance-validation
-```
-
-Required first tests:
+Completed automated batch:
 
 ```text
-CN-R-001
-CN-R-002
-CN-R-003
-CN-R-004
-CN-R-005
-CN-R-006
-CN-R-007
-CN-R-008
-CN-C-001
-CN-C-002
-CN-C-003
-CN-C-004
+CN-R-001 through CN-R-008: Passed
+CN-C-001 through CN-C-004: Passed
+Focused tests: 12 passed
+Existing regression tests: 10 passed
+Total automated tests: 22 passed
 ```
 
-No migration, schema deletion, ZADV deletion, Workspace deletion, or Series deletion is part of that batch.
+Completed site evidence:
+
+```text
+CN-S-004: Passed
+Site: squareangles.top1erp.com
+Draft Credit Note: CN-RET-2026-00002
+Return Against: SINV-2026-00024
+```
+
+Remaining site smoke tests:
+
+```text
+CN-S-001: Not Run
+CN-S-002: Not Run
+CN-S-003: Not Run
+```
+
+No migration, schema deletion, ZADV deletion, Workspace deletion, or Series deletion was part of Phase 1.

@@ -4,72 +4,75 @@
 
 | Item | Current value |
 |---|---|
-| Overall status | Phase 0 documentation complete; implementation not started |
+| Overall status | Phase 1 implemented and verified; full diff reviewed; commit and PR pending |
 | Application | `zatca_erpgulf` |
 | Initial test site | `squareangles.top1erp.com` |
-| Current branch | `audit/zatca-advance-current-state` |
-| Baseline commit | `a8a6b07da3a11946fba1ee70015da18147e83ce9` |
-| Application code modified | No |
-| Database data modified | No |
+| Current branch | `fix/return-credit-note-advance-validation` |
+| Audit baseline commit | `a8a6b07da3a11946fba1ee70015da18147e83ce9` |
+| Phase 0 merge commit | `9b36794` |
+| Application code modified | Yes — return-aware advance-deduction validation |
+| Database data modified | Yes — controlled Draft `CN-RET-2026-00002` created for site verification |
 | Database migration executed | No |
+| Database schema modified | No |
 | Legacy document deleted | No |
 | Destructive cleanup started | No |
 | Wider rollout approved | No |
 
-The repository and initial-site read-only audit are complete.
+Phase 1 corrects the ordinary Sales Invoice return regression without changing schema, legacy ZADV records, Workspaces, naming series, XML architecture, or accounting migrations.
 
-The external verification of current official ZATCA specifications is still pending and must be completed before final XML compliance decisions are accepted.
-
----
+Current official ZATCA specification verification remains pending and is still required before Phase 8 XML and compliance acceptance.
 
 ## 2. Current milestone
 
 Current milestone:
 
 ```text
-Phase 0 — Audit and planning
+Phase 1 — Ordinary credit-note regression
 ```
 
 Current activity:
 
 ```text
-Prepare Phase 1 ordinary credit-note regression implementation.
+Stage the approved Phase 1 files, review the staged diff, then create the branch commit and Pull Request.
 ```
 
-Immediate implementation after documentation approval:
+Next implementation after Phase 1 is reviewed and merged:
 
 ```text
-Phase 1 — Ordinary credit-note regression
+Phase 2 — Standard Sales Invoice advance foundation
 ```
 
-Planned branch:
+Planned next branch:
 
 ```text
-fix/return-credit-note-advance-validation
+feature/standard-sales-invoice-advance-core
 ```
-
----
 
 ## 3. Repository baseline
 
 | Item | Value |
 |---|---|
 | Repository path | `/home/top1erp/erpnext-v15/frappe-bench/apps/zatca_erpgulf` |
-| Branch | `audit/zatca-advance-current-state` |
-| Baseline commit | `a8a6b07da3a11946fba1ee70015da18147e83ce9` |
-| Baseline short commit | `a8a6b07` |
-| Origin divergence at audit start | `0 0` |
-| Working tree before documentation | Clean |
+| Current branch | `fix/return-credit-note-advance-validation` |
+| Branch base | `9b36794` |
+| Phase 0 documentation commit | `63c2298` |
+| Audit baseline commit | `a8a6b07da3a11946fba1ee70015da18147e83ce9` |
+| Working tree before Phase 1 | Clean |
 
-The current uncommitted changes are documentation files under:
+Current Phase 1 changes include:
 
 ```text
-docs/zatca_advance_redesign/
+zatca_erpgulf/translations/ar.csv
+zatca_erpgulf/zatca_erpgulf/advance_deduction.py
+zatca_erpgulf/zatca_erpgulf/tests/test_advance_deduction_return_validation.py
+docs/zatca_advance_redesign/ARCHITECTURE_DECISIONS.md
+docs/zatca_advance_redesign/CURRENT_STATUS.md
+docs/zatca_advance_redesign/IMPLEMENTATION_PLAN.md
+docs/zatca_advance_redesign/REQUIREMENTS_TRACEABILITY.md
+docs/zatca_advance_redesign/TEST_MATRIX.md
 ```
 
-No application source file has been intentionally modified during Phase 0.
-
----
+No migration, schema deletion, ZADV deletion, Workspace deletion, naming-series change, or cross-site rollout occurred.
 
 ## 4. Runtime baseline
 
@@ -107,7 +110,7 @@ Current test status:
 | Test group | Status |
 |---|---|
 | Existing baseline tests | Passed |
-| Phase 1 regression tests | Not Run |
+| Phase 1 regression tests | Passed — 12 focused tests |
 | Phase 2 foundation tests | Not Run |
 | Payment Entry tests | Not Run |
 | Deferred revenue tests | Not Run |
@@ -453,41 +456,60 @@ Not started
 
 ---
 
-## 17. Critical known regression
+## 17. Critical regression resolution
 
-Problem:
+Original problem:
 
 ```text
 Advance total 0.00 exceeds Sales Invoice total -36000.00
 ```
 
-Impact:
+Root cause:
 
-An ordinary Sales Invoice credit note may be blocked when the advance deduction table is empty or zero.
+- `validate_sales_invoice_advance_deductions` runs for every Sales Invoice;
+- ordinary returns contain negative invoice totals;
+- the old positive-invoice limit compared a zero or positive advance total against a negative return total;
+- VAT extraction considered only positive tax rows, which is appropriate for positive final invoices but not a valid return-invoice limit.
 
-Approved correction scope:
+Implemented behavior:
 
-- ordinary credit note without deductions must pass;
-- empty or zero deductions must not trigger comparison with a negative total;
-- positive final-invoice limits must remain active;
-- advance reversal controls must remain active;
-- no broad bypass;
-- no blind absolute-value conversion.
+- ordinary returns bypass positive final-invoice advance-deduction calculations;
+- return signs remain negative and are not normalized with a blind `abs()`;
+- zero allocations do not trigger ZATCA advance lookup;
+- positive allocations linked to the legacy ZATCA advance flow are blocked on returns;
+- derived advance-deduction rows and totals are cleared for returns;
+- positive final-invoice VAT and total limits remain active;
+- `advance_credit_note.py` continues to validate valid and excessive advance credit notes.
+
+Verification evidence:
+
+```text
+12 focused Phase 1 tests passed
+10 existing regression tests passed
+22 total automated tests passed
+py_compile passed
+Arabic translation count = 1
+Draft site save passed: CN-RET-2026-00002 against SINV-2026-00024
+```
+
+Remaining manual smoke tests:
+
+- site Submit of an otherwise valid ordinary credit note;
+- site Cancel and GL reversal;
+- site Submit of an ordinary positive invoice.
 
 Status:
 
 ```text
-Confirmed and documented; fix not started
+Implemented and verified for automated validation and Draft site save; final diff, commit, and PR pending.
 ```
-
----
 
 ## 18. Phase status table
 
 | Phase | Scope | Status |
 |---|---|---|
-| Phase 0 | Audit and planning | In progress |
-| Phase 1 | Ordinary credit-note regression | Not started |
+| Phase 0 | Audit and planning | Complete and merged |
+| Phase 1 | Ordinary credit-note regression | Implemented and verified; full diff reviewed; commit/PR pending |
 | Phase 2 | Standard Sales Invoice foundation | Not started |
 | Phase 3 | Payment Entry linkage | Not started |
 | Phase 4 | Deferred revenue validation | Not started |
@@ -552,7 +574,7 @@ Repository and site audit completion does not replace regulatory-source verifica
 
 ## 21. Current restrictions
 
-Until Phase 0 is completed and reviewed:
+During Phase 1 final review:
 
 - do not run `bench migrate`;
 - do not delete Custom Fields;
@@ -563,32 +585,41 @@ Until Phase 0 is completed and reviewed:
 - do not clear linked Payment Entry fields;
 - do not remove the old DocType;
 - do not change naming series;
-- do not deploy redesign changes to other sites.
-
----
+- do not deploy the redesign to other tenant sites;
+- do not combine Phase 2 work into this branch.
 
 ## 22. Current verification commands
 
-After all documentation files are created, the review must include:
+Phase 1 final review must include:
 
 ```bash
+python -m py_compile \
+  zatca_erpgulf/zatca_erpgulf/advance_deduction.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_advance_deduction_return_validation.py
+
+git diff --check
 git status --short
-find docs/zatca_advance_redesign -maxdepth 1 -type f -name '*.md' -printf '%f\n' | sort
-wc -l docs/zatca_advance_redesign/*.md
+git diff --stat
+git diff --name-status
+git --no-pager diff
 ```
 
-Because the files are currently untracked, ordinary `git diff` does not show their contents.
+Automated evidence must retain:
 
-Review untracked files with an appropriate no-index diff or add intent-to-add only after deciding to do so.
+```text
+Ran 12 tests — OK
+Ran 5 tests — OK
+Ran 5 tests — OK
+```
 
-No documentation commit should be created before:
+The site verification record is:
 
-- all files exist;
-- their endings are complete;
-- formatting is checked;
-- content is reviewed.
-
----
+```text
+squareangles.top1erp.com
+Draft Credit Note: CN-RET-2026-00002
+Return Against: SINV-2026-00024
+Save result: Passed
+```
 
 ## 23. Documentation outcome
 
@@ -609,27 +640,31 @@ The committed documentation change must contain only these eight files.
 
 ## 24. Immediate next implementation action
 
-After all Phase 0 documentation is reviewed and committed:
+Complete Phase 1 branch delivery:
 
-1. create or update the integration baseline;
-2. create:
+1. normalize the test file ending;
+2. update Phase 1 documentation;
+3. rerun `git diff --check`;
+4. review the complete Phase 1 diff;
+5. stage only the approved Phase 1 files;
+6. review the staged diff;
+7. commit and push `fix/return-credit-note-advance-validation`;
+8. open and review the Phase 1 Pull Request.
+
+After merge, create:
 
 ```text
-fix/return-credit-note-advance-validation
+feature/standard-sales-invoice-advance-core
 ```
 
-3. implement only the ordinary credit-note regression fix;
-4. add focused tests;
-5. run the baseline and regression tests;
-6. review the full diff;
-7. update status, traceability, decisions, and test documents.
-
----
+No Phase 2 code belongs in the current branch.
 
 ## 25. Completion statement
 
-Phase 0 audit and planning documentation is complete.
+Phase 0 audit and planning documentation is complete and merged.
 
-No implementation or destructive migration has started.
+Phase 1 code, translation, focused automated tests, existing regression tests, and Draft site-save verification are complete.
+
+Commit, push, Pull Request review, and merge remain pending. Manual Submit and Cancel smoke tests remain explicitly recorded as not run.
 
 Current official ZATCA verification remains a mandatory later gate before Phase 8 XML and compliance acceptance.

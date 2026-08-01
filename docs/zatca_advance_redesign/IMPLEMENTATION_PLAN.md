@@ -10,7 +10,7 @@
 | Audit document | `CURRENT_STATE_AUDIT.md` |
 | Decisions document | `ARCHITECTURE_DECISIONS.md` |
 | Traceability document | `REQUIREMENTS_TRACEABILITY.md` |
-| Current branch | `audit/zatca-advance-current-state` |
+| Current branch | `fix/return-credit-note-advance-validation` |
 
 This plan defines the implementation order for replacing the custom ZATCA advance-payment workflow with standard Sales Invoice documents.
 
@@ -120,7 +120,7 @@ fix/return-credit-note-advance-validation
 
 ### Problem
 
-A normal Sales Invoice credit note may be blocked when a zero advance total is compared against a negative return total.
+A normal Sales Invoice credit note was blocked when a zero advance total was compared against a negative return total.
 
 Observed message:
 
@@ -128,51 +128,100 @@ Observed message:
 Advance total 0.00 exceeds Sales Invoice total -36000.00
 ```
 
-### Scope
+### Root cause
 
-- locate the exact validation path and callers;
-- isolate ordinary credit notes from final-invoice advance validation;
-- preserve advance-related credit-note controls;
-- add focused regression tests.
+The positive final-invoice advance-deduction validator ran on ordinary return invoices.
 
-### Constraints
+Return invoices preserve negative:
 
-Do not:
+- `net_total`;
+- tax amounts;
+- `grand_total`.
 
-- add a broad unconditional return;
-- skip all validation for every return invoice;
-- blindly apply `abs()` to all values;
+The old validator calculated a nonnegative advance total and compared it with the negative return total.
+
+### Implemented scope
+
+- identify Sales Invoice returns before positive final-invoice advance processing;
+- preserve negative return signs;
+- avoid blind `abs()` normalization;
+- ignore zero advance allocations;
+- allow positive non-ZATCA allocations to remain outside this validator;
+- block positive allocations linked to the legacy ZATCA advance flow on a return;
+- remove stale ZATCA advance VAT-deduction rows from returns;
+- clear derived advance-deduction details and totals on returns;
+- preserve positive final-invoice VAT and total limits;
+- preserve dedicated advance-credit-note validation;
+- add an Arabic validation translation;
+- add focused automated regression tests.
+
+### Constraints preserved
+
+The implementation does not:
+
+- add an unconditional bypass for every Sales Invoice;
+- apply `abs()` to the general deduction validation;
 - disable positive final-invoice settlement limits;
-- disable advance-balance release validation.
+- disable valid or excessive advance-credit-note validation;
+- change database schema;
+- run migration;
+- delete or modify legacy ZADV records;
+- change Workspace, XML architecture, naming series, or abbreviation fields.
 
-### Required tests
+### Verification evidence
 
-1. ordinary credit note with no deduction rows;
-2. ordinary credit note with empty child table;
-3. ordinary credit note with zero child-row values;
-4. positive final invoice with excessive deduction;
-5. valid positive final invoice deduction;
-6. advance-related credit-note path remains active;
-7. baseline tests remain green.
+```text
+Focused Phase 1 tests: 12 passed
+Existing layout and ZADV-series tests: 5 passed
+Existing tax-source-priority tests: 5 passed
+Total automated tests: 22 passed
+Python compilation: Passed
+Arabic translation count: 1
+Site Draft save: Passed
+Draft Credit Note: CN-RET-2026-00002
+Return Against: SINV-2026-00024
+```
 
-### Acceptance criteria
+### Remaining site smoke tests
 
-- ordinary credit note is not blocked;
-- empty or zero deductions are ignored correctly;
-- positive settlement validation remains active;
-- no unrelated code changes;
-- tests pass;
-- documentation is updated.
+The following broader site tests are not claimed as executed:
 
-### Database changes
+- Submit an otherwise valid ordinary credit note;
+- Cancel that credit note and inspect GL reversal;
+- Submit an ordinary positive Sales Invoice.
+
+### Acceptance status
+
+- ordinary credit note is not blocked by zero-versus-negative advance comparison: Passed;
+- empty and zero allocations are handled: Passed;
+- positive final-invoice limits remain active: Passed;
+- advance-credit-note controls remain active: Passed;
+- no broad bypass or blind absolute-value conversion: Passed;
+- no schema or destructive action: Passed;
+- focused and existing automated tests: Passed;
+- Draft site save: Passed;
+- full Git diff review: Passed;
+- commit and Pull Request: Pending.
+
+### Database and schema changes
 
 None.
+
+A controlled Draft test document was created on the initial site:
+
+```text
+CN-RET-2026-00002
+```
 
 ### Destructive actions
 
 None.
 
----
+### Current status
+
+```text
+Implemented and verified; full diff reviewed; commit and Pull Request pending.
+```
 
 ## 6. Phase 2 — Standard Sales Invoice advance foundation
 
@@ -838,22 +887,23 @@ Also update:
 
 ---
 
-## 21. Immediate next implementation branch
+## 21. Next implementation branch
 
-After the audit documentation is reviewed and merged, create:
+After Phase 1 is reviewed and merged, create:
 
 ```text
-fix/return-credit-note-advance-validation
+feature/standard-sales-invoice-advance-core
 ```
 
-That branch is limited to the ordinary credit-note regression.
+That branch is limited to the standard Sales Invoice advance foundation.
 
-It must not:
+It must not silently include:
 
-- delete ZADV records;
-- delete Company fields;
-- delete Workspaces;
-- run legacy cleanup;
-- change XML architecture;
-- add abbreviation fields;
-- change naming series.
+- Payment Entry mapping;
+- deferred revenue enforcement;
+- settlement and multicurrency behavior;
+- credit-note reversal accounting;
+- final-invoice GL changes;
+- XML and QR redesign;
+- report or Workspace cleanup;
+- legacy ZADV deletion.
