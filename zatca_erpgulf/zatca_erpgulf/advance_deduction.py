@@ -43,7 +43,7 @@ def _is_return_invoice(doc) -> bool:
 
 
 def _get_positive_zatca_advance_allocations(doc) -> list:
-    """Return positive advance rows linked to the legacy ZATCA advance flow."""
+    """Return positive advance rows linked to standard advance Sales Invoices."""
     allocations = []
 
     for row in doc.get("advances", []) or []:
