@@ -1,7 +1,9 @@
 import frappe
 
-
-PHASE_2_VALUE = "Phase-2"
+from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
+    PHASE_2_VALUE,
+    resolve_zatca_phase,
+)
 
 
 def _as_doc(doc_or_name, doctype=None):
@@ -51,7 +53,7 @@ def is_phase_2_company(company_doc) -> bool:
     if not company_doc:
         return False
 
-    return str(getattr(company_doc, "custom_phase_1_or_2", "") or "").strip() == PHASE_2_VALUE
+    return resolve_zatca_phase(company_doc) == PHASE_2_VALUE
 
 
 def update_pih_after_phase2_success(holder_doc, encoded_hash, source_doc=None) -> dict:
@@ -93,7 +95,7 @@ def update_pih_after_phase2_success(holder_doc, encoded_hash, source_doc=None) -
             "updated": False,
             "reason": "phase_1_or_not_phase_2",
             "company": company_doc.name,
-            "phase": getattr(company_doc, "custom_phase_1_or_2", None),
+            "phase": resolve_zatca_phase(company_doc),
             "holder_doctype": getattr(holder_doc, "doctype", None),
             "holder_name": getattr(holder_doc, "name", None),
         }

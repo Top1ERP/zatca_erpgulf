@@ -191,7 +191,7 @@ Use stable values for:
 | MARK-001 | Neither marker exists | Create exact `is_advance_payment` | Critical | Not Run |
 | MARK-002 | `is_advance_payment` exists | Reuse it | Critical | Not Run |
 | MARK-003 | Only `custom_is_advance_payment` exists | Do not create duplicate | Critical | Not Run |
-| MARK-004 | Both fields exist | Stop or use audited compatibility handling | Critical | Not Run |
+| MARK-004 | Both fields exist | Do not create a duplicate; canonical `is_advance_payment` has value priority | Critical | Not Run |
 
 ### 8.2 Marker metadata
 
@@ -210,7 +210,7 @@ Use stable values for:
 |---|---:|---:|---:|---|---|
 | MARK-011 | 0 | 0 | 0 | High | Not Run |
 | MARK-012 | 1 | 0 | 1 | High | Not Run |
-| MARK-013 | 0 | 1 | 1 | High | Not Run |
+| MARK-013 | 0 | 1 | 0 because the existing canonical field has priority | High | Not Run |
 | MARK-014 | 1 | 1 | 1 | High | Not Run |
 | MARK-015 | Standard field absent, custom 1 | 1 | High | Not Run |
 
@@ -254,7 +254,7 @@ Use stable values for:
 | MUT-002 | 1 | Empty rows | Allowed when rows are not meaningful | High | Not Run |
 | MUT-003 | 1 | Positive meaningful deduction | Blocked | Critical | Not Run |
 | MUT-004 | 0 | Positive meaningful deduction | Allowed when all other rules pass | Critical | Not Run |
-| MUT-005 | 1 | Zero-value meaningful row | Defined behavior verified | High | Not Run |
+| MUT-005 | 1 | Zero-value row | Allowed because no positive effective deduction exists | High | Not Run |
 | MUT-006 | Return invoice | Deduction reversal rows | Controlled by credit-note rules | Critical | Not Run |
 
 ---

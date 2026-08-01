@@ -103,14 +103,20 @@ For every site:
 
 ### Compatibility resolver
 
-During the compatibility period, application logic may use:
+During the compatibility period, field existence determines priority. The
+canonical field wins whenever it exists, including when its value is `0`:
 
 ```python
-is_advance_payment = bool(
-    doc.get("is_advance_payment")
-    or doc.get("custom_is_advance_payment")
-)
+if doc.meta.has_field("is_advance_payment"):
+    is_advance_payment = bool(doc.get("is_advance_payment"))
+elif doc.meta.has_field("custom_is_advance_payment"):
+    is_advance_payment = bool(doc.get("custom_is_advance_payment"))
+else:
+    is_advance_payment = False
 ```
+
+The two values must not be OR-merged. Otherwise a stale legacy value of `1`
+would override an intentional canonical value of `0`.
 
 The compatibility fallback must be removed only after confirming that no supported site depends on `custom_is_advance_payment`.
 
@@ -124,7 +130,8 @@ Accepted
 
 ### Decision
 
-Remove the following Company fields:
+The following Company fields are obsolete for the redesigned Sales Invoice
+workflow:
 
 ```text
 custom_zatca_advance_payment_section
@@ -134,6 +141,12 @@ custom_zatca_advance_payment_submission_mode
 custom_zatca_advance_signing_enabled
 custom_zatca_advance_api_submission_enabled
 ```
+
+They must not affect a standard Sales Invoice marked as an advance payment
+invoice. During the transition they remain installed and operational only for
+the legacy `ZATCA Advance Tax Invoice` workflow. They are removed in the later
+legacy-retirement phase, after legacy runtime callers and data dependencies are
+migrated.
 
 ### Replacement controls
 
@@ -167,9 +180,11 @@ Values stored in the obsolete advance-specific fields will not be migrated.
 
 They do not represent independent business transactions and can conflict with the general Company ZATCA configuration.
 
-### Removal sequence
+### Deferred removal sequence
 
-1. remove Python references;
+Do not execute this sequence in Phase 2. When the legacy workflow is retired:
+
+1. remove legacy Python references;
 2. remove JavaScript references;
 3. remove UI dependencies;
 4. remove Property Setter generation;
@@ -310,7 +325,11 @@ Accepted
 
 ### Decision
 
-A Sales Invoice marked as an initial advance invoice must not contain rows in:
+A Sales Invoice marked as an initial advance invoice must not contain a
+positive, effective allocation linked to the legacy ZATCA advance-deduction
+flow. Empty rows and zero allocations are not meaningful deductions.
+
+The derived detail table remains:
 
 ```text
 custom_zatca_advance_deduction_details
@@ -330,7 +349,7 @@ Block saving or submitting when:
 is_advance_payment = 1
 ```
 
-and the advance deduction table contains meaningful rows or amounts.
+and the invoice contains a positive effective ZATCA advance allocation.
 
 Block saving or submitting a final settlement invoice when it is also marked as an initial advance invoice.
 

@@ -16,6 +16,14 @@ import frappe
 import requests
 from zatca_erpgulf.zatca_erpgulf.event_log import log_zatca_event
 from zatca_erpgulf.zatca_erpgulf.pih import update_pih_after_phase2_success
+from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
+    PHASE_1_VALUE,
+    PHASE_2_VALUE,
+    get_b2c_submission_method,
+    get_zatca_environment,
+    is_zatca_invoice_enabled,
+    resolve_zatca_phase,
+)
 
 
 def _is_valid_zatca_uuid_value(value):
@@ -131,9 +139,10 @@ def get_api_url(company_abbr, base_url):
     """There are many api susing in zatca which can be defined by a feild in settings"""
     try:
         company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
-        if company_doc.custom_select == "Sandbox":
+        environment = get_zatca_environment(company_doc)
+        if environment == "Sandbox":
             url = company_doc.custom_sandbox_url + base_url
-        elif company_doc.custom_select == "Simulation":
+        elif environment == "Simulation":
             url = company_doc.custom_simulation_url + base_url
         else:
             url = company_doc.custom_production_url + base_url
@@ -294,7 +303,7 @@ def reporting_api(
         else:
             frappe.throw(f"Production CSID for company {company_abbr} not found.")
             headers = None
-        if company_doc.custom_send_invoice_to_zatca != "Batches":
+        if get_b2c_submission_method(company_doc) != "Batches":
             try:
                 frappe.publish_realtime(
                     "show_gif",
@@ -1594,7 +1603,7 @@ def zatca_background(invoice_number, source_doc, bypass_background_check=False):
         if sales_invoice_doc.custom_zatca_status in ["REPORTED", "CLEARED"]:
             frappe.throw(_("Already submitted to Zakat and Tax Authority"))
 
-        if settings.custom_zatca_invoice_enabled != 1:
+        if not is_zatca_invoice_enabled(settings):
             frappe.throw(
                 _(
                     "ZATCA Invoice is not enabled in Company Settings,"
@@ -1614,7 +1623,7 @@ def zatca_background(invoice_number, source_doc, bypass_background_check=False):
                         + str(invoice_number)
                     )
                 )
-        if settings.custom_phase_1_or_2 == "Phase-2":
+        if resolve_zatca_phase(settings) == PHASE_2_VALUE:
             if field_exists and sales_invoice_doc.custom_unique_id:
                 
                 if is_gpos_installed and sales_invoice_doc.custom_xml:
@@ -1647,7 +1656,7 @@ def zatca_background(invoice_number, source_doc, bypass_background_check=False):
                         sales_invoice_doc, custom_xml_field, invoice_number
                     )
                 elif (
-                    settings.custom_send_invoice_to_zatca == "Background"
+                    get_b2c_submission_method(settings) == "Background"
                     and not bypass_background_check and customer_doc.custom_b2c == 1
                 ):
                     zatca_call_scheduler_background(
@@ -1691,7 +1700,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
             )
         company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
         customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
-        if company_doc.custom_zatca_invoice_enabled != 1:
+        if not is_zatca_invoice_enabled(company_doc):
             # frappe.msgprint("Zatca Invoice is not enabled. Submitting the document.")
             return  # Exit the function without further checks
 
@@ -1715,24 +1724,24 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
             # If the field has data and Phase-1 is enabled, skip QR creation
             if (
                 offline_invoice_number
-                and company_doc.custom_zatca_invoice_enabled == 1
-                and company_doc.custom_phase_1_or_2 == "Phase-1"
+                and is_zatca_invoice_enabled(company_doc)
+                and resolve_zatca_phase(company_doc) == PHASE_1_VALUE
             ):
                 return
             
     # If offline invoice number is blank ? only create QR when Phase-1
-            if company_doc.custom_phase_1_or_2 == "Phase-1":
+            if resolve_zatca_phase(company_doc) == PHASE_1_VALUE:
                 create_qr_code(sales_invoice_doc, method=_method)
                 return
-            if company_doc.custom_phase_1_or_2 == "Phase-2":
+            if resolve_zatca_phase(company_doc) == PHASE_2_VALUE:
         
                 pass 
             
 
         # Separate check for ZATCA Phase-1 condition (when GPOS is not applicable)
         if (
-            company_doc.custom_zatca_invoice_enabled == 1
-            and company_doc.custom_phase_1_or_2 == "Phase-1"
+            is_zatca_invoice_enabled(company_doc)
+            and resolve_zatca_phase(company_doc) == PHASE_1_VALUE
         ):
             create_qr_code(sales_invoice_doc, method=_method)
             return
@@ -2046,11 +2055,11 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
                         + str(invoice_number)
                     )
                 )
-        if settings.custom_phase_1_or_2 == "Phase-2":
+        if resolve_zatca_phase(settings) == PHASE_2_VALUE:
 
             if field_exists and sales_invoice_doc.custom_unique_id:
                 if (
-                    settings.custom_send_invoice_to_zatca == "Background"
+                    get_b2c_submission_method(settings) == "Background"
                     and customer_doc.custom_b2c == 1
                     and not bypass_background_check
                 ):
@@ -2084,7 +2093,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
                         sales_invoice_doc, custom_xml_field, invoice_number
                     )
                 elif (
-                    settings.custom_send_invoice_to_zatca == "Background"
+                    get_b2c_submission_method(settings) == "Background"
                     and not bypass_background_check and customer_doc.custom_b2c == 1
                 ):
                     zatca_call_scheduler_background(

@@ -370,19 +370,3 @@ after_migrate = "zatca_erpgulf.setup_customizations.after_migrate"
 # ZATCA advance payment copy guard
 doc_events.setdefault("Payment Entry", {})
 doc_events["Payment Entry"]["validate"] = "zatca_erpgulf.zatca_erpgulf.advance_payment_debug.cleanup_copied_advance_fields_on_payment_entry_save"
-
-
-# Keep ZATCA custom fields, Property Setters, and layout synchronized after migrations.
-_zatca_after_migrate_sync = "zatca_erpgulf.setup_customizations.run_zatca_customization_sync_after_migrate"
-_existing_after_migrate = after_migrate if "after_migrate" in globals() else []
-
-if isinstance(_existing_after_migrate, str):
-    after_migrate = [_existing_after_migrate]
-else:
-    after_migrate = list(_existing_after_migrate or [])
-
-if _zatca_after_migrate_sync not in after_migrate:
-    after_migrate.append(_zatca_after_migrate_sync)
-
-del _zatca_after_migrate_sync
-del _existing_after_migrate
