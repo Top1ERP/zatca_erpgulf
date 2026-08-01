@@ -8,7 +8,7 @@
 | Application | `zatca_erpgulf` |
 | Initial test site | `squareangles.top1erp.com` |
 | Related audit | `CURRENT_STATE_AUDIT.md` |
-| Current branch | `fix/return-credit-note-advance-validation` |
+| Repository state | Phase 1 merged into `main` through PR `#27` at `63f8952` |
 
 This document records the architectural decisions governing the migration from the custom `ZATCA Advance Tax Invoice` workflow to standard Sales Invoice documents.
 

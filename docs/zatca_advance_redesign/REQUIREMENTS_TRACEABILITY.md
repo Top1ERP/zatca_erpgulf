@@ -9,7 +9,7 @@
 | Initial test site | `squareangles.top1erp.com` |
 | Audit document | `CURRENT_STATE_AUDIT.md` |
 | Decisions document | `ARCHITECTURE_DECISIONS.md` |
-| Current branch | `fix/return-credit-note-advance-validation` |
+| Repository state | Phase 1 merged into `main` through PR `#27` at `63f8952` |
 
 This document maps the approved redesign requirements to their current state, implementation phase, branch, and verification method.
 
@@ -383,10 +383,20 @@ A requirement may be marked `Completed` only after its acceptance tests pass and
 
 ## Phase 1 evidence record
 
-Branch:
+Implementation branch:
 
 ```text
 fix/return-credit-note-advance-validation
+```
+
+Merge record:
+
+```text
+Implementation commit: 882cac5
+Pull Request: #27
+Merge commit: 63f8952
+Merged into: main
+Merged at: 2026-08-01T00:18:57Z
 ```
 
 Evidence:
