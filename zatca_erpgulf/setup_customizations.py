@@ -595,6 +595,42 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
 }
 
 
+OBSOLETE_LEGACY_ADVANCE_FIELDS = {
+    "Company": {
+        "custom_zatca_advance_payment_section",
+        "custom_zatca_advance_payment_enabled",
+        "custom_zatca_advance_payment_submission_mode",
+        "custom_zatca_advance_default_tc_name",
+        "custom_zatca_advance_signing_enabled",
+        "custom_zatca_advance_api_submission_enabled",
+    },
+    "Payment Entry": {
+        "custom_zatca_advance_section",
+        "custom_zatca_is_advance_payment",
+        "custom_zatca_advance_tax_invoice",
+        "custom_zatca_advance_invoice_status",
+        "custom_zatca_advance_invoice_uuid",
+        "custom_zatca_advance_qr_code",
+        "custom_zatca_advance_xml",
+        "custom_zatca_advance_last_debug_at",
+        "custom_zatca_advance_full_response",
+    },
+    "Sales Invoice": {
+        "custom_is_advance_credit_note",
+        "custom_advance_invoice_reference",
+    },
+}
+
+
+for _doctype, _obsolete_fieldnames in OBSOLETE_LEGACY_ADVANCE_FIELDS.items():
+    if _doctype in CRITICAL_CUSTOM_FIELDS:
+        CRITICAL_CUSTOM_FIELDS[_doctype] = [
+            field
+            for field in CRITICAL_CUSTOM_FIELDS[_doctype]
+            if field.get("fieldname") not in _obsolete_fieldnames
+        ]
+
+
 # If you later add a property_setter.json, this code will sync it.
 # You can also define essential property setters here.
 CRITICAL_PROPERTY_SETTERS: list[dict[str, Any]] = [
@@ -5025,13 +5061,9 @@ def sync_all_zatca_customizations() -> dict[str, Any]:
 
     custom_fields_result = sync_custom_fields_from_fixture()
     critical_fields_result = ensure_critical_custom_fields()
-    payment_entry_advance_fields_result = sync_payment_entry_advance_fields()
-    advance_company_field_visibility_result = sync_advance_company_field_visibility()
-    advance_taxes_included_default_result = sync_advance_taxes_included_in_paid_amount_default()
     sales_invoice_advance_detail_table_result = sync_sales_invoice_advance_deduction_detail_table_field()
     sales_invoice_advance_total_fields_result = sync_sales_invoice_advance_deduction_total_fields()
     zatca_advance_final_invoice_layout_result = sync_zatca_advance_final_invoice_layout()
-    zatca_advance_reversal_layout_result = sync_zatca_advance_reversal_fields_layout()
     arabic_name_cleanup_result = cleanup_arabic_name_fields()
     arabic_name_layout_result = normalize_arabic_name_field_layout()
     force_customer_layout_result = force_customer_arabic_and_tax_layout()
@@ -5069,13 +5101,9 @@ def sync_all_zatca_customizations() -> dict[str, Any]:
         "frappe_major": frappe_major,
         "custom_fields": custom_fields_result,
         "critical_custom_fields": critical_fields_result,
-        "payment_entry_advance_fields": payment_entry_advance_fields_result,
-        "advance_company_field_visibility": advance_company_field_visibility_result,
-        "advance_taxes_included_default": advance_taxes_included_default_result,
         "sales_invoice_advance_detail_table": sales_invoice_advance_detail_table_result,
         "sales_invoice_advance_total_fields": sales_invoice_advance_total_fields_result,
         "zatca_advance_final_invoice_layout": zatca_advance_final_invoice_layout_result,
-        "zatca_advance_reversal_layout": zatca_advance_reversal_layout_result,
         "arabic_name_cleanup": arabic_name_cleanup_result,
         "arabic_name_layout": arabic_name_layout_result,
         "customer_zatca_tax_layout": customer_zatca_tax_layout_result,

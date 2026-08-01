@@ -7,7 +7,6 @@ from frappe.tests.utils import FrappeTestCase
 from zatca_erpgulf.setup_customizations import CRITICAL_CUSTOM_FIELDS
 from zatca_erpgulf.zatca_erpgulf.advance_payment_entry import (
     _amounts_match,
-    _get_active_legacy_advance_invoice,
     _payment_entry_mapping,
     _validate_existing_link_allocations,
     _validate_payment_entry_source,
@@ -57,11 +56,10 @@ def _payment_entry(**overrides):
         "total_taxes_and_charges": 0,
         "base_total_taxes_and_charges": 0,
         "taxes": [],
-        "custom_zatca_advance_tax_invoice": "",
     }
     values.update(overrides)
     return _Doc(
-        fields={"custom_zatca_advance_tax_invoice"},
+        fields=set(),
         **values,
     )
 
@@ -244,7 +242,7 @@ class TestPhase3PaymentEntryMapping(FrappeTestCase):
             )
 
 
-class TestPhase3DuplicateAndLegacyGuards(FrappeTestCase):
+class TestPhase3DuplicateAndAllocationGuards(FrappeTestCase):
     @patch("zatca_erpgulf.zatca_erpgulf.advance_payment_entry.frappe.get_meta")
     @patch("zatca_erpgulf.zatca_erpgulf.advance_payment_entry.frappe.db.get_value")
     def test_active_standard_invoice_is_found(self, get_value, get_meta):
@@ -262,33 +260,7 @@ class TestPhase3DuplicateAndLegacyGuards(FrappeTestCase):
         get_meta.return_value = _Meta()
         self.assertEqual(get_active_standard_advance_invoice("ACC-PAY-0001"), "")
 
-    @patch("zatca_erpgulf.zatca_erpgulf.advance_payment_entry.frappe.get_meta")
-    @patch("zatca_erpgulf.zatca_erpgulf.advance_payment_entry.frappe.db.exists")
-    @patch("zatca_erpgulf.zatca_erpgulf.advance_payment_entry.frappe.db.get_value")
-    def test_active_legacy_invoice_is_found(self, get_value, exists, get_meta):
-        get_meta.return_value = _Meta({"custom_zatca_advance_tax_invoice"})
-        exists.return_value = True
-        get_value.return_value = 0
-        self.assertEqual(
-            _get_active_legacy_advance_invoice(
-                _payment_entry(custom_zatca_advance_tax_invoice="ZADV-0001")
-            ),
-            "ZADV-0001",
-        )
 
-    @patch("zatca_erpgulf.zatca_erpgulf.advance_payment_entry.frappe.get_meta")
-    @patch("zatca_erpgulf.zatca_erpgulf.advance_payment_entry.frappe.db.exists")
-    @patch("zatca_erpgulf.zatca_erpgulf.advance_payment_entry.frappe.db.get_value")
-    def test_cancelled_legacy_invoice_allows_recreation(self, get_value, exists, get_meta):
-        get_meta.return_value = _Meta({"custom_zatca_advance_tax_invoice"})
-        exists.return_value = True
-        get_value.return_value = 2
-        self.assertEqual(
-            _get_active_legacy_advance_invoice(
-                _payment_entry(custom_zatca_advance_tax_invoice="ZADV-0001")
-            ),
-            "",
-        )
 
     def test_allocation_to_linked_sales_invoice_is_allowed(self):
         payment_entry = _payment_entry(
@@ -348,9 +320,6 @@ class TestPhase3SalesInvoiceLinkValidation(FrappeTestCase):
             )
 
     @patch(
-        "zatca_erpgulf.zatca_erpgulf.advance_payment_entry._ensure_no_active_legacy_advance_invoice"
-    )
-    @patch(
         "zatca_erpgulf.zatca_erpgulf.advance_payment_entry.ensure_payment_entry_has_no_active_standard_advance_invoice"
     )
     @patch(
@@ -367,15 +336,11 @@ class TestPhase3SalesInvoiceLinkValidation(FrappeTestCase):
         get_doc,
         validate_source,
         _standard_guard,
-        _legacy_guard,
     ):
         get_doc.return_value = _payment_entry()
         validate_source.return_value = _payment_entry_mapping(get_doc.return_value)
         validate_sales_invoice_payment_entry_link(self._invoice())
 
-    @patch(
-        "zatca_erpgulf.zatca_erpgulf.advance_payment_entry._ensure_no_active_legacy_advance_invoice"
-    )
     @patch(
         "zatca_erpgulf.zatca_erpgulf.advance_payment_entry.ensure_payment_entry_has_no_active_standard_advance_invoice"
     )
@@ -388,7 +353,6 @@ class TestPhase3SalesInvoiceLinkValidation(FrappeTestCase):
         get_doc,
         validate_source,
         _standard_guard,
-        _legacy_guard,
     ):
         get_doc.return_value = _payment_entry()
         validate_source.return_value = _payment_entry_mapping(get_doc.return_value)
@@ -397,9 +361,6 @@ class TestPhase3SalesInvoiceLinkValidation(FrappeTestCase):
                 self._invoice(company="Other Company")
             )
 
-    @patch(
-        "zatca_erpgulf.zatca_erpgulf.advance_payment_entry._ensure_no_active_legacy_advance_invoice"
-    )
     @patch(
         "zatca_erpgulf.zatca_erpgulf.advance_payment_entry.ensure_payment_entry_has_no_active_standard_advance_invoice"
     )
@@ -412,7 +373,6 @@ class TestPhase3SalesInvoiceLinkValidation(FrappeTestCase):
         get_doc,
         validate_source,
         _standard_guard,
-        _legacy_guard,
     ):
         get_doc.return_value = _payment_entry()
         validate_source.return_value = _payment_entry_mapping(get_doc.return_value)
@@ -421,9 +381,6 @@ class TestPhase3SalesInvoiceLinkValidation(FrappeTestCase):
                 self._invoice(customer="Other Customer")
             )
 
-    @patch(
-        "zatca_erpgulf.zatca_erpgulf.advance_payment_entry._ensure_no_active_legacy_advance_invoice"
-    )
     @patch(
         "zatca_erpgulf.zatca_erpgulf.advance_payment_entry.ensure_payment_entry_has_no_active_standard_advance_invoice"
     )
@@ -441,16 +398,12 @@ class TestPhase3SalesInvoiceLinkValidation(FrappeTestCase):
         get_doc,
         validate_source,
         _standard_guard,
-        _legacy_guard,
     ):
         get_doc.return_value = _payment_entry()
         validate_source.return_value = _payment_entry_mapping(get_doc.return_value)
         with self.assertRaisesRegex(frappe.ValidationError, "currency must match"):
             validate_sales_invoice_payment_entry_link(self._invoice(currency="USD"))
 
-    @patch(
-        "zatca_erpgulf.zatca_erpgulf.advance_payment_entry._ensure_no_active_legacy_advance_invoice"
-    )
     @patch(
         "zatca_erpgulf.zatca_erpgulf.advance_payment_entry.ensure_payment_entry_has_no_active_standard_advance_invoice"
     )
@@ -468,7 +421,6 @@ class TestPhase3SalesInvoiceLinkValidation(FrappeTestCase):
         get_doc,
         validate_source,
         _standard_guard,
-        _legacy_guard,
     ):
         get_doc.return_value = _payment_entry(source_exchange_rate=3.75)
         validate_source.return_value = _payment_entry_mapping(get_doc.return_value)
@@ -477,9 +429,6 @@ class TestPhase3SalesInvoiceLinkValidation(FrappeTestCase):
                 self._invoice(conversion_rate=1)
             )
 
-    @patch(
-        "zatca_erpgulf.zatca_erpgulf.advance_payment_entry._ensure_no_active_legacy_advance_invoice"
-    )
     @patch(
         "zatca_erpgulf.zatca_erpgulf.advance_payment_entry.ensure_payment_entry_has_no_active_standard_advance_invoice"
     )
@@ -497,7 +446,6 @@ class TestPhase3SalesInvoiceLinkValidation(FrappeTestCase):
         get_doc,
         validate_source,
         _standard_guard,
-        _legacy_guard,
     ):
         get_doc.return_value = _payment_entry()
         validate_source.return_value = _payment_entry_mapping(get_doc.return_value)

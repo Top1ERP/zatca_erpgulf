@@ -367,106 +367,24 @@ def _append_tax_totals(invoice, currency, tax_breakdown, sales_invoice_doc):
     return total_tax, q2(subtotal_tax_sum)
 
 
-ACCEPTED_ZATCA_ADVANCE_STATUSES = {"REPORTED", "CLEARED"}
-
-
-def _normalize_zatca_status(value):
-    return str(value or "").strip().upper()
-
-
 def _get_prepaid_amount_from_standard_advances(sales_invoice_doc):
-    # Get tax-inclusive prepaid amount from ERPNext standard Sales Invoice advances.
-    # Only Payment Entries linked to a REPORTED/CLEARED/PHASE-1-QR ZATCA Advance Tax Invoice are counted.
-    rows = getattr(sales_invoice_doc, "advances", None) or []
-    total = Decimal("0.00")
+    from zatca_erpgulf.zatca_erpgulf.advance_deduction import (
+        get_standard_advance_deduction_rows,
+    )
 
-    for row in rows:
-        payment_entry = (
-            getattr(row, "reference_name", None)
-            or getattr(row, "reference", None)
-            or getattr(row, "payment_entry", None)
-            or ""
-        )
-
-        if not payment_entry:
-            continue
-
-        allocated_amount = q2(
-            getattr(row, "allocated_amount", None)
-            or getattr(row, "advance_amount", None)
-            or 0
-        )
-
-        if allocated_amount <= Decimal("0.00"):
-            continue
-
-        if not frappe.db.exists("Payment Entry", payment_entry):
-            continue
-
-        payment_entry_meta = frappe.get_meta("Payment Entry")
-        if not payment_entry_meta.has_field("custom_zatca_advance_tax_invoice"):
-            continue
-
-        advance_tax_invoice = frappe.db.get_value(
-            "Payment Entry",
-            payment_entry,
-            "custom_zatca_advance_tax_invoice",
-        )
-
-        if not advance_tax_invoice:
-            continue
-
-        advance = frappe.db.get_value(
-            "ZATCA Advance Tax Invoice",
-            advance_tax_invoice,
-            [
-                "company",
-                "customer",
-                "total_amount",
-                "zatca_status",
-            ],
-            as_dict=True,
-        )
-
-        if not advance:
-            frappe.throw(
-                _(
-                    f"Payment Entry {payment_entry} is linked to missing "
-                    f"ZATCA Advance Tax Invoice {advance_tax_invoice}."
+    return q2(
+        sum(
+            (
+                row["allocated_total_amount"]
+                for row in get_standard_advance_deduction_rows(
+                    sales_invoice_doc,
+                    strict=True,
                 )
-            )
-
-        if advance.get("company") and advance.get("company") != sales_invoice_doc.company:
-            frappe.throw(
-                _(
-                    f"ZATCA advance deduction {advance_tax_invoice} belongs to company "
-                    f"{advance.get('company')}, but this Sales Invoice belongs to "
-                    f"{sales_invoice_doc.company}."
-                )
-            )
-
-        if advance.get("customer") and advance.get("customer") != sales_invoice_doc.customer:
-            frappe.throw(
-                _(
-                    f"ZATCA advance deduction {advance_tax_invoice} belongs to customer "
-                    f"{advance.get('customer')}, but this Sales Invoice belongs to "
-                    f"{sales_invoice_doc.customer}."
-                )
-            )
-
-        zatca_status = _normalize_zatca_status(advance.get("zatca_status"))
-        if zatca_status not in ACCEPTED_ZATCA_ADVANCE_STATUSES:
-            frappe.throw(
-                _(
-                    f"Payment Entry {payment_entry} is linked to ZATCA Advance Tax Invoice "
-                    f"{advance_tax_invoice}, but its ZATCA status is '{advance.get('zatca_status')}'. "
-                    f"Only REPORTED or CLEARED advance tax invoices can be deducted in the final invoice XML."
-                )
-            )
-
-        total += allocated_amount
-
-    return q2(total)
+                if row["allocated_total_amount"] > Decimal("0.00")
+            ),
+            Decimal("0.00"),
+        )
+    )
 
 
 def _get_prepaid_amount(sales_invoice_doc):

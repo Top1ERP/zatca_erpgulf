@@ -221,31 +221,6 @@ def ensure_payment_entry_has_no_active_standard_advance_invoice(
         )
 
 
-def _get_active_legacy_advance_invoice(payment_entry) -> str:
-    payment_entry_meta = frappe.get_meta("Payment Entry")
-    if not payment_entry_meta.has_field("custom_zatca_advance_tax_invoice"):
-        return ""
-
-    legacy_name = getattr(payment_entry, "custom_zatca_advance_tax_invoice", None)
-    if not legacy_name or not frappe.db.exists("ZATCA Advance Tax Invoice", legacy_name):
-        return ""
-
-    docstatus = frappe.db.get_value(
-        "ZATCA Advance Tax Invoice", legacy_name, "docstatus"
-    )
-    return legacy_name if cint(docstatus) < 2 else ""
-
-
-def _ensure_no_active_legacy_advance_invoice(payment_entry) -> None:
-    legacy_name = _get_active_legacy_advance_invoice(payment_entry)
-    if legacy_name:
-        frappe.throw(
-            _(
-                "Payment Entry {0} is already linked to legacy ZATCA Advance Tax Invoice {1}."
-            ).format(payment_entry.name, legacy_name)
-        )
-
-
 def _get_preferred_deferred_revenue_account(company_doc) -> str:
     company_meta = frappe.get_meta("Company")
     if not company_meta.has_field("default_deferred_revenue_account"):
@@ -399,7 +374,6 @@ def create_advance_sales_invoice_from_payment_entry(payment_entry_name: str) -> 
     _require_create_permissions(payment_entry)
     mapping = _validate_payment_entry_source(payment_entry)
     ensure_payment_entry_has_no_active_standard_advance_invoice(payment_entry.name)
-    _ensure_no_active_legacy_advance_invoice(payment_entry)
 
     invoice = _build_advance_sales_invoice(payment_entry, mapping)
     return invoice.as_dict()
@@ -425,7 +399,6 @@ def validate_sales_invoice_payment_entry_link(doc, event=None) -> None:
         payment_entry_name,
         exclude=doc.name or "",
     )
-    _ensure_no_active_legacy_advance_invoice(payment_entry)
 
     if doc.company != mapping["company"]:
         frappe.throw(_("Sales Invoice Company must match Payment Entry Company."))

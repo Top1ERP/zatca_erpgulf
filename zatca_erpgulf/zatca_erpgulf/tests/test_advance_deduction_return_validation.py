@@ -35,8 +35,7 @@ class _FakeSalesInvoice:
         customer="Test Customer",
         currency="SAR",
         grand_total=0,
-        custom_is_advance_credit_note=0,
-        custom_advance_invoice_reference="",
+        return_against="",
     ):
         self.doctype = "Sales Invoice"
         self.name = "TEST-SINV"
@@ -48,8 +47,7 @@ class _FakeSalesInvoice:
         self.currency = currency
         self.grand_total = grand_total
         self.rounded_total = grand_total
-        self.custom_is_advance_credit_note = custom_is_advance_credit_note
-        self.custom_advance_invoice_reference = custom_advance_invoice_reference
+        self.return_against = return_against
         self.taxes = list(taxes or [])
         self.advances = list(advances or [])
         self.custom_zatca_advance_deduction_details = []
@@ -109,7 +107,7 @@ def _deduction_row(*, taxable, tax, total, payment_entry="ACC-PAY-TEST"):
 
     return {
         "payment_entry": payment_entry,
-        "advance_tax_invoice": "ZADV-TEST",
+        "advance_invoice": "SINV-ADV-TEST",
         "allocated_amount": taxable,
         "allocated_taxable_amount": taxable,
         "allocated_tax_amount": tax,
@@ -164,7 +162,7 @@ class TestAdvanceDeductionReturnValidation(FrappeTestCase):
 
         with patch(
             "zatca_erpgulf.zatca_erpgulf.advance_deduction."
-            "_get_linked_zatca_advance_invoice"
+            "get_advance_sales_invoice_for_payment_entry"
         ) as get_link:
             validate_sales_invoice_advance_deductions(doc)
 
@@ -182,8 +180,8 @@ class TestAdvanceDeductionReturnValidation(FrappeTestCase):
 
         with patch(
             "zatca_erpgulf.zatca_erpgulf.advance_deduction."
-            "_get_linked_zatca_advance_invoice",
-            return_value="ZADV-TEST",
+            "get_advance_sales_invoice_for_payment_entry",
+            return_value=SimpleNamespace(name="SINV-ADV-TEST"),
         ):
             with self.assertRaisesRegex(
                 frappe.ValidationError,
@@ -203,8 +201,8 @@ class TestAdvanceDeductionReturnValidation(FrappeTestCase):
 
         with patch(
             "zatca_erpgulf.zatca_erpgulf.advance_deduction."
-            "_get_linked_zatca_advance_invoice",
-            return_value="",
+            "get_advance_sales_invoice_for_payment_entry",
+            return_value=None,
         ):
             validate_sales_invoice_advance_deductions(doc)
 
@@ -307,23 +305,21 @@ class TestAdvanceDeductionReturnValidation(FrappeTestCase):
             net_total=-400,
             taxes=[_tax_row(-60)],
             grand_total=-460,
-            custom_is_advance_credit_note=1,
-            custom_advance_invoice_reference="ZADV-TEST",
+            return_against="SINV-ADV-TEST",
         )
         advance_doc = SimpleNamespace(
+            name="SINV-ADV-TEST",
             company=doc.company,
             customer=doc.customer,
             currency=doc.currency,
-            total_amount=1000,
-            zatca_status="Cleared",
-            zatca_clearance_status=None,
-            zatca_reporting_status=None,
+            grand_total=1000,
+            rounded_total=1000,
         )
 
         validate_sales_invoice_advance_deductions(doc)
 
         with patch(
-            "zatca_erpgulf.zatca_erpgulf.advance_credit_note._get_advance_doc",
+            "zatca_erpgulf.zatca_erpgulf.advance_credit_note.get_advance_sales_invoice_from_return",
             return_value=advance_doc,
         ), patch(
             "zatca_erpgulf.zatca_erpgulf.advance_credit_note."
@@ -340,23 +336,21 @@ class TestAdvanceDeductionReturnValidation(FrappeTestCase):
             net_total=-1000,
             taxes=[_tax_row(-150)],
             grand_total=-1100,
-            custom_is_advance_credit_note=1,
-            custom_advance_invoice_reference="ZADV-TEST",
+            return_against="SINV-ADV-TEST",
         )
         advance_doc = SimpleNamespace(
+            name="SINV-ADV-TEST",
             company=doc.company,
             customer=doc.customer,
             currency=doc.currency,
-            total_amount=1000,
-            zatca_status="Reported",
-            zatca_clearance_status=None,
-            zatca_reporting_status=None,
+            grand_total=1000,
+            rounded_total=1000,
         )
 
         validate_sales_invoice_advance_deductions(doc)
 
         with patch(
-            "zatca_erpgulf.zatca_erpgulf.advance_credit_note._get_advance_doc",
+            "zatca_erpgulf.zatca_erpgulf.advance_credit_note.get_advance_sales_invoice_from_return",
             return_value=advance_doc,
         ), patch(
             "zatca_erpgulf.zatca_erpgulf.advance_credit_note."
