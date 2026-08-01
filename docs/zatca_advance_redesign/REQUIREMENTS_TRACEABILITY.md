@@ -9,7 +9,7 @@
 | Initial test site | `squareangles.top1erp.com` |
 | Audit document | `CURRENT_STATE_AUDIT.md` |
 | Decisions document | `ARCHITECTURE_DECISIONS.md` |
-| Current branch | `audit/zatca-advance-current-state` |
+| Current branch | `fix/return-credit-note-advance-validation` |
 
 This document maps the approved redesign requirements to their current state, implementation phase, branch, and verification method.
 
@@ -175,12 +175,14 @@ Planned branch: `feature/advance-deduction-multicurrency`.
 
 | ID | Requirement | Current state | Phase | Branch | Verification |
 |---|---|---|---|---|---|
-| CN-001 | Ordinary credit note without deductions is not blocked | Current regression | Phase 1 | `fix/return-credit-note-advance-validation` | Regression test |
-| CN-002 | Empty deduction table does not trigger comparison | Current regression | Phase 1 | Same branch | Regression test |
-| CN-003 | Zero deduction is not compared to negative total | Current regression | Phase 1 | Same branch | Regression test |
-| CN-004 | Positive final-invoice limit remains active | Must be preserved | Phase 1 | Same branch | Positive test |
-| CN-005 | Do not use unconditional bypass | Constraint | Phase 1 | Same branch | Code review |
-| CN-006 | Do not blindly use absolute values | Constraint | Phase 1 | Same branch | Code review |
+| CN-001 | Ordinary credit note without deductions is not blocked | Implemented and verified | Phase 1 | `fix/return-credit-note-advance-validation` | Automated validation and Draft `CN-RET-2026-00002` save |
+| CN-002 | Empty deduction table does not trigger comparison | Implemented and verified | Phase 1 | Same branch | Focused automated regression test |
+| CN-003 | Zero deduction is not compared to negative total | Implemented and verified | Phase 1 | Same branch | Focused automated regression test |
+| CN-004 | Positive final-invoice limit remains active | Verified | Phase 1 | Same branch | Valid and excessive positive-invoice tests |
+| CN-005 | Do not use unconditional bypass | Verified | Phase 1 | Same branch | Narrow return-path guard and code review |
+| CN-006 | Do not blindly use absolute values | Verified | Phase 1 | Same branch | Negative return signs preserved and code review |
+| CN-013 | Block positive legacy-ZATCA advance allocations applied directly to a return | Implemented and verified | Phase 1 | Same branch | Focused blocking test and Arabic validation message |
+| CN-014 | Preserve dedicated advance-credit-note validation | Implemented and verified | Phase 1 | Same branch | Valid and excessive advance-credit-note tests |
 | CN-007 | Allow partial advance credit note | Incomplete | Phase 6 | `feature/advance-credit-note-reversal` | Partial reversal |
 | CN-008 | Allow full advance credit note | Incomplete | Phase 6 | Same branch | Full reversal |
 | CN-009 | Release balance using base equivalent | Not Implemented | Phase 6 | Same branch | Currency reversal |
@@ -376,3 +378,30 @@ After every implementation phase:
 7. update `CURRENT_STATUS.md`.
 
 A requirement may be marked `Completed` only after its acceptance tests pass and the relevant Git diff has been reviewed.
+
+---
+
+## Phase 1 evidence record
+
+Branch:
+
+```text
+fix/return-credit-note-advance-validation
+```
+
+Evidence:
+
+```text
+12 focused tests passed
+10 existing regression tests passed
+22 total automated tests passed
+py_compile passed
+Draft CN-RET-2026-00002 saved against SINV-2026-00024
+No migration or schema change
+```
+
+Remaining site evidence not claimed:
+
+- ordinary credit-note Submit;
+- ordinary credit-note Cancel and GL reversal;
+- ordinary positive Sales Invoice Submit.

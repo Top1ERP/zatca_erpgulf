@@ -8,7 +8,7 @@
 | Application | `zatca_erpgulf` |
 | Initial test site | `squareangles.top1erp.com` |
 | Related audit | `CURRENT_STATE_AUDIT.md` |
-| Current branch | `audit/zatca-advance-current-state` |
+| Current branch | `fix/return-credit-note-advance-validation` |
 
 This document records the architectural decisions governing the migration from the custom `ZATCA Advance Tax Invoice` workflow to standard Sales Invoice documents.
 
@@ -1150,3 +1150,42 @@ Every future change to an accepted decision must record:
 - rollback implications.
 
 No implementation phase is complete until this document, `REQUIREMENTS_TRACEABILITY.md`, `TEST_MATRIX.md`, and `CURRENT_STATUS.md` are updated.
+
+---
+
+## Phase 1 decision record — sign-aware return validation
+
+### Decision
+
+Ordinary Sales Invoice returns do not enter the positive final-invoice ZATCA advance-deduction calculation.
+
+### Rationale
+
+Returns preserve negative invoice and tax signs. Comparing a zero or positive advance-deduction amount against a negative return total is not a valid settlement limit and caused the observed regression.
+
+### Rules
+
+1. Preserve negative return signs.
+2. Do not apply a blind `abs()` conversion to general advance-deduction validation.
+3. Ignore zero allocations before resolving linked ZATCA advance documents.
+4. Block positive allocations linked to the legacy ZATCA advance flow when applied directly to a return.
+5. Do not block positive non-ZATCA allocations through this validator.
+6. Remove stale ZATCA advance VAT-deduction tax rows from returns.
+7. Clear derived advance-deduction detail and total fields on returns.
+8. Preserve VAT and total limits for positive final invoices.
+9. Preserve the dedicated `advance_credit_note.py` validation for valid and excessive advance credit notes.
+
+### Scope boundary
+
+This decision fixes the ordinary return regression only.
+
+It does not implement the future final-invoice settlement reversal architecture, which remains assigned to the dedicated credit-note reversal phase.
+
+### Verification
+
+```text
+12 focused Phase 1 tests passed
+10 existing regression tests passed
+Draft CN-RET-2026-00002 saved successfully
+No migration or schema change
+```
