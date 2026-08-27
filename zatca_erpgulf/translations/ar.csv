@@ -1,3 +1,6 @@
+ZATCA Tax Category is required when any Tax Rates row uses a Tax Account.,فئة ضريبة ZATCA مطلوبة عندما يستخدم أي صف في جدول معدلات الضرائب حسابًا من نوع Tax.
+Standard ZATCA tax category requires at least one tax row with a rate greater than zero in {0}.,تتطلب فئة ZATCA القياسية وجود صف ضريبة واحد على الأقل بمعدل أكبر من صفر في {0}.
+Default Exemption Reason Code,رمز سبب الإعفاء الافتراضي
 - ... and {0} more invalid values.,- ... و{0} قيم غير صحيحة إضافية.
 "- Row {0}, Item {1}, {2}: {3}. {4}",- السطر {0}، الصنف {1}، {2}: {3}. {4}
 "- Row {0}, {1}: {2}. {3}",- السطر {0}، {1}: {2}. {3}
@@ -156,7 +159,7 @@ ZATCA POS Machine name,اسم جهاز نقطة البيع ZATCA
 Offline-Integrations,التكاملات غير المتصلة
 Offline Integrations,التكاملات غير المتصلة
 ZATCA Advance Deductions,خصومات الدفعات المقدمة ZATCA
-Automatically summarizes accepted ZATCA advance deductions from standard advance payments in the system.,يلخص تلقائيًا خصومات الدفعات المقدمة المقبولة في هيئة الزكاة والضرائب من الدفعات المقدمة القياسية في النظام.
+Automatically summarizes accepted ZATCA advance deductions from System standard Advance Payments.,يلخص تلقائيًا خصومات الدفعات المقدمة المقبولة في هيئة الزكاة والضرائب من الدفعات المقدمة القياسية في النظام.
 ZATCA Prepaid Amount,مبلغ الدفعة المقدمة ZATCA
 Tax-inclusive prepaid amount used for cbc:PrepaidAmount,مبلغ الدفعة المقدمة شامل الضريبة المستخدم في cbc:PrepaidAmount
 Tax-inclusive prepaid amount used for cbc:PrepaidAmount.,مبلغ الدفعة المقدمة شامل الضريبة المستخدم في cbc:PrepaidAmount.
@@ -369,8 +372,8 @@ Cannot add ZATCA advance VAT deduction because VAT account is missing.,لا يم
 ZATCA Advance VAT Deduction {0},خصم ضريبة دفعة مقدمة - زاتكا {0}
 "ZATCA advance VAT deduction cannot exceed the Sales Invoice VAT amount. Advance VAT {0}, Sales Invoice VAT {1}.",لا يمكن أن يتجاوز خصم ضريبة الدفعة المقدمة - زاتكا مبلغ ضريبة فاتورة المبيعات. ضريبة الدفعة المقدمة {0}، ضريبة فاتورة المبيعات {1}.
 "ZATCA advance deduction cannot exceed the Sales Invoice total including VAT. Advance total {0}, Sales Invoice total {1}.",لا يمكن أن يتجاوز خصم الدفعة المقدمة - زاتكا إجمالي فاتورة المبيعات شامل الضريبة. إجمالي الدفعة المقدمة {0}، إجمالي فاتورة المبيعات {1}.
-ZATCA Advance Deduction Totals,إجماليات خصم الدفعات المقدمة - زاتكا
-Automatically summarizes accepted ZATCA advance deductions from standard Advance Payments in the system.,يلخص تلقائيًا الدفعات المقدمة المقبولة من جدول الدفعات المقدمة القياسي في النظام.
+ZATCA Advance Deduction,خصم الدفعات المقدمة - زاتكا
+Automatically summarizes accepted ZATCA advance deductions from System standard Advance Payments.,يلخص تلقائيًا الدفعات المقدمة المقبولة من جدول الدفعات المقدمة القياسي في النظام.
 ZATCA Advance Applied Amount Before VAT,مجموع الدفعات المقدمة المحتسب قبل الضريبة
 ZATCA Advance Applied VAT Amount,مجموع ضريبة الدفعات المقدمة المحتسبة
 Total taxable amount applied from linked advance-payment Sales Invoices.,مجموع المبالغ قبل الضريبة المحتسبة من فواتير مبيعات الدفعات المقدمة المرتبطة.
@@ -402,3 +405,103 @@ Available after this allocation: {0},الرصيد المتاح بعد هذا ا�
 Advance allocation from {0},تسوية دفعة مقدمة من {0}
 Advance VAT allocation from {0},تسوية ضريبة دفعة مقدمة من {0}
 Advance payment applied from {0},دفعة مقدمة محتسبة من {0}
+Advance Payment,دفعة مقدمة
+"An advance payment invoice must contain a positive tax. Add a valid Taxes and Charges row before saving.",يجب أن تحتوي فاتورة الدفعة المقدمة على ضريبة موجبة. أضف صفًا صالحًا في الضرائب والرسوم قبل الحفظ.
+Item {0} is missing. Create the advance payment item first.,الصنف {0} غير موجود. أنشئ صنف الدفعة المقدمة أولًا.
+Item {0} is disabled.,الصنف {0} معطل.
+"The Payment Entry linked to advance payment Sales Invoice {0} must remain fully unallocated. It is reserved for the final Sales Invoice.",يجب أن يبقى سند القبض المرتبط بفاتورة الدفعة المقدمة {0} غير موزع بالكامل لأنه محجوز للفاتورة النهائية.
+"The Payment Entry linked to advance payment Sales Invoice {0} may be allocated only to a submitted final Sales Invoice that consumes that advance.",لا يجوز تخصيص سند القبض المرتبط بفاتورة الدفعة المقدمة {0} إلا لفاتورة مبيعات نهائية معتمدة تستهلك تلك الدفعة المقدمة.
+"Use this only for the initial advance payment invoice, not for the final invoice.",استخدم هذا الخيار فقط لفاتورة الدفعة المقدمة الأولى، وليس للفاتورة النهائية.
+"Select only one invoice type: Is Return (Credit Note), Is Rate Adjustment Entry (Debit Note), or Is Advance Payment Invoice.",اختر نوعًا واحدًا فقط للفاتورة: إشعار دائن أو إشعار مدين لتعديل السعر أو فاتورة دفعة مقدمة.
+"Advance payment Sales Invoices cannot be included in Dunning: {0}","لا يمكن تضمين فواتير مبيعات الدفعات المقدمة في المطالبة: {0}"
+"Dunning cannot be created for an advance payment Sales Invoice.","لا يمكن إنشاء مطالبة لفاتورة مبيعات دفعة مقدمة."
+"Advance payment Sales Invoice {0} belongs to company {1}, but this Sales Invoice belongs to {2}.","فاتورة مبيعات الدفعة المقدمة {0} تخص الشركة {1}، بينما تخص فاتورة المبيعات هذه الشركة {2}."
+"Advance payment Sales Invoice {0} belongs to customer {1}, but this Sales Invoice belongs to {2}.","فاتورة مبيعات الدفعة المقدمة {0} تخص العميل {1}، بينما تخص فاتورة المبيعات هذه العميل {2}."
+"Advance payment Sales Invoice {0} currency is {1}, but this Sales Invoice currency is {2}.","عملة فاتورة مبيعات الدفعة المقدمة {0} هي {1}، بينما عملة فاتورة المبيعات هذه هي {2}."
+"Advance payment Sales Invoice {0} exchange rate is {1}, but this Sales Invoice exchange rate is {2}.","سعر صرف فاتورة مبيعات الدفعة المقدمة {0} هو {1}، بينما سعر صرف فاتورة المبيعات هذه هو {2}."
+"Advance payment Sales Invoice {0} has an item without an Income Account.","تحتوي فاتورة مبيعات الدفعة المقدمة {0} على صنف بلا حساب إيراد."
+"Advance payment Sales Invoice {0} must contain one Income Account across all positive item rows.","يجب أن تستخدم جميع صفوف الأصناف الموجبة في فاتورة مبيعات الدفعة المقدمة {0} حساب إيراد واحدًا."
+"Advance payment Sales Invoice {0} VAT amount cannot be mapped completely to its tax accounts.","تعذر توزيع مبلغ ضريبة القيمة المضافة لفاتورة مبيعات الدفعة المقدمة {0} بالكامل على حسابات الضرائب الخاصة بها."
+"Row {0}: Advance Payment Invoice is required.","الصف {0}: فاتورة الدفعة المقدمة مطلوبة."
+"A Sales Invoice cannot allocate itself as an advance payment invoice.","لا يمكن لفاتورة المبيعات تخصيص نفسها كفاتورة دفعة مقدمة."
+"Sales Invoice not found: {0}","لم يتم العثور على فاتورة المبيعات: {0}"
+"Advance payment Sales Invoice {0} must be submitted, marked as an advance payment invoice, and have REPORTED, CLEARED, or Phase-1 QR Generated status.","يجب أن تكون فاتورة مبيعات الدفعة المقدمة {0} معتمدة ومعلّمة كفاتورة دفعة مقدمة، وأن تكون حالتها مُبلّغة أو مقاصة أو تم إنشاء رمز QR للمرحلة الأولى."
+"Row {0}: Applied Total Incl. VAT must be greater than zero.","الصف {0}: يجب أن يكون الإجمالي المطبق شامل الضريبة أكبر من صفر."
+"Row {0}: Applied amount {1} exceeds the available balance {2} of advance payment Sales Invoice {3}.","الصف {0}: المبلغ المطبق {1} يتجاوز الرصيد المتاح {2} لفاتورة مبيعات الدفعة المقدمة {3}."
+"Advance payment Sales Invoice {0} total must be greater than zero.","يجب أن يكون إجمالي فاتورة مبيعات الدفعة المقدمة {0} أكبر من صفر."
+"ZATCA advance deductions cannot be applied directly to a return or credit note. Remove the ZATCA advance deduction rows; advance reversal is handled separately.","لا يمكن تطبيق خصومات دفعات زاتكا المقدمة مباشرة على مرتجع أو إشعار دائن. احذف صفوف خصم الدفعات المقدمة؛ إذ تتم معالجة عكس الدفعة بشكل مستقل."
+"A Sales Invoice cannot be both an advance payment invoice and a final invoice that deducts an earlier ZATCA advance. Clear the advance-payment marker or remove the ZATCA advance deduction rows.","لا يمكن أن تكون فاتورة المبيعات فاتورة دفعة مقدمة وفاتورة نهائية تخصم دفعة زاتكا مقدمة سابقة في الوقت نفسه. ألغِ علامة الدفعة المقدمة أو احذف صفوف خصم دفعات زاتكا المقدمة."
+"Advance payment Sales Invoice {0} may appear only once in the deduction table.","يمكن أن تظهر فاتورة مبيعات الدفعة المقدمة {0} مرة واحدة فقط في جدول الخصم."
+"Account {0} currency {1} must match either Company Currency {2} or Sales Invoice Currency {3} for an advance deduction.","يجب أن تطابق عملة الحساب {0} وهي {1} إما عملة الشركة {2} أو عملة فاتورة المبيعات {3} عند خصم دفعة مقدمة."
+"Customer account currency {0} must match either Company Currency {1} or Sales Invoice Currency {2} for an advance deduction.","يجب أن تطابق عملة حساب العميل {0} إما عملة الشركة {1} أو عملة فاتورة المبيعات {2} عند خصم دفعة مقدمة."
+"Advance payment Sales Invoice {0} is used by submitted final invoices for {1}. Cancel those final invoices first.","فاتورة مبيعات الدفعة المقدمة {0} مستخدمة في فواتير نهائية معتمدة بمبلغ {1}. ألغِ تلك الفواتير النهائية أولًا."
+"Not permitted to read Sales Invoice {0}.","لا تملك صلاحية قراءة فاتورة المبيعات {0}."
+"Sales Invoice {0} is not an accepted advance payment invoice.","فاتورة المبيعات {0} ليست فاتورة دفعة مقدمة مقبولة."
+"Payment Entry must be submitted before creating an advance payment invoice.","يجب اعتماد سند القبض قبل إنشاء فاتورة دفعة مقدمة."
+"Only Receive Payment Entries can create advance payment invoices.","يمكن إنشاء فواتير الدفعات المقدمة من سندات القبض من نوع استلام فقط."
+"Payment Entry must have Party Type Customer and a Customer.","يجب أن يكون نوع الطرف في سند القبض عميلًا وأن يُحدد العميل."
+"Company is required on Payment Entry.","الشركة مطلوبة في سند القبض."
+"Payment Entry paid amount must be greater than zero.","يجب أن يكون المبلغ المدفوع في سند القبض أكبر من صفر."
+"Customer account currency is required on Payment Entry.","عملة حساب العميل مطلوبة في سند القبض."
+"Payment Entry source exchange rate must be greater than zero.","يجب أن يكون سعر صرف المصدر في سند القبض أكبر من صفر."
+"VAT must be recorded only on the advance Sales Invoice. Remove taxes from the Payment Entry first.","يجب تسجيل ضريبة القيمة المضافة في فاتورة مبيعات الدفعة المقدمة فقط. احذف الضرائب من سند القبض أولًا."
+"Payment Entry cannot be used because some or all of its amount is already allocated.","لا يمكن استخدام سند القبض لأن جزءًا من مبلغه أو كامل المبلغ مخصص بالفعل."
+"The full Payment Entry paid amount must remain unallocated before creating an advance payment invoice.","يجب أن يبقى كامل المبلغ المدفوع في سند القبض غير مخصص قبل إنشاء فاتورة دفعة مقدمة."
+"Payment Entry {0} is already linked to active Sales Invoice {1}.","سند القبض {0} مرتبط بالفعل بفاتورة المبيعات الفعالة {1}."
+"KSA VAT 15% Sales Taxes and Charges Template is missing for Company {0}. Use Create Tax Template from the Company form first.","قالب ضرائب ورسوم المبيعات السعودي لضريبة 15٪ غير موجود للشركة {0}. استخدم إنشاء قالب الضرائب من نموذج الشركة أولًا."
+"Sales Taxes and Charges Template {0} must contain one enabled On Net Total VAT row at 15%.","يجب أن يحتوي قالب ضرائب ورسوم المبيعات {0} على صف ضريبة قيمة مضافة مفعّل بنسبة 15٪ محسوب على صافي الإجمالي."
+"Advance payment marker is missing from Sales Invoice.","علامة فاتورة الدفعة المقدمة غير موجودة في فاتورة المبيعات."
+"Not permitted to read this Payment Entry.","لا تملك صلاحية قراءة سند القبض هذا."
+"Not permitted to create Sales Invoice.","لا تملك صلاحية إنشاء فاتورة مبيعات."
+"Standard UOM {0} is missing.","وحدة القياس القياسية {0} غير موجودة."
+"Generated advance invoice total {0} does not match Payment Entry amount {1}.","إجمالي فاتورة الدفعة المقدمة المنشأة {0} لا يطابق مبلغ سند القبض {1}."
+"Payment Entry name is required.","اسم سند القبض مطلوب."
+"ZATCA Payment Entry can be linked only to an advance payment invoice.","لا يمكن ربط سند قبض زاتكا إلا بفاتورة دفعة مقدمة."
+"Sales Invoice Company must match Payment Entry Company.","يجب أن تطابق شركة فاتورة المبيعات شركة سند القبض."
+"Sales Invoice Customer must match Payment Entry Customer.","يجب أن يطابق عميل فاتورة المبيعات عميل سند القبض."
+"Sales Invoice currency must match the Payment Entry customer account currency.","يجب أن تطابق عملة فاتورة المبيعات عملة حساب العميل في سند القبض."
+"Sales Invoice exchange rate must match Payment Entry source exchange rate.","يجب أن يطابق سعر صرف فاتورة المبيعات سعر صرف المصدر في سند القبض."
+"Sales Invoice grand total must match the full Payment Entry paid amount.","يجب أن يطابق الإجمالي الكلي لفاتورة المبيعات كامل المبلغ المدفوع في سند القبض."
+"Credit note company must match the original advance payment Sales Invoice company.","يجب أن تطابق شركة الإشعار الدائن شركة فاتورة مبيعات الدفعة المقدمة الأصلية."
+"Credit note customer must match the original advance payment Sales Invoice customer.","يجب أن يطابق عميل الإشعار الدائن عميل فاتورة مبيعات الدفعة المقدمة الأصلية."
+"Credit note currency must match the original advance payment Sales Invoice currency.","يجب أن تطابق عملة الإشعار الدائن عملة فاتورة مبيعات الدفعة المقدمة الأصلية."
+"Original advance payment Sales Invoice total amount must be greater than zero.","يجب أن يكون إجمالي مبلغ فاتورة مبيعات الدفعة المقدمة الأصلية أكبر من صفر."
+"Advance credit note total amount must be greater than zero.","يجب أن يكون إجمالي مبلغ الإشعار الدائن للدفعة المقدمة أكبر من صفر."
+"Total advance credit notes cannot exceed the original advance payment Sales Invoice balance after submitted final-invoice allocations. Remaining amount: {0}","لا يمكن أن يتجاوز إجمالي الإشعارات الدائنة للدفعة المقدمة رصيد فاتورة مبيعات الدفعة المقدمة الأصلية بعد تخصيصات الفواتير النهائية المعتمدة. المبلغ المتبقي: {0}"
+"Sales Invoice field {0} is missing or unavailable.","حقل فاتورة المبيعات {0} مفقود أو غير متاح."
+"Payment Entry {0} is linked to more than one active advance payment Sales Invoice: {1}.","سند القبض {0} مرتبط بأكثر من فاتورة مبيعات دفعة مقدمة فعالة: {1}."
+"Sales Invoice {0}, linked to Payment Entry {1}, is not marked as an advance payment invoice.","فاتورة المبيعات {0} المرتبطة بسند القبض {1} غير معلّمة كفاتورة دفعة مقدمة."
+"Advance payment Sales Invoice {0} has status '{1}' and docstatus {2}. Only submitted invoices with REPORTED, CLEARED, or Phase-1 QR Generated status can be deducted.","حالة فاتورة مبيعات الدفعة المقدمة {0} هي '{1}' وحالة المستند {2}. لا يمكن الخصم إلا من الفواتير المعتمدة ذات الحالة مُبلّغة أو مقاصة أو تم إنشاء رمز QR للمرحلة الأولى."
+"Return Against is required for a Sales Invoice credit note.","حقل مرتجع مقابل مطلوب في الإشعار الدائن لفاتورة المبيعات."
+"Original advance payment Sales Invoice {0} must be submitted and have REPORTED, CLEARED, or Phase-1 QR Generated status before creating a credit note.","يجب اعتماد فاتورة مبيعات الدفعة المقدمة الأصلية {0} وأن تكون حالتها مُبلّغة أو مقاصة أو تم إنشاء رمز QR للمرحلة الأولى قبل إنشاء إشعار دائن."
+"Item {0} could not be created. Verify that the standard UOM and Item Group exist.","تعذر إنشاء الصنف {0}. تحقق من وجود وحدة القياس القياسية ومجموعة الأصناف."
+"Generated advance invoice payable total {0} does not match Payment Entry amount {1}.","إجمالي الاستحقاق لفاتورة الدفعة المقدمة المنشأة {0} لا يطابق مبلغ سند القبض {1}."
+"Sales Invoice payable total must match the full Payment Entry paid amount.","يجب أن يطابق إجمالي استحقاق فاتورة المبيعات كامل المبلغ المدفوع في سند القبض."
+"Company {0} requires a Round Off Account to allocate advance payment invoice {1}.","تتطلب الشركة {0} حساب تقريب لتخصيص فاتورة الدفعة المقدمة {1}."
+"Advance rounding allocation from {0}","تخصيص فرق تقريب الدفعة المقدمة من {0}"
+"Advance deduction could not balance its base-currency entries.","تعذر موازنة قيود خصم الدفعة المقدمة بعملة الأساس."
+"Advance Payment Invoice cannot mix items with and without Item Tax Template. Use one Item Tax Template on every item"," or use invoice-level taxes only.,لا يجوز لفاتورة الدفعة المقدمة خلط البنود التي تستخدم قالب ضريبة الصنف مع البنود التي لا تستخدمه. استخدم قالبًا واحدًا لكل البنود أو استخدم ضرائب مستوى الفاتورة فقط."
+"Advance Payment Invoice requires every Item Tax Template to resolve to exactly one VAT category and VAT rate.","يجب أن يحل كل قالب ضريبة صنف في فاتورة الدفعة المقدمة إلى فئة ضريبة ومعدل ضريبة واحد فقط."
+"An Advance Payment Invoice may contain only one VAT category and VAT rate. Split invoices when different VAT rates or categories are required.","يجب أن تحتوي فاتورة الدفعة المقدمة على فئة ضريبة ومعدل ضريبة واحد فقط. افصل الفواتير عند الحاجة إلى معدلات أو فئات ضريبية مختلفة."
+"ZATCA categories Zero Rated"," Exempted, and Outside Scope must use a zero VAT rate.,يجب أن تستخدم فئات ZATCA: خاضعة للنسبة الصفرية والمعفاة وخارج النطاق معدل ضريبة يساوي صفرًا."
+"ZATCA categories Zero Rated"," Exempted, and Outside Scope must not produce a VAT amount.,يجب ألا تنتج فئات ZATCA: خاضعة للنسبة الصفرية والمعفاة وخارج النطاق أي مبلغ ضريبة."
+"Exemption Reason Code is required for Zero Rated"," Exempted, and Outside Scope ZATCA categories.,رمز سبب الإعفاء إلزامي لفئات ZATCA: خاضعة للنسبة الصفرية والمعفاة وخارج النطاق."
+Enforce ZATCA zero-rate category validation,فرض التحقق من معدل الفئات الضريبية الصفرية في ZATCA
+"When enabled in Phase-2 with ZATCA E-Invoicing enabled"," Zero Rated, Exempted, and Outside Scope categories must use zero VAT rate and zero tax.,عند تفعيله مع تمكين الفوترة الإلكترونية لـ ZATCA والمرحلة الثانية، يجب أن تستخدم فئات خاضعة للنسبة الصفرية والمعفاة وخارج النطاق معدل ضريبة ومبلغ ضريبة يساوي صفرًا."
+"Advance Payment Invoice without Item Tax Templates must use invoice-level taxes_and_charges as its single tax source.","يجب أن تستخدم فاتورة الدفعة المقدمة التي لا تحتوي على قوالب ضريبة الأصناف الحقل taxes_and_charges على مستوى الفاتورة كمصدر ضريبة وحيد."
+"ZATCA-enabled Sales Invoices must use either Item Tax Template on every item or one Sales Taxes and Charges Template at invoice level. All tax sources cannot be blank.","يجب أن تستخدم فواتير المبيعات المفعّل عليها ZATCA قالب ضريبة صنف لكل بند أو قالب ضرائب ومصاريف واحد على مستوى الفاتورة. لا يجوز ترك جميع مصادر الضريبة فارغة."
+"ZATCA-enabled Sales Invoices must contain at least one Sales Taxes and Charges row.","يجب أن تحتوي فواتير المبيعات المفعّل عليها ZATCA على صف واحد على الأقل في جدول الضرائب والمصاريف."
+"ZATCA validation errors","أخطاء التحقق في ZATCA"
+"ZATCA Payment Entry amount {0} cannot be greater than the Sales Invoice total including VAT {1}.","لا يجوز أن يتجاوز مبلغ سند قبض ZATCA {0} إجمالي فاتورة المبيعات شامل ضريبة القيمة المضافة {1}."
+"ZATCA E-Invoicing is disabled for this Company. Debug XML will be generated locally only; no submission will be performed.","الفوترة الإلكترونية عبر ZATCA غير مفعلة لهذه الشركة. سيتم إنشاء XML للتصحيح محليًا فقط ولن يتم الإرسال."
+"Enforce ZATCA Payment Entry amount limit","فرض حد مبلغ سند قبض ZATCA"
+"When enabled, a linked ZATCA Payment Entry cannot exceed the Sales Invoice total including VAT.","عند التفعيل، لا يجوز أن يتجاوز سند قبض ZATCA المرتبط إجمالي فاتورة المبيعات شامل ضريبة القيمة المضافة."
+ZATCA exemption reason is required when the ZATCA tax category is {0}. The field custom_exemption_reason_code is empty in {1}.,سبب الإعفاء مطلوب عندما تكون فئة ضريبة ZATCA هي {0}. الحقل custom_exemption_reason_code فارغ في {1}.
+"ZATCA Payment Entry","سند قبض ZATCA"
+"Optional submitted Receive Payment Entry used to create or link this advance payment Sales Invoice.","سند قبض مستلم معتمد اختياري يُستخدم لإنشاء فاتورة المبيعات للدفعة المقدمة هذه أو ربطها بها."
+"Is Advance Payment Invoice","هل فاتورة دفعة مقدمة"
+"Use this only for the initial advance payment invoice, not for the final invoice.","استخدم هذا الخيار لفاتورة الدفعة المقدمة الأولى فقط، وليس للفاتورة النهائية."
+"ZATCA Advance Deduction Table","جدول خصم الدفعات المقدمة ZATCA"
+"Advance Payment Invoice requires an ADV- naming series. Add an ADV- series in Sales Invoice naming settings before saving.","تتطلب فاتورة الدفعة المقدمة سلسلة تسمية تبدأ بـ ADV-. أضف سلسلة ADV- في إعدادات تسمية فواتير المبيعات قبل الحفظ."
+"Advance Payment Invoice must use an ADV- naming series. Select an ADV- series before saving.","يجب أن تستخدم فاتورة الدفعة المقدمة سلسلة تسمية تبدأ بـ ADV-. اختر سلسلة ADV- قبل الحفظ."
+"Advance Payment Invoice naming series","سلسلة تسمية فاتورة الدفعة المقدمة"

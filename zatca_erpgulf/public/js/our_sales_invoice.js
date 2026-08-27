@@ -96,6 +96,95 @@ frappe.realtime.on('hide_gif', () => {
 //             }, __("ZATCA Phase-2"));
 //         }
 
+
+
+const ZATCA_INVOICE_EXEMPTION_CODES = {
+    "Exempted": ["VATEX-SA-29", "VATEX-SA-29-7", "VATEX-SA-30"],
+    "Zero Rated": [
+        "VATEX-SA-32", "VATEX-SA-33", "VATEX-SA-34-1", "VATEX-SA-34-2",
+        "VATEX-SA-34-3", "VATEX-SA-34-4", "VATEX-SA-34-5", "VATEX-SA-35",
+        "VATEX-SA-36", "VATEX-SA-EDU", "VATEX-SA-HEA", "VATEX-SA-MLTRY",
+    ],
+    "Services outside scope of tax / Not subject to VAT": ["VATEX-SA-OOS"],
+};
+
+const ZATCA_INVOICE_EXEMPTION_TEXT = {
+    "VATEX-SA-29": "Financial services mentioned in Article 29 of the VAT Regulations",
+    "VATEX-SA-29-7": "Life insurance services mentioned in Article 29 of the VAT Regulations",
+    "VATEX-SA-30": "Real estate transactions mentioned in Article 30 of the VAT Regulations",
+    "VATEX-SA-32": "Export of goods",
+    "VATEX-SA-33": "Export of services",
+    "VATEX-SA-34-1": "The international transport of goods",
+    "VATEX-SA-34-2": "International transport of passengers",
+    "VATEX-SA-34-3": "Services directly connected and incidental to international passenger transport",
+    "VATEX-SA-34-4": "Supply of a qualifying means of transport",
+    "VATEX-SA-34-5": "Services relating to goods or passenger transportation",
+    "VATEX-SA-35": "Medicines and medical equipment",
+    "VATEX-SA-36": "Qualifying metals",
+    "VATEX-SA-EDU": "Private education to citizen",
+    "VATEX-SA-HEA": "Private healthcare to citizen",
+    "VATEX-SA-MLTRY": "Supply of qualified military goods",
+    "VATEX-SA-OOS": "Services outside scope of tax / reason provided by taxpayer case by case",
+};
+
+function filterInvoiceExemptionReason(frm) {
+    const field = frm.fields_dict.custom_exemption_reason_code;
+    if (!field) return;
+    const category = frm.doc.custom_zatca_tax_category || "";
+    const options = [""].concat(ZATCA_INVOICE_EXEMPTION_CODES[category] || []);
+    frm.set_df_property("custom_exemption_reason_code", "options", options.join("\n"));
+    if (frm.doc.custom_exemption_reason_code && !options.includes(frm.doc.custom_exemption_reason_code)) {
+        frm.set_value("custom_exemption_reason_code", "");
+    }
+}
+
+async function syncInvoiceTaxSource(frm) {
+    if (!frm.doc.company || !frm.doc.taxes_and_charges) return;
+    const enabled = await frappe.db.get_value("Company", frm.doc.company, "custom_zatca_invoice_enabled");
+    if (Number(enabled?.message?.custom_zatca_invoice_enabled || 0) !== 1) return;
+    const template = await frappe.db.get_value(
+        "Sales Taxes and Charges Template",
+        frm.doc.taxes_and_charges,
+        ["custom_zatca_tax_category", "custom_exemption_reason_code"]
+    );
+    const values = template?.message || {};
+    await frm.set_value("custom_zatca_tax_category", values.custom_zatca_tax_category || "");
+    await frm.set_value("custom_exemption_reason_code", values.custom_exemption_reason_code || "");
+    filterInvoiceExemptionReason(frm);
+}
+
+frappe.ui.form.on("Sales Invoice", {
+    refresh(frm) {
+        frm.set_df_property("custom_zatca_tax_category", "read_only", 1);
+        if (frm.fields_dict.custom_zatca_discount_reason_code) {
+            frm.toggle_display("custom_zatca_discount_reason_code", false);
+        }
+        filterInvoiceExemptionReason(frm);
+    },
+    taxes_and_charges(frm) {
+        return syncInvoiceTaxSource(frm);
+    },
+    custom_zatca_tax_category(frm) {
+        filterInvoiceExemptionReason(frm);
+    },
+    before_save(frm) {
+        const category = frm.doc.custom_zatca_tax_category;
+        const code = frm.doc.custom_exemption_reason_code;
+        if (!["Zero Rated", "Exempted"].includes(category) || !code) return;
+        if (frm.__zatca_exemption_confirmed === code) return;
+        frappe.validated = false;
+        const meaning = ZATCA_INVOICE_EXEMPTION_TEXT[code] || "";
+        frappe.confirm(
+            __("Tax exemption / exception reason code. Required for Zero Rated, Exempted, Out of Scope, and Export cases.") + "<br><br>" +
+            "<b>" + frappe.utils.escape_html(__(code + ": " + meaning)) + "</b>",
+            () => {
+                frm.__zatca_exemption_confirmed = code;
+                frm.save();
+            }
+        );
+    },
+});
+
 frappe.ui.form.on("Sales Invoice", {
     refresh: function (frm) {
         // Load the company doctype to check phase setting
@@ -266,11 +355,6 @@ frappe.ui.form.on('Sales Invoice', {
             {
                 fieldname: "custom_exemption_reason_code",
                 text: taxExemptionCodeHelp,
-                links: [],
-            },
-            {
-                fieldname: "custom_zatca_discount_reason_code",
-                text: discountReasonHelp,
                 links: [],
             },
             {
@@ -547,5 +631,5 @@ frappe.ui.form.on('Sales Invoice', {
                 });
             });
         }
-    }
+    },
 });

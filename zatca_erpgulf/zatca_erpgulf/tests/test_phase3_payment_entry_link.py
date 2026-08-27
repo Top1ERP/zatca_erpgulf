@@ -1,3 +1,4 @@
+from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -7,11 +8,15 @@ from frappe.tests.utils import FrappeTestCase
 from zatca_erpgulf.setup_customizations import CRITICAL_CUSTOM_FIELDS
 from zatca_erpgulf.zatca_erpgulf.advance_payment_entry import (
     _amounts_match,
+    _build_advance_sales_invoice,
+    _ensure_standard_advance_payment_item,
+    _invoice_payment_total,
     _payment_entry_mapping,
     _validate_existing_link_allocations,
     _validate_payment_entry_source,
     get_active_standard_advance_invoice,
     split_tax_inclusive_amount,
+    validate_payment_entry_advance_allocations,
     validate_sales_invoice_payment_entry_link,
 )
 
@@ -134,8 +139,102 @@ class TestPhase3InclusiveVatMath(FrappeTestCase):
     def test_amount_match_rejects_one_precision_unit(self):
         self.assertFalse(_amounts_match("100.00", "100.01", 2))
 
+    def test_invoice_payment_total_uses_enabled_currency_rounding(self):
+        invoice = _Doc(
+            fields=set(),
+            disable_rounded_total=0,
+            rounded_total=10,
+            grand_total=10.01,
+        )
+        self.assertEqual(_invoice_payment_total(invoice), Decimal("10"))
+
+    def test_invoice_payment_total_uses_grand_total_when_rounding_is_disabled(self):
+        invoice = _Doc(
+            fields=set(),
+            disable_rounded_total=1,
+            rounded_total=10,
+            grand_total=10.01,
+        )
+        self.assertEqual(_invoice_payment_total(invoice), Decimal("10.01"))
+
+    @patch("zatca_erpgulf.setup_customizations.ensure_advance_payment_item")
+    @patch(
+        "zatca_erpgulf.zatca_erpgulf.advance_payment_entry.frappe.db.exists",
+        side_effect=[False, True],
+    )
+    def test_missing_standard_item_is_created_lazily(self, exists, ensure_item):
+        _ensure_standard_advance_payment_item()
+        ensure_item.assert_called_once_with()
+        self.assertEqual(exists.call_count, 2)
+
+    @patch("zatca_erpgulf.setup_customizations.ensure_advance_payment_item")
+    @patch(
+        "zatca_erpgulf.zatca_erpgulf.advance_payment_entry.frappe.db.exists",
+        return_value=True,
+    )
+    def test_existing_standard_item_is_not_modified(self, _exists, ensure_item):
+        _ensure_standard_advance_payment_item()
+        ensure_item.assert_not_called()
+
 
 class TestPhase3PaymentEntryMapping(FrappeTestCase):
+    def test_build_enables_standard_rounding_after_missing_values(self):
+        invoice = _Doc(
+            fields={"disable_rounded_total", "is_advance_payment"},
+            disable_rounded_total=1,
+            rounded_total=0,
+            grand_total=0,
+        )
+        invoice.items = []
+        invoice.taxes = []
+        invoice.append = lambda _fieldname, values: invoice.items.append(values)
+
+        def run_method(method):
+            if method == "set_missing_values":
+                invoice.disable_rounded_total = 1
+            elif method == "calculate_taxes_and_totals":
+                invoice.grand_total = 10.01
+                invoice.rounded_total = 10
+
+        invoice.run_method = run_method
+        payment_entry = _payment_entry(
+            paid_amount=10,
+            base_paid_amount=10,
+            received_amount=10,
+            base_received_amount=10,
+            unallocated_amount=10,
+        )
+        mapping = _payment_entry_mapping(payment_entry)
+
+        with patch(
+            "zatca_erpgulf.zatca_erpgulf.advance_payment_entry.frappe.new_doc",
+            return_value=invoice,
+        ), patch(
+            "zatca_erpgulf.zatca_erpgulf.advance_payment_entry.frappe.get_cached_doc",
+            return_value=SimpleNamespace(cost_center="Main - TC"),
+        ), patch(
+            "zatca_erpgulf.zatca_erpgulf.advance_payment_entry._get_preferred_deferred_revenue_account",
+            return_value="",
+        ), patch(
+            "zatca_erpgulf.zatca_erpgulf.advance_payment_entry._get_ksa_vat_15_template",
+            return_value=SimpleNamespace(),
+        ), patch(
+            "zatca_erpgulf.zatca_erpgulf.advance_payment_entry._ensure_standard_advance_payment_item"
+        ), patch(
+            "zatca_erpgulf.zatca_erpgulf.advance_payment_entry.frappe.db.exists",
+            return_value=True,
+        ), patch(
+            "zatca_erpgulf.zatca_erpgulf.advance_payment_entry.frappe.db.get_value",
+            return_value=0,
+        ), patch(
+            "zatca_erpgulf.zatca_erpgulf.advance_payment_entry._copy_tax_template_rows"
+        ):
+            result = _build_advance_sales_invoice(payment_entry, mapping)
+
+        self.assertIs(result, invoice)
+        self.assertEqual(invoice.disable_rounded_total, 0)
+        self.assertEqual(_invoice_payment_total(invoice), Decimal("10"))
+
     def test_receive_mapping_uses_customer_side_paid_amount(self):
         mapping = _payment_entry_mapping(
             _payment_entry(
@@ -243,10 +342,12 @@ class TestPhase3PaymentEntryMapping(FrappeTestCase):
 
 
 class TestPhase3DuplicateAndAllocationGuards(FrappeTestCase):
-    @patch("zatca_erpgulf.zatca_erpgulf.advance_payment_entry.frappe.get_meta")
+    @patch(
+        "zatca_erpgulf.zatca_erpgulf.advance_payment_entry.supports_advance_payment_entry_link",
+        return_value=True,
+    )
     @patch("zatca_erpgulf.zatca_erpgulf.advance_payment_entry.frappe.db.get_value")
-    def test_active_standard_invoice_is_found(self, get_value, get_meta):
-        get_meta.return_value = _Meta({"custom_zatca_payment_entry"})
+    def test_active_standard_invoice_is_found(self, get_value, _supports_link):
         get_value.return_value = "SINV-ADV-0001"
         self.assertEqual(
             get_active_standard_advance_invoice("ACC-PAY-0001"),
@@ -255,14 +356,16 @@ class TestPhase3DuplicateAndAllocationGuards(FrappeTestCase):
         filters = get_value.call_args.args[1]
         self.assertEqual(filters["docstatus"], ["<", 2])
 
-    @patch("zatca_erpgulf.zatca_erpgulf.advance_payment_entry.frappe.get_meta")
-    def test_missing_link_field_returns_no_duplicate(self, get_meta):
-        get_meta.return_value = _Meta()
+    @patch(
+        "zatca_erpgulf.zatca_erpgulf.advance_payment_entry.supports_advance_payment_entry_link",
+        return_value=False,
+    )
+    def test_missing_link_field_returns_no_duplicate(self, _supports_link):
         self.assertEqual(get_active_standard_advance_invoice("ACC-PAY-0001"), "")
 
 
 
-    def test_allocation_to_linked_sales_invoice_is_allowed(self):
+    def test_allocation_to_linked_advance_invoice_is_blocked(self):
         payment_entry = _payment_entry(
             references=[
                 SimpleNamespace(
@@ -272,7 +375,8 @@ class TestPhase3DuplicateAndAllocationGuards(FrappeTestCase):
                 )
             ]
         )
-        _validate_existing_link_allocations(payment_entry, "SINV-ADV-0001")
+        with self.assertRaisesRegex(frappe.ValidationError, "allocated only"):
+            _validate_existing_link_allocations(payment_entry, "SINV-ADV-0001")
 
     def test_allocation_to_another_document_is_blocked(self):
         payment_entry = _payment_entry(
@@ -284,8 +388,42 @@ class TestPhase3DuplicateAndAllocationGuards(FrappeTestCase):
                 )
             ]
         )
-        with self.assertRaisesRegex(frappe.ValidationError, "only the linked"):
+        with self.assertRaisesRegex(frappe.ValidationError, "allocated only"):
             _validate_existing_link_allocations(payment_entry, "SINV-ADV-0001")
+
+    @patch(
+        "zatca_erpgulf.zatca_erpgulf.advance_payment_entry._is_allowed_final_invoice_allocation",
+        return_value=True,
+    )
+    def test_allocation_to_consuming_submitted_final_invoice_is_allowed(self, _allowed):
+        payment_entry = _payment_entry(
+            references=[
+                SimpleNamespace(
+                    reference_doctype="Sales Invoice",
+                    reference_name="SINV-FINAL-0001",
+                    allocated_amount=115,
+                )
+            ]
+        )
+        _validate_existing_link_allocations(payment_entry, "SINV-ADV-0001")
+
+    @patch(
+        "zatca_erpgulf.zatca_erpgulf.advance_payment_entry._validate_existing_link_allocations"
+    )
+    @patch(
+        "zatca_erpgulf.zatca_erpgulf.advance_payment_entry.get_active_standard_advance_invoice",
+        return_value="SINV-ADV-0001",
+    )
+    @patch(
+        "zatca_erpgulf.zatca_erpgulf.advance_payment_entry.supports_advance_payment_entry_link",
+        return_value=True,
+    )
+    def test_payment_entry_hook_uses_sales_invoice_schema_capability(
+        self, _supports_link, _get_active, validate_allocations
+    ):
+        payment_entry = _payment_entry()
+        validate_payment_entry_advance_allocations(payment_entry)
+        validate_allocations.assert_called_once_with(payment_entry, "SINV-ADV-0001")
 
 
 class TestPhase3SalesInvoiceLinkValidation(FrappeTestCase):
@@ -340,6 +478,39 @@ class TestPhase3SalesInvoiceLinkValidation(FrappeTestCase):
         get_doc.return_value = _payment_entry()
         validate_source.return_value = _payment_entry_mapping(get_doc.return_value)
         validate_sales_invoice_payment_entry_link(self._invoice())
+
+    @patch(
+        "zatca_erpgulf.zatca_erpgulf.advance_payment_entry.ensure_payment_entry_has_no_active_standard_advance_invoice"
+    )
+    @patch(
+        "zatca_erpgulf.zatca_erpgulf.advance_payment_entry._validate_payment_entry_identity"
+    )
+    @patch("zatca_erpgulf.zatca_erpgulf.advance_payment_entry.frappe.get_doc")
+    @patch(
+        "zatca_erpgulf.zatca_erpgulf.advance_payment_entry._currency_precision",
+        return_value=2,
+    )
+    def test_currency_rounded_total_matches_payment_entry(
+        self,
+        _precision,
+        get_doc,
+        validate_source,
+        _standard_guard,
+    ):
+        get_doc.return_value = _payment_entry(
+            paid_amount=10,
+            base_paid_amount=10,
+            received_amount=10,
+            base_received_amount=10,
+        )
+        validate_source.return_value = _payment_entry_mapping(get_doc.return_value)
+        validate_sales_invoice_payment_entry_link(
+            self._invoice(
+                grand_total=10.01,
+                rounded_total=10,
+                disable_rounded_total=0,
+            )
+        )
 
     @patch(
         "zatca_erpgulf.zatca_erpgulf.advance_payment_entry.ensure_payment_entry_has_no_active_standard_advance_invoice"
@@ -449,5 +620,5 @@ class TestPhase3SalesInvoiceLinkValidation(FrappeTestCase):
     ):
         get_doc.return_value = _payment_entry()
         validate_source.return_value = _payment_entry_mapping(get_doc.return_value)
-        with self.assertRaisesRegex(frappe.ValidationError, "grand total must match"):
+        with self.assertRaisesRegex(frappe.ValidationError, "payable total must match"):
             validate_sales_invoice_payment_entry_link(self._invoice(grand_total=100))

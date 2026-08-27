@@ -93,6 +93,7 @@
    "fieldtype": "Currency",
    "label": "Applied Total Incl. VAT",
    "options": "currency",
+   "read_only": 0,
    "reqd": 1,
    "in_list_view": 1
   },

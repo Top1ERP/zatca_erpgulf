@@ -3,7 +3,10 @@ from __future__ import annotations
 import frappe
 from frappe import _
 
-from zatca_erpgulf.zatca_erpgulf.zatca_runtime import is_advance_payment_invoice
+from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
+    is_advance_payment_invoice,
+    supports_advance_payment_entry_link,
+)
 
 
 SALES_INVOICE_DOCTYPE = "Sales Invoice"
@@ -44,11 +47,10 @@ def get_advance_sales_invoice_for_payment_entry(
     if not payment_entry_name:
         return None
 
-    meta = frappe.get_meta(SALES_INVOICE_DOCTYPE)
-    if not meta.has_field(PAYMENT_ENTRY_FIELD):
+    if not supports_advance_payment_entry_link():
         if strict:
             frappe.throw(
-                _("Sales Invoice field {0} is missing.").format(PAYMENT_ENTRY_FIELD)
+                _("Sales Invoice field {0} is missing or unavailable.").format(PAYMENT_ENTRY_FIELD)
             )
         return None
 

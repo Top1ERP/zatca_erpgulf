@@ -23,6 +23,8 @@ from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
     get_zatca_environment,
     is_zatca_invoice_enabled,
     resolve_zatca_phase,
+    supports_advance_deduction_schema,
+    is_advance_payment_invoice,
 )
 
 
@@ -76,6 +78,7 @@ from zatca_erpgulf.zatca_erpgulf.createxml import (
     delivery_and_payment_means_for_compliance,
     invoice_typecode_simplified,
     invoice_typecode_standard,
+    invoice_typecode_advance_payment,
 )
 from zatca_erpgulf.zatca_erpgulf.xml_tax_data import tax_data, tax_data_with_template
 from zatca_erpgulf.zatca_erpgulf.create_xml_final_part import (
@@ -226,7 +229,7 @@ def attach_qr_image(qrcodeb64, sales_invoice_doc):
         file_doc = frappe.get_doc(
             {
                 "doctype": "File",
-                "file_name": f"QR_Phase2_{sales_invoice_doc.name}.png".replace(
+                "file_name": f"QR-Phase2-REPORTED-{sales_invoice_doc.name}.png".replace(
                     os.path.sep, "__"
                 ),
                 "attached_to_doctype": sales_invoice_doc.doctype,
@@ -985,7 +988,9 @@ def zatca_call(
             if customer_country == "SA":
                 frappe.throw(_("Export Invoice cannot be enabled for a customer in Saudi Arabia."))
 
-        if compliance_type == "0":
+        if compliance_type == "0" and is_advance_payment_invoice(sales_invoice_doc) and not sales_invoice_doc.is_return and not getattr(sales_invoice_doc, "is_debit_note", 0):
+            invoice = invoice_typecode_advance_payment(invoice, sales_invoice_doc)
+        elif compliance_type == "0":
             if customer_doc.custom_b2c == 1:
                 invoice = invoice_typecode_simplified(invoice, sales_invoice_doc)
             else:
@@ -1027,11 +1032,14 @@ def zatca_call(
             hasattr(sales_invoice_doc, "custom_advances_copy")
             and sales_invoice_doc.custom_advances_copy
         )
-        has_direct_advance_allocation = any(
-            row.get("advance_invoice") and row.get("allocated_total_amount")
-            for row in sales_invoice_doc.get(
-                "custom_zatca_advance_deduction_details", []
-            ) or []
+        has_direct_advance_allocation = (
+            supports_advance_deduction_schema(sales_invoice_doc)
+            and any(
+                row.get("advance_invoice") and row.get("allocated_total_amount")
+                for row in sales_invoice_doc.get(
+                    "custom_zatca_advance_deduction_details", []
+                ) or []
+            )
         )
 
         if has_direct_advance_allocation or (

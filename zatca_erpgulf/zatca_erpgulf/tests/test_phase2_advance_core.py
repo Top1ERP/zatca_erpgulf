@@ -145,6 +145,12 @@ class TestPhase2AdvanceMarker(FrappeTestCase):
     def test_mark_009_no_copy(self):
         self.assertEqual(_advance_field_definition()["no_copy"], 1)
 
+    def test_mark_009a_initial_invoice_help_text(self):
+        self.assertEqual(
+            _advance_field_definition()["description"],
+            "Use this only for the initial advance payment invoice, not for the final invoice.",
+        )
+
     def test_mark_010_second_setup_run_creates_no_duplicate(self):
         _result, create_fields = _run_field_setup({"is_advance_payment"})
         self.assertFalse(create_fields.called)
@@ -313,6 +319,10 @@ class TestPhase2MutualExclusion(FrappeTestCase):
                 "allocated_taxable_amount": 100,
                 "allocated_tax_amount": 15,
             },
+        ), patch(
+            "zatca_erpgulf.zatca_erpgulf.advance_deduction."
+            "supports_advance_deduction_schema",
+            return_value=True,
         ):
             validate_sales_invoice_advance_deductions(doc)
 

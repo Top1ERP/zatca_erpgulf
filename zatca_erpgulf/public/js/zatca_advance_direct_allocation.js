@@ -1,18 +1,152 @@
 (function () {
     "use strict";
 
-    const TABLE_FIELD = "custom_zatca_advance_deduction_details";
-    const CHILD_DOCTYPE = "ZATCA Sales Invoice Advance Deduction";
+    const TABLE_FIELD =
+        "custom_zatca_advance_deduction_details";
+    const CHILD_DOCTYPE =
+        "ZATCA Sales Invoice Advance Deduction";
+
+    const TOTAL_FIELDS = [
+        "custom_zatca_advance_deducted_taxable_amount",
+        "custom_zatca_advance_deducted_vat_amount",
+        "custom_zatca_prepaid_amount",
+        "custom_zatca_advance_deduction_count"
+    ];
+
     const DETAILS_METHOD =
         "zatca_erpgulf.zatca_erpgulf.advance_deduction.get_advance_allocation_details";
+
     const QUERY_METHOD =
         "zatca_erpgulf.zatca_erpgulf.advance_deduction.get_available_advance_invoice_query";
 
-    function roundCurrency(value) {
-        return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+    function runtime() {
+        return frappe.zatcaAdvanceRuntime;
     }
 
-    function clearDerivedFields(cdt, cdn) {
+    function fieldExists(frm, fieldname) {
+        return Boolean(
+            frm &&
+            frm.fields_dict &&
+            frm.fields_dict[fieldname]
+        );
+    }
+
+    function allocationFeatureExists(frm) {
+        const helper = runtime();
+        return Boolean(
+            helper &&
+            helper.capabilityAvailable(
+                frm,
+                "advance_deduction"
+            ) &&
+            fieldExists(frm, TABLE_FIELD)
+        );
+    }
+
+    async function getCurrentAllocationState(frm) {
+        const helper = runtime();
+        if (!helper) {
+            return null;
+        }
+
+        const state = helper.captureFormState(frm);
+        const capabilities = await helper.getCapabilities(frm);
+
+        if (
+            capabilities.advance_deduction !== true ||
+            !helper.isCurrentFormState(frm, state) ||
+            !allocationFeatureExists(frm)
+        ) {
+            return null;
+        }
+
+        return state;
+    }
+
+    function childRowExists(cdt, cdn) {
+        return Boolean(
+            typeof locals !== "undefined" &&
+            locals &&
+            locals[cdt] &&
+            locals[cdt][cdn]
+        );
+    }
+
+    function roundCurrency(value) {
+        return (
+            Math.round(
+                (Number(value || 0) + Number.EPSILON) * 100
+            ) / 100
+        );
+    }
+
+    function finalInvoiceRemainingAmount(frm, currentRow) {
+        const invoiceTotal = roundCurrency(
+            frm.doc.rounded_total || frm.doc.grand_total
+        );
+        if (!invoiceTotal) {
+            return Number.POSITIVE_INFINITY;
+        }
+        const rows = Array.isArray(frm.doc[TABLE_FIELD])
+            ? frm.doc[TABLE_FIELD]
+            : [];
+        const allocatedElsewhere = rows.reduce(function (total, row) {
+            if (currentRow && row.name === currentRow.name) {
+                return total;
+            }
+            return total + roundCurrency(row.allocated_total_amount);
+        }, 0);
+        return Math.max(0, roundCurrency(invoiceTotal - allocatedElsewhere));
+    }
+
+    function clampAllocationAmount(frm, cdt, cdn) {
+        if (!childRowExists(cdt, cdn)) {
+            return;
+        }
+
+        const row = locals[cdt][cdn];
+        const requested = Math.max(0, roundCurrency(row.allocated_total_amount));
+        const available = Number(row.__zatca_available_amount);
+        const advanceLimit = Number.isFinite(available)
+            ? Math.max(0, roundCurrency(available))
+            : roundCurrency(row.advance_total_amount);
+        const invoiceLimit = finalInvoiceRemainingAmount(frm, row);
+        const capped = Math.min(requested, advanceLimit, invoiceLimit);
+
+        if (requested !== capped) {
+            frappe.model.set_value(cdt, cdn, "allocated_total_amount", capped);
+            frappe.show_alert({
+                message: __(
+                    "Applied amount was limited to the remaining invoice and advance balance."
+                ),
+                indicator: "orange"
+            });
+        }
+    }
+
+    function setParentValueIfFieldExists(
+        frm,
+        fieldname,
+        value
+    ) {
+        if (
+            !allocationFeatureExists(frm) ||
+            !fieldExists(frm, fieldname)
+        ) {
+            return Promise.resolve();
+        }
+
+        return frm.set_value(fieldname, value);
+    }
+
+    function clearDerivedFields(frm, cdt, cdn) {
+        if (
+            !allocationFeatureExists(frm) ||
+            !childRowExists(cdt, cdn)
+        ) {
+            return;
+        }
+
         [
             "payment_entry",
             "advance_invoice_date",
@@ -24,54 +158,197 @@
             "allocated_taxable_amount",
             "allocated_tax_amount",
             "remarks"
-        ].forEach((fieldname) => frappe.model.set_value(cdt, cdn, fieldname, null));
+        ].forEach(function (fieldname) {
+            frappe.model.set_value(
+                cdt,
+                cdn,
+                fieldname,
+                null
+            );
+        });
     }
 
     function updateAllocationSplit(frm, cdt, cdn) {
+        if (
+            !allocationFeatureExists(frm) ||
+            !childRowExists(cdt, cdn)
+        ) {
+            return;
+        }
+
         const row = locals[cdt][cdn];
-        const total = roundCurrency(row.allocated_total_amount);
-        const advanceTotal = roundCurrency(row.advance_total_amount);
-        const advanceTaxable = roundCurrency(row.advance_taxable_amount);
+        const total = roundCurrency(
+            row.allocated_total_amount
+        );
+        const advanceTotal = roundCurrency(
+            row.advance_total_amount
+        );
+        const advanceTaxable = roundCurrency(
+            row.advance_taxable_amount
+        );
 
         if (!advanceTotal || total <= 0) {
-            frappe.model.set_value(cdt, cdn, "allocated_taxable_amount", 0);
-            frappe.model.set_value(cdt, cdn, "allocated_tax_amount", 0);
+            frappe.model.set_value(
+                cdt,
+                cdn,
+                "allocated_taxable_amount",
+                0
+            );
+
+            frappe.model.set_value(
+                cdt,
+                cdn,
+                "allocated_tax_amount",
+                0
+            );
+
             updateDocumentTotals(frm);
             return;
         }
 
-        const taxable = roundCurrency((total * advanceTaxable) / advanceTotal);
+        const taxable = roundCurrency(
+            (total * advanceTaxable) / advanceTotal
+        );
+
         const tax = roundCurrency(total - taxable);
-        frappe.model.set_value(cdt, cdn, "allocated_taxable_amount", taxable);
-        frappe.model.set_value(cdt, cdn, "allocated_tax_amount", tax);
+
+        frappe.model.set_value(
+            cdt,
+            cdn,
+            "allocated_taxable_amount",
+            taxable
+        );
+
+        frappe.model.set_value(
+            cdt,
+            cdn,
+            "allocated_tax_amount",
+            tax
+        );
+
         updateDocumentTotals(frm);
     }
 
-    function updateDocumentTotals(frm) {
-        const rows = frm.doc[TABLE_FIELD] || [];
-        const taxable = roundCurrency(
-            rows.reduce((total, row) => total + Number(row.allocated_taxable_amount || 0), 0)
-        );
-        const tax = roundCurrency(
-            rows.reduce((total, row) => total + Number(row.allocated_tax_amount || 0), 0)
-        );
-        const inclusive = roundCurrency(
-            rows.reduce((total, row) => total + Number(row.allocated_total_amount || 0), 0)
-        );
+    function configureAllocationGrid(frm) {
+        const field = frm.fields_dict && frm.fields_dict[TABLE_FIELD];
+        if (!field || !field.grid) {
+            return;
+        }
 
-        frm.set_value("custom_zatca_advance_deducted_taxable_amount", taxable);
-        frm.set_value("custom_zatca_advance_deducted_vat_amount", tax);
-        frm.set_value("custom_zatca_prepaid_amount", inclusive);
-        frm.set_value("custom_zatca_advance_deduction_count", rows.length);
+        // Keep Applied Total Incl. VAT editable directly in the child grid.
+        field.grid.editable_grid = true;
+        if (field.df) {
+            field.df.editable_grid = 1;
+        }
+        field.grid.refresh();
     }
 
-    function loadAdvanceDetails(frm, cdt, cdn) {
+    function hydrateExistingRows(frm, state) {
+        const rows = Array.isArray(frm.doc[TABLE_FIELD])
+            ? frm.doc[TABLE_FIELD]
+            : [];
+        rows.forEach(function (row) {
+            if (
+                row.advance_invoice &&
+                (!row.payment_entry || !Number(row.advance_total_amount || 0))
+            ) {
+                loadAdvanceDetails(
+                    frm,
+                    row.doctype || CHILD_DOCTYPE,
+                    row.name,
+                    state
+                );
+            }
+        });
+    }
+
+    function updateDocumentTotals(frm) {
+        if (!allocationFeatureExists(frm)) {
+            return;
+        }
+
+        const rows = Array.isArray(frm.doc[TABLE_FIELD])
+            ? frm.doc[TABLE_FIELD]
+            : [];
+
+        const taxable = roundCurrency(
+            rows.reduce(function (total, row) {
+                return (
+                    total +
+                    Number(
+                        row.allocated_taxable_amount || 0
+                    )
+                );
+            }, 0)
+        );
+
+        const tax = roundCurrency(
+            rows.reduce(function (total, row) {
+                return (
+                    total +
+                    Number(row.allocated_tax_amount || 0)
+                );
+            }, 0)
+        );
+
+        const inclusive = roundCurrency(
+            rows.reduce(function (total, row) {
+                return (
+                    total +
+                    Number(row.allocated_total_amount || 0)
+                );
+            }, 0)
+        );
+
+        setParentValueIfFieldExists(
+            frm,
+            TOTAL_FIELDS[0],
+            taxable
+        );
+
+        setParentValueIfFieldExists(
+            frm,
+            TOTAL_FIELDS[1],
+            tax
+        );
+
+        setParentValueIfFieldExists(
+            frm,
+            TOTAL_FIELDS[2],
+            inclusive
+        );
+
+        setParentValueIfFieldExists(
+            frm,
+            TOTAL_FIELDS[3],
+            rows.length
+        );
+    }
+
+    function loadAdvanceDetails(frm, cdt, cdn, state) {
+        const helper = runtime();
+        if (
+            !helper ||
+            !allocationFeatureExists(frm) ||
+            !helper.isCurrentFormState(frm, state) ||
+            !childRowExists(cdt, cdn)
+        ) {
+            return;
+        }
+
         const row = locals[cdt][cdn];
         const selectedAdvance = row.advance_invoice;
 
         if (!selectedAdvance) {
-            clearDerivedFields(cdt, cdn);
-            frappe.model.set_value(cdt, cdn, "allocated_total_amount", 0);
+            clearDerivedFields(frm, cdt, cdn);
+
+            frappe.model.set_value(
+                cdt,
+                cdn,
+                "allocated_total_amount",
+                0
+            );
+
             updateDocumentTotals(frm);
             return;
         }
@@ -80,16 +357,39 @@
             method: DETAILS_METHOD,
             args: {
                 advance_invoice: selectedAdvance,
-                final_invoice: frm.is_new() ? null : frm.doc.name
+                final_invoice: frm.is_new()
+                    ? null
+                    : frm.doc.name
             },
             freeze: false,
             callback(response) {
-                const currentRow = locals[cdt] && locals[cdt][cdn];
-                if (!currentRow || currentRow.advance_invoice !== selectedAdvance) {
+                if (
+                    !allocationFeatureExists(frm) ||
+                    !helper.isCurrentFormState(frm, state) ||
+                    !childRowExists(cdt, cdn)
+                ) {
                     return;
                 }
 
-                const values = response.message || {};
+                const currentRow = locals[cdt][cdn];
+
+                if (
+                    currentRow.advance_invoice !==
+                    selectedAdvance
+                ) {
+                    return;
+                }
+
+                const values = response && response.message;
+                if (
+                    !values ||
+                    typeof values !== "object" ||
+                    Array.isArray(values) ||
+                    !Object.keys(values).length
+                ) {
+                    return;
+                }
+
                 [
                     "payment_entry",
                     "advance_invoice_date",
@@ -98,55 +398,128 @@
                     "advance_total_amount",
                     "advance_taxable_amount",
                     "advance_tax_amount"
-                ].forEach((fieldname) => {
-                    frappe.model.set_value(cdt, cdn, fieldname, values[fieldname] || null);
+                ].forEach(function (fieldname) {
+                    frappe.model.set_value(
+                        cdt,
+                        cdn,
+                        fieldname,
+                        values[fieldname] != null ? values[fieldname] : null
+                    );
                 });
 
-                const currentAllocation = roundCurrency(currentRow.allocated_total_amount);
-                if (!currentAllocation && values.available_amount > 0) {
+                currentRow.__zatca_available_amount = roundCurrency(
+                    values.available_amount
+                );
+                const currentAllocation = roundCurrency(
+                    currentRow.allocated_total_amount
+                );
+
+                if (!currentAllocation && currentRow.__zatca_available_amount > 0) {
                     frappe.model.set_value(
                         cdt,
                         cdn,
                         "allocated_total_amount",
-                        roundCurrency(values.available_amount)
+                        Math.min(
+                            currentRow.__zatca_available_amount,
+                            finalInvoiceRemainingAmount(frm, currentRow)
+                        )
                     );
                 }
+                clampAllocationAmount(frm, cdt, cdn);
+
                 frappe.model.set_value(
                     cdt,
                     cdn,
                     "remarks",
-                    __("Available before this allocation: {0}", [
-                        format_currency(values.available_amount, values.currency)
-                    ])
+                    __(
+                        "Available before this allocation: {0}",
+                        [
+                            format_currency(
+                                values.available_amount,
+                                values.currency
+                            )
+                        ]
+                    )
                 );
+
                 updateAllocationSplit(frm, cdt, cdn);
+                frm.refresh_field(TABLE_FIELD);
             }
         });
     }
 
     frappe.ui.form.on("Sales Invoice", {
-        setup(frm) {
-            frm.set_query("advance_invoice", TABLE_FIELD, function () {
-                return {
-                    query: QUERY_METHOD,
-                    filters: {
-                        company: frm.doc.company,
-                        customer: frm.doc.customer,
-                        currency: frm.doc.currency,
-                        final_invoice: frm.is_new() ? null : frm.doc.name
+        async setup(frm) {
+            const state = await getCurrentAllocationState(frm);
+            if (!state) {
+                return;
+            }
+
+            configureAllocationGrid(frm);
+            frm.set_query(
+                "advance_invoice",
+                TABLE_FIELD,
+                function () {
+                    if (!allocationFeatureExists(frm)) {
+                        return {};
                     }
-                };
-            });
+
+                    return {
+                        query: QUERY_METHOD,
+                        filters: {
+                            company: frm.doc.company,
+                            customer: frm.doc.customer,
+                            currency: frm.doc.currency,
+                            final_invoice: frm.is_new()
+                                ? null
+                                : frm.doc.name
+                        }
+                    };
+                }
+            );
         },
-        refresh(frm) {
+
+        async refresh(frm) {
+            const state = await getCurrentAllocationState(frm);
+            if (!state) {
+                return;
+            }
+
+            configureAllocationGrid(frm);
+            hydrateExistingRows(frm, state);
             updateDocumentTotals(frm);
         }
     });
 
     frappe.ui.form.on(CHILD_DOCTYPE, {
-        advance_invoice: loadAdvanceDetails,
-        allocated_total_amount: updateAllocationSplit,
-        custom_zatca_advance_deduction_details_remove(frm) {
+        async advance_invoice(frm, cdt, cdn) {
+            const state = await getCurrentAllocationState(frm);
+            if (!state) {
+                return;
+            }
+
+            loadAdvanceDetails(frm, cdt, cdn, state);
+        },
+
+        async allocated_total_amount(frm, cdt, cdn) {
+            const state = await getCurrentAllocationState(frm);
+            if (!state) {
+                return;
+            }
+
+            clampAllocationAmount(frm, cdt, cdn);
+            updateAllocationSplit(frm, cdt, cdn);
+            frm.refresh_field(TABLE_FIELD);
+        },
+
+        async custom_zatca_advance_deduction_details_remove(
+            frm
+        ) {
+            const state = await getCurrentAllocationState(frm);
+            if (!state) {
+                return;
+            }
+
             updateDocumentTotals(frm);
         }
     });
