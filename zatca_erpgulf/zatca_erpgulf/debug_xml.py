@@ -3,6 +3,7 @@ import json
 import base64
 from frappe import _
 import traceback
+from pathlib import Path
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from zatca_erpgulf.zatca_erpgulf.createxml import (
     xml_tags,
@@ -21,7 +22,9 @@ from zatca_erpgulf.zatca_erpgulf.createxml import (
     delivery_and_payment_means_for_compliance,
     invoice_typecode_simplified,
     invoice_typecode_standard,
+    invoice_typecode_advance_payment,
 )
+from zatca_erpgulf.zatca_erpgulf.zatca_runtime import is_advance_payment_invoice
 from zatca_erpgulf.zatca_erpgulf.xml_tax_data import tax_data, tax_data_with_template
 from zatca_erpgulf.zatca_erpgulf.create_xml_final_part import (
     tax_data_nominal,
@@ -104,9 +107,22 @@ def debug_call(
         settings = frappe.get_doc("Company", company_name)
         company_abbr = settings.abbr
         company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
+        # Debug XML is a local simulation and must remain available even when
+        # live ZATCA submission is disabled for the Company.  It never submits
+        # or sends the generated XML.
         if company_doc.custom_zatca_invoice_enabled != 1:
-            frappe.msgprint("Zatca Invoice is not enabled. Submitting the document.")
-            return
+            frappe.msgprint(
+                _(
+                    "ZATCA E-Invoicing is disabled for this Company. "
+                    "Debug XML will be generated locally only; no submission will be performed."
+                )
+            )
+
+        # Resolve the actual invoice rows instead of trusting the optional JS flag.
+        any_item_has_tax_template = any(
+            bool(getattr(item, "item_tax_template", None))
+            for item in (getattr(sales_invoice_doc, "items", None) or [])
+        )
         customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
         if company_doc.tax_id and customer_doc.tax_id:
             if company_doc.tax_id.strip() == customer_doc.tax_id.strip():
@@ -131,7 +147,9 @@ def debug_call(
             customer_doc = frappe.get_doc("Customer", invoice_doc.customer)
 
             # Step 2: Invoice type logic
-            if handle_b2c_simplified:
+            if compliance_type == "0" and is_advance_payment_invoice(invoice_doc) and not invoice_doc.is_return and not getattr(invoice_doc, "is_debit_note", 0):
+                invoice = invoice_typecode_advance_payment(invoice, invoice_doc)
+            elif handle_b2c_simplified:
                 invoice = invoice_typecode_simplified(invoice, invoice_doc)
             else:
                 if compliance_type == "0":
@@ -237,9 +255,11 @@ def debug_call(
                 fields=["name", "file_name"]
             )
 
-            # Delete older debug files if any
+            # Debug is a replace-on-run artifact: remove every previous file
+            # attached to this invoice, then create one fresh canonical file.
             for file in existing_files:
                 frappe.delete_doc("File", file.name, ignore_permissions=True)
+
             file_doc = frappe.get_doc({
                 "doctype": "File",
                 "file_name": debug_filename,
@@ -249,6 +269,14 @@ def debug_call(
                 "is_private": 1,
             })
             file_doc.save(ignore_permissions=True)
+            # Keep only the attached Debug XML; this signed intermediate is disposable.
+            try:
+                Path(signed_xmlfile_name).unlink()
+            except OSError:
+                frappe.log_error(
+                    frappe.get_traceback(),
+                    f"Debug XML intermediate cleanup failed for {invoice_doc.name}",
+                )
             frappe.msgprint(f"✅ Debug XML attached as {debug_filename}")
 
             return {"status": "success", "message": f"XML attached: {debug_filename}"}

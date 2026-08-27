@@ -28,7 +28,9 @@ from zatca_erpgulf.zatca_erpgulf.createxml import (
     additional_reference,
     delivery_and_payment_means,
     invoice_typecode_simplified,
+    invoice_typecode_advance_payment,
 )
+from zatca_erpgulf.zatca_erpgulf.zatca_runtime import is_advance_payment_invoice
 from zatca_erpgulf.zatca_erpgulf.xml_tax_data import tax_data, tax_data_with_template
 from zatca_erpgulf.zatca_erpgulf.create_xml_final_part import (
     tax_data_nominal,
@@ -126,7 +128,9 @@ def zatca_call_withoutxml(
 
         customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
 
-        if compliance_type == "0":
+        if compliance_type == "0" and is_advance_payment_invoice(sales_invoice_doc) and not sales_invoice_doc.is_return and not getattr(sales_invoice_doc, "is_debit_note", 0):
+            invoice = invoice_typecode_advance_payment(invoice, sales_invoice_doc)
+        elif compliance_type == "0":
             if customer_doc.custom_b2c == 1:
                 invoice = invoice_typecode_simplified(invoice, sales_invoice_doc)
             else:

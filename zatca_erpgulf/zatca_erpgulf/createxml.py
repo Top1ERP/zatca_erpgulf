@@ -17,6 +17,30 @@ from zatca_erpgulf.zatca_erpgulf.country_code import country_code_mapping
 CBC_ID = "cbc:ID"
 DS_TRANSFORM = "ds:Transform"
 
+ZATCA_DISCOUNT_REASON_MAP = {
+    "41": "Bonus for works ahead of schedule", "42": "Other bonus",
+    "60": "Manufacturer's consumer discount", "62": "Due to military status",
+    "63": "Due to work accident", "64": "Special agreement",
+    "65": "Production error discount", "66": "New outlet discount",
+    "67": "Sample discount", "68": "End of range discount",
+    "70": "Incoterm discount", "71": "Point of sales threshold allowance",
+    "88": "Material surcharge/deduction", "95": "Discount",
+    "100": "Special rebate", "102": "Fixed long term",
+    "103": "Temporary", "104": "Standard", "105": "Yearly turnover",
+}
+
+
+def get_zatca_discount_reason(code):
+    """Return the official English reason text for a ZATCA discount code."""
+    return ZATCA_DISCOUNT_REASON_MAP.get(str(code or "").strip(), "")
+
+
+def get_zatca_discount_reason_code(reason):
+    """Return the official ZATCA code for an English reason description."""
+    normalized = str(reason or "").strip()
+    reverse_map = {value: key for key, value in ZATCA_DISCOUNT_REASON_MAP.items()}
+    return reverse_map.get(normalized, "")
+
 
 def _abs_rounded(value, precision=2):
     """Safely convert numeric values to absolute rounded floats."""
@@ -802,6 +826,29 @@ def invoice_typecode_simplified(invoice, sales_invoice_doc):
         return None
 
 
+def invoice_typecode_advance_payment(invoice, sales_invoice_doc):
+    """Set the ZATCA code for an original advance-payment invoice."""
+    try:
+        cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
+        customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
+        base_code = "02" if getattr(customer_doc, "custom_b2c", 0) == 1 else "01"
+        checkbox_map = [
+            bool(getattr(sales_invoice_doc, "custom_zatca_third_party_invoice", 0)),
+            bool(getattr(sales_invoice_doc, "custom_zatca_nominal_invoice", 0)),
+            _is_export_invoice(sales_invoice_doc, customer_doc),
+            bool(getattr(sales_invoice_doc, "custom_summary_invoice", 0)),
+            bool(getattr(sales_invoice_doc, "custom_self_billed_invoice", 0)),
+        ]
+        cbc_invoicetypecode.set(
+            "name", base_code + "".join("1" if flag else "0" for flag in checkbox_map)
+        )
+        cbc_invoicetypecode.text = "386"
+        return invoice
+    except (ET.ParseError, AttributeError, ValueError) as e:
+        frappe.throw(_(f"Error in advance payment invoice type code: {e}"))
+        return None
+
+
 def invoice_typecode_standard(invoice, sales_invoice_doc):
     """
     Sets the InvoiceTypeCode for a standard invoice based on sales invoice document attributes.
@@ -1337,16 +1384,14 @@ def add_document_level_discount_with_tax(invoice, sales_invoice_doc):
         cbc_allowance_charge_reason_code = ET.SubElement(
             cac_allowance_charge, "cbc:AllowanceChargeReasonCode"
         )
-        cbc_allowance_charge_reason_code.text = str(
-            sales_invoice_doc.custom_zatca_discount_reason_code
+        cbc_allowance_charge_reason_code.text = get_zatca_discount_reason_code(
+            sales_invoice_doc.custom_zatca_discount_reason
         )
 
         cbc_allowance_charge_reason = ET.SubElement(
             cac_allowance_charge, "cbc:AllowanceChargeReason"
         )
-        cbc_allowance_charge_reason.text = str(
-            sales_invoice_doc.custom_zatca_discount_reason
-        )
+        cbc_allowance_charge_reason.text = sales_invoice_doc.custom_zatca_discount_reason or ""
 
         cbc_amount = ET.SubElement(
             cac_allowance_charge, "cbc:Amount", currencyID=sales_invoice_doc.currency
@@ -1418,16 +1463,14 @@ def add_document_level_discount_with_tax_template(invoice, sales_invoice_doc):
         cbc_allowance_charge_reason_code = ET.SubElement(
             cac_allowance_charge, "cbc:AllowanceChargeReasonCode"
         )
-        cbc_allowance_charge_reason_code.text = str(
-            sales_invoice_doc.custom_zatca_discount_reason_code
+        cbc_allowance_charge_reason_code.text = get_zatca_discount_reason_code(
+            sales_invoice_doc.custom_zatca_discount_reason
         )
 
         cbc_allowance_charge_reason = ET.SubElement(
             cac_allowance_charge, "cbc:AllowanceChargeReason"
         )
-        cbc_allowance_charge_reason.text = str(
-            sales_invoice_doc.custom_zatca_discount_reason
-        )
+        cbc_allowance_charge_reason.text = sales_invoice_doc.custom_zatca_discount_reason or ""
 
         cbc_amount = ET.SubElement(
             cac_allowance_charge, "cbc:Amount", currencyID=sales_invoice_doc.currency
@@ -1502,16 +1545,14 @@ def add_nominal_discount_tax(invoice, sales_invoice_doc):
         cbc_allowance_charge_reason_code = ET.SubElement(
             cac_allowance_charge, "cbc:AllowanceChargeReasonCode"
         )
-        cbc_allowance_charge_reason_code.text = str(
-            sales_invoice_doc.custom_zatca_discount_reason_code
+        cbc_allowance_charge_reason_code.text = get_zatca_discount_reason_code(
+            sales_invoice_doc.custom_zatca_discount_reason
         )
 
         cbc_allowance_charge_reason = ET.SubElement(
             cac_allowance_charge, "cbc:AllowanceChargeReason"
         )
-        cbc_allowance_charge_reason.text = str(
-            sales_invoice_doc.custom_zatca_discount_reason
-        )
+        cbc_allowance_charge_reason.text = sales_invoice_doc.custom_zatca_discount_reason or ""
 
         cbc_amount = ET.SubElement(
             cac_allowance_charge, "cbc:Amount", currencyID=sales_invoice_doc.currency

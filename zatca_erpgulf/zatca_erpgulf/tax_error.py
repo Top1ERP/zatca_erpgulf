@@ -6,6 +6,13 @@ in sales invoices."""
 import frappe
 from frappe import _
 from frappe.utils import cint, flt
+from zatca_erpgulf.zatca_erpgulf.createxml import get_zatca_discount_reason_code
+from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
+    PHASE_2_VALUE,
+    is_zatca_invoice_enabled,
+    resolve_zatca_phase,
+    supports_advance_deduction_schema,
+)
 
 
 def _safe_str(value):
@@ -61,6 +68,167 @@ def _get_pos_name(doc):
 
 _ZATCA_NEGATIVE_LINE_VALIDATION_FIELD = "custom_zatca_negative_line_validation_mode"
 _ZATCA_NEGATIVE_LINE_VALIDATION_MODES = {"Strict", "Warn Only", "Disabled"}
+
+_ZATCA_CATEGORY_RATE_VALIDATION_FIELD = "custom_enforce_zatca_tax_category_rate_validation"
+_ZATCA_NON_STANDARD_CATEGORIES = {
+    "Zero Rated",
+    "Exempted",
+    "Services outside scope of tax / Not subject to VAT",
+}
+
+
+def _is_phase2_category_rate_validation_enabled(company_doc) -> bool:
+    """Gate zero-rate enforcement by company, phase, and explicit setting."""
+    if not company_doc:
+        return False
+    meta = getattr(company_doc, "meta", None)
+    if meta and not meta.has_field(_ZATCA_CATEGORY_RATE_VALIDATION_FIELD):
+        return False
+    return bool(
+        is_zatca_invoice_enabled(company_doc)
+        and resolve_zatca_phase(company_doc) == PHASE_2_VALUE
+        and cint(getattr(company_doc, _ZATCA_CATEGORY_RATE_VALIDATION_FIELD, 0) or 0)
+    )
+
+
+def _is_advance_invoice(invoice) -> bool:
+    meta = getattr(invoice, "meta", None)
+    if meta and meta.has_field("is_advance_payment"):
+        return bool(cint(getattr(invoice, "is_advance_payment", 0) or 0))
+    if meta and meta.has_field("custom_is_advance_payment"):
+        return bool(cint(getattr(invoice, "custom_is_advance_payment", 0) or 0))
+    return False
+
+
+def _advance_tax_template_signature(item_tax_template):
+    """Return the one category/rate pair represented by an item template."""
+    category = _safe_str(getattr(item_tax_template, "custom_zatca_tax_category", None))
+    rates = {
+        round(flt(getattr(row, "tax_rate", 0) or 0), 6)
+        for row in (getattr(item_tax_template, "taxes", []) or [])
+    }
+    if not category or len(rates) != 1:
+        return None
+    return category, next(iter(rates))
+
+
+def validate_advance_payment_invoice_tax_structure(invoice) -> None:
+    """Require exactly one VAT category/rate combination on advance invoices."""
+    if cint(getattr(invoice, "is_return", 0)) or not _is_advance_invoice(invoice):
+        return
+
+    items = list(invoice.get("items") or [])
+    template_names = [_safe_str(getattr(item, "item_tax_template", None)) for item in items]
+    has_templates = any(template_names)
+    if has_templates and not all(template_names):
+        frappe.throw(
+            _(
+                "Advance Payment Invoice cannot mix items with and without Item Tax Template. "
+                "Use one Item Tax Template on every item, or use invoice-level taxes only."
+            )
+        )
+    if not has_templates:
+        if not _safe_str(getattr(invoice, "taxes_and_charges", None)):
+            frappe.throw(
+                _(
+                    "Advance Payment Invoice without Item Tax Templates must use "
+                    "invoice-level taxes_and_charges as its single tax source."
+                )
+            )
+
+        source = _get_invoice_level_zatca_source(invoice)
+        if not _safe_str(source.get("category")):
+            frappe.throw(
+                _(
+                    "Advance Payment Invoice must resolve to exactly one ZATCA VAT category. "
+                    "Configure the invoice-level tax source before saving."
+                )
+            )
+
+        rates = _get_invoice_level_tax_rates(invoice)
+        if len(rates) != 1:
+            frappe.throw(
+                _(
+                    "An Advance Payment Invoice may contain only one VAT rate. "
+                    "Split invoices when different VAT rates are required."
+                )
+            )
+        return
+
+    signatures = set()
+    for item in items:
+        template = frappe.get_doc("Item Tax Template", _safe_str(item.item_tax_template))
+        signature = _advance_tax_template_signature(template)
+        if signature is None:
+            frappe.throw(
+                _(
+                    "Advance Payment Invoice requires every Item Tax Template to resolve "
+                    "to exactly one VAT category and VAT rate."
+                )
+            )
+        signatures.add(signature)
+
+    if len(signatures) > 1:
+        frappe.throw(
+            _(
+                "An Advance Payment Invoice may contain only one VAT category and VAT rate. "
+                "Split invoices when different VAT rates or categories are required."
+            )
+        )
+
+
+def validate_zatca_zero_rate_categories(doc, company_doc=None) -> None:
+    """Reject non-zero rates/tax for Z/E/O in enabled Phase-2 companies."""
+    if doc.doctype not in {"Sales Invoice", "POS Invoice"}:
+        return
+    if company_doc is None and getattr(doc, "company", None):
+        company_doc = frappe.get_doc("Company", doc.company)
+    if not _is_phase2_category_rate_validation_enabled(company_doc):
+        return
+
+    items = list(getattr(doc, "items", []) or [])
+    if any(_safe_str(getattr(item, "item_tax_template", None)) for item in items):
+        for item in items:
+            template_name = _safe_str(getattr(item, "item_tax_template", None))
+            if not template_name:
+                continue
+            template = _get_item_tax_template_doc(item)
+            category = _safe_str(getattr(template, "custom_zatca_tax_category", None))
+            if category not in _ZATCA_NON_STANDARD_CATEGORIES:
+                continue
+            for tax in getattr(template, "taxes", []) or []:
+                if abs(flt(getattr(tax, "tax_rate", 0) or 0)) > 0.000001:
+                    frappe.throw(
+                        _(
+                            "ZATCA categories Zero Rated, Exempted, and Outside Scope "
+                            "must use a zero VAT rate."
+                        )
+                    )
+        return
+
+    source = _get_invoice_level_zatca_source(doc)
+    category = _safe_str(source.get("category"))
+    if category not in _ZATCA_NON_STANDARD_CATEGORIES:
+        return
+    if any(abs(flt(getattr(tax, "rate", 0) or 0)) > 0.000001 for tax in doc.taxes):
+        frappe.throw(
+            _(
+                "ZATCA categories Zero Rated, Exempted, and Outside Scope "
+                "must use a zero VAT rate."
+            )
+        )
+    if any(
+        abs(flt(getattr(tax, "tax_amount", 0) or 0)) > 0.000001
+        or abs(flt(getattr(tax, "base_tax_amount", 0) or 0)) > 0.000001
+        for tax in doc.taxes
+    ):
+        frappe.throw(
+            _(
+                "ZATCA categories Zero Rated, Exempted, and Outside Scope "
+                "must not produce a VAT amount."
+            )
+        )
+
 
 _ZATCA_ITEM_POSITIVE_FIELDS = (
     ("qty", "Quantity"),
@@ -323,11 +491,12 @@ def _has_allowed_zero_tax_standard_exception(doc) -> bool:
     if cint(getattr(doc, "custom_zatca_export_invoice", 0)) == 1:
         return True
 
-    if abs(flt(getattr(doc, "custom_zatca_prepaid_amount", 0))) > 0.000001:
-        return True
+    if supports_advance_deduction_schema(doc):
+        if abs(flt(getattr(doc, "custom_zatca_prepaid_amount", 0))) > 0.000001:
+            return True
 
-    if cint(getattr(doc, "custom_zatca_advance_deduction_count", 0)) > 0:
-        return True
+        if cint(getattr(doc, "custom_zatca_advance_deduction_count", 0)) > 0:
+            return True
 
     return False
 
@@ -337,6 +506,7 @@ def _has_invoice_discount(doc) -> bool:
         "discount_amount",
         "base_discount_amount",
         "additional_discount_percentage",
+        "discount_percentage",
     ):
         if abs(flt(getattr(doc, fieldname, 0))) > 0.000001:
             return True
@@ -353,14 +523,12 @@ def _validate_discount_reason_if_required(doc) -> None:
     if not _has_invoice_discount(doc):
         return
 
-    discount_reason_code = _safe_str(
-        getattr(doc, "custom_zatca_discount_reason_code", None)
-    )
     discount_reason = _safe_str(
         getattr(doc, "custom_zatca_discount_reason", None)
     )
+    discount_reason_code = get_zatca_discount_reason_code(discount_reason)
 
-    if not discount_reason_code or not discount_reason:
+    if not discount_reason or not discount_reason_code:
         frappe.throw(
             _zt(
                 "A ZATCA discount reason code and reason are required when the invoice contains a discount."
@@ -448,67 +616,64 @@ def _get_invoice_level_tax_rate(doc) -> float:
     return 0.0
 
 
+def _get_invoice_level_tax_rates(doc) -> set[float]:
+    """Return every effective invoice-level tax rate, preserving zero rates."""
+    rates = set()
+    for tax_row in getattr(doc, "taxes", []) or []:
+        value = getattr(tax_row, "rate", None)
+        if value not in (None, ""):
+            rates.add(round(flt(value), 6))
+    return rates
+
+
 def _get_invoice_level_zatca_source(doc):
-    """Resolve invoice-level ZATCA tax category source.
-
-    Priority:
-    1. Sales Taxes and Charges Template, if it has custom_zatca_tax_category.
-    2. Sales Invoice / POS Invoice fallback fields.
-    3. Empty source, so validation can raise a clear configuration error.
-    """
+    """Resolve invoice-level ZATCA fields, preferring Sales Invoice values."""
     sales_template = _get_sales_taxes_template_doc(doc)
-
     invoice_category = _safe_str(getattr(doc, "custom_zatca_tax_category", None))
-    invoice_exemption_reason = _safe_str(
-        getattr(doc, "custom_exemption_reason_code", None)
-    )
+    invoice_exemption_reason = _safe_str(getattr(doc, "custom_exemption_reason_code", None))
     invoice_rate = _get_invoice_level_tax_rate(doc)
 
+    template_category = ""
+    template_exemption_reason = ""
+    template_rate = None
     if sales_template:
-        template_category = _safe_str(
-            getattr(sales_template, "custom_zatca_tax_category", None)
-        )
+        template_category = _safe_str(getattr(sales_template, "custom_zatca_tax_category", None))
         template_exemption_reason = _safe_str(
             getattr(sales_template, "custom_exemption_reason_code", None)
         )
         template_rate = _get_template_rate(sales_template)
 
-        if template_category:
-            return {
-                "source_type": "sales_taxes_template",
-                "source_name": _zt("Sales Taxes and Charges Template {0}").format(
-                    sales_template.name
-                ),
-                "category": template_category,
-                "exemption_reason": template_exemption_reason,
-                "rate": template_rate,
-            }
-
-        if invoice_category:
-            return {
-                "source_type": "invoice_fallback",
-                "source_name": _zt("Sales Invoice ZATCA fields"),
-                "category": invoice_category,
-                "exemption_reason": invoice_exemption_reason,
-                "rate": invoice_rate if invoice_rate else template_rate,
-            }
-
+    if invoice_category:
         return {
-            "source_type": "missing",
-            "source_name": _zt(
-                "Sales Taxes and Charges Template {0} or Sales Invoice ZATCA fields"
-            ).format(sales_template.name),
-            "category": "",
-            "exemption_reason": "",
+            "source_type": "invoice",
+            "source_name": _zt("Sales Invoice ZATCA fields"),
+            "category": invoice_category,
+            "exemption_reason": invoice_exemption_reason or template_exemption_reason,
+            "rate": invoice_rate if invoice_rate else template_rate,
+        }
+
+    if template_category:
+        return {
+            "source_type": "sales_taxes_template",
+            "source_name": _zt("Sales Taxes and Charges Template {0}").format(
+                sales_template.name
+            ),
+            "category": template_category,
+            "exemption_reason": template_exemption_reason,
             "rate": template_rate,
         }
 
+    location = (
+        _zt("Sales Invoice ZATCA fields and Sales Taxes and Charges Template")
+        if sales_template
+        else _zt("Sales Invoice ZATCA fields")
+    )
     return {
-        "source_type": "invoice_fallback",
-        "source_name": _zt("Sales Invoice ZATCA fields"),
-        "category": invoice_category,
-        "exemption_reason": invoice_exemption_reason,
-        "rate": invoice_rate,
+        "source_type": "missing",
+        "source_name": location,
+        "category": "",
+        "exemption_reason": "",
+        "rate": template_rate,
     }
 
 
@@ -593,7 +758,6 @@ def validate_zatca_tax_category_and_exemption_reason(
                     doc=None,
                 )
 
-        _validate_discount_reason_if_required(doc)
         return
 
     invoice_source = _get_invoice_level_zatca_source(doc)
@@ -617,8 +781,9 @@ def validate_zatca_tax_category_and_exemption_reason(
     ):
         frappe.throw(
             _zt(
-                "ZATCA exemption reason is required when the ZATCA tax category is {0}."
-            ).format(_zt(invoice_zatca_tax_category))
+                "ZATCA exemption reason is required when the ZATCA tax category is {0}. "
+                "The field custom_exemption_reason_code is empty in {1}."
+            ).format(_zt(invoice_zatca_tax_category), invoice_source["source_name"])
         )
 
     if enforce_source_consistency:
@@ -630,7 +795,6 @@ def validate_zatca_tax_category_and_exemption_reason(
             doc=doc,
         )
 
-    _validate_discount_reason_if_required(doc)
 
 
 def validate_positive_item_values_for_zatca(doc, company_doc) -> None:
@@ -745,6 +909,111 @@ def validate_positive_item_values_for_zatca(doc, company_doc) -> None:
         title="ZATCA Negative Line Validation",
     )
 
+def _tax_template_uses_only_non_tax_accounts(doc) -> bool:
+    """Allow a blank category only for templates with exclusively non-tax accounts."""
+    rows = list(getattr(doc, "taxes", []) or [])
+    if not rows:
+        return False
+
+    account_field = "tax_type" if doc.doctype == "Item Tax Template" else "account_head"
+    for row in rows:
+        account_name = _safe_str(getattr(row, account_field, None))
+        if not account_name:
+            return False
+        account_type = _safe_str(
+            frappe.db.get_value("Account", account_name, "account_type")
+        )
+        if account_type == "Tax":
+            return False
+
+    return True
+
+
+def validate_tax_template_category_constraints(doc, event=None) -> None:
+    """Validate ZATCA category/rate/reason fields on tax templates."""
+    if doc.doctype not in {"Sales Taxes and Charges Template", "Item Tax Template"}:
+        return
+    company = getattr(doc, "company", None)
+    if not company:
+        return
+    company_doc = frappe.get_doc("Company", company)
+    if not _is_phase2_category_rate_validation_enabled(company_doc):
+        return
+
+    category = _safe_str(getattr(doc, "custom_zatca_tax_category", None))
+    if not category and not _tax_template_uses_only_non_tax_accounts(doc):
+        frappe.throw(
+            _(
+                "ZATCA Tax Category is required when any Tax Rates row uses a Tax Account."
+            )
+        )
+
+    if category == "Standard":
+        if getattr(doc, "custom_exemption_reason_code", None):
+            doc.custom_exemption_reason_code = ""
+        rate_field = "tax_rate" if doc.doctype == "Item Tax Template" else "rate"
+        has_positive_rate = any(
+            abs(flt(getattr(row, rate_field, 0) or 0)) > 0.000001
+            for row in getattr(doc, "taxes", []) or []
+        )
+        if not has_positive_rate:
+            frappe.throw(
+                _(
+                    "Standard ZATCA tax category requires at least one tax row with a rate greater than zero in {0}."
+                ).format(doc.name)
+            )
+        return
+
+    if category in _ZATCA_NON_STANDARD_CATEGORIES:
+        if not _safe_str(getattr(doc, "custom_exemption_reason_code", None)):
+            frappe.throw(
+                _(
+                    "Exemption Reason Code is required for Zero Rated, Exempted, "
+                    "and Outside Scope ZATCA categories."
+                )
+            )
+        rate_field = "tax_rate" if doc.doctype == "Item Tax Template" else "rate"
+        for row in getattr(doc, "taxes", []) or []:
+            if abs(flt(getattr(row, rate_field, 0) or 0)) > 0.000001:
+                frappe.throw(
+                    _(
+                        "ZATCA categories Zero Rated, Exempted, and Outside Scope "
+                        "must use a zero VAT rate."
+                    )
+                )
+
+
+def validate_zatca_tax_source_presence(doc, company_doc=None) -> None:
+    """Require an explicit tax source when ZATCA is enabled."""
+    if doc.doctype not in {"Sales Invoice", "POS Invoice"}:
+        return
+    if company_doc is None and getattr(doc, "company", None):
+        company_doc = frappe.get_doc("Company", doc.company)
+    if not company_doc or not is_zatca_invoice_enabled(company_doc):
+        return
+
+    items = list(getattr(doc, "items", []) or [])
+    has_item_templates = any(
+        _safe_str(getattr(item, "item_tax_template", None)) for item in items
+    )
+    if has_item_templates:
+        return
+
+    if not _safe_str(getattr(doc, "taxes_and_charges", None)):
+        frappe.throw(
+            _(
+                "ZATCA-enabled Sales Invoices must use either Item Tax Template on every item "
+                "or one Sales Taxes and Charges Template at invoice level. All tax sources cannot be blank."
+            )
+        )
+    if not list(getattr(doc, "taxes", []) or []):
+        frappe.throw(
+            _(
+                "ZATCA-enabled Sales Invoices must contain at least one Sales Taxes and Charges row."
+            )
+        )
+
+
 def validate_negative_item_values_on_save(doc, event=None):
     """
     Validate item quantities and negative values on document save.
@@ -766,7 +1035,10 @@ def validate_negative_item_values_on_save(doc, event=None):
         return
 
     validate_positive_item_values_for_zatca(doc, company_doc)
+    validate_advance_payment_invoice_tax_structure(doc)
+    validate_zatca_tax_source_presence(doc, company_doc)
     validate_zatca_tax_category_and_exemption_reason(doc, company_doc)
+    validate_zatca_zero_rate_categories(doc, company_doc)
 
 def validate_sales_invoice_taxes(doc, event=None):
     """
@@ -782,7 +1054,10 @@ def validate_sales_invoice_taxes(doc, event=None):
         return
 
     validate_positive_item_values_for_zatca(doc, company_doc)
+    validate_advance_payment_invoice_tax_structure(doc)
+    validate_zatca_tax_source_presence(doc, company_doc)
     validate_zatca_tax_category_and_exemption_reason(doc, company_doc, enforce_source_consistency=True)
+    validate_zatca_zero_rate_categories(doc, company_doc)
 
     is_gpos_installed = "gpos" in frappe.get_installed_apps()
     meta = frappe.get_meta(doc.doctype)

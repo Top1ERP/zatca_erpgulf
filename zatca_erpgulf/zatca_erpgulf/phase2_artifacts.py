@@ -54,6 +54,22 @@ def _extract_qr_payload_from_xml(xml_bytes):
     return None
 
 
+def _remove_stale_qr_files(doc, keep_prefix: str) -> None:
+    """Keep one authoritative Phase-2 QR attachment per Sales Invoice."""
+    rows = frappe.get_all(
+        "File",
+        filters={
+            "attached_to_doctype": "Sales Invoice",
+            "attached_to_name": doc.name,
+            "attached_to_field": "ksa_einv_qr",
+        },
+        fields=["name", "file_name"],
+    )
+    for row in rows:
+        if not str(row.file_name or "").startswith(keep_prefix):
+            frappe.delete_doc("File", row.name, ignore_permissions=True)
+
+
 def _save_attached_file_once(file_name, content, doctype, docname, attached_to_field, is_private):
     """Save an attached file only once.
 
@@ -158,6 +174,7 @@ def ensure_phase2_sales_invoice_artifacts(doc, event=None):
 
     qr_prefix = "QR-Phase2-CLEARED" if cleared_invoice_b64 else "QR-Phase2-REPORTED"
     qr_file_name = f"{qr_prefix}-{doc.name}.png"
+    _remove_stale_qr_files(doc, qr_prefix)
 
     qr_url = _save_attached_file_once(
         qr_file_name,

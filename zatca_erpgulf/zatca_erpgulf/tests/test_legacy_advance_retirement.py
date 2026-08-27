@@ -74,14 +74,16 @@ class TestLegacyAdvanceLifecycle(FrappeTestCase):
 
     @patch("frappe.get_doc")
     @patch("frappe.get_all")
-    @patch("frappe.get_meta")
+    @patch(
+        "zatca_erpgulf.zatca_erpgulf.advance_lifecycle.supports_advance_payment_entry_link",
+        return_value=True,
+    )
     def test_payment_entry_resolves_one_standard_advance_invoice(
         self,
-        get_meta,
+        _supports_link,
         get_all,
         get_doc,
     ):
-        get_meta.return_value = _Meta({"custom_zatca_payment_entry"})
         get_all.return_value = ["SINV-ADV-TEST"]
         get_doc.return_value = _advance_invoice()
 
@@ -94,8 +96,11 @@ class TestLegacyAdvanceLifecycle(FrappeTestCase):
         )
 
     @patch("frappe.get_all", return_value=["SINV-ADV-1", "SINV-ADV-2"])
-    @patch("frappe.get_meta", return_value=_Meta({"custom_zatca_payment_entry"}))
-    def test_duplicate_active_invoices_are_blocked(self, _get_meta, _get_all):
+    @patch(
+        "zatca_erpgulf.zatca_erpgulf.advance_lifecycle.supports_advance_payment_entry_link",
+        return_value=True,
+    )
+    def test_duplicate_active_invoices_are_blocked(self, _supports_link, _get_all):
         with self.assertRaisesRegex(frappe.ValidationError, "more than one active"):
             get_advance_sales_invoice_for_payment_entry("ACC-PAY-TEST")
 

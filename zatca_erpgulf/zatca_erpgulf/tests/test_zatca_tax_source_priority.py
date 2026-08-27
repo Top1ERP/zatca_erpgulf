@@ -93,7 +93,7 @@ def _item_tax_template(category, exemption_reason="", tax_rate=15):
 
 
 class TestZATCATaxSourcePriority(FrappeTestCase):
-    def test_sales_taxes_template_overrides_sales_invoice_fallback(self):
+    def test_sales_invoice_values_override_sales_taxes_template(self):
         sales_template = _sales_tax_template(
             category="Zero Rated",
             exemption_reason="VATEX-SA-29",
@@ -102,7 +102,7 @@ class TestZATCATaxSourcePriority(FrappeTestCase):
         invoice = _sales_invoice(
             taxes_and_charges=sales_template.name,
             invoice_category="Standard",
-            invoice_exemption_reason=None,
+            invoice_exemption_reason="VATEX-SA-OOS",
             tax_rate=0,
         )
 
@@ -112,8 +112,8 @@ class TestZATCATaxSourcePriority(FrappeTestCase):
         ):
             category, exemption_reason = _get_invoice_level_zatca_tax_source(invoice)
 
-        self.assertEqual(category, "Zero Rated")
-        self.assertEqual(exemption_reason, "VATEX-SA-29")
+        self.assertEqual(category, "Standard")
+        self.assertEqual(exemption_reason, "VATEX-SA-OOS")
 
     def test_sales_invoice_fallback_used_when_sales_template_has_no_zatca_category(self):
         sales_template = _sales_tax_template(category="", exemption_reason="", tax_rate=0)
@@ -133,7 +133,7 @@ class TestZATCATaxSourcePriority(FrappeTestCase):
         self.assertEqual(category, OUTSIDE_SCOPE)
         self.assertEqual(exemption_reason, "VATEX-SA-OOS")
 
-    def test_tax_breakdown_without_item_template_uses_sales_template_source(self):
+    def test_tax_breakdown_without_item_template_prefers_invoice_source(self):
         sales_template = _sales_tax_template(
             category="Zero Rated",
             exemption_reason="VATEX-SA-29",
@@ -153,8 +153,8 @@ class TestZATCATaxSourcePriority(FrappeTestCase):
             breakdown = _get_tax_breakdown_without_template(invoice)
 
         self.assertEqual(len(breakdown), 1)
-        self.assertEqual(breakdown[0]["zatca_tax_category"], "Zero Rated")
-        self.assertEqual(breakdown[0]["exemption_reason_code"], "VATEX-SA-29")
+        self.assertEqual(breakdown[0]["zatca_tax_category"], "Standard")
+        self.assertIsNone(breakdown[0]["exemption_reason_code"])
         self.assertEqual(breakdown[0]["taxable_amount"], Decimal("150.00"))
         self.assertEqual(breakdown[0]["tax_amount"], Decimal("0.00"))
         self.assertEqual(breakdown[0]["tax_rate"], Decimal("0.00"))

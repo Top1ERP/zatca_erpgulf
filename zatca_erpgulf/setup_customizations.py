@@ -12,6 +12,34 @@ from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 APP_NAME = "zatca_erpgulf"
 MODULE_NAME = "Zatca Erpgulf"
+ADVANCE_PAYMENT_ITEM_CODE = "Advance Payment"
+
+
+SALES_INVOICE_PRINT_HEADING_TEMPLATE = r"""<h1 style="text-align: center !important">
+    {% set b2c = frappe.db.get_value("Customer", doc.customer, "custom_b2c") or 0 %}
+    {% set is_return = doc.is_return|int %}
+    {% set is_debit_note = doc.is_debit_note|int %}
+    {% set is_advance_payment = doc.is_advance_payment|int %}
+    {% if is_return == 1 %}
+        <div>فاتورة ضريبية - إشعار دائن</div>
+        <small class="sub-heading">Credit Note</small>
+    {% elif is_debit_note == 1 %}
+        <div>فاتورة ضريبية - إشعار مدين</div>
+        <small class="sub-heading">Debit Note</small>
+    {% elif is_advance_payment == 1 and b2c|int == 1 %}
+        <div>فاتورة ضريبية مبسطة للدفعة المقدمة</div>
+        <small class="sub-heading">Simplified Advance Payment Tax Invoice</small>
+    {% elif is_advance_payment == 1 %}
+        <div>فاتورة ضريبية للدفعة المقدمة</div>
+        <small class="sub-heading">Advance Payment Tax Invoice</small>
+    {% elif b2c|int == 1 %}
+        <div>فاتورة ضريبية مبسطة</div>
+        <small class="sub-heading">Simplified Tax Invoice</small>
+    {% else %}
+        <div>فاتورة ضريبية</div>
+        <small class="sub-heading">Tax Invoice</small>
+    {% endif %}
+</h1>"""
 
 
 PYTHON_MANAGED_COMPANY_ZATCA_FIELDS = {
@@ -68,6 +96,8 @@ PYTHON_MANAGED_COMPANY_ZATCA_FIELDS = {
     ("Company", "custom_section_break_hwvcd"),
     ("Company", "custom_zatca_offline_machines"),
     ("Company", "custom_submit_line_item_discount_to_zatca"),
+    ("Company", "custom_enforce_zatca_tax_category_rate_validation"),
+    ("Company", "custom_enforce_zatca_payment_entry_amount_limit"),
 
     # Customer ZATCA fields are intentionally controlled by Python layout
     # normalizers to avoid fixture/layout churn during after_migrate.
@@ -162,6 +192,21 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
     ],
     "Sales Invoice": [
         {
+            "fieldname": "abbr",
+            "label": "Company Abbreviation",
+            "fieldtype": "Data",
+            "insert_after": "company",
+            "fetch_from": "company.abbr",
+            "module": MODULE_NAME,
+            "translatable": 0,
+            "hidden": 1,
+            "reqd": 0,
+            "no_copy": 1,
+            # Preserve an exact existing field's customer-owned configuration.
+            "_alternatives": ["abbr"],
+            "_preserve_existing": True,
+        },
+        {
             "fieldname": "is_advance_payment",
             "label": "Is Advance Payment Invoice",
             "fieldtype": "Check",
@@ -173,6 +218,10 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
             "read_only": 0,
             "reqd": 0,
             "no_copy": 1,
+            "description": (
+                "Use this only for the initial advance payment invoice, "
+                "not for the final invoice."
+            ),
             "_alternatives": [
                 "is_advance_payment",
                 "custom_is_advance_payment",
@@ -250,6 +299,43 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
                 "taxes_and_charges",
                 "taxes"
             ],
+        },
+        {
+            "fieldname": "custom_zatca_advance_deduction_summary_column_break",
+            "label": "",
+            "fieldtype": "Column Break",
+            "insert_after": "custom_zatca_prepaid_amount",
+            "module": MODULE_NAME,
+            "translatable": 0,
+            "hidden": 0,
+            "read_only": 0,
+            "reqd": 0,
+            "no_copy": 1,
+        },
+        {
+            "fieldname": "custom_zatca_advance_deduction_totals_column_break",
+            "label": "",
+            "fieldtype": "Column Break",
+            "insert_after": "custom_zatca_advance_deducted_taxable_amount",
+            "module": MODULE_NAME,
+            "translatable": 0,
+            "hidden": 1,
+            "read_only": 0,
+            "reqd": 0,
+            "no_copy": 1,
+        },
+        {
+            "fieldname": "custom_section_break_qhp4f",
+            "label": "ZATCA Advance Deduction Table",
+            "fieldtype": "Section Break",
+            "insert_after": "custom_zatca_advance_deduction_count",
+            "module": MODULE_NAME,
+            "translatable": 0,
+            "hidden": 0,
+            "read_only": 0,
+            "reqd": 0,
+            "no_copy": 1,
+            "collapsible": 1,
         },
         {
             "fieldname": "custom_zatca_advance_deduction_count",
@@ -768,6 +854,7 @@ def ensure_critical_custom_fields() -> dict[str, list[str]]:
 
             target_fieldname = field_def_copy.get("fieldname")
             alternatives = field_def_copy.pop("_alternatives", [])
+            preserve_existing = field_def_copy.pop("_preserve_existing", False)
             fallback_candidates = field_def_copy.pop("_fallback_insert_after", [])
 
             if target_fieldname and target_fieldname not in alternatives:
@@ -775,7 +862,8 @@ def ensure_critical_custom_fields() -> dict[str, list[str]]:
 
             if alternatives and _any_field_exists(dt, alternatives):
                 result["already_available"].append(f"{dt}.{target_fieldname}")
-                _ensure_alternative_field_visible(dt, alternatives)
+                if not preserve_existing:
+                    _ensure_alternative_field_visible(dt, alternatives)
                 continue
 
             field_def_copy["insert_after"] = _resolve_insert_after(
@@ -3139,6 +3227,7 @@ def sync_sales_invoice_zatca_integration_layout() -> dict[str, list[str]]:
             "insert_after": "custom_section_break_gqwpx",
             "options": "Standard\nZero Rated\nExempted\nServices outside scope of tax / Not subject to VAT",
             "description": "",
+            "read_only": 1,
         },
         {
             "fieldname": "custom_exemption_reason_code",
@@ -3147,15 +3236,6 @@ def sync_sales_invoice_zatca_integration_layout() -> dict[str, list[str]]:
             "label": "Exemption Reason Code",
             "insert_after": "custom_zatca_tax_category",
             "options": "\nVATEX-SA-29\nVATEX-SA-29-7\nVATEX-SA-30\nVATEX-SA-32\nVATEX-SA-33\nVATEX-SA-34-1\nVATEX-SA-34-2\nVATEX-SA-34-3\nVATEX-SA-34-4\nVATEX-SA-34-5\nVATEX-SA-35\nVATEX-SA-36\nVATEX-SA-EDU\nVATEX-SA-HEA\nVATEX-SA-MLTRY\nVATEX-SA-OOS",
-            "description": "",
-        },
-        {
-            "fieldname": "custom_zatca_discount_reason_code",
-            "idx": 36,
-            "fieldtype": "Select",
-            "options": "\n41\n42\n60\n62\n63\n64\n65\n66\n67\n68\n70\n71\n88\n95\n100\n102\n103\n104\n105",
-            "label": "ZATCA Discount reason code",
-            "insert_after": "custom_exemption_reason_code",
             "description": "",
         },
         {
@@ -3417,6 +3497,7 @@ def sync_tax_template_zatca_source_fields() -> dict[str, list[str]]:
     }
 
     category_options = (
+        "\n"
         "Standard\n"
         "Zero Rated\n"
         "Exempted\n"
@@ -3458,7 +3539,7 @@ def sync_tax_template_zatca_source_fields() -> dict[str, list[str]]:
             {
                 "fieldname": "custom_exemption_reason_code",
                 "fieldtype": "Select",
-                "label": "Exemption Reason Code",
+                "label": "Default Exemption Reason Code",
                 "insert_after": "custom_zatca_tax_category",
                 "options": exemption_options,
                 "description": "",
@@ -3481,7 +3562,7 @@ def sync_tax_template_zatca_source_fields() -> dict[str, list[str]]:
             {
                 "fieldname": "custom_exemption_reason_code",
                 "fieldtype": "Select",
-                "label": "Exemption Reason Code",
+                "label": "Default Exemption Reason Code",
                 "insert_after": "custom_zatca_tax_category",
                 "options": exemption_options,
                 "description": "",
@@ -3495,25 +3576,68 @@ def sync_tax_template_zatca_source_fields() -> dict[str, list[str]]:
     company_field_existed = bool(
         frappe.db.exists("Custom Field", f"Company-{company_fieldname}")
     )
+    category_rate_fieldname = "custom_enforce_zatca_tax_category_rate_validation"
+    category_rate_field_existed = bool(
+        frappe.db.exists("Custom Field", f"Company-{category_rate_fieldname}")
+    )
+    payment_entry_limit_fieldname = "custom_enforce_zatca_payment_entry_amount_limit"
+    payment_entry_limit_field_existed = bool(
+        frappe.db.exists("Custom Field", f"Company-{payment_entry_limit_fieldname}")
+    )
 
     if _doctype_exists("Company"):
-        custom_fields.setdefault("Company", []).append(
-            {
-                "fieldname": company_fieldname,
-                "fieldtype": "Check",
-                "label": "Enforce ZATCA tax category source validation",
-                "insert_after": "custom_zatca_negative_line_validation_mode",
-                "default": "1",
-                "description": (
-                    "When enabled, the system validates ZATCA tax category source "
-                    "and consistency using Item Tax Template or Sales Taxes and Charges Template."
-                ),
-            }
+        custom_fields.setdefault("Company", []).extend(
+            [
+                {
+                    "fieldname": company_fieldname,
+                    "fieldtype": "Check",
+                    "label": "Enforce ZATCA tax category source validation",
+                    "insert_after": "custom_zatca_negative_line_validation_mode",
+                    "default": "1",
+                    "description": (
+                        "When enabled, the system validates ZATCA tax category source "
+                        "and consistency using Item Tax Template or Sales Taxes and Charges Template."
+                    ),
+                },
+                {
+                    "fieldname": category_rate_fieldname,
+                    "fieldtype": "Check",
+                    "label": "Enforce ZATCA zero-rate category validation",
+                    "insert_after": company_fieldname,
+                    "default": "1",
+                    "description": (
+                        "When enabled in Phase-2 with ZATCA E-Invoicing enabled, Zero Rated, "
+                        "Exempted, and Outside Scope categories must use zero VAT rate and zero tax."
+                    ),
+                },
+                {
+                    "fieldname": payment_entry_limit_fieldname,
+                    "fieldtype": "Check",
+                    "label": "Enforce ZATCA Payment Entry amount limit",
+                    "insert_after": category_rate_fieldname,
+                    "default": "1",
+                    "description": (
+                        "When enabled, a linked ZATCA Payment Entry cannot exceed the Sales Invoice total including VAT."
+                    ),
+                },
+            ]
         )
-        result["ensured"].append("Company ZATCA source validation setting")
+        result["ensured"].append("Company ZATCA source and zero-rate validation settings")
 
     if custom_fields:
         create_custom_fields(custom_fields, update=True)
+
+    # Keep the user-facing label stable on existing sites as well as new installs.
+    for doctype in ("Sales Taxes and Charges Template", "Item Tax Template"):
+        custom_field_name = f"{doctype}-custom_exemption_reason_code"
+        if frappe.db.exists("Custom Field", custom_field_name):
+            frappe.db.set_value(
+                "Custom Field",
+                custom_field_name,
+                "label",
+                "Default Exemption Reason Code",
+                update_modified=False,
+            )
 
     if (
         _doctype_exists("Company")
@@ -3528,6 +3652,34 @@ def sync_tax_template_zatca_source_fields() -> dict[str, list[str]]:
             """
         )
         result["company_defaults_set"].append(company_fieldname)
+
+    if (
+        _doctype_exists("Company")
+        and not category_rate_field_existed
+        and frappe.db.has_column("Company", category_rate_fieldname)
+    ):
+        frappe.db.sql(
+            f"""
+            UPDATE `tabCompany`
+            SET `{category_rate_fieldname}` = 1
+            WHERE COALESCE(`{category_rate_fieldname}`, 0) = 0
+            """
+        )
+        result["company_defaults_set"].append(category_rate_fieldname)
+
+    if (
+        _doctype_exists("Company")
+        and not payment_entry_limit_field_existed
+        and frappe.db.has_column("Company", payment_entry_limit_fieldname)
+    ):
+        frappe.db.sql(
+            f"""
+            UPDATE `tabCompany`
+            SET `{payment_entry_limit_fieldname}` = 1
+            WHERE COALESCE(`{payment_entry_limit_fieldname}`, 0) = 0
+            """
+        )
+        result["company_defaults_set"].append(payment_entry_limit_fieldname)
 
     frappe.db.commit()
 
@@ -3570,6 +3722,41 @@ def infer_zatca_source_values_from_tax_template(title: str, rate: Any, descripti
         return "Standard", ""
 
     return "", ""
+
+
+def ensure_ksa_tax_templates_for_companies() -> dict[str, list[str]]:
+    """Ensure canonical KSA sales/item tax templates exist for Saudi companies.
+
+    This is intentionally limited to Sales Taxes and Charges Template and Item Tax
+    Template. It does not create purchase templates or alter non-Saudi companies.
+    """
+    from zatca_erpgulf.ksa_compliance.tax_templates import (
+        KSA_TAX_DEFINITIONS,
+        ensure_item_tax_template,
+        ensure_sales_tax_template,
+        ensure_tax_account,
+        reset_sales_default_for_company,
+    )
+
+    result = {"companies": [], "skipped": [], "templates": []}
+    if not _doctype_exists("Company"):
+        result["skipped"].append("Company missing")
+        return result
+
+    for company in frappe.get_all("Company", filters={"country": "Saudi Arabia"}, fields=["name"]):
+        company_doc = frappe.get_doc("Company", company.name)
+        result["companies"].append(company_doc.name)
+        reset_sales_default_for_company(company_doc.name)
+        for tax_def in KSA_TAX_DEFINITIONS:
+            account = ensure_tax_account(company_doc, tax_def["account_name"])["name"]
+            sales = ensure_sales_tax_template(company_doc, tax_def, account)
+            item = ensure_item_tax_template(company_doc, tax_def, account)
+            result["templates"].extend([sales["name"], item["name"]])
+
+    if result["companies"]:
+        frappe.db.commit()
+        frappe.clear_cache()
+    return result
 
 
 def sync_existing_tax_template_zatca_values() -> dict[str, list[str]]:
@@ -3863,6 +4050,7 @@ def sync_sales_invoice_advance_deduction_detail_table_field() -> dict[str, list[
         "fieldtype": "Table",
         "options": "ZATCA Sales Invoice Advance Deduction",
         "insert_after": "custom_zatca_advance_deduction_count",
+        "description": "",
         "read_only": 0,
         "no_copy": 1,
         "allow_on_submit": 0,
@@ -3925,10 +4113,12 @@ def sync_sales_invoice_advance_deduction_total_fields() -> dict[str, list[str]]:
         {
             "dt": "Sales Invoice",
             "fieldname": "custom_zatca_advance_deduction_totals_section",
-            "label": "ZATCA Advance Deduction Totals",
+            "label": "ZATCA Advance Deduction",
             "fieldtype": "Section Break",
-            "insert_after": "custom_zatca_advance_deduction_details",
-            "collapsible": 0,
+            "insert_after": "advances",
+            "description": "Automatically summarizes accepted ZATCA advance deductions from System standard Advance Payments.",
+            "hidden": 0,
+            "collapsible": 1,
             "no_copy": 1,
             "module": MODULE_NAME,
         },
@@ -4041,12 +4231,33 @@ def sync_zatca_advance_final_invoice_layout() -> dict[str, list[str]]:
         sales_invoice_specs = [
             {
                 "dt": "Sales Invoice",
+                "fieldname": "custom_zatca_advance_deduction_section",
+                "label": "ZATCA Advance Deductions",
+                "fieldtype": "Section Break",
+                "insert_after": "advances",
+                "hidden": 0,
+                "module": MODULE_NAME,
+            },
+            {
+                "dt": "Sales Invoice",
+                "fieldname": "custom_section_break_qhp4f",
+                "label": "ZATCA Advance Deduction Table",
+                "fieldtype": "Section Break",
+                "insert_after": "custom_zatca_advance_deduction_count",
+                "collapsible": 1,
+                "hidden": 0,
+                "module": MODULE_NAME,
+            },
+            {
+                "dt": "Sales Invoice",
                 "fieldname": "custom_zatca_advance_deduction_details",
                 "label": "ZATCA Advance Deduction Details",
                 "fieldtype": "Table",
                 "options": "ZATCA Sales Invoice Advance Deduction",
                 "insert_after": "custom_zatca_advance_deduction_count",
+                "description": "",
                 "read_only": 0,
+                "editable_grid": 1,
                 "no_copy": 1,
                 "allow_on_submit": 0,
                 "module": MODULE_NAME,
@@ -4054,10 +4265,12 @@ def sync_zatca_advance_final_invoice_layout() -> dict[str, list[str]]:
             {
                 "dt": "Sales Invoice",
                 "fieldname": "custom_zatca_advance_deduction_totals_section",
-                "label": "ZATCA Advance Deduction Totals",
+                "label": "ZATCA Advance Deduction",
                 "fieldtype": "Section Break",
-                "insert_after": "custom_zatca_advance_deduction_details",
-                "collapsible": 0,
+                "insert_after": "advances",
+                "description": "Automatically summarizes accepted ZATCA advance deductions from System standard Advance Payments.",
+                "hidden": 0,
+                "collapsible": 1,
                 "no_copy": 1,
                 "module": MODULE_NAME,
             },
@@ -4079,6 +4292,7 @@ def sync_zatca_advance_final_invoice_layout() -> dict[str, list[str]]:
                 "label": "",
                 "fieldtype": "Column Break",
                 "insert_after": "custom_zatca_advance_deducted_taxable_amount",
+                "hidden": 1,
                 "no_copy": 1,
                 "module": MODULE_NAME,
             },
@@ -4128,6 +4342,43 @@ def run_zatca_customization_sync_after_migrate() -> None:
         _log("ZATCA customization sync from after_migrate hook failed. See Error Log.")
 
 
+ADVANCE_PAYMENT_NAMING_SERIES = "ADV-.abbr.-.YYYY.-"
+
+
+def ensure_sales_invoice_advance_naming_series() -> dict[str, Any]:
+    """Append the advance-payment series without replacing site-defined series."""
+    result = {"updated": False, "skipped": []}
+
+    if not _doctype_exists("Sales Invoice") or not _property_setter_available():
+        result["skipped"].append("Sales Invoice or Property Setter is unavailable")
+        return result
+
+    field = frappe.get_meta("Sales Invoice").get_field("naming_series")
+    if not field:
+        result["skipped"].append("Sales Invoice.naming_series is unavailable")
+        return result
+
+    options = [line.strip() for line in (field.options or "").splitlines() if line.strip()]
+    if ADVANCE_PAYMENT_NAMING_SERIES in options:
+        return result
+
+    options.append(ADVANCE_PAYMENT_NAMING_SERIES)
+    changed = _upsert_property_setter({
+        "doctype": "Property Setter",
+        "doc_type": "Sales Invoice",
+        "doctype_or_field": "DocField",
+        "field_name": "naming_series",
+        "property": "options",
+        "property_type": "Text",
+        "value": "\n".join(options),
+        "name": "Sales Invoice-naming_series-options-zatca_erpgulf",
+    })
+    if changed:
+        frappe.clear_cache(doctype="Sales Invoice")
+        result["updated"] = True
+    return result
+
+
 def force_sales_invoice_zatca_field_order_property_setter() -> dict[str, Any]:
     """Force the approved Sales Invoice field_order Property Setter.
 
@@ -4157,6 +4408,14 @@ def force_sales_invoice_zatca_field_order_property_setter() -> dict[str, Any]:
         "custom_zatca_export_invoice",
         "custom_summary_invoice",
         "custom_self_billed_invoice",
+        "custom_section_break_qhp4f",
+        "custom_zatca_advance_deduction_details",
+        "custom_zatca_advance_deduction_totals_section",
+        "custom_zatca_prepaid_amount",
+        "custom_zatca_advance_deducted_taxable_amount",
+        "custom_zatca_advance_deduction_summary_column_break",
+        "custom_zatca_advance_deduction_count",
+        "custom_zatca_advance_deducted_vat_amount",
     ]
 
     result = {
@@ -4208,7 +4467,15 @@ def force_sales_invoice_zatca_field_order_property_setter() -> dict[str, Any]:
 
     order = unique_order
 
-    required_anchors = ["column_break_14", "is_pos", "amended_from"]
+    required_anchors = [
+        "company",
+        "column_break_14",
+        "is_pos",
+        "amended_from",
+        "advances",
+        "loyalty_points_redemption",
+        "accounting_dimensions_section",
+    ]
     for fieldname in required_anchors:
         if fieldname not in order:
             result["skipped"].append(f"Missing required anchor: {fieldname}")
@@ -4216,8 +4483,33 @@ def force_sales_invoice_zatca_field_order_property_setter() -> dict[str, Any]:
     if result["skipped"]:
         return result
 
-    controlled = set()
+    marker_anchor = (
+        "is_advance_payment"
+        if frappe.get_meta("Sales Invoice").has_field("is_advance_payment")
+        else "custom_is_advance_payment"
+        if frappe.get_meta("Sales Invoice").has_field("custom_is_advance_payment")
+        else ""
+    )
+    controlled = {
+        "abbr",
+        "custom_zatca_payment_entry",
+        "custom_zatca_advance_deduction_section",
+        "custom_zatca_advance_deduction_totals_column_break",
+    }
+    if marker_anchor:
+        controlled.add(marker_anchor)
     available_zatca_order = []
+
+    if frappe.db.exists("Custom Field", {"dt": "Sales Invoice", "fieldname": "abbr"}) or "abbr" in order:
+        controlled.add("abbr")
+    else:
+        result["missing_fields"].append("abbr")
+
+    payment_entry_field = "custom_zatca_payment_entry"
+    if frappe.db.exists("Custom Field", {"dt": "Sales Invoice", "fieldname": payment_entry_field}) or payment_entry_field in order:
+        controlled.add(payment_entry_field)
+    else:
+        result["missing_fields"].append(payment_entry_field)
 
     if frappe.db.exists("Custom Field", {"dt": "Sales Invoice", "fieldname": badge_field}) or badge_field in order:
         controlled.add(badge_field)
@@ -4232,6 +4524,9 @@ def force_sales_invoice_zatca_field_order_property_setter() -> dict[str, Any]:
             result["missing_fields"].append(fieldname)
 
     targets = [
+        "company",
+        "abbr",
+        payment_entry_field,
         "column_break_14",
         badge_field,
         "is_pos",
@@ -4247,12 +4542,58 @@ def force_sales_invoice_zatca_field_order_property_setter() -> dict[str, Any]:
         if fieldname not in controlled:
             new_order.append(fieldname)
 
+    if "abbr" in controlled:
+        new_order.insert(new_order.index("company") + 1, "abbr")
+
+    if marker_anchor in controlled:
+        marker_insert_after = (
+            "is_debit_note"
+            if "is_debit_note" in new_order
+            else "is_return"
+            if "is_return" in new_order
+            else "customer"
+        )
+        new_order.insert(new_order.index(marker_insert_after) + 1, marker_anchor)
+
+    if payment_entry_field in controlled and marker_anchor in new_order:
+        new_order.insert(new_order.index(marker_anchor) + 1, payment_entry_field)
     pos = new_order.index("column_break_14")
     if badge_field in controlled:
         new_order.insert(pos + 1, badge_field)
 
-    pos = new_order.index("amended_from")
-    for offset, fieldname in enumerate(available_zatca_order, start=1):
+    advance_fieldnames = {
+        "custom_zatca_advance_deduction_section",
+        "custom_zatca_advance_deduction_totals_section",
+        "custom_zatca_prepaid_amount",
+        "custom_zatca_advance_deduction_summary_column_break",
+        "custom_zatca_advance_deduction_count",
+        "custom_section_break_qhp4f",
+        "custom_zatca_advance_deduction_details",
+        "custom_zatca_advance_deduction_totals_section",
+        "custom_zatca_advance_deducted_taxable_amount",
+        "custom_zatca_advance_deduction_totals_column_break",
+        "custom_zatca_advance_deducted_vat_amount",
+    }
+    integration_order = [
+        fieldname
+        for fieldname in available_zatca_order
+        if fieldname not in advance_fieldnames
+    ]
+    advance_order = [
+        fieldname
+        for fieldname in available_zatca_order
+        if fieldname in advance_fieldnames
+    ]
+
+    # Keep ZATCA Integration Fields before the standard Accounting Dimensions.
+    pos = new_order.index("accounting_dimensions_section")
+    for offset, fieldname in enumerate(integration_order, start=0):
+        new_order.insert(pos + offset, fieldname)
+
+    # Keep the advance-deduction block with ERPNext Advance Payments, before
+    # the standard Loyalty Points Redemption section.
+    pos = new_order.index("advances")
+    for offset, fieldname in enumerate(advance_order, start=1):
         new_order.insert(pos + offset, fieldname)
 
     for fieldname in targets:
@@ -4275,6 +4616,175 @@ def force_sales_invoice_zatca_field_order_property_setter() -> dict[str, Any]:
     frappe.clear_cache(doctype="Sales Invoice")
     frappe.clear_document_cache("DocType", "Sales Invoice")
 
+    return result
+
+
+def sync_sales_invoice_print_heading() -> dict[str, Any]:
+    """Ensure the dynamic ZATCA heading exists only on active non-standard formats."""
+    result = {"updated": [], "skipped": []}
+    formats = frappe.get_all(
+        "Print Format",
+        filters={
+            "doc_type": "Sales Invoice",
+            "standard": "No",
+            "custom_format": 0,
+            "disabled": 0,
+        },
+        pluck="name",
+    )
+    for name in formats:
+        print_format = frappe.get_doc("Print Format", name)
+        try:
+            format_data = json.loads(print_format.format_data or "[]")
+        except (TypeError, ValueError):
+            result["skipped"].append(f"{name}: invalid format_data")
+            continue
+        if not isinstance(format_data, list):
+            result["skipped"].append(f"{name}: format_data is not a list")
+            continue
+
+        heading = {
+            "fieldname": "print_heading_template",
+            "fieldtype": "Custom HTML",
+            "options": SALES_INVOICE_PRINT_HEADING_TEMPLATE,
+        }
+        if format_data and format_data[0].get("fieldname") == "print_heading_template":
+            if format_data[0].get("options") == SALES_INVOICE_PRINT_HEADING_TEMPLATE:
+                continue
+            format_data[0] = {**format_data[0], **heading}
+        else:
+            format_data.insert(0, heading)
+
+        print_format.db_set(
+            "format_data", json.dumps(format_data, ensure_ascii=False), update_modified=False
+        )
+        result["updated"].append(name)
+
+    if result["updated"]:
+        frappe.clear_cache(doctype="Print Format")
+    return result
+
+
+def ensure_advance_payment_item() -> dict[str, Any]:
+    """Create the standard non-stock advance item once, without overwriting user data."""
+    result = {"created": [], "present": [], "skipped": []}
+
+    if not _doctype_exists("Item"):
+        result["skipped"].append("Item DocType missing")
+        return result
+
+    if frappe.db.exists("Item", ADVANCE_PAYMENT_ITEM_CODE):
+        result["present"].append(ADVANCE_PAYMENT_ITEM_CODE)
+        return result
+
+    if not frappe.db.exists("UOM", "Nos"):
+        result["skipped"].append("Standard UOM Nos missing")
+        return result
+
+    # Item Group names are site-local and may be translated (for example, the
+    # standard English groups are often renamed to Arabic). Prefer the
+    # canonical service groups, then use any existing leaf group rather than
+    # refusing to create the non-stock advance item.
+    item_group = frappe.db.get_value(
+        "Item Group",
+        {"name": ["in", ["Services", "الخدمات"]], "is_group": 0},
+        "name",
+    )
+    if not item_group:
+        item_group = frappe.db.get_value(
+            "Item Group", {"is_group": 0}, "name", order_by="lft asc"
+        )
+    if not item_group:
+        result["skipped"].append("No leaf Item Group is available")
+        return result
+
+    item = frappe.get_doc(
+        {
+            "doctype": "Item",
+            "item_code": ADVANCE_PAYMENT_ITEM_CODE,
+            "item_name": ADVANCE_PAYMENT_ITEM_CODE,
+            "description": ADVANCE_PAYMENT_ITEM_CODE,
+            "item_group": item_group,
+            "stock_uom": "Nos",
+            "is_stock_item": 0,
+            "is_sales_item": 1,
+            "is_purchase_item": 0,
+            "disabled": 0,
+        }
+    )
+    item.flags.ignore_permissions = True
+    item.insert(ignore_permissions=True)
+    result["created"].append(ADVANCE_PAYMENT_ITEM_CODE)
+    return result
+
+
+def hide_legacy_discount_reason_code() -> None:
+    """Hide the retired code field while preserving old stored values."""
+    fieldname = "Sales Invoice-custom_zatca_discount_reason_code"
+    if frappe.db.exists("Custom Field", fieldname):
+        frappe.db.set_value("Custom Field", fieldname, "hidden", 1, update_modified=False)
+        frappe.clear_cache(doctype="Sales Invoice")
+
+
+
+def enforce_tax_template_permissions() -> dict[str, list[str]]:
+    """Restrict tax-template write/create rights to the exact System Manager role.
+
+    This is intentionally called only from ``after_install``. Updating the app or
+    running ``after_migrate`` must not overwrite administrator permission choices.
+    """
+    result = {"updated": [], "skipped": []}
+    role = "System Manager"
+    if not frappe.db.exists("Role", role):
+        result["skipped"].append(f"Role missing: {role}")
+        return result
+
+    for doctype in ("Item Tax Template", "Sales Taxes and Charges Template"):
+        if not _doctype_exists(doctype) or not _doctype_exists("DocPerm"):
+            result["skipped"].append(f"{doctype} or DocPerm missing")
+            continue
+
+        rows = frappe.get_all(
+            "DocPerm",
+            filters={"parent": doctype, "permlevel": 0},
+            fields=["name", "role", "read", "write", "create"],
+        )
+        for row in rows:
+            docperm = frappe.get_doc("DocPerm", row.name)
+            allowed = str(row.role or "") == role
+            changed = False
+            for fieldname, value in (("read", 1), ("write", int(allowed)), ("create", int(allowed))):
+                if getattr(docperm, fieldname, None) != value:
+                    setattr(docperm, fieldname, value)
+                    changed = True
+            if changed:
+                docperm.flags.ignore_permissions = True
+                docperm.save(ignore_permissions=True)
+                result["updated"].append(f"{doctype}:{row.role}")
+
+        if not any(str(row.role or "") == role for row in rows):
+            docperm = frappe.get_doc(
+                {
+                    "doctype": "DocPerm",
+                    "parent": doctype,
+                    "parenttype": "DocType",
+                    "parentfield": "permissions",
+                    "role": role,
+                    "permlevel": 0,
+                    "read": 1,
+                    "write": 1,
+                    "create": 1,
+                    "print": 1,
+                    "email": 1,
+                    "export": 1,
+                    "share": 1,
+                }
+            )
+            docperm.flags.ignore_permissions = True
+            docperm.insert(ignore_permissions=True)
+            result["updated"].append(f"{doctype}:{role}")
+
+    frappe.db.commit()
     return result
 
 
@@ -4320,9 +4830,13 @@ def sync_all_zatca_customizations() -> dict[str, Any]:
     sales_invoice_zatca_ui_result = sync_sales_invoice_zatca_integration_layout()
     sales_invoice_zatca_column_cleanup_result = remove_extra_sales_invoice_zatca_column_breaks()
     sales_invoice_zatca_finalize_result = finalize_sales_invoice_zatca_field_order_and_cleanup()
+    sales_invoice_advance_naming_series_result = ensure_sales_invoice_advance_naming_series()
     sales_invoice_zatca_field_order_property_setter_result = force_sales_invoice_zatca_field_order_property_setter()
     tax_template_zatca_source_fields_result = sync_tax_template_zatca_source_fields()
     existing_tax_template_zatca_values_result = sync_existing_tax_template_zatca_values()
+    ksa_tax_templates_result = ensure_ksa_tax_templates_for_companies()
+    advance_payment_item_result = ensure_advance_payment_item()
+    sales_invoice_print_heading_result = sync_sales_invoice_print_heading()
     zatca_arabic_translations_result = sync_zatca_arabic_translations()
     customer_customize_form_layout_result = {
         "updated": [],
@@ -4352,9 +4866,13 @@ def sync_all_zatca_customizations() -> dict[str, Any]:
         "sales_invoice_user_invoice_number_removal": user_invoice_number_removal_result,
         "sales_invoice_zatca_ui": sales_invoice_zatca_ui_result,
         "sales_invoice_zatca_column_cleanup": sales_invoice_zatca_column_cleanup_result,
+        "sales_invoice_advance_naming_series": sales_invoice_advance_naming_series_result,
         "sales_invoice_zatca_finalize": sales_invoice_zatca_finalize_result,
         "tax_template_zatca_source_fields": tax_template_zatca_source_fields_result,
         "existing_tax_template_zatca_values": existing_tax_template_zatca_values_result,
+        "ksa_tax_templates": ksa_tax_templates_result,
+        "advance_payment_item": advance_payment_item_result,
+        "sales_invoice_print_heading": sales_invoice_print_heading_result,
         "zatca_arabic_translations": zatca_arabic_translations_result,
         "customer_customize_form_layout": customer_customize_form_layout_result,
     }
@@ -4465,6 +4983,8 @@ def report_zatca_customization_status() -> dict[str, Any]:
 
 def after_install() -> None:
     sync_all_zatca_customizations()
+    hide_legacy_discount_reason_code()
+    enforce_tax_template_permissions()
 
 
 def after_sync() -> None:
@@ -4473,3 +4993,4 @@ def after_sync() -> None:
 
 def after_migrate() -> None:
     run_zatca_customization_sync_after_migrate()
+    hide_legacy_discount_reason_code()

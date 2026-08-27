@@ -18,6 +18,10 @@ from zatca_erpgulf.zatca_erpgulf.xml_tax_data import (
     get_tax_for_item,
     get_exemption_reason_map,
 )
+from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
+    is_advance_payment_invoice,
+    supports_advance_deduction_schema,
+)
 
 
 ITEM_TAX_TEMPLATE = "Item Tax Template"
@@ -27,9 +31,38 @@ CAC_TAX_SUBTOTAL = "cac:TaxSubtotal"
 CBC_TAXABLE_AMOUNT = "cbc:TaxableAmount"
 ZERO_RATED = "Zero Rated"
 OUTSIDE_SCOPE = "Services outside scope of tax / Not subject to VAT"
+UBL_NAMESPACES = {
+    "cac": "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2",
+    "cbc": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
+}
+
+
+def _xml_local_name(tag):
+    return str(tag or "").split("}", 1)[-1].split(":", 1)[-1]
+
+
+def _invoice_line_nodes(invoice):
+    """Find InvoiceLine nodes in both literal-prefix and namespace XML trees."""
+    return [node for node in list(invoice) if _xml_local_name(node.tag) == "InvoiceLine"]
+
+
+def _child_local(node, name):
+    return next((child for child in list(node) if _xml_local_name(child.tag) == name), None)
+
+
+def _nested_child_text(node, *names):
+    current = node
+    for name in names:
+        current = _child_local(current, name)
+        if current is None:
+            return None
+    return current.text
 
 
 def _direct_advance_rows(sales_invoice_doc):
+    if not supports_advance_deduction_schema(sales_invoice_doc):
+        return []
+
     return [
         row
         for row in sales_invoice_doc.get(
@@ -43,9 +76,27 @@ def _direct_advance_rows(sales_invoice_doc):
 def _append_direct_advance_reference_lines(invoice, sales_invoice_doc):
     """Add one ZATCA 386 reference line for each directly allocated advance invoice."""
     rows = _direct_advance_rows(sales_invoice_doc)
-    start_line_id = len(sales_invoice_doc.items) + 1
+    existing_ids = {
+        str(_child_local(node, "ID").text)
+        for node in _invoice_line_nodes(invoice)
+        if _child_local(node, "ID") is not None
+    }
+    numeric_ids = [int(value) for value in existing_ids if value.isdigit()]
+    next_line_id = max(numeric_ids, default=0) + 1
+    existing_references = {
+        str(_nested_child_text(node, "DocumentReference", "ID"))
+        for node in _invoice_line_nodes(invoice)
+        if _nested_child_text(node, "DocumentReference", "ID") is not None
+    }
 
-    for offset, row in enumerate(rows):
+    for row in rows:
+        if str(row.advance_invoice) in existing_references:
+            continue
+        while str(next_line_id) in existing_ids:
+            next_line_id += 1
+        line_id = str(next_line_id)
+        existing_ids.add(line_id)
+        next_line_id += 1
         advance = frappe.get_doc("Sales Invoice", row.advance_invoice)
         taxable = _nominal_q2(row.allocated_taxable_amount)
         tax = _nominal_q2(row.allocated_tax_amount)
@@ -54,10 +105,25 @@ def _append_direct_advance_reference_lines(invoice, sales_invoice_doc):
             if taxable > Decimal("0.00")
             else Decimal("0.00")
         )
+        issue_date = advance.get("posting_date") or row.get("advance_invoice_date")
+        issue_time = advance.get("posting_time")
+        if not issue_date or not issue_time:
+            frappe.throw(
+                _("Advance payment Sales Invoice {0} is missing its authoritative issue date/time.").format(
+                    advance.name
+                )
+            )
+        if not is_advance_payment_invoice(advance):
+            frappe.throw(
+                _("Sales Invoice {0} is not marked as an advance payment invoice.").format(
+                    advance.name
+                )
+            )
+
         category = advance.get("custom_zatca_tax_category") or "Standard"
 
         line = ET.SubElement(invoice, "cac:InvoiceLine")
-        ET.SubElement(line, "cbc:ID").text = str(start_line_id + offset)
+        ET.SubElement(line, "cbc:ID").text = line_id
         ET.SubElement(line, "cbc:InvoicedQuantity", unitCode="PCE").text = "0.000000"
         ET.SubElement(
             line,
@@ -67,12 +133,11 @@ def _append_direct_advance_reference_lines(invoice, sales_invoice_doc):
 
         docref = ET.SubElement(line, "cac:DocumentReference")
         ET.SubElement(docref, "cbc:ID").text = str(advance.name)
+        existing_references.add(str(advance.name))
         if advance.get("custom_uuid"):
             ET.SubElement(docref, "cbc:UUID").text = str(advance.custom_uuid)
-        ET.SubElement(docref, "cbc:IssueDate").text = str(advance.posting_date)
-        ET.SubElement(docref, "cbc:IssueTime").text = get_time_string(
-            advance.get("posting_time")
-        )
+        ET.SubElement(docref, "cbc:IssueDate").text = str(issue_date)
+        ET.SubElement(docref, "cbc:IssueTime").text = get_time_string(issue_time)
         ET.SubElement(docref, "cbc:DocumentTypeCode").text = "386"
 
         tax_total = ET.SubElement(line, "cac:TaxTotal")
@@ -660,6 +725,8 @@ def item_data(invoice, sales_invoice_doc):
             cbc_priceamount.set("currencyID", sales_invoice_doc.currency)
             cbc_priceamount.text = _format_price_amount(line_net_rate)
 
+        _append_direct_advance_reference_lines(invoice, sales_invoice_doc)
+
         return invoice
     except (ValueError, KeyError, TypeError) as e:
         frappe.throw(_(f"Error occurred in item data processing: {str(e)}"))
@@ -817,7 +884,7 @@ def item_data_advance_invoice(invoice, sales_invoice_doc):
                 ).text = "0.00"
 
         # Final Debug
-        total_lines = len(invoice.findall("cac:InvoiceLine"))
+        total_lines = len(_invoice_line_nodes(invoice))
 
         return invoice
 
@@ -935,6 +1002,8 @@ def item_data_with_template(invoice, sales_invoice_doc):
             cbc_priceamount = ET.SubElement(cac_price, "cbc:PriceAmount")
             cbc_priceamount.set("currencyID", sales_invoice_doc.currency)
             cbc_priceamount.text = _format_price_amount(line_net_rate)
+
+        _append_direct_advance_reference_lines(invoice, sales_invoice_doc)
 
         return invoice
     except (ValueError, KeyError, TypeError) as e:

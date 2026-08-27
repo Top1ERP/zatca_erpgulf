@@ -7,6 +7,7 @@ from frappe.utils import flt
 from zatca_erpgulf.zatca_erpgulf.advance_lifecycle import (
     get_advance_sales_invoice_from_return,
 )
+from zatca_erpgulf.zatca_erpgulf.zatca_runtime import supports_advance_deduction_schema
 
 
 SALES_INVOICE_DOCTYPE = "Sales Invoice"
@@ -123,7 +124,10 @@ def validate_advance_credit_note_against_original(doc, event=None):
         _submitted_final_allocation_total,
     )
 
-    if int(getattr(doc, "docstatus", 0) or 0) == 1:
+    if (
+        supports_advance_deduction_schema(doc)
+        and int(getattr(doc, "docstatus", 0) or 0) == 1
+    ):
         _lock_advance_invoice(advance_invoice.name)
 
     allocated_total = float(

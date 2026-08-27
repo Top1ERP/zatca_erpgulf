@@ -10,13 +10,30 @@ from frappe.utils import cint, flt
 from erpnext.accounts.utils import get_currency_precision
 
 from zatca_erpgulf.ksa_compliance.tax_templates import make_template_name
-from zatca_erpgulf.zatca_erpgulf.zatca_runtime import is_advance_payment_invoice
+from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
+    is_advance_payment_invoice,
+    supports_advance_deduction_schema,
+    supports_advance_payment_entry_link,
+)
 
 
 VAT_RATE = Decimal("15")
 KSA_VAT_TEMPLATE_TITLE = "KSA VAT 15%"
 ADVANCE_ITEM_NAME = "Advance Payment"
 DEFAULT_UOM = "Nos"
+PAYMENT_ENTRY_AMOUNT_LIMIT_FIELD = "custom_enforce_zatca_payment_entry_amount_limit"
+
+
+def _payment_entry_amount_limit_enabled(company: str) -> bool:
+    """Return the opt-in Company gate for the Payment Entry upper-limit check."""
+    if not company:
+        return False
+    try:
+        if not frappe.get_meta("Company").has_field(PAYMENT_ENTRY_AMOUNT_LIMIT_FIELD):
+            return False
+        return bool(cint(frappe.db.get_value("Company", company, PAYMENT_ENTRY_AMOUNT_LIMIT_FIELD) or 0))
+    except Exception:
+        return False
 
 
 def _decimal(value: Any) -> Decimal:
@@ -82,6 +99,15 @@ def _money_tolerance(precision: int) -> Decimal:
 
 def _amounts_match(left: Any, right: Any, precision: int) -> bool:
     return abs(_decimal(left) - _decimal(right)) <= _money_tolerance(precision)
+
+
+def _invoice_payment_total(invoice) -> Decimal:
+    """Return the receivable total used by ERPNext after currency rounding."""
+    if not cint(invoice.get("disable_rounded_total")):
+        rounded_total = _decimal(invoice.get("rounded_total"))
+        if rounded_total:
+            return rounded_total
+    return _decimal(invoice.get("grand_total"))
 
 
 def _currency_precision() -> int:
@@ -160,23 +186,48 @@ def _validate_payment_entry_source(payment_entry) -> dict[str, Any]:
     return mapping
 
 
+def _is_allowed_final_invoice_allocation(reference_name: str, advance_invoice: str) -> bool:
+    if not reference_name or not supports_advance_deduction_schema():
+        return False
+
+    if cint(frappe.db.get_value("Sales Invoice", reference_name, "docstatus") or 0) != 1:
+        return False
+
+    return bool(
+        frappe.db.exists(
+            "ZATCA Sales Invoice Advance Deduction",
+            {
+                "parent": reference_name,
+                "parenttype": "Sales Invoice",
+                "parentfield": "custom_zatca_advance_deduction_details",
+                "advance_invoice": advance_invoice,
+            },
+        )
+    )
+
+
 def _validate_existing_link_allocations(payment_entry, sales_invoice_name: str) -> None:
     for row in getattr(payment_entry, "references", None) or []:
         if not _decimal(getattr(row, "allocated_amount", 0)):
             continue
         if (
-            getattr(row, "reference_doctype", None) != "Sales Invoice"
-            or getattr(row, "reference_name", None) != sales_invoice_name
-        ):
-            frappe.throw(
-                _(
-                    "Payment Entry allocations may reference only the linked advance Sales Invoice {0}."
-                ).format(sales_invoice_name)
+            getattr(row, "reference_doctype", None) == "Sales Invoice"
+            and _is_allowed_final_invoice_allocation(
+                str(getattr(row, "reference_name", "") or ""),
+                sales_invoice_name,
             )
+        ):
+            continue
+        frappe.throw(
+            _(
+                "The Payment Entry linked to advance payment Sales Invoice {0} may be "
+                "allocated only to a submitted final Sales Invoice that consumes that advance."
+            ).format(sales_invoice_name)
+        )
 
 
 def _sales_invoice_link_field_exists() -> bool:
-    return frappe.get_meta("Sales Invoice").has_field("custom_zatca_payment_entry")
+    return supports_advance_payment_entry_link()
 
 
 def get_active_standard_advance_invoice(payment_entry_name: str, exclude: str = "") -> str:
@@ -205,6 +256,9 @@ def ensure_payment_entry_has_no_active_standard_advance_invoice(
     payment_entry_name: str,
     exclude: str = "",
 ) -> None:
+    if not supports_advance_payment_entry_link():
+        return
+
     if payment_entry_name and frappe.db.exists("Payment Entry", payment_entry_name):
         frappe.db.sql(
             "select name from `tabPayment Entry` where name = %s for update",
@@ -231,6 +285,21 @@ def _get_preferred_deferred_revenue_account(company_doc) -> str:
         return ""
 
     return account
+
+
+def _ensure_standard_advance_payment_item() -> None:
+    if frappe.db.exists("Item", ADVANCE_ITEM_NAME):
+        return
+
+    from zatca_erpgulf.setup_customizations import ensure_advance_payment_item
+
+    ensure_advance_payment_item()
+    if not frappe.db.exists("Item", ADVANCE_ITEM_NAME):
+        frappe.throw(
+            _(
+                "Item {0} could not be created. Verify that the standard UOM and Item Group exist."
+            ).format(ADVANCE_ITEM_NAME)
+        )
 
 
 def _get_ksa_vat_15_template(company_doc):
@@ -282,7 +351,7 @@ def _copy_tax_template_rows(invoice, tax_template) -> None:
         values = source_row.as_dict() if hasattr(source_row, "as_dict") else dict(source_row)
         for key in ("name", "parent", "parentfield", "parenttype", "doctype", "idx"):
             values.pop(key, None)
-        values["included_in_print_rate"] = 1
+        values["included_in_print_rate"] = 0
         values["tax_amount"] = 0
         values["base_tax_amount"] = 0
         invoice.append("taxes", values)
@@ -313,6 +382,15 @@ def _build_advance_sales_invoice(payment_entry, mapping: dict[str, Any]):
 
     if not frappe.db.exists("UOM", DEFAULT_UOM):
         frappe.throw(_("Standard UOM {0} is missing.").format(DEFAULT_UOM))
+    _ensure_standard_advance_payment_item()
+
+    item_disabled = cint(frappe.db.get_value("Item", ADVANCE_ITEM_NAME, "disabled") or 0)
+    if item_disabled:
+        frappe.throw(_("Item {0} is disabled.").format(ADVANCE_ITEM_NAME))
+
+    precision = _currency_precision()
+    split = split_tax_inclusive_amount(mapping["gross_amount"], VAT_RATE, precision)
+    translated_item_name = _(ADVANCE_ITEM_NAME)
 
     invoice = frappe.new_doc("Sales Invoice")
     invoice.company = mapping["company"]
@@ -323,11 +401,11 @@ def _build_advance_sales_invoice(payment_entry, mapping: dict[str, Any]):
     invoice.custom_zatca_payment_entry = payment_entry.name
     invoice.set_posting_time = 1
     invoice.update_stock = 0
-    if invoice.meta.has_field("disable_rounded_total"):
-        invoice.disable_rounded_total = 1
 
     _set_advance_marker(invoice)
     invoice.run_method("set_missing_values")
+    if invoice.meta.has_field("disable_rounded_total"):
+        invoice.disable_rounded_total = 0
 
     invoice.company = mapping["company"]
     invoice.customer = mapping["customer"]
@@ -339,13 +417,14 @@ def _build_advance_sales_invoice(payment_entry, mapping: dict[str, Any]):
     invoice.append(
         "items",
         {
-            "item_name": ADVANCE_ITEM_NAME,
-            "description": ADVANCE_ITEM_NAME,
+            "item_code": ADVANCE_ITEM_NAME,
+            "item_name": translated_item_name,
+            "description": translated_item_name,
             "qty": 1,
             "uom": DEFAULT_UOM,
             "conversion_factor": 1,
-            "rate": flt(mapping["gross_amount"]),
-            "price_list_rate": flt(mapping["gross_amount"]),
+            "rate": flt(split["taxable"]),
+            "price_list_rate": flt(split["taxable"]),
             "income_account": deferred_account or None,
             "cost_center": getattr(company_doc, "cost_center", None),
         },
@@ -353,13 +432,11 @@ def _build_advance_sales_invoice(payment_entry, mapping: dict[str, Any]):
     _copy_tax_template_rows(invoice, tax_template)
     invoice.run_method("calculate_taxes_and_totals")
 
-    precision = _currency_precision()
-    split = split_tax_inclusive_amount(mapping["gross_amount"], VAT_RATE, precision)
-    if not _amounts_match(invoice.grand_total, split["gross"], precision):
+    if not _amounts_match(_invoice_payment_total(invoice), split["gross"], precision):
         frappe.throw(
             _(
-                "Generated advance invoice total {0} does not match Payment Entry amount {1}."
-            ).format(invoice.grand_total, split["gross"])
+                "Generated advance invoice payable total {0} does not match Payment Entry amount {1}."
+            ).format(_invoice_payment_total(invoice), split["gross"])
         )
 
     return invoice
@@ -367,6 +444,9 @@ def _build_advance_sales_invoice(payment_entry, mapping: dict[str, Any]):
 
 @frappe.whitelist()
 def create_advance_sales_invoice_from_payment_entry(payment_entry_name: str) -> dict:
+    if not supports_advance_payment_entry_link():
+        return {}
+
     if not payment_entry_name:
         frappe.throw(_("Payment Entry name is required."))
 
@@ -380,7 +460,7 @@ def create_advance_sales_invoice_from_payment_entry(payment_entry_name: str) -> 
 
 
 def validate_sales_invoice_payment_entry_link(doc, event=None) -> None:
-    if not doc.meta.has_field("custom_zatca_payment_entry"):
+    if not supports_advance_payment_entry_link(doc):
         return
 
     payment_entry_name = doc.get("custom_zatca_payment_entry")
@@ -412,5 +492,26 @@ def validate_sales_invoice_payment_entry_link(doc, event=None) -> None:
         )
     if not _amounts_match(doc.conversion_rate, mapping["conversion_rate"], 9):
         frappe.throw(_("Sales Invoice exchange rate must match Payment Entry source exchange rate."))
-    if not _amounts_match(doc.grand_total, mapping["gross_amount"], precision):
-        frappe.throw(_("Sales Invoice grand total must match the full Payment Entry paid amount."))
+    invoice_total = _invoice_payment_total(doc)
+    if (
+        _payment_entry_amount_limit_enabled(doc.company)
+        and mapping["gross_amount"] > invoice_total + _money_tolerance(precision)
+    ):
+        frappe.throw(
+            _(
+                "ZATCA Payment Entry amount {0} cannot be greater than the Sales Invoice total including VAT {1}."
+            ).format(mapping["gross_amount"], invoice_total)
+        )
+
+    if not _amounts_match(invoice_total, mapping["gross_amount"], precision):
+        frappe.throw(_("Sales Invoice payable total must match the full Payment Entry paid amount."))
+
+
+def validate_payment_entry_advance_allocations(doc, event=None) -> None:
+    """Protect a linked payment from allocation to its advance or unrelated invoices."""
+    if not supports_advance_payment_entry_link():
+        return
+
+    advance_invoice = get_active_standard_advance_invoice(str(getattr(doc, "name", "") or ""))
+    if advance_invoice:
+        _validate_existing_link_allocations(doc, advance_invoice)

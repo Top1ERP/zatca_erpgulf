@@ -117,6 +117,19 @@ from . import __version__ as app_version
 
 override_doctype_class = {
     "Sales Invoice": "zatca_erpgulf.overrides.sales_invoice.ZatcaSalesInvoice",
+    "Payment Reconciliation": "zatca_erpgulf.overrides.advance_receivables.ZatcaPaymentReconciliation",
+    "Journal Entry": "zatca_erpgulf.overrides.advance_receivables.ZatcaJournalEntry",
+    "Dunning": "zatca_erpgulf.overrides.advance_receivables.ZatcaDunning",
+}
+
+override_whitelisted_methods = {
+    "erpnext.accounts.doctype.payment_entry.payment_entry.get_outstanding_reference_documents": "zatca_erpgulf.overrides.advance_receivables.get_outstanding_reference_documents",
+    "erpnext.accounts.doctype.sales_invoice.sales_invoice.create_dunning": "zatca_erpgulf.overrides.advance_receivables.create_dunning",
+    "frappe.desk.query_report.run": "zatca_erpgulf.overrides.advance_receivables.run_query_report",
+}
+
+override_doctype_dashboards = {
+    "Payment Entry": "zatca_erpgulf.overrides.payment_entry_dashboard.get_dashboard_data",
 }
 
 # Document Events
@@ -242,18 +255,12 @@ scheduler_events = {
 doc_events = {
     "Sales Invoice": {
         # "before_insert": "zatca_erpgulf.zatca_erpgulf.sales_invoice_hooks.set_draft_series",
-        "validate": [
-            "zatca_erpgulf.zatca_erpgulf.tax_error.validate_negative_item_values_on_save",
-            "zatca_erpgulf.zatca_erpgulf.advance_payment_entry.validate_sales_invoice_payment_entry_link",
-            "zatca_erpgulf.zatca_erpgulf.advance_deduction.validate_sales_invoice_advance_deductions",
-            "zatca_erpgulf.zatca_erpgulf.advance_credit_note.validate_advance_credit_note_against_original",
+        "validate": "zatca_erpgulf.overrides.sales_invoice.validate_zatca_sales_invoice",
+        "before_cancel": [
+            "zatca_erpgulf.zatca_erpgulf.validations.before_save",
+            "zatca_erpgulf.zatca_erpgulf.advance_deduction.validate_advance_payment_invoice_cancellation",
         ],
-        "before_cancel": "zatca_erpgulf.zatca_erpgulf.validations.before_save",
-        "before_submit": [
-            "zatca_erpgulf.zatca_erpgulf.tax_error.validate_sales_invoice_taxes",
-            "zatca_erpgulf.zatca_erpgulf.advance_deduction.validate_sales_invoice_advance_deductions_on_submit",
-            "zatca_erpgulf.zatca_erpgulf.advance_credit_note.validate_advance_credit_note_against_original",
-        ],
+        "before_submit": "zatca_erpgulf.overrides.sales_invoice.validate_zatca_sales_invoice_before_submit",
         "after_insert": "zatca_erpgulf.zatca_erpgulf.validations.duplicating_invoice",
         "on_submit": [
             # "zatca_erpgulf.zatca_erpgulf.sales_invoice_hooks.rename_invoice_on_submit",
@@ -266,6 +273,12 @@ doc_events = {
             "zatca_erpgulf.zatca_erpgulf.phase2_artifacts.ensure_phase2_sales_invoice_artifacts",
             "zatca_erpgulf.zatca_erpgulf.advance_deduction.ensure_final_sales_invoice_qr_for_print",
         ],
+    },
+    "Sales Taxes and Charges Template": {
+        "validate": "zatca_erpgulf.zatca_erpgulf.tax_error.validate_tax_template_category_constraints",
+    },
+    "Item Tax Template": {
+        "validate": "zatca_erpgulf.zatca_erpgulf.tax_error.validate_tax_template_category_constraints",
     },
     "POS Invoice": {
         "validate": "zatca_erpgulf.zatca_erpgulf.tax_error.validate_negative_item_values_on_save",
@@ -290,6 +303,7 @@ doctype_js = {
         # "public/js/draft.js",
         "public/js/our_sales_invoice.js",
         "public/js/zatca_advance_income_account_query.js",
+        "public/js/zatca_advance_invoice_ui.js",
         "public/js/zatca_advance_direct_allocation.js",
         "public/js/zatca_negative_line_validation.js",
         "public/js/print.js",
@@ -303,6 +317,8 @@ doctype_js = {
         "public/js/badge_pos.js",
     ],
     "Payment Entry": "public/js/zatca_advance_payment_debug.js",
+    "Sales Taxes and Charges Template": "public/js/zatca_tax_template_validation.js",
+    "Item Tax Template": "public/js/zatca_tax_template_validation.js",
     "Customer": "public/js/customer_zatca_tooltips.js",
 }
 
@@ -370,3 +386,6 @@ after_migrate = "zatca_erpgulf.setup_customizations.after_migrate"
 
 # ZATCA advance payment copy guard
 doc_events.setdefault("Payment Entry", {})
+doc_events["Payment Entry"]["validate"] = (
+    "zatca_erpgulf.zatca_erpgulf.advance_payment_entry.validate_payment_entry_advance_allocations"
+)
