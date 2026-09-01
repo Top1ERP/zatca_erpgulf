@@ -2109,6 +2109,10 @@ def _force_customer_custom_field_db_values(
     if changed:
         doc.flags.ignore_permissions = True
         doc.save(ignore_permissions=True)
+        # ORM saves can retain a legacy Custom Field order; persist idx
+        # explicitly so old sites move into the intended tab/order.
+        if idx is not None and cint(frappe.db.get_value("Custom Field", custom_field_name, "idx") or 0) != cint(idx):
+            frappe.db.set_value("Custom Field", custom_field_name, "idx", idx, update_modified=False)
         frappe.clear_cache(doctype="Customer")
 
     return changed
@@ -2257,7 +2261,17 @@ def force_customer_arabic_and_tax_layout() -> dict[str, Any]:
     if not tax_tab:
         result["skipped"].append("Customer tax_tab not found")
     else:
-        tax_idx = _customer_meta_idx(tax_tab) or 50
+        # Use the canonical DocField position for the tab. On legacy sites,
+        # custom fields can otherwise pull the effective tab index after them.
+        tax_idx = cint(
+            frappe.db.get_value(
+                "DocField",
+                {"parent": "Customer", "parenttype": "DocType", "fieldname": tax_tab},
+                "idx",
+            )
+            or _customer_meta_idx(tax_tab)
+            or 50
+        )
 
         ordered_tax_fields = [
             ("custom_b2c", tax_tab, tax_idx + 1),
@@ -2277,6 +2291,27 @@ def force_customer_arabic_and_tax_layout() -> dict[str, Any]:
                 idx=idx,
             ):
                 result["updated"].append(f"Customer.{fieldname}")
+
+        # Keep the optional national number immediately below Tax ID.
+        if _field_exists_in_meta("Customer", "custom_unified_national_number") or _custom_field_exists(
+            "Customer", "custom_unified_national_number"
+        ):
+            tax_id_idx = cint(
+                frappe.db.get_value(
+                    "DocField",
+                    {"parent": "Customer", "parenttype": "DocType", "fieldname": "tax_id"},
+                    "idx",
+                )
+                or _customer_meta_idx("tax_id")
+                or (tax_idx + 2)
+            )
+            if _force_customer_field(
+                "custom_unified_national_number",
+                insert_after="tax_id",
+                hidden=0,
+                idx=tax_id_idx + 1,
+            ):
+                result["updated"].append("Customer.custom_unified_national_number")
 
     frappe.clear_cache(doctype="Customer")
 
