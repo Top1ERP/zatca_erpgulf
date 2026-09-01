@@ -2,6 +2,8 @@
 
 from datetime import datetime, timedelta, time
 import frappe
+from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
+from zatca_erpgulf.zatca_erpgulf.zatca_runtime import PHASE_1_VALUE, PHASE_2_VALUE, resolve_zatca_phase
 from frappe.utils import now_datetime, add_to_date
 
 from zatca_erpgulf.zatca_erpgulf.pos_sign import zatca_background_on_submit
@@ -100,7 +102,7 @@ def submit_posinvoices_to_zatca_background_process():
             pos_invoice_doc = frappe.get_doc("POS Invoice", invoice["name"])
             company_doc = frappe.get_doc("Company", pos_invoice_doc.company)
             # print(f"Processing {pos_invoice_doc.name}", "ZATCA Background Job")
-            if company_doc.custom_phase_1_or_2 == "Phase-1":
+            if resolve_zatca_phase(company_doc) == PHASE_1_VALUE:
                 # frappe.log_error(f"Skipping invoice {invoice['name']} because company is Phase-1", "ZATCA Background Debug")
                 continue
             if pos_invoice_doc.docstatus == 1:
@@ -117,7 +119,7 @@ def submit_posinvoices_to_zatca_background_process():
 
                 if (
                     company_doc.custom_submit_or_not == 1
-                    and customer_doc.custom_b2c == 1
+                    and get_alias_value("customer_b2c", customer_doc, 0) == 1
                 ):
                     pos_invoice_doc.submit()
 

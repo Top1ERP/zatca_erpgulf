@@ -98,6 +98,63 @@ frappe.realtime.on('hide_gif', () => {
 
 
 
+function zatca_first_present(doc, fieldnames, fallback = undefined) {
+    for (const fieldname of fieldnames) {
+        if (doc && Object.prototype.hasOwnProperty.call(doc, fieldname)) return doc[fieldname];
+    }
+    return fallback;
+}
+
+const ZATCA_B2B_NAME_INDICATORS = new Set([
+    "شركة", "مؤسسة", "مؤسسه", "مجموعة", "مجموعه", "مصنع", "مصانع", "مقاولات", "مكتب", "مركز", "جمعية", "جمعيه",
+    "llc", "l", "c", "ltd", "limited", "company", "co", "corporation", "corp", "inc", "incorporated",
+    "establishment", "est", "enterprise", "enterprises", "group", "holding", "holdings", "factory", "contracting",
+    "contractors", "joint", "venture", "jv", "partnership", "branch",
+]);
+
+function zatca_normalize_customer_name(value) {
+    return String(value || "").toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]+/gi, " ").trim().split(/\s+/).filter(Boolean);
+}
+
+function zatca_customer_name_looks_b2b(value) {
+    return zatca_normalize_customer_name(value).some((token) => ZATCA_B2B_NAME_INDICATORS.has(token));
+}
+
+function zatca_simplified_b2b_state(frm, customer) {
+    const enabled = Number(frm.__zatca_company_invoice_enabled || 0) === 1;
+    const country = String(customer?.country || "").trim().toLowerCase();
+    const saudi = ["sa", "s.a.", "saudi arabia", "kingdom of saudi arabia"].includes(country);
+    const vat = String(customer?.tax_id || "").trim();
+    const validVat = /^3\d{13}3$/.test(vat);
+    const invoiceB2C = zatca_first_present(frm.doc, ["custom_b2c", "b2c", "is_b2c", "zatca_b2c"]);
+    const effectiveB2C = invoiceB2C !== undefined && invoiceB2C !== null && String(invoiceB2C).trim() !== ""
+        ? Number(invoiceB2C)
+        : Number(zatca_first_present(customer, ["custom_b2c", "b2c", "is_b2c", "zatca_b2c"], 0) || 0);
+    const simplified = effectiveB2C === 1 || frm.doc.custom_zatca_status === "REPORTED";
+    const supply = Number(frm.doc.base_net_total || frm.doc.net_total || 0);
+    const vatTotal = Number(frm.doc.base_total_taxes_and_charges || frm.doc.total_taxes_and_charges || 0);
+    if (!enabled || !saudi || !simplified || vatTotal <= 0 || supply < 1000 || (!validVat && !zatca_customer_name_looks_b2b(customer?.customer_name))) return null;
+    return { amount: supply.toFixed(2), reason: validVat ? "vat" : "name" };
+}
+
+async function load_zatca_simplified_b2b_state(frm) {
+    if (!frm.doc.company || !frm.doc.customer) { frm.__zatca_simplified_b2b_warning = null; return; }
+    const [company, customer] = await Promise.all([
+        frappe.db.get_value("Company", frm.doc.company, "custom_zatca_invoice_enabled"),
+        frappe.db.get_doc("Customer", frm.doc.customer),
+    ]);
+    frm.__zatca_company_invoice_enabled = company?.message?.custom_zatca_invoice_enabled || 0;
+    const customerData = customer || {};
+    if (customerData.customer_primary_address) {
+        const address = await frappe.db.get_value("Address", customerData.customer_primary_address, "country");
+        customerData.country = address?.message?.country || customerData.territory || "";
+    } else {
+        customerData.country = customerData.territory || "";
+    }
+    frm.__zatca_customer_warning_data = customerData;
+    frm.__zatca_simplified_b2b_warning = zatca_simplified_b2b_state(frm, customerData);
+}
+
 const ZATCA_INVOICE_EXEMPTION_CODES = {
     "Exempted": ["VATEX-SA-29", "VATEX-SA-29-7", "VATEX-SA-30"],
     "Zero Rated": [
@@ -127,19 +184,32 @@ const ZATCA_INVOICE_EXEMPTION_TEXT = {
     "VATEX-SA-OOS": "Services outside scope of tax / reason provided by taxpayer case by case",
 };
 
+function syncInvoiceExemptionReasonField(frm) {
+    const field = frm.fields_dict.custom_exemption_reason;
+    if (!field) return;
+    const isOOS = (frm.doc.custom_zatca_tax_category || "") ===
+        "Services outside scope of tax / Not subject to VAT";
+    frm.toggle_display("custom_exemption_reason", isOOS);
+    frm.set_df_property("custom_exemption_reason", "reqd", isOOS);
+}
+
 function filterInvoiceExemptionReason(frm) {
     const field = frm.fields_dict.custom_exemption_reason_code;
     if (!field) return;
     const category = frm.doc.custom_zatca_tax_category || "";
     const options = [""].concat(ZATCA_INVOICE_EXEMPTION_CODES[category] || []);
     frm.set_df_property("custom_exemption_reason_code", "options", options.join("\n"));
-    if (frm.doc.custom_exemption_reason_code && !options.includes(frm.doc.custom_exemption_reason_code)) {
+    if (frm.doc.docstatus !== 1 && frm.doc.custom_exemption_reason_code && !options.includes(frm.doc.custom_exemption_reason_code)) {
         frm.set_value("custom_exemption_reason_code", "");
     }
 }
 
 async function syncInvoiceTaxSource(frm) {
     if (!frm.doc.company || !frm.doc.taxes_and_charges) return;
+    // Never synchronize template values into a submitted invoice. Submitted
+    // documents must remain immutable; use the saved invoice values for XML.
+    if (frm.doc.docstatus === 1) return;
+
     const enabled = await frappe.db.get_value("Company", frm.doc.company, "custom_zatca_invoice_enabled");
     if (Number(enabled?.message?.custom_zatca_invoice_enabled || 0) !== 1) return;
     const template = await frappe.db.get_value(
@@ -155,19 +225,62 @@ async function syncInvoiceTaxSource(frm) {
 
 frappe.ui.form.on("Sales Invoice", {
     refresh(frm) {
+        load_zatca_simplified_b2b_state(frm).catch(() => {});
         frm.set_df_property("custom_zatca_tax_category", "read_only", 1);
         if (frm.fields_dict.custom_zatca_discount_reason_code) {
             frm.toggle_display("custom_zatca_discount_reason_code", false);
         }
         filterInvoiceExemptionReason(frm);
+        syncInvoiceExemptionReasonField(frm);
     },
     taxes_and_charges(frm) {
         return syncInvoiceTaxSource(frm);
     },
     custom_zatca_tax_category(frm) {
         filterInvoiceExemptionReason(frm);
+        syncInvoiceExemptionReasonField(frm);
+    },
+    customer(frm) {
+        load_zatca_simplified_b2b_state(frm).catch(() => {});
+    },
+    company(frm) {
+        load_zatca_simplified_b2b_state(frm).catch(() => {});
+    },
+    custom_b2c(frm) {
+        load_zatca_simplified_b2b_state(frm).catch(() => {});
     },
     before_save(frm) {
+        if (frm.doc.customer && !frm.__zatca_customer_warning_data && !frm.__zatca_b2b_check_ready) {
+            if (frm.__zatca_b2b_check_pending) {
+                frappe.validated = false;
+                return;
+            }
+            frm.__zatca_b2b_check_pending = true;
+            frappe.validated = false;
+            load_zatca_simplified_b2b_state(frm).finally(() => {
+                frm.__zatca_b2b_check_pending = false;
+                frm.__zatca_b2b_check_ready = true;
+                frm.save();
+            });
+            return;
+        }
+        const warning = zatca_simplified_b2b_state(frm, frm.__zatca_customer_warning_data || {});
+        if (warning && frm.__zatca_simplified_b2b_confirmed !== warning.amount) {
+            frappe.validated = false;
+            const message = warning.reason === "vat"
+                ? __("Invoice type warning: The customer is registered in Saudi Arabia and has a VAT number, and the taxable supply in this invoice is {0} SAR. The invoice is currently classified as a Simplified Tax Invoice. Under Article 53(7) of the VAT Implementing Regulations, simplified tax invoices in B2B transactions are subject to a SAR 1,000 threshold. Please review whether this should be issued as a Standard Tax Invoice and submitted for Clearance.").replace("{0}", warning.amount)
+                : __("Invoice type warning: The customer is registered in Saudi Arabia and appears to be an establishment or company based on its name, and the taxable supply in this invoice is {0} SAR. The invoice is currently classified as a Simplified Tax Invoice. Under Article 53(7) of the VAT Implementing Regulations, please review whether this is a B2B transaction requiring a Standard Tax Invoice instead of a simplified invoice.").replace("{0}", warning.amount);
+            const dialog = new frappe.ui.Dialog({
+                title: __("Simplified Tax Invoice Warning"),
+                fields: [{ fieldtype: "HTML", options: `<p>${message}</p>` }],
+                primary_action_label: __("Continue Anyway"),
+                primary_action() { frm.__zatca_simplified_b2b_confirmed = warning.amount; dialog.hide(); frm.save(); },
+            });
+            dialog.set_secondary_action(() => dialog.hide());
+            dialog.set_secondary_action_label(__("Review Invoice"));
+            dialog.show();
+            return;
+        }
         const category = frm.doc.custom_zatca_tax_category;
         const code = frm.doc.custom_exemption_reason_code;
         if (!["Zero Rated", "Exempted"].includes(category) || !code) return;

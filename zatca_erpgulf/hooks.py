@@ -253,6 +253,12 @@ scheduler_events = {
 #     }
 # }
 doc_events = {
+    "Customer": {
+        "validate": "zatca_erpgulf.zatca_erpgulf.customer_validation.validate_customer_zatca",
+    },
+    "Address": {
+        "validate": "zatca_erpgulf.zatca_erpgulf.address_validation.validate_zatca_address",
+    },
     "Sales Invoice": {
         # "before_insert": "zatca_erpgulf.zatca_erpgulf.sales_invoice_hooks.set_draft_series",
         "validate": "zatca_erpgulf.overrides.sales_invoice.validate_zatca_sales_invoice",
@@ -320,7 +326,9 @@ doctype_js = {
     "Sales Taxes and Charges Template": "public/js/zatca_tax_template_validation.js",
     "Item Tax Template": "public/js/zatca_tax_template_validation.js",
     "Customer": "public/js/customer_zatca_tooltips.js",
+    "Address": "public/js/address_zatca_validation.js",
 }
+
 
 doctype_list_js = {
     "Sales Invoice": "public/js/resubmit.js",
@@ -350,11 +358,7 @@ fixtures = [
         "filters": [["name", "=", "Monthly Invoices Reported to ZATCA"]],
     },
     {"dt": "Dashboard", "filters": [["name", "=", "ZATCA Dashboard"]]},
-    {
-        "dt": "Workspace",
-        "filters": [["name", "=", "ZATCA ERPGulf"]],  # Use actual Workspace name here
-    },
-    {"dt": "Workspace", "filters": {"module": "Zatca Erpgulf"}},
+    {"dt": "Workspace", "filters": [["name", "=", "ZATCA"]]},
     {"dt": "Custom Field", "filters": [["module", "=", "Zatca Erpgulf"]]},
     {"dt": "Report", "filters": {"module": "Zatca Erpgulf"}},
     {

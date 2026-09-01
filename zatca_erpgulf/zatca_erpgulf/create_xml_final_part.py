@@ -17,6 +17,7 @@ from frappe import _
 from zatca_erpgulf.zatca_erpgulf.xml_tax_data import (
     get_tax_for_item,
     get_exemption_reason_map,
+    resolve_exemption_reason_text,
 )
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
     is_advance_payment_invoice,
@@ -213,7 +214,7 @@ def _nominal_tax_category_code(category):
     return "S"
 
 
-def _nominal_add_tax_category(parent, zatca_tax_category, tax_rate, exemption_reason_code=None):
+def _nominal_add_tax_category(parent, zatca_tax_category, tax_rate, exemption_reason_code=None, exemption_reason_text=None):
     """Append cac:TaxCategory/cac:TaxScheme under a subtotal."""
     cac_taxcategory = ET.SubElement(parent, "cac:TaxCategory")
 
@@ -230,8 +231,11 @@ def _nominal_add_tax_category(parent, zatca_tax_category, tax_rate, exemption_re
         cbc_reason_code.text = exemption_reason_code
 
         cbc_reason = ET.SubElement(cac_taxcategory, "cbc:TaxExemptionReason")
-        if exemption_reason_code in reason_map:
-            cbc_reason.text = reason_map[exemption_reason_code]
+        reason_text = resolve_exemption_reason_text(
+            exemption_reason_code, exemption_reason_text
+        )
+        if reason_text:
+            cbc_reason.text = reason_text
 
     cac_taxscheme = ET.SubElement(cac_taxcategory, "cac:TaxScheme")
     ET.SubElement(cac_taxscheme, "cbc:ID").text = "VAT"
@@ -399,6 +403,7 @@ def _append_nominal_tax_totals(invoice, sales_invoice_doc, tax_breakdown):
             row["zatca_tax_category"],
             row["tax_rate"],
             row["exemption_reason_code"] if row["zatca_tax_category"] != "Standard" else None,
+            sales_invoice_doc.get("custom_exemption_reason"),
         )
 
     cac_taxsubtotal_2 = ET.SubElement(cac_taxtotal_detailed, CAC_TAX_SUBTOTAL)
@@ -415,6 +420,7 @@ def _append_nominal_tax_totals(invoice, sales_invoice_doc, tax_breakdown):
         OUTSIDE_SCOPE,
         Decimal("0.00"),
         "VATEX-SA-OOS",
+        sales_invoice_doc.get("custom_exemption_reason"),
     )
     for child in list(cac_taxsubtotal_2):
         if child.tag == "cac:TaxCategory":

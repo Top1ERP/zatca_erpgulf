@@ -140,6 +140,43 @@ def first_existing_fieldname(doctype: str, fieldnames: Iterable[str]) -> str | N
     return None
 
 
+def get_compat_value(doc, fieldnames: Iterable[str], default=None):
+    """Read the first field that exists, preserving its value exactly.
+
+    Aliases are a schema-compatibility fallback, not a value fallback: when
+    the preferred field exists and is blank/false, that value wins.
+    """
+    if not doc:
+        return default
+
+    doctype = getattr(doc, "doctype", None)
+    getter = getattr(doc, "get", None)
+    for fieldname in fieldnames:
+        exists = False
+        if doctype:
+            exists = field_exists(doctype, fieldname)
+        if not exists and callable(getter):
+            try:
+                exists = fieldname in doc
+            except Exception:
+                exists = hasattr(doc, fieldname)
+        if not exists:
+            exists = hasattr(doc, fieldname)
+        if not exists:
+            continue
+        try:
+            return getter(fieldname, default) if callable(getter) else getattr(doc, fieldname, default)
+        except Exception:
+            return getattr(doc, fieldname, default)
+    return default
+
+
+def get_alias_value(key: str, doc, default=None):
+    """Read a registered alias group without changing primary-field priority."""
+    group = get_alias_group(key)
+    return get_compat_value(doc, group["aliases"], default)
+
+
 def get_alias_group(key: str) -> dict:
     if key not in FIELD_ALIAS_GROUPS:
         frappe.throw(f"Unknown ZATCA/KSA field alias group: {key}")

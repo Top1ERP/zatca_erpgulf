@@ -19,6 +19,7 @@ import json
 from frappe.utils.data import get_time
 from frappe import _
 import frappe
+from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 
 
 def get_tax_for_item(full_string, item):
@@ -720,8 +721,8 @@ def customer_data(invoice, pos_invoice_doc):
             cac_party_2, "cac:PartyIdentification"
         )
         cbc_id_4 = ET.SubElement(cac_partyidentification_1, "cbc:ID")
-        cbc_id_4.set("schemeID", str(customer_doc.custom_buyer_id_type))
-        cbc_id_4.text = customer_doc.custom_buyer_id   
+        cbc_id_4.set("schemeID", str(get_alias_value("customer_buyer_id_type", customer_doc, "")))
+        cbc_id_4.text = get_alias_value("customer_buyer_id", customer_doc, "")
         # frappe.throw(f"Customer Tax ID set to: {cbc_ID_4.text}")
         if int(frappe.__version__.split(".", maxsplit=1)[0]) == 13:
             address = frappe.get_doc("Address", pos_invoice_doc.customer_address)
@@ -917,8 +918,8 @@ def add_document_level_discount_with_tax_template(invoice, pos_invoice_doc):
             cbc_id.text = "O"
         else:
             frappe.throw(
-                "Invalid or missing ZATCA VAT category in the Item Tax Template " 
-                "linked to Sales Invoice Item. Ensure each Item Tax Template " 
+                "Invalid or missing ZATCA VAT category in the Item Tax Template "
+                "linked to Sales Invoice Item. Ensure each Item Tax Template "
                 "includes one of the following categories: "
                 "'Standard', 'Zero Rated', 'Exempted', or 'Services outside scope of tax / Not subject to VAT'."
             )
@@ -986,36 +987,33 @@ def get_exemption_reason_map():
     """Mapping of the exception reason code accoding to the reason code"""
     return {
         "VATEX-SA-29": (
-            "Financial services mentioned in Article 29 of the VAT Regulations."
+            "Financial services mentioned in Article 29 of the VAT Regulations"
         ),
         "VATEX-SA-29-7": (
-            "Life insurance services mentioned in Article 29 of the VAT Regulations."
+            "Life insurance services mentioned in Article 29 of the VAT Regulations"
         ),
         "VATEX-SA-30": (
-            "Real estate transactions mentioned in Article 30 of the VAT Regulations."
+            "Real estate transactions mentioned in Article 30 of the VAT Regulations"
         ),
-        "VATEX-SA-32": "Export of goods.",
-        "VATEX-SA-33": "Export of services.",
-        "VATEX-SA-34-1": "The international transport of Goods.",
-        "VATEX-SA-34-2": "International transport of passengers.",
+        "VATEX-SA-32": "Export of goods",
+        "VATEX-SA-33": "Export of services",
+        "VATEX-SA-34-1": "The international transport of Goods",
+        "VATEX-SA-34-2": "International transport of passengers",
         "VATEX-SA-34-3": (
             "Services directly connected and incidental to a Supply of "
-            "international passenger transport."
+            "international passenger transport"
         ),
-        "VATEX-SA-34-4": "Supply of a qualifying means of transport.",
+        "VATEX-SA-34-4": "Supply of a qualifying means of transport",
         "VATEX-SA-34-5": (
             "Any services relating to Goods or passenger transportation, as defined "
-            "in article twenty five of these Regulations."
+            "in article twenty five of these Regulations"
         ),
-        "VATEX-SA-35": "Medicines and medical equipment.",
-        "VATEX-SA-36": "Qualifying metals.",
-        "VATEX-SA-EDU": "Private education to citizen.",
-        "VATEX-SA-HEA": "Private healthcare to citizen.",
+        "VATEX-SA-35": "Medicines and medical equipment",
+        "VATEX-SA-36": "Qualifying metals",
+        "VATEX-SA-EDU": "Private education to citizen",
+        "VATEX-SA-HEA": "Private healthcare to citizen",
         "VATEX-SA-MLTRY": "Supply of qualified military goods",
-        "VATEX-SA-OOS": (
-            "The reason is a free text, has to be provided by the taxpayer on a "
-            "case-by-case basis."
-        ),
+        "VATEX-SA-OOS": "",
     }
 
 
@@ -1193,8 +1191,13 @@ def tax_data(invoice, pos_invoice_doc):
                 cac_taxcategory_1, "cbc:TaxExemptionReason"
             )
             reason_code = pos_invoice_doc.custom_exemption_reason_code
-            if reason_code in exemption_reason_map:
-                cbc_taxexemptionreason.text = exemption_reason_map[reason_code]
+            reason_text = (
+                getattr(pos_invoice_doc, "custom_exemption_reason", None)
+                if reason_code == "VATEX-SA-OOS"
+                else exemption_reason_map.get(reason_code, "")
+            )
+            if reason_text:
+                cbc_taxexemptionreason.text = reason_text
 
         # Tax Scheme
         cac_taxscheme_3 = ET.SubElement(cac_taxcategory_1, "cac:TaxScheme")

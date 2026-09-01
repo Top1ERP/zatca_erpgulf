@@ -33,37 +33,41 @@ def get_exemption_reason_map():
     """Mapping of the exception reason code according to the reason code."""
     return {
         "VATEX-SA-29": (
-            "Financial services mentioned in Article 29 of the VAT Regulations."
+            "Financial services mentioned in Article 29 of the VAT Regulations"
         ),
         "VATEX-SA-29-7": (
-            "Life insurance services mentioned in Article 29 of the VAT Regulations."
+            "Life insurance services mentioned in Article 29 of the VAT Regulations"
         ),
         "VATEX-SA-30": (
-            "Real estate transactions mentioned in Article 30 of the VAT Regulations."
+            "Real estate transactions mentioned in Article 30 of the VAT Regulations"
         ),
-        "VATEX-SA-32": "Export of goods.",
-        "VATEX-SA-33": "Export of services.",
-        "VATEX-SA-34-1": "The international transport of Goods.",
-        "VATEX-SA-34-2": "International transport of passengers.",
+        "VATEX-SA-32": "Export of goods",
+        "VATEX-SA-33": "Export of services",
+        "VATEX-SA-34-1": "The international transport of Goods",
+        "VATEX-SA-34-2": "International transport of passengers",
         "VATEX-SA-34-3": (
             "Services directly connected and incidental to a Supply of "
-            "international passenger transport."
+            "international passenger transport"
         ),
-        "VATEX-SA-34-4": "Supply of a qualifying means of transport.",
+        "VATEX-SA-34-4": "Supply of a qualifying means of transport",
         "VATEX-SA-34-5": (
             "Any services relating to Goods or passenger transportation, as defined "
-            "in article twenty five of these Regulations."
+            "in article twenty five of these Regulations"
         ),
-        "VATEX-SA-35": "Medicines and medical equipment.",
-        "VATEX-SA-36": "Qualifying metals.",
-        "VATEX-SA-EDU": "Private education to citizen.",
-        "VATEX-SA-HEA": "Private healthcare to citizen.",
+        "VATEX-SA-35": "Medicines and medical equipment",
+        "VATEX-SA-36": "Qualifying metals",
+        "VATEX-SA-EDU": "Private education to citizen",
+        "VATEX-SA-HEA": "Private healthcare to citizen",
         "VATEX-SA-MLTRY": "Supply of qualified military goods",
-        "VATEX-SA-OOS": (
-            "The reason is a free text, has to be provided by the taxpayer on a "
-            "case-by-case basis."
-        ),
+        "VATEX-SA-OOS": "",
     }
+
+
+def resolve_exemption_reason_text(code, transaction_reason=None):
+    """Return official text, or taxpayer-supplied text for OOS."""
+    if code == "VATEX-SA-OOS":
+        return str(transaction_reason or "").strip()
+    return get_exemption_reason_map().get(code, "")
 
 
 def get_tax_for_item(full_string, item):
@@ -130,7 +134,7 @@ def _get_zatca_category_code(category):
     return "S"
 
 
-def _add_tax_category(parent, zatca_tax_category, tax_rate, exemption_reason_code=None):
+def _add_tax_category(parent, zatca_tax_category, tax_rate, exemption_reason_code=None, transaction_reason=None):
     """Append cac:TaxCategory and cac:TaxScheme."""
     cac_taxcategory = ET.SubElement(parent, "cac:TaxCategory")
 
@@ -149,8 +153,11 @@ def _add_tax_category(parent, zatca_tax_category, tax_rate, exemption_reason_cod
         cbc_reason_code.text = exemption_reason_code
 
         cbc_reason = ET.SubElement(cac_taxcategory, "cbc:TaxExemptionReason")
-        if exemption_reason_code in exemption_reason_map:
-            cbc_reason.text = exemption_reason_map[exemption_reason_code]
+        reason_text = resolve_exemption_reason_text(
+            exemption_reason_code, transaction_reason
+        )
+        if reason_text:
+            cbc_reason.text = reason_text
 
     cac_taxscheme = ET.SubElement(cac_taxcategory, "cac:TaxScheme")
     cbc_scheme_id = ET.SubElement(cac_taxscheme, "cbc:ID")
@@ -342,6 +349,7 @@ def _append_tax_totals(invoice, currency, tax_breakdown, sales_invoice_doc):
             row["exemption_reason_code"]
             if row["zatca_tax_category"] != "Standard"
             else None,
+            sales_invoice_doc.get("custom_exemption_reason"),
         )
 
     # 2) Summary-only TaxTotal (without TaxSubtotal) in SAR

@@ -91,7 +91,20 @@ def make_template_name(title: str, company_doc) -> str:
     return f"{title} - {make_company_suffix(company_doc)}"
 
 
-def find_existing_doc_by_name_or_title(doctype: str, name: str, title: str, company: str) -> str | None:
+NON_STANDARD_ZATCA_CATEGORIES = {
+    "Zero Rated",
+    "Exempted",
+    "Services outside scope of tax / Not subject to VAT",
+}
+
+
+def find_existing_doc_by_name_or_title(
+    doctype: str,
+    name: str,
+    title: str,
+    company: str,
+    zatca_tax_category: str | None = None,
+) -> str | None:
     if frappe.db.exists(doctype, name):
         return name
 
@@ -103,8 +116,27 @@ def find_existing_doc_by_name_or_title(doctype: str, name: str, title: str, comp
         },
         "name",
     )
+    if existing:
+        return existing
 
-    return existing
+    # Non-standard categories represent one canonical KSA template each. Sites
+    # may have a different local name/title, so use the category as a safe
+    # fallback. Standard VAT templates intentionally do not use this lookup:
+    # multiple Standard rates (for example 5% and 15%) are valid and remain
+    # separate.
+    if zatca_tax_category in NON_STANDARD_ZATCA_CATEGORIES:
+        meta = frappe.get_meta(doctype)
+        if meta.has_field("custom_zatca_tax_category"):
+            return frappe.db.get_value(
+                doctype,
+                {
+                    "company": company,
+                    "custom_zatca_tax_category": zatca_tax_category,
+                },
+                "name",
+            )
+
+    return None
 
 
 def find_account_by_name_or_account_name(company: str, account_name: str, company_abbr: str) -> str | None:
@@ -269,6 +301,7 @@ def ensure_sales_tax_template(company_doc, tax_def: dict, account_name: str) -> 
         template_name,
         tax_def["title"],
         company_doc.name,
+        tax_def.get("zatca_tax_category"),
     )
 
     created = False
@@ -304,6 +337,11 @@ def ensure_sales_tax_template(company_doc, tax_def: dict, account_name: str) -> 
             "included_in_print_rate": 0,
         },
     )
+
+    if (not doc.custom_zatca_tax_category) or (doc.custom_zatca_tax_category in {"Zero Rated", "Exempted", "Services outside scope of tax / Not subject to VAT"} and not doc.custom_exemption_reason_code):
+        # Canonical templates intentionally leave generic exemption reasons for
+        # administrator selection; allow initial provisioning to create them.
+        doc.flags.ignore_validate = True
 
     if created:
         doc.insert(ignore_permissions=True)
@@ -379,6 +417,7 @@ def ensure_item_tax_template(company_doc, tax_def: dict, account_name: str) -> d
         template_name,
         tax_def["title"],
         company_doc.name,
+        tax_def.get("zatca_tax_category"),
     )
 
     created = False
@@ -410,6 +449,11 @@ def ensure_item_tax_template(company_doc, tax_def: dict, account_name: str) -> d
             "tax_rate": tax_def["rate"],
         },
     )
+
+    if (not doc.custom_zatca_tax_category) or (doc.custom_zatca_tax_category in {"Zero Rated", "Exempted", "Services outside scope of tax / Not subject to VAT"} and not doc.custom_exemption_reason_code):
+        # Canonical templates intentionally leave generic exemption reasons for
+        # administrator selection; allow initial provisioning to create them.
+        doc.flags.ignore_validate = True
 
     if created:
         doc.insert(ignore_permissions=True)

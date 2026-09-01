@@ -12,6 +12,7 @@ from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
     is_zatca_invoice_enabled,
     resolve_zatca_phase,
     supports_advance_deduction_schema,
+    is_advance_payment_invoice,
 )
 
 
@@ -92,12 +93,8 @@ def _is_phase2_category_rate_validation_enabled(company_doc) -> bool:
 
 
 def _is_advance_invoice(invoice) -> bool:
-    meta = getattr(invoice, "meta", None)
-    if meta and meta.has_field("is_advance_payment"):
-        return bool(cint(getattr(invoice, "is_advance_payment", 0) or 0))
-    if meta and meta.has_field("custom_is_advance_payment"):
-        return bool(cint(getattr(invoice, "custom_is_advance_payment", 0) or 0))
-    return False
+    """Use the centralized standard/legacy marker priority."""
+    return is_advance_payment_invoice(invoice)
 
 
 def _advance_tax_template_signature(item_tax_template):
@@ -774,6 +771,16 @@ def validate_zatca_tax_category_and_exemption_reason(
             frappe.throw(
                 _zt("ZATCA exemption reason is required when ZATCA Export Invoice is enabled.")
             )
+
+    if (
+        invoice_zatca_tax_category == "Services outside scope of tax / Not subject to VAT"
+        and not _safe_str(getattr(doc, "custom_exemption_reason", None))
+    ):
+        frappe.throw(
+            _zt(
+                "A transaction-specific Tax Exemption Reason is required when VATEX-SA-OOS is used."
+            )
+        )
 
     if (
         _zatca_category_requires_exemption_reason(invoice_zatca_tax_category)

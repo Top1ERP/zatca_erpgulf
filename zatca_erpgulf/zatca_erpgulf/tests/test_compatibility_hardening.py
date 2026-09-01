@@ -305,6 +305,10 @@ class TestAdvanceDeductionConsumers(unittest.TestCase):
             patch.object(
                 advance_deduction.frappe, "get_doc"
             ) as get_doc,
+            patch.object(
+                advance_deduction.frappe, "get_cached_doc",
+                return_value=SimpleNamespace(),
+            ) as get_cached_doc,
         ):
             self.assertEqual(
                 advance_deduction.populate_zatca_advance_deductions(doc), []

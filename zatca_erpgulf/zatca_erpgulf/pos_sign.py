@@ -10,6 +10,8 @@ import json
 import requests
 from frappe import _
 import frappe
+from zatca_erpgulf.zatca_erpgulf.zatca_runtime import PHASE_1_VALUE, PHASE_2_VALUE, resolve_zatca_phase, is_zatca_invoice_enabled
+from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 from zatca_erpgulf.zatca_erpgulf.event_log import log_zatca_event
 from zatca_erpgulf.zatca_erpgulf.posxml import (
     xml_tags,
@@ -746,7 +748,7 @@ def zatca_call(
         customer_doc = frappe.get_doc("Customer", pos_invoice_doc.customer)
 
         if compliance_type == "0":
-            if customer_doc.custom_b2c == 1:
+            if get_alias_value("customer_b2c", customer_doc, 0) == 1:
                 invoice = invoice_typecode_simplified(invoice, pos_invoice_doc)
             else:
                 invoice = invoice_typecode_standard(invoice, pos_invoice_doc)
@@ -822,7 +824,7 @@ def zatca_call(
         signed_xmlfile_name = structuring_signedxml(invoice_number,updated_xml_string)
 
         if compliance_type == "0":
-            if customer_doc.custom_b2c == 1:
+            if get_alias_value("customer_b2c", customer_doc, 0) == 1:
                 attach_qr_image(qrcodeb64, pos_invoice_doc)
                 reporting_api(
                     uuid1,
@@ -1066,12 +1068,12 @@ def zatca_background_(invoice_number, source_doc, bypass_background_check=False)
                         )
         address = None
         customer_doc = frappe.get_doc("Customer", pos_invoice_doc.customer)
-        if customer_doc.custom_b2c == 0:
-            if not customer_doc.custom_buyer_id:
+        if get_alias_value("customer_b2c", customer_doc, 0) == 0:
+            if not get_alias_value("customer_buyer_id", customer_doc, ""):
                 frappe.throw(
                     "As per ZATCA regulation- For B2B Customers, customer CR number has to be provided"
                 )
-        if customer_doc.custom_b2c != 1:
+        if get_alias_value("customer_b2c", customer_doc, 0) != 1:
             if int(frappe.__version__.split(".", maxsplit=1)[0]) == 13:
                 if pos_invoice_doc.customer_address:
                     address = frappe.get_doc(
@@ -1217,7 +1219,7 @@ def zatca_background_(invoice_number, source_doc, bypass_background_check=False)
         if pos_invoice_doc.custom_zatca_status in ["REPORTED", "CLEARED"]:
             frappe.throw(_("Already submitted to Zakat and Tax Authority"))
 
-        if settings.custom_zatca_invoice_enabled != 1:
+        if not is_zatca_invoice_enabled(settings):
             frappe.throw(
                 _(
                     "ZATCA Invoice is not enabled in Company Settings, "
@@ -1225,7 +1227,7 @@ def zatca_background_(invoice_number, source_doc, bypass_background_check=False)
                 )
             )
 
-        # if settings.custom_phase_1_or_2 == "Phase-2":
+        # if resolve_zatca_phase(settings) == PHASE_2_VALUE:
         is_gpos_installed = "gpos" in frappe.get_installed_apps()
         field_exists = frappe.get_meta("POS Invoice").has_field("custom_unique_id")
         if is_gpos_installed:
@@ -1236,7 +1238,7 @@ def zatca_background_(invoice_number, source_doc, bypass_background_check=False)
                         + str(invoice_number)
                     )
                 )
-        if settings.custom_phase_1_or_2 == "Phase-2":
+        if resolve_zatca_phase(settings) == PHASE_2_VALUE:
             if field_exists and pos_invoice_doc.custom_unique_id:
                 if not pos_invoice_doc.custom_zatca_pos_name:
                     frappe.throw(_("pos name required"))
@@ -1270,7 +1272,7 @@ def zatca_background_(invoice_number, source_doc, bypass_background_check=False)
                     )
                 elif (
                     settings.custom_send_invoice_to_zatca == "Background"
-                    and not bypass_background_check and customer_doc.custom_b2c == 1
+                    and not bypass_background_check and get_alias_value("customer_b2c", customer_doc, 0) == 1
                 ):
                     zatca_call_pos_without_xml_background(
                         invoice_number,
@@ -1339,7 +1341,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
             frappe.throw(
                 _(f"Company abbreviation for {pos_invoice_doc.company} not found.")
             )
-        if company_doc.custom_zatca_invoice_enabled != 1:
+        if not is_zatca_invoice_enabled(company_doc):
             # frappe.msgprint("Zatca Invoice is not enabled. Submitting the document.")
             return 
         
@@ -1351,7 +1353,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
                 frappe.db.commit()
                 return
 
-        if not customer_doc.custom_buyer_id_type and customer_doc.custom_buyer_id:
+        if not get_alias_value("customer_buyer_id_type", customer_doc, "") and get_alias_value("customer_buyer_id", customer_doc, ""):
             frappe.throw(_("Buyer ID must be blank if Buyer ID Type is not set."))
         any_item_has_tax_template = False
 
@@ -1422,12 +1424,12 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
 
         address = None
         customer_doc = frappe.get_doc("Customer", pos_invoice_doc.customer)
-        if customer_doc.custom_b2c == 0:
-            if not customer_doc.custom_buyer_id:
+        if get_alias_value("customer_b2c", customer_doc, 0) == 0:
+            if not get_alias_value("customer_buyer_id", customer_doc, ""):
                 frappe.throw(
                     "As per ZATCA regulation- For B2B Customers, customer CR number has to be provided"
                 )
-        if customer_doc.custom_b2c != 1:
+        if get_alias_value("customer_b2c", customer_doc, 0) != 1:
             if int(frappe.__version__.split(".", maxsplit=1)[0]) == 13:
                 if pos_invoice_doc.customer_address:
                     address = frappe.get_doc(
@@ -1550,7 +1552,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
             )
         # Check if Zatca Invoice is enabled in the Company document
 
-        if company_doc.custom_zatca_invoice_enabled != 1:
+        if not is_zatca_invoice_enabled(company_doc):
             frappe.throw(
                 _(
                     "ZATCA Invoice is not enabled in the Company settings,"
@@ -1586,7 +1588,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
 
         # Retrieve the company document to access settings
         settings = frappe.get_doc("Company", company_name)
-        # if settings.custom_phase_1_or_2 == "Phase-2":
+        # if resolve_zatca_phase(settings) == PHASE_2_VALUE:
         #     zatca_call(
         #         invoice_number, "0", any_item_has_tax_template, company_abbr, source_doc
         #     )
@@ -1604,7 +1606,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
                         + str(invoice_number)
                     )
                 )
-        if settings.custom_phase_1_or_2 == "Phase-2":
+        if resolve_zatca_phase(settings) == PHASE_2_VALUE:
             if field_exists and pos_invoice_doc.custom_unique_id:
                 if not pos_invoice_doc.custom_zatca_pos_name:
                     frappe.throw(_("pos name required"))
@@ -1639,7 +1641,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
                     )
                 elif (
                     settings.custom_send_invoice_to_zatca == "Background"
-                    and not bypass_background_check and customer_doc.custom_b2c == 1
+                    and not bypass_background_check and get_alias_value("customer_b2c", customer_doc, 0) == 1
                 ):
                     zatca_call_pos_without_xml_background(
                         invoice_number,
@@ -1696,7 +1698,7 @@ def resubmit_invoices_pos(invoice_numbers, bypass_background_check=False):
             elif (
                 sales_invoice_doc.docstatus == 0
                 and company_doc.custom_submit_or_not == 1
-                and customer_doc.custom_b2c == 1
+                and get_alias_value("customer_b2c", customer_doc, 0) == 1
             ):
                 pos_invoice_doc.submit()
                 # zatca_background_on_submit(

@@ -5,6 +5,7 @@ from frappe import _  # pylint: disable=unused-import
 import frappe
 import requests
 from zatca_erpgulf.zatca_erpgulf.event_log import log_zatca_event
+from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 from zatca_erpgulf.zatca_erpgulf.sales_invoice_with_xmlqr import (
     get_api_url,
     xml_base64_decode,
@@ -82,7 +83,7 @@ def zatca_call_pos_without_xml(
         customer_doc = frappe.get_doc("Customer", pos_invoice_doc.customer)
 
         if compliance_type == "0":
-            if customer_doc.custom_b2c == 1:
+            if get_alias_value("customer_b2c", customer_doc, 0) == 1:
                 invoice = invoice_typecode_simplified(invoice, pos_invoice_doc)
             else:
                 frappe.throw(
@@ -160,7 +161,7 @@ def zatca_call_pos_without_xml(
         signed_xmlfile_name = structuring_signedxml(invoice_number, updated_xml_string)
 
         if compliance_type == "0":
-            if customer_doc.custom_b2c == 1:
+            if get_alias_value("customer_b2c", customer_doc, 0) == 1:
                 attach_qr_image(qrcodeb64, pos_invoice_doc)
                 reporting_api_pos_without_xml(
                     uuid1,

@@ -3,6 +3,7 @@ from __future__ import annotations
 import frappe
 
 from frappe.utils import cint
+from zatca_erpgulf.ksa_compliance.field_compat import get_compat_value
 
 
 PHASE_1_VALUE = "Phase-1"
@@ -56,11 +57,14 @@ def is_zatca_invoice_enabled(company_doc) -> bool:
 
 def resolve_zatca_phase(company_doc) -> str:
     """Prefer custom_phase_1_or_2, with phase_1_or_2 as compatibility fallback."""
-    primary = str(_get_value(company_doc, "custom_phase_1_or_2", "") or "").strip()
-    if primary:
-        return primary
-
-    return str(_get_value(company_doc, "phase_1_or_2", "") or "").strip()
+    return str(
+        get_compat_value(
+            company_doc,
+            ("custom_phase_1_or_2", "phase_1_or_2"),
+            "",
+        )
+        or ""
+    ).strip()
 
 
 def get_zatca_environment(company_doc) -> str:
@@ -73,6 +77,23 @@ def get_b2c_submission_method(company_doc) -> str:
     return str(
         _get_value(company_doc, "custom_send_invoice_to_zatca", "") or ""
     ).strip()
+
+
+def is_clearance_enabled(company_doc) -> bool:
+    """Resolve the optional Clearance switch, preserving the current default.
+
+    Older Sites do not have a dedicated switch; those Sites retain the existing
+    Clearance behavior. Newer installations may expose either app-owned field
+    spelling and can explicitly disable Clearance for Standard documents.
+    """
+    for fieldname in (
+        "custom_zatca_clearance_enabled",
+        "custom_clearance_enabled",
+        "clearance_enabled",
+    ):
+        if _has_field(company_doc, fieldname):
+            return bool(cint(_get_value(company_doc, fieldname, 1)))
+    return True
 
 
 # ---------------------------------------------------------------------------

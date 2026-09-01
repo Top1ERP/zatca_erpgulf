@@ -206,10 +206,14 @@ def tax_data_with_template(invoice, pos_invoice_doc):
                 )
 
                 exemption_reason_map = get_exemption_reason_map()
-                if totals["exemption_reason_code"] in exemption_reason_map:
-                    cbc_taxexemptionreason.text = exemption_reason_map[
-                        totals["exemption_reason_code"]
-                    ]
+                reason_code = totals["exemption_reason_code"]
+                reason_text = (
+                    getattr(pos_invoice_doc, "custom_exemption_reason", None)
+                    if reason_code == "VATEX-SA-OOS"
+                    else exemption_reason_map.get(reason_code, "")
+                )
+                if reason_text:
+                    cbc_taxexemptionreason.text = reason_text
 
             cac_taxscheme = ET.SubElement(cac_taxcategory_1, "cac:TaxScheme")
             cbc_taxscheme_id = ET.SubElement(cac_taxscheme, "cbc:ID")

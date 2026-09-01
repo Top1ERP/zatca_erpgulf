@@ -2,6 +2,7 @@
 
 from datetime import datetime, timedelta, time
 import frappe
+from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 from frappe.utils import now_datetime, add_to_date
 
 from zatca_erpgulf.zatca_erpgulf.sign_invoice import zatca_background_on_submit
@@ -130,7 +131,7 @@ def submit_invoices_to_zatca_background():
 
                     if (
                         company_doc.custom_submit_or_not == 1
-                        and customer_doc.custom_b2c == 1
+                        and get_alias_value("customer_b2c", customer_doc, 0) == 1
                     ):
                 # elif company_doc.custom_submit_or_not == 1:
                         sales_invoice_doc.submit()

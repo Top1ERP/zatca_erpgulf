@@ -3239,6 +3239,14 @@ def sync_sales_invoice_zatca_integration_layout() -> dict[str, list[str]]:
             "description": "",
         },
         {
+            "fieldname": "custom_exemption_reason",
+            "idx": 36,
+            "fieldtype": "Small Text",
+            "label": "Tax Exemption Reason",
+            "insert_after": "custom_exemption_reason_code",
+            "description": "Transaction-specific reason text required for VATEX-SA-OOS.",
+        },
+        {
             "fieldname": "custom_zatca_discount_reason",
             "idx": 37,
             "fieldtype": "Select",
@@ -3406,6 +3414,7 @@ def finalize_sales_invoice_zatca_field_order_and_cleanup() -> dict[str, list[str
         "custom_section_break_gqwpx",
         "custom_zatca_tax_category",
         "custom_exemption_reason_code",
+        "custom_exemption_reason",
         "custom_zatca_discount_reason_code",
         "custom_zatca_discount_reason",
         "custom_submit_line_item_discount_to_zatca",
@@ -3453,17 +3462,20 @@ def finalize_sales_invoice_zatca_field_order_and_cleanup() -> dict[str, list[str
             result["skipped"].append(f"{row['name']} field_order is not a list")
             continue
 
+        # Preserve the existing section location, then replace the managed
+        # ZATCA block in-place. This keeps dependent fields (including the
+        # transaction exemption reason) together under the ZATCA section.
+        section_index = (
+            current_order.index("custom_section_break_gqwpx")
+            if "custom_section_break_gqwpx" in current_order
+            else len(current_order)
+        )
         cleaned_order = [
             fieldname
             for fieldname in current_order
             if fieldname not in managed_fields
         ]
-
-        anchor = "amended_from"
-        if anchor in cleaned_order:
-            insert_at = cleaned_order.index(anchor) + 1
-        else:
-            insert_at = len(cleaned_order)
+        insert_at = min(section_index, len(cleaned_order))
 
         new_order = (
             cleaned_order[:insert_at]
@@ -3482,6 +3494,81 @@ def finalize_sales_invoice_zatca_field_order_and_cleanup() -> dict[str, list[str
 
     frappe.db.commit()
     frappe.clear_cache(doctype="Sales Invoice")
+    return result
+
+
+
+def sync_address_zatca_customizations() -> dict[str, list[str]]:
+    """Ensure Address labels/descriptions and Company address-validation settings."""
+    from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+
+    result = {"ensured": [], "company_defaults_set": [], "skipped": []}
+    custom_fields = {}
+    if _doctype_exists("Company"):
+        custom_fields["Company"] = [
+            {
+                "fieldname": "custom_zatca_address_validation_section",
+                "fieldtype": "Section Break",
+                "label": "ZATCA Address Validation Settings",
+                "insert_after": "custom_allow_zatca_tax_id_fallback",
+                "collapsible": 1,
+                "no_copy": 1,
+                "description": "Controls Saudi National Address validation for linked Company and Customer addresses.",
+            },
+            {
+                "fieldname": "custom_enable_zatca_address_validation_for_company",
+                "fieldtype": "Check",
+                "label": "Enable Address Validation for Company",
+                "insert_after": "custom_zatca_address_validation_section",
+                "default": "1",
+                "description": "Validate Saudi addresses marked as your company address when ZATCA E-Invoicing is enabled.",
+            },
+            {
+                "fieldname": "custom_enable_zatca_address_validation_for_customers",
+                "fieldtype": "Check",
+                "label": "Enable Address Validation for Customers",
+                "insert_after": "custom_enable_zatca_address_validation_for_company",
+                "default": "1",
+                "description": "Validate Saudi addresses linked to Customers when ZATCA E-Invoicing is enabled.",
+            },
+        ]
+    else:
+        result["skipped"].append("Company missing")
+
+    if custom_fields:
+        create_custom_fields(custom_fields, update=True)
+        result["ensured"].append("Company ZATCA address validation settings")
+
+    if _property_setter_available() and _doctype_exists("Address"):
+        for fieldname, label, description in (
+            ("address_line1", "Address in English", "English address from the Saudi National Address when ZATCA invoice is enabled."),
+            ("address_line2", "Short Address", "Saudi National Address short address when ZATCA invoice is enabled. Must contain 8 characters: 4 letters followed by 4 digits."),
+        ):
+            _upsert_property_setter({
+                "doctype": "Property Setter", "doc_type": "Address", "field_name": fieldname,
+                "property": "label", "property_type": "Data", "value": label,
+                "name": f"Address-{fieldname}-label-zatca_erpgulf",
+            })
+            _upsert_property_setter({
+                "doctype": "Property Setter", "doc_type": "Address", "field_name": fieldname,
+                "property": "description", "property_type": "Text", "value": description,
+                "name": f"Address-{fieldname}-description-zatca_erpgulf",
+            })
+        result["ensured"].append("Address National Address labels and descriptions")
+    else:
+        result["skipped"].append("Address or Property Setter unavailable")
+
+    for fieldname in (
+        "custom_enable_zatca_address_validation_for_company",
+        "custom_enable_zatca_address_validation_for_customers",
+    ):
+        if _doctype_exists("Company") and frappe.db.has_column("Company", fieldname):
+            frappe.db.sql(f"UPDATE `tabCompany` SET `{fieldname}` = 1 WHERE `{fieldname}` IS NULL")
+            result["company_defaults_set"].append(fieldname)
+
+    frappe.db.commit()
+    frappe.clear_cache(doctype="Company")
+    frappe.clear_cache(doctype="Address")
     return result
 
 
@@ -3584,6 +3671,10 @@ def sync_tax_template_zatca_source_fields() -> dict[str, list[str]]:
     payment_entry_limit_field_existed = bool(
         frappe.db.exists("Custom Field", f"Company-{payment_entry_limit_fieldname}")
     )
+    clearance_enabled_fieldname = "custom_zatca_clearance_enabled"
+    clearance_enabled_field_existed = bool(
+        frappe.db.exists("Custom Field", f"Company-{clearance_enabled_fieldname}")
+    )
 
     if _doctype_exists("Company"):
         custom_fields.setdefault("Company", []).extend(
@@ -3619,6 +3710,59 @@ def sync_tax_template_zatca_source_fields() -> dict[str, list[str]]:
                     "description": (
                         "When enabled, a linked ZATCA Payment Entry cannot exceed the Sales Invoice total including VAT."
                     ),
+                },
+                {
+                    "fieldname": clearance_enabled_fieldname,
+                    "fieldtype": "Check",
+                    "label": "Enable ZATCA Clearance",
+                    "insert_after": "custom_phase_1_or_2",
+                    "depends_on": 'eval:doc.custom_phase_1_or_2=="Phase-2"',
+                    "default": "1",
+                    "description": (
+                        "Phase-2 only. When enabled, Standard ZATCA documents use the Clearance API. "
+                        "When disabled, they are submitted through the Reporting API variant."
+                    ),
+                },
+                {
+                    "fieldname": "custom_zatca_customer_validation_section",
+                    "fieldtype": "Section Break",
+                    "label": "ZATCA Customer Validation Settings",
+                    "insert_after": "custom_enforce_zatca_payment_entry_amount_limit",
+                    "collapsible": 1,
+                    "no_copy": 1,
+                    "description": "Controls ZATCA buyer-identification validation when saving Customer records.",
+                },
+                {
+                    "fieldname": "custom_enable_zatca_customer_validation",
+                    "fieldtype": "Check",
+                    "label": "Enable ZATCA Customer Validation",
+                    "insert_after": "custom_zatca_customer_validation_section",
+                    "default": "1",
+                    "description": "When enabled, Saudi B2B Customer records are checked for ZATCA buyer identification data.",
+                },
+                {
+                    "fieldname": "custom_require_zatca_buyer_id_on_customer_save",
+                    "fieldtype": "Check",
+                    "label": "Require Buyer ID on Customer Save",
+                    "insert_after": "custom_enable_zatca_customer_validation",
+                    "default": "0",
+                    "description": "When enabled, a Saudi B2B Customer cannot be saved without a Buyer ID. When disabled, incomplete customer records are saved with a warning.",
+                },
+                {
+                    "fieldname": "custom_validate_zatca_buyer_id_format",
+                    "fieldtype": "Check",
+                    "label": "Validate Buyer ID Type and Format",
+                    "insert_after": "custom_require_zatca_buyer_id_on_customer_save",
+                    "default": "1",
+                    "description": "Validate the selected ZATCA identification scheme and number format.",
+                },
+                {
+                    "fieldname": "custom_allow_zatca_tax_id_fallback",
+                    "fieldtype": "Check",
+                    "label": "Allow Tax ID Fallback for Legacy Sites",
+                    "insert_after": "custom_validate_zatca_buyer_id_format",
+                    "default": "1",
+                    "description": "Preserve legacy sites that identify B2B customers using tax_id.",
                 },
             ]
         )
@@ -3669,6 +3813,20 @@ def sync_tax_template_zatca_source_fields() -> dict[str, list[str]]:
 
     if (
         _doctype_exists("Company")
+        and not clearance_enabled_field_existed
+        and frappe.db.has_column("Company", clearance_enabled_fieldname)
+    ):
+        frappe.db.sql(
+            f"""
+            UPDATE `tabCompany`
+            SET `{clearance_enabled_fieldname}` = 1
+            WHERE `{clearance_enabled_fieldname}` IS NULL
+            """
+        )
+        result["company_defaults_set"].append(clearance_enabled_fieldname)
+
+    if (
+        _doctype_exists("Company")
         and not payment_entry_limit_field_existed
         and frappe.db.has_column("Company", payment_entry_limit_fieldname)
     ):
@@ -3681,6 +3839,17 @@ def sync_tax_template_zatca_source_fields() -> dict[str, list[str]]:
         )
         result["company_defaults_set"].append(payment_entry_limit_fieldname)
 
+    for fieldname, default in (
+        ("custom_enable_zatca_customer_validation", 1),
+        ("custom_validate_zatca_buyer_id_format", 1),
+        ("custom_allow_zatca_tax_id_fallback", 1),
+    ):
+        if _doctype_exists("Company") and frappe.db.has_column("Company", fieldname):
+            frappe.db.sql(
+                f"UPDATE `tabCompany` SET `{fieldname}` = %s WHERE `{fieldname}` IS NULL",
+                default,
+            )
+            result["company_defaults_set"].append(fieldname)
     frappe.db.commit()
 
     for doctype in custom_fields:
@@ -3748,7 +3917,16 @@ def ensure_ksa_tax_templates_for_companies() -> dict[str, list[str]]:
         result["companies"].append(company_doc.name)
         reset_sales_default_for_company(company_doc.name)
         for tax_def in KSA_TAX_DEFINITIONS:
-            account = ensure_tax_account(company_doc, tax_def["account_name"])["name"]
+            try:
+                account = ensure_tax_account(company_doc, tax_def["account_name"])["name"]
+            except frappe.ValidationError as exc:
+                # Legacy/child company account trees may require a root-level
+                # account first. Do not make migration fail for that optional
+                # template; report it for explicit administrator repair.
+                result["skipped"].append(
+                    f"{company_doc.name}: {tax_def['account_name']} account skipped ({exc})"
+                )
+                continue
             sales = ensure_sales_tax_template(company_doc, tax_def, account)
             item = ensure_item_tax_template(company_doc, tax_def, account)
             result["templates"].extend([sales["name"], item["name"]])
@@ -3829,7 +4007,13 @@ def sync_existing_tax_template_zatca_values() -> dict[str, list[str]]:
                 first_description,
             )
 
-            if not inferred_category:
+            # Non-standard categories require an explicit exemption reason.
+            # Do not backfill a generic Zero Rated/Exempted category without a
+            # deterministic reason, because document validation correctly rejects
+            # that incomplete state during migration.
+            if not inferred_category or (
+                inferred_category in {"Zero Rated", "Exempted", "Services outside scope of tax / Not subject to VAT"} and not inferred_reason
+            ):
                 result["skipped"].append(f"{doctype} {doc.name} - no safe inference")
                 continue
 
@@ -3891,6 +4075,7 @@ def remove_extra_sales_invoice_zatca_column_breaks() -> dict[str, list[str]]:
         "custom_section_break_gqwpx",
         "custom_zatca_tax_category",
         "custom_exemption_reason_code",
+        "custom_exemption_reason",
         "custom_zatca_discount_reason_code",
         "custom_zatca_discount_reason",
         "custom_submit_line_item_discount_to_zatca",
@@ -4395,6 +4580,7 @@ def force_sales_invoice_zatca_field_order_property_setter() -> dict[str, Any]:
         "custom_section_break_gqwpx",
         "custom_zatca_tax_category",
         "custom_exemption_reason_code",
+        "custom_exemption_reason",
         "custom_zatca_discount_reason_code",
         "custom_zatca_discount_reason",
         "custom_submit_line_item_discount_to_zatca",
@@ -4747,13 +4933,13 @@ def enforce_tax_template_permissions() -> dict[str, list[str]]:
         rows = frappe.get_all(
             "DocPerm",
             filters={"parent": doctype, "permlevel": 0},
-            fields=["name", "role", "read", "write", "create"],
+            fields=["name", "role", "read", "write", "create", "delete"],
         )
         for row in rows:
             docperm = frappe.get_doc("DocPerm", row.name)
             allowed = str(row.role or "") == role
             changed = False
-            for fieldname, value in (("read", 1), ("write", int(allowed)), ("create", int(allowed))):
+            for fieldname, value in (("read", 1), ("write", int(allowed)), ("create", int(allowed)), ("delete", int(allowed))):
                 if getattr(docperm, fieldname, None) != value:
                     setattr(docperm, fieldname, value)
                     changed = True
@@ -4774,6 +4960,7 @@ def enforce_tax_template_permissions() -> dict[str, list[str]]:
                     "read": 1,
                     "write": 1,
                     "create": 1,
+                    "delete": 1,
                     "print": 1,
                     "email": 1,
                     "export": 1,
@@ -4805,6 +4992,8 @@ def sync_all_zatca_customizations() -> dict[str, Any]:
 
     _log("Starting ZATCA customization sync.")
     _log(f"Frappe major version detected: {frappe_major}")
+    from zatca_erpgulf.ksa_compliance.workspace_tools import rename_zatca_workspace
+    workspace_result = rename_zatca_workspace()
 
     custom_fields_result = sync_custom_fields_from_fixture()
     critical_fields_result = ensure_critical_custom_fields()
@@ -4833,6 +5022,7 @@ def sync_all_zatca_customizations() -> dict[str, Any]:
     sales_invoice_advance_naming_series_result = ensure_sales_invoice_advance_naming_series()
     sales_invoice_zatca_field_order_property_setter_result = force_sales_invoice_zatca_field_order_property_setter()
     tax_template_zatca_source_fields_result = sync_tax_template_zatca_source_fields()
+    address_zatca_validation_result = sync_address_zatca_customizations()
     existing_tax_template_zatca_values_result = sync_existing_tax_template_zatca_values()
     ksa_tax_templates_result = ensure_ksa_tax_templates_for_companies()
     advance_payment_item_result = ensure_advance_payment_item()
@@ -4850,6 +5040,7 @@ def sync_all_zatca_customizations() -> dict[str, Any]:
 
     result = {
         "frappe_major": frappe_major,
+        "workspace": workspace_result,
         "custom_fields": custom_fields_result,
         "critical_custom_fields": critical_fields_result,
         "sales_invoice_advance_detail_table": sales_invoice_advance_detail_table_result,
@@ -4863,6 +5054,7 @@ def sync_all_zatca_customizations() -> dict[str, Any]:
         "property_setters": property_setters_result,
         "critical_property_setters": critical_property_setters_result,
         "company_zatca_ui": company_zatca_ui_result,
+        "address_zatca_validation": address_zatca_validation_result,
         "sales_invoice_user_invoice_number_removal": user_invoice_number_removal_result,
         "sales_invoice_zatca_ui": sales_invoice_zatca_ui_result,
         "sales_invoice_zatca_column_cleanup": sales_invoice_zatca_column_cleanup_result,

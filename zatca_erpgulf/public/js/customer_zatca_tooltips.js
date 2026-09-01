@@ -1,3 +1,10 @@
+function zatca_first_present(doc, fieldnames, fallback = undefined) {
+    for (const fieldname of fieldnames) {
+        if (doc && Object.prototype.hasOwnProperty.call(doc, fieldname)) return doc[fieldname];
+    }
+    return fallback;
+}
+
 (function () {
     function zatca_escape_html(value) {
         if (frappe.utils && frappe.utils.escape_html) {
@@ -76,3 +83,86 @@
         },
     });
 })();
+
+async function zatca_load_customer_policy(frm) {
+    const response = await frappe.call({
+        method: "zatca_erpgulf.zatca_erpgulf.customer_validation.get_customer_validation_policy_for_form",
+        args: { customer: frm.doc.name && !frm.is_new() ? frm.doc.name : null },
+    });
+    const policy = response.message || {};
+    let country = String(frm.doc.territory || "").trim().toLowerCase();
+    if (frm.doc.customer_primary_address) {
+        const address = await frappe.db.get_value("Address", frm.doc.customer_primary_address, "country");
+        country = String(address?.message?.country || country).trim().toLowerCase();
+    }
+    frm.__zatca_customer_policy = {
+        enabled: !!policy.enabled,
+        require_on_save: !!policy.require_on_save,
+        needs_id: !!policy.enabled && ["sa", "saudi arabia"].includes(country) && !Number(zatca_first_present(frm.doc, ["custom_b2c", "b2c", "is_b2c", "zatca_b2c"], 0) || 0),
+    };
+
+}
+function zatca_sync_arabic_names(frm, source) {
+    if (frm.__zatca_syncing_arabic_names) return;
+    const fields = ["zatca_customer_name_in_arabic", "customer_name_in_arabic", "custom_customer_name_in_arabic"]
+        .filter((fieldname) => !!frm.fields_dict[fieldname]);
+    const value = frm.doc[source] || "";
+    frm.__zatca_syncing_arabic_names = true;
+    fields.filter((fieldname) => fieldname !== source && (frm.doc[fieldname] || "") !== value)
+        .forEach((fieldname) => frm.set_value(fieldname, value));
+    frm.__zatca_syncing_arabic_names = false;
+}
+
+function zatca_missing_tax_id_hint(frm) {
+    const state = frm.__zatca_customer_policy;
+    if (!state || !state.enabled || !state.needs_id || frm.doc.tax_id) return;
+    frappe.show_alert({ message: __("Tax ID is empty for this Saudi B2B customer. Provide a 15-digit Tax ID when available."), indicator: "orange" }, 7);
+}
+
+function zatca_live_buyer_hint(frm) {
+    const state = frm.__zatca_customer_policy;
+    const rawValue = String(zatca_first_present(frm.doc, ["custom_buyer_id", "buyer_id", "zatca_buyer_id"], "") || "");
+    const rawTaxId = String(frm.doc.tax_id || "");
+    const value = rawValue.trim();
+    const taxId = rawTaxId.trim();
+    const type = String(zatca_first_present(frm.doc, ["custom_buyer_id_type", "buyer_id_type", "zatca_buyer_id_type"], "") || "").trim().toUpperCase();
+    if (!state || !state.enabled || !state.needs_id || !value || !type) return;
+    const valid = type === "TIN" ? /^3\d{9}$/.test(value) : !/\s/.test(value);
+    const whitespaceInvalid = /\s/.test(rawValue) || /\s/.test(rawTaxId);
+    const taxIdInvalid = taxId && !/^3\d{13}3$/.test(taxId);
+    const tinMismatch = type === "TIN" && taxId && !taxId.startsWith(value);
+    const key = `${type}:${value}`;
+    if ((valid && !whitespaceInvalid && !taxIdInvalid && !tinMismatch) || frm.__zatca_last_buyer_hint === key) return;
+    frm.__zatca_last_buyer_hint = key;
+    const message = whitespaceInvalid
+        ? __("Buyer ID and Tax ID must not contain spaces.")
+        : taxIdInvalid
+            ? __("Tax ID for a Saudi customer must contain 15 digits, start with 3, and end with 3.")
+            : tinMismatch
+                ? __("TIN and Tax ID do not match. TIN must equal the first 10 digits of Tax ID.<br>TIN: {0}<br>Tax ID: {1}").replace("{0}", value).replace("{1}", taxId)
+                : __("Buyer ID format is invalid for the selected ZATCA identification type.");
+    frappe.show_alert({ message, indicator: "orange" }, 7);
+}
+
+frappe.ui.form.on("Customer", {
+    refresh(frm) { zatca_load_customer_policy(frm).catch(() => {}); },
+    custom_b2c(frm) { zatca_load_customer_policy(frm).catch(() => {}); },
+    customer_primary_address(frm) { zatca_load_customer_policy(frm).catch(() => {}); },
+    territory(frm) { zatca_load_customer_policy(frm).catch(() => {}); },
+    custom_buyer_id(frm) { zatca_live_buyer_hint(frm); },
+    custom_buyer_id_type(frm) { zatca_live_buyer_hint(frm); },
+    tax_id(frm) { zatca_missing_tax_id_hint(frm); },
+    zatca_customer_name_in_arabic(frm) { zatca_sync_arabic_names(frm, "zatca_customer_name_in_arabic"); },
+    customer_name_in_arabic(frm) { zatca_sync_arabic_names(frm, "customer_name_in_arabic"); },
+    custom_customer_name_in_arabic(frm) { zatca_sync_arabic_names(frm, "custom_customer_name_in_arabic"); },
+    before_save(frm) {
+        const state = frm.__zatca_customer_policy;
+        if (!state || !state.enabled || !state.needs_id || state.require_on_save || zatca_first_present(frm.doc, ["custom_buyer_id", "buyer_id", "zatca_buyer_id"], "")) return;
+        if (frm.__zatca_customer_warning_confirmed) return;
+        frappe.validated = false;
+        const dialog = new frappe.ui.Dialog({ title: __("ZATCA Customer Validation"), fields: [{ fieldtype: "HTML", options: __("Buyer ID is empty. Continue saving this incomplete Saudi B2B Customer record?") }], primary_action_label: __("Continue"), primary_action() { frm.__zatca_customer_warning_confirmed = true; dialog.hide(); frm.save(); } });
+        dialog.set_secondary_action(() => dialog.hide());
+        dialog.set_secondary_action_label(__("Ignore"));
+        dialog.show();
+    },
+});

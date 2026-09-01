@@ -6,6 +6,8 @@ import json
 import requests
 from frappe import _
 import frappe
+from zatca_erpgulf.zatca_erpgulf.zatca_runtime import PHASE_1_VALUE, PHASE_2_VALUE, resolve_zatca_phase, is_zatca_invoice_enabled
+from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 import traceback
 from zatca_erpgulf.zatca_erpgulf.posxml import (
     xml_tags,
@@ -105,7 +107,7 @@ def debug_call(
         company_abbr = settings.abbr
         company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
 
-        if company_doc.custom_zatca_invoice_enabled != 1:
+        if not is_zatca_invoice_enabled(company_doc):
             frappe.msgprint("ZATCA Invoice is not enabled. Submitting the document.")
             return
 
@@ -121,7 +123,7 @@ def debug_call(
                 frappe.db.commit()
                 return
 
-        if not customer_doc.custom_buyer_id_type and customer_doc.custom_buyer_id:
+        if not get_alias_value("customer_buyer_id_type", customer_doc, "") and get_alias_value("customer_buyer_id", customer_doc, ""):
             frappe.throw(_("Buyer ID must be blank if Buyer ID Type is not set."))
 
         if not frappe.db.exists("POS Invoice", invoice_number):
@@ -148,7 +150,7 @@ def debug_call(
             customer_doc_inner = frappe.get_doc("Customer", invoice_doc.customer)
 
             if compliance_type == "0":
-                if customer_doc_inner.custom_b2c == 1:
+                if get_alias_value("customer_b2c", customer_doc_inner, 0) == 1:
                     invoice = invoice_typecode_simplified(invoice, invoice_doc)
                 else:
                     frappe.throw("Customer should be B2C POS without XML during create XML.")
@@ -233,7 +235,7 @@ def debug_call(
         # --- Determine handle_b2c_simplified flag ---
         handle_b2c_simplified = False
 
-        if settings.custom_phase_1_or_2 == "Phase-2":
+        if resolve_zatca_phase(settings) == PHASE_2_VALUE:
             if field_exists and getattr(pos_invoice_doc, "custom_unique_id", None):
                 if not getattr(pos_invoice_doc, "custom_zatca_pos_name", None):
                     frappe.throw(_("POS name is required"))

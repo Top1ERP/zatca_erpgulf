@@ -13,6 +13,7 @@ import frappe
 from frappe.utils.data import get_time
 from frappe.utils import cint
 from zatca_erpgulf.zatca_erpgulf.country_code import country_code_mapping
+from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 
 CBC_ID = "cbc:ID"
 DS_TRANSFORM = "ds:Transform"
@@ -348,7 +349,7 @@ def _validate_customer_b2b_address_for_zatca(customer_doc, address, customer_cou
     - Saudi B2B customers must have 5-digit postal code.
     - Foreign B2B customers must have postal code, but it may contain letters/spaces.
     """
-    if cint(getattr(customer_doc, "custom_b2c", 0)) == 1:
+    if cint(get_alias_value("customer_b2c", customer_doc, 0)) == 1:
         return
 
     problems = []
@@ -831,7 +832,7 @@ def invoice_typecode_advance_payment(invoice, sales_invoice_doc):
     try:
         cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
         customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
-        base_code = "02" if getattr(customer_doc, "custom_b2c", 0) == 1 else "01"
+        base_code = "02" if get_alias_value("customer_b2c", customer_doc, 0) == 1 else "01"
         checkbox_map = [
             bool(getattr(sales_invoice_doc, "custom_zatca_third_party_invoice", 0)),
             bool(getattr(sales_invoice_doc, "custom_zatca_nominal_invoice", 0)),
@@ -1087,7 +1088,11 @@ def get_address(sales_invoice_doc, company_doc):
             "state",
             "country",
         ],
-        filters={"is_your_company_address": 1},
+        filters=[
+            ["Address", "is_your_company_address", "=", 1],
+            ["Dynamic Link", "link_doctype", "=", "Company"],
+            ["Dynamic Link", "link_name", "=", company_doc.name],
+        ],
     )
 
     if not address_list:
@@ -1181,13 +1186,13 @@ def customer_data(invoice, sales_invoice_doc):
         cac_accountingcustomerparty = ET.SubElement(invoice, "cac:AccountingCustomerParty")
         cac_party_2 = ET.SubElement(cac_accountingcustomerparty, "cac:Party")
 
-        if not customer_doc.custom_b2c or (
-            customer_doc.custom_b2c and customer_doc.custom_buyer_id
+        if not get_alias_value("customer_b2c", customer_doc, 0) or (
+            get_alias_value("customer_b2c", customer_doc, 0) and get_alias_value("customer_buyer_id", customer_doc, "")
         ):
             cac_partyidentification_1 = ET.SubElement(cac_party_2, "cac:PartyIdentification")
             cbc_id_4 = ET.SubElement(cac_partyidentification_1, CBC_ID)
-            cbc_id_4.set("schemeID", str(customer_doc.custom_buyer_id_type))
-            cbc_id_4.text = customer_doc.custom_buyer_id
+            cbc_id_4.set("schemeID", str(get_alias_value("customer_buyer_id_type", customer_doc, "")))
+            cbc_id_4.text = get_alias_value("customer_buyer_id", customer_doc, "")
 
         customer_names = _get_customer_display_names(customer_doc)
         if customer_names:
@@ -1196,7 +1201,7 @@ def customer_data(invoice, sales_invoice_doc):
         address = None
         customer_country_code = "SA"
 
-        if customer_doc.custom_b2c != 1:
+        if get_alias_value("customer_b2c", customer_doc, 0) != 1:
             address = _get_customer_address(sales_invoice_doc, customer_doc)
 
             if not address:
@@ -1621,7 +1626,7 @@ def add_nominal_discount_tax(invoice, sales_invoice_doc):
         cbc_tax_exemption_reason = ET.SubElement(
             cac_tax_category, "cbc:TaxExemptionReason"
         )
-        cbc_tax_exemption_reason.text = "Special discount offer"
+        cbc_tax_exemption_reason.text = getattr(sales_invoice_doc, "custom_exemption_reason", None) or "Discount"
 
         cac_tax_scheme = ET.SubElement(cac_tax_category, "cac:TaxScheme")
         cbc_tax_scheme_id = ET.SubElement(cac_tax_scheme, CBC_ID)

@@ -1,4 +1,5 @@
 import frappe
+from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 import json
 import base64
 from frappe import _
@@ -24,7 +25,7 @@ from zatca_erpgulf.zatca_erpgulf.createxml import (
     invoice_typecode_standard,
     invoice_typecode_advance_payment,
 )
-from zatca_erpgulf.zatca_erpgulf.zatca_runtime import is_advance_payment_invoice
+from zatca_erpgulf.zatca_erpgulf.zatca_runtime import PHASE_1_VALUE, PHASE_2_VALUE, is_advance_payment_invoice, resolve_zatca_phase, is_zatca_invoice_enabled
 from zatca_erpgulf.zatca_erpgulf.xml_tax_data import tax_data, tax_data_with_template
 from zatca_erpgulf.zatca_erpgulf.create_xml_final_part import (
     tax_data_nominal,
@@ -110,7 +111,7 @@ def debug_call(
         # Debug XML is a local simulation and must remain available even when
         # live ZATCA submission is disabled for the Company.  It never submits
         # or sends the generated XML.
-        if company_doc.custom_zatca_invoice_enabled != 1:
+        if not is_zatca_invoice_enabled(company_doc):
             frappe.msgprint(
                 _(
                     "ZATCA E-Invoicing is disabled for this Company. "
@@ -154,7 +155,7 @@ def debug_call(
             else:
                 if compliance_type == "0":
 
-                    if getattr(customer_doc, "custom_b2c", 0) == 1:
+                    if get_alias_value("customer_b2c", customer_doc, 0) == 1:
 
                         invoice = invoice_typecode_simplified(invoice, invoice_doc)
                     else:
@@ -284,7 +285,7 @@ def debug_call(
         # --- Determine handle_b2c_simplified flag ---
         handle_b2c_simplified = False  # default
 
-        if settings.custom_phase_1_or_2 == "Phase-2":
+        if resolve_zatca_phase(settings) == PHASE_2_VALUE:
             if field_exists and getattr(sales_invoice_doc, "custom_unique_id", None):
                 if is_gpos_installed and getattr(sales_invoice_doc, "custom_xml", None):
                     

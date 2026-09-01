@@ -56,10 +56,12 @@ def rename_zatca_workspace() -> dict:
     }
 
     if old_exists and new_exists:
-        frappe.throw(
-            f"Both Workspace records exist: '{OLD_WORKSPACE}' and '{NEW_WORKSPACE}'. "
-            "Resolve manually before running this tool."
-        )
+        # Keep the canonical workspace visible; hide the legacy copy without deleting it.
+        legacy = frappe.get_doc("Workspace", OLD_WORKSPACE)
+        legacy.is_hidden = 1
+        legacy.public = 0
+        legacy.save(ignore_permissions=True)
+        result["actions"].append("hid_duplicate_legacy_workspace")
 
     if old_exists and not new_exists:
         frappe.rename_doc(

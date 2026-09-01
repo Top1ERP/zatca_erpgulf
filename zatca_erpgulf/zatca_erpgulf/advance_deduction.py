@@ -11,7 +11,10 @@ from zatca_erpgulf.zatca_erpgulf.advance_lifecycle import (
     is_accepted_advance_sales_invoice,
 )
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
+    PHASE_2_VALUE,
     is_advance_payment_invoice,
+    is_zatca_invoice_enabled,
+    resolve_zatca_phase,
     supports_advance_deduction_schema,
 )
 
@@ -1012,6 +1015,11 @@ def ensure_final_sales_invoice_qr_for_print(doc, event=None, force=False):
     the advance taxable amount and adding the remaining VAT.
     """
     if getattr(doc, "doctype", None) != "Sales Invoice":
+        return
+
+    company_doc = frappe.get_cached_doc("Company", doc.company)
+    if is_zatca_invoice_enabled(company_doc) and resolve_zatca_phase(company_doc) == PHASE_2_VALUE:
+        # Phase-2 QR must come from the returned ZATCA XML artifact.
         return
 
     if not supports_advance_deduction_schema(doc):

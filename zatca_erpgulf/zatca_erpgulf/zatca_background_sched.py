@@ -8,6 +8,7 @@ from frappe import _
 import frappe
 from pyqrcode import create as qr_create
 from zatca_erpgulf.zatca_erpgulf.event_log import log_zatca_event
+from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from zatca_erpgulf.zatca_erpgulf.createxml import (
     xml_tags,
@@ -24,7 +25,12 @@ from zatca_erpgulf.zatca_erpgulf.createxml import (
     invoice_typecode_simplified,
     invoice_typecode_advance_payment,
 )
-from zatca_erpgulf.zatca_erpgulf.zatca_runtime import is_advance_payment_invoice
+from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
+    PHASE_2_VALUE,
+    is_advance_payment_invoice,
+    is_zatca_invoice_enabled,
+    resolve_zatca_phase,
+)
 from zatca_erpgulf.zatca_erpgulf.xml_tax_data import tax_data, tax_data_with_template
 from zatca_erpgulf.zatca_erpgulf.create_xml_final_part import (
     tax_data_nominal,
@@ -62,8 +68,17 @@ SALES_INVOICE = "Sales Invoice"
 
 
 def attach_qr_image(qrcodeb64, sales_invoice_doc):
-    """attach the qr image"""
+    """Persist a Phase-1 QR only; Phase-2 artifacts are saved from ZATCA response XML."""
     try:
+        company_doc = frappe.get_cached_doc("Company", sales_invoice_doc.company)
+        customer_doc = frappe.get_cached_doc("Customer", sales_invoice_doc.customer)
+        is_b2c = bool(get_alias_value("customer_b2c", customer_doc, 0))
+        if (
+            is_zatca_invoice_enabled(company_doc)
+            and resolve_zatca_phase(company_doc) == PHASE_2_VALUE
+            and not is_b2c
+        ):
+            return
         if not hasattr(sales_invoice_doc, "ksa_einv_qr"):
             create_custom_fields(
                 {
@@ -90,9 +105,11 @@ def attach_qr_image(qrcodeb64, sales_invoice_doc):
         file_doc = frappe.get_doc(
             {
                 "doctype": "File",
-                "file_name": f"QR_Phase2_{sales_invoice_doc.name}.png".replace(
-                    os.path.sep, "__"
-                ),
+                "file_name": (
+                    f"QR-Phase2-REPORTED-{sales_invoice_doc.name}.png"
+                    if resolve_zatca_phase(company_doc) == PHASE_2_VALUE
+                    else f"QR-Phase1-{sales_invoice_doc.name}.png"
+                ).replace(os.path.sep, "__"),
                 "attached_to_doctype": sales_invoice_doc.doctype,
                 "attached_to_name": sales_invoice_doc.name,
                 "is_private": 1,
@@ -132,7 +149,7 @@ def zatca_call_scheduler_background(
         if compliance_type == "0" and is_advance_payment_invoice(sales_invoice_doc) and not sales_invoice_doc.is_return and not getattr(sales_invoice_doc, "is_debit_note", 0):
             invoice = invoice_typecode_advance_payment(invoice, sales_invoice_doc)
         elif compliance_type == "0":
-            if customer_doc.custom_b2c == 1:
+            if get_alias_value("customer_b2c", customer_doc, 0) == 1:
                 invoice = invoice_typecode_simplified(invoice, sales_invoice_doc)
             else:
                 frappe.throw(
@@ -218,7 +235,7 @@ def zatca_call_scheduler_background(
         signed_xmlfile_name = structuring_signedxml(invoice_number,updated_xml_string)
 
         if compliance_type == "0":
-            if customer_doc.custom_b2c == 1:
+            if get_alias_value("customer_b2c", customer_doc, 0) == 1:
                 attach_qr_image(qrcodeb64, sales_invoice_doc)
                 reporting_api_sales_withoutxml(
                     uuid1,
