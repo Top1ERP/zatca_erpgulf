@@ -92,6 +92,15 @@ FIELD_ALIAS_GROUPS = {
             "zatca_buyer_id",
         ],
     },
+    "customer_unn": {
+        "doctype": "Customer",
+        "canonical": "custom_unified_national_number",
+        "aliases": [
+            "custom_unified_national_number",
+            "unified_national_number",
+            "unn",
+        ],
+    },
     "item_is_zero_rated": {
         "doctype": "Item",
         "canonical": "is_zero_rated",

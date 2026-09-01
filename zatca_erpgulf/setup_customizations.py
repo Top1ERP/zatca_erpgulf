@@ -378,6 +378,29 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
                 "customer_group",
                 "territory",
             ],
+        },
+        {
+            "fieldname": "custom_unified_national_number",
+            "label": "UNN (700)",
+            "fieldtype": "Data",
+            "insert_after": "tax_id",
+            "module": MODULE_NAME,
+            "translatable": 0,
+            "hidden": 0,
+            "read_only": 0,
+            "reqd": 0,
+            "no_copy": 1,
+            "description": "Optional Unified National Number (700) for Saudi establishments. If provided, it must contain 10 digits and start with 7.",
+            "_alternatives": [
+                "custom_unified_national_number",
+                "unified_national_number",
+                "unn",
+            ],
+            "_fallback_insert_after": [
+                "tax_id",
+                "tax_tab",
+                "customer_name",
+            ],
         }
     ],
 }
@@ -2005,6 +2028,17 @@ def normalize_customer_details_and_tax_layout_strict() -> dict[str, list[str]]:
     b2c_field = _strict_find_customer_field_by_label(["B2C"])
     id_type_field = _strict_find_customer_field_by_label(["Customer ID Type for ZATCA"])
     id_number_field = _strict_find_customer_field_by_label(["Customer ID Number for ZATCA"])
+    unn_field = _strict_find_customer_field_by_label(["UNN (700)", "Unified National Number (700)"])
+
+    if unn_field:
+        unn_idx = _strict_get_customer_field_idx("tax_id")
+        if _strict_set_customer_layout(
+            unn_field,
+            insert_after="tax_id",
+            visible=True,
+            idx=(unn_idx + 1) if unn_idx else None,
+        ):
+            result["updated"].append(f"Customer.{unn_field}")
 
     ordered_fields = []
     for fieldname in [b2c_field, id_type_field, id_number_field]:

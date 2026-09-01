@@ -118,6 +118,9 @@ def get_customer_validation_policy(customer=None, custom_b2c=0, customer_primary
         "require_on_save": bool(policy.get("require_on_save")),
         "validate_format": bool(policy.get("validate_format")),
         "tax_id_fallback": bool(policy.get("tax_id_fallback")),
+        # Customer is shared across companies. Visibility follows the
+        # strictest linked company's ZATCA enablement and phase.
+        "zatca_phase2": bool(policy.get("rank", 0) >= 2),
     }
     return policy
 
@@ -135,16 +138,27 @@ def _customer_country(customer) -> str:
 
 
 def _buyer_errors(customer, policy: dict[str, Any]) -> tuple[list[str], list[str]]:
-    if not policy.get("enabled") or _customer_country(customer) != "SA" or cint(get_alias_value("customer_b2c", customer, 0) or 0):
-        return [], []
+    country = _customer_country(customer)
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    # UNN (700) is optional, but any supplied value for a Saudi customer must
+    # be a valid 10-digit establishment number beginning with 7. Read aliases
+    # only when the canonical field is absent, preserving primary priority.
+    raw_unn = str(get_alias_value("customer_unn", customer, "") or "")
+    if policy.get("phase") in {PHASE_1_VALUE, PHASE_2_VALUE} and country == "SA" and raw_unn:
+        unn = raw_unn.strip()
+        if any(char.isspace() for char in raw_unn) or not re.fullmatch(r"7\d{9}", unn):
+            errors.append(_("UNN (700) for a Saudi customer must contain exactly 10 digits and start with 7."))
+
+    if not policy.get("enabled") or country != "SA" or cint(get_alias_value("customer_b2c", customer, 0) or 0):
+        return errors, warnings
 
     raw_buyer_id = str(get_alias_value("customer_buyer_id", customer, "") or "")
     raw_tax_id = str(_value(customer, "tax_id", "") or "")
     buyer_id = raw_buyer_id.strip()
     tax_id = raw_tax_id.strip()
     buyer_type = str(get_alias_value("customer_buyer_id_type", customer, "") or "").strip().upper()
-    errors: list[str] = []
-    warnings: list[str] = []
     def add_issue(message: str) -> None:
         errors.append(message)
 

@@ -98,10 +98,29 @@ async function zatca_load_customer_policy(frm) {
     frm.__zatca_customer_policy = {
         enabled: !!policy.enabled,
         require_on_save: !!policy.require_on_save,
+        zatca_phase2: !!policy.zatca_phase2,
         needs_id: !!policy.enabled && ["sa", "saudi arabia"].includes(country) && !Number(zatca_first_present(frm.doc, ["custom_b2c", "b2c", "is_b2c", "zatca_b2c"], 0) || 0),
     };
+    zatca_sync_customer_fields_visibility(frm);
 
 }
+function zatca_sync_customer_fields_visibility(frm) {
+    const policy = frm.__zatca_customer_policy || {};
+    const fields = [
+        ["custom_b2c", ["custom_b2c", "b2c", "is_b2c", "zatca_b2c"]],
+        ["custom_buyer_id_type", ["custom_buyer_id_type", "buyer_id_type", "zatca_buyer_id_type"]],
+        ["custom_buyer_id", ["custom_buyer_id", "buyer_id", "zatca_buyer_id"]],
+    ];
+    const has_value = fields.some(([, aliases]) => aliases.some((fieldname) => {
+        const value = zatca_first_present(frm.doc, [fieldname], "");
+        return value !== null && value !== undefined && String(value).trim() !== "";
+    }));
+    const visible = has_value || !!policy.zatca_phase2;
+    fields.forEach(([canonical]) => {
+        if (frm.fields_dict[canonical]) frm.toggle_display(canonical, visible);
+    });
+}
+
 function zatca_sync_arabic_names(frm, source) {
     if (frm.__zatca_syncing_arabic_names) return;
     const fields = ["zatca_customer_name_in_arabic", "customer_name_in_arabic", "custom_customer_name_in_arabic"]
@@ -145,7 +164,7 @@ function zatca_live_buyer_hint(frm) {
 }
 
 frappe.ui.form.on("Customer", {
-    refresh(frm) { zatca_load_customer_policy(frm).catch(() => {}); },
+    refresh(frm) { zatca_sync_customer_fields_visibility(frm); zatca_load_customer_policy(frm).catch(() => {}); },
     custom_b2c(frm) { zatca_load_customer_policy(frm).catch(() => {}); },
     customer_primary_address(frm) { zatca_load_customer_policy(frm).catch(() => {}); },
     territory(frm) { zatca_load_customer_policy(frm).catch(() => {}); },
