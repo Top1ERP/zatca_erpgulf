@@ -2425,9 +2425,11 @@ def force_customer_layout_using_customize_form() -> dict[str, Any]:
             "custom_customer_name_in_arabic",
             "zatca_customer_name_in_arabic",
             "tax_tab",
+            "tax_id",
             "custom_b2c",
             "custom_buyer_id_type",
             "custom_buyer_id",
+            "custom_unified_national_number",
         }
 
         for row in rows_list:
@@ -2510,6 +2512,9 @@ def force_customer_layout_using_customize_form() -> dict[str, Any]:
     move_after("custom_b2c", "tax_tab")
     move_after("custom_buyer_id_type", "custom_b2c")
     move_after("custom_buyer_id", "custom_buyer_id_type")
+    if "custom_unified_national_number" in by_field and "tax_id" in by_field:
+        by_field["custom_unified_national_number"].hidden = 0
+        move_after("custom_unified_national_number", "tax_id")
 
     # Rebuild child table order for Customize Form.
     clean_rows = []
@@ -5097,13 +5102,7 @@ def sync_all_zatca_customizations() -> dict[str, Any]:
     advance_payment_item_result = ensure_advance_payment_item()
     sales_invoice_print_heading_result = sync_sales_invoice_print_heading()
     zatca_arabic_translations_result = sync_zatca_arabic_translations()
-    customer_customize_form_layout_result = {
-        "updated": [],
-        "skipped": ["superseded by force_customer_arabic_and_tax_layout"],
-        "before": [],
-        "after": [],
-        "methods": [],
-    }
+    customer_customize_form_layout_result = force_customer_layout_using_customize_form()
 
     frappe.db.commit()
 
