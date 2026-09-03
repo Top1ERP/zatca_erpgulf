@@ -514,7 +514,7 @@ Phase-2 only. When enabled, Standard ZATCA documents use the Clearance API. When
 "Require Buyer ID on Customer Save","إلزام رقم تعريف المشتري عند حفظ العميل"
 "Validate Buyer ID Type and Format","التحقق من نوع وصيغة رقم تعريف المشتري"
 "Allow Tax ID Fallback for Legacy Sites","السماح باستخدام الرقم الضريبي كبديل للمواقع القديمة"
-"Customer ID Number for ZATCA is required for a Saudi B2B customer before ZATCA customer validation can be completed.","رقم Customer ID Number for ZATCA مطلوب للعميل السعودي بين الشركات قبل إكمال تحقق ZATCA من العميل."
+"Customer ID Number for ZATCA is required for a Saudi B2B customer before ZATCA customer validation can be completed.<br><br><small>You can disable this required-field rule from Company ZATCA Customer Validation Settings.</small>","رقم Customer ID Number for ZATCA مطلوب للعميل السعودي بين الشركات قبل إكمال تحقق ZATCA من العميل.<br><br><small>يمكن تعطيل قاعدة الإلزام هذه من إعدادات تحقق عملاء ZATCA في الشركة.</small>"
 "Customer ID Type for ZATCA is required and must be a supported ZATCA identification scheme.","حقل Customer ID Type for ZATCA مطلوب ويجب أن يكون من مخططات تعريف ZATCA المدعومة."
 "Customer ID Number for ZATCA must not contain spaces.","لا يجوز أن يحتوي Customer ID Number for ZATCA على مسافات."
 "Customer ID Number for ZATCA of type {0} must contain {1}.","يجب أن يحتوي Customer ID Number for ZATCA من نوع {0} على {1}."

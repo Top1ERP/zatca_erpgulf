@@ -179,7 +179,7 @@ def _buyer_errors(customer, policy: dict[str, Any]) -> tuple[list[str], list[str
 
     if not buyer_id:
         message = _(
-            "Customer ID Number for ZATCA is required for a Saudi B2B customer before ZATCA customer validation can be completed."
+            "Customer ID Number for ZATCA is required for a Saudi B2B customer before ZATCA customer validation can be completed.<br><br><small>You can disable this required-field rule from Company ZATCA Customer Validation Settings.</small>"
         )
         (errors if policy.get("require_on_save") else warnings).append(message)
         return errors, warnings
