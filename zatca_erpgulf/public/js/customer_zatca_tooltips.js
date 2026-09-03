@@ -175,12 +175,14 @@ frappe.ui.form.on("Customer", {
     custom_customer_name_in_arabic(frm) { zatca_sync_arabic_names(frm, "custom_customer_name_in_arabic"); },
     before_save(frm) {
         const state = frm.__zatca_customer_policy;
+        const customerType = String(frm.doc.customer_type || "").trim().toLowerCase();
+        if (["individual", "partnership"].includes(customerType)) return;
         if (!state || !state.enabled || !state.needs_id || state.require_on_save || zatca_first_present(frm.doc, ["custom_buyer_id", "buyer_id", "zatca_buyer_id"], "")) return;
         if (frm.__zatca_customer_warning_confirmed) return;
         frappe.validated = false;
-        const dialog = new frappe.ui.Dialog({ title: __("ZATCA Customer Validation"), fields: [{ fieldtype: "HTML", options: __("Buyer ID is empty. Continue saving this incomplete Saudi B2B Customer record?") }], primary_action_label: __("Continue"), primary_action() { frm.__zatca_customer_warning_confirmed = true; dialog.hide(); frm.save(); } });
+        const dialog = new frappe.ui.Dialog({ title: __("ZATCA Customer Validation"), fields: [{ fieldtype: "HTML", options: __("Buyer ID is empty. Continue saving this incomplete Saudi B2B Customer record?") }], primary_action_label: __("Continue Saving"), primary_action() { frm.__zatca_customer_warning_confirmed = true; dialog.hide(); frm.save(); } });
         dialog.set_secondary_action(() => dialog.hide());
-        dialog.set_secondary_action_label(__("Ignore"));
+        dialog.set_secondary_action_label(__("Return to Edit"));
         dialog.show();
     },
 });
