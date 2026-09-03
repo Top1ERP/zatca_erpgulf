@@ -170,7 +170,7 @@ def ensure_phase2_sales_invoice_artifacts(doc, event=None):
         return
 
     qr_png = io.BytesIO()
-    pyqrcode.create(qr_payload, error="L").png(qr_png, scale=4, quiet_zone=1)
+    pyqrcode.create(qr_payload, error="L").png(qr_png, scale=4, quiet_zone=4)
 
     qr_prefix = "QR-Phase2-CLEARED" if cleared_invoice_b64 else "QR-Phase2-REPORTED"
     qr_file_name = f"{qr_prefix}-{doc.name}.png"

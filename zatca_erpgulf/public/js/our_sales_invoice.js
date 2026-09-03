@@ -743,6 +743,29 @@ frappe.ui.form.on('Sales Invoice', {
                     }
                 });
             });
+
+            // Local-only QR recovery; no ZATCA API call is made.
+            frappe.call({
+                method: "zatca_erpgulf.zatca_erpgulf.qr_regeneration.get_qr_regeneration_state",
+                args: { invoice_number: frm.doc.name },
+                callback: function(state) {
+                    if (!state.message || !state.message.eligible) return;
+                    frm.page.add_menu_item(__("Regenerate QR Code"), function() {
+                        frappe.call({
+                            method: "zatca_erpgulf.zatca_erpgulf.qr_regeneration.regenerate_qr",
+                            args: { invoice_number: frm.doc.name },
+                            freeze: true,
+                            freeze_message: __("Repairing QR Code locally..."),
+                            callback: function(r) {
+                                if (r.message && ["relinked", "generated"].includes(r.message.status)) {
+                                    frappe.show_alert({message: r.message.message, indicator: "green"});
+                                    frm.reload_doc();
+                                }
+                            }
+                        });
+                    });
+                }
+            });
         }
     },
 });

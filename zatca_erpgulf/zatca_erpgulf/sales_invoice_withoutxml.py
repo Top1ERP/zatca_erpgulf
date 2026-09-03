@@ -8,6 +8,7 @@ import frappe
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 import requests
 from zatca_erpgulf.zatca_erpgulf.event_log import log_zatca_event
+from zatca_erpgulf.zatca_erpgulf.zatca_response import format_zatca_response
 from pyqrcode import create as qr_create
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from zatca_erpgulf.zatca_erpgulf.sales_invoice_with_xmlqr import (
@@ -70,12 +71,9 @@ def attach_qr_image(qrcodeb64, sales_invoice_doc):
     """Persist a Phase-1 QR only; Phase-2 artifacts are saved from ZATCA response XML."""
     try:
         company_doc = frappe.get_cached_doc("Company", sales_invoice_doc.company)
-        customer_doc = frappe.get_cached_doc("Customer", sales_invoice_doc.customer)
-        is_b2c = bool(get_alias_value("customer_b2c", customer_doc, 0))
         if (
             is_zatca_invoice_enabled(company_doc)
             and resolve_zatca_phase(company_doc) == PHASE_2_VALUE
-            and not is_b2c
         ):
             return
         if not hasattr(sales_invoice_doc, "ksa_einv_qr"):
@@ -99,7 +97,7 @@ def attach_qr_image(qrcodeb64, sales_invoice_doc):
             return
         qr_image = io.BytesIO()
         qr = qr_create(qrcodeb64, error="L")
-        qr.png(qr_image, scale=8, quiet_zone=1)
+        qr.png(qr_image, scale=4, quiet_zone=4)
 
         file_doc = frappe.get_doc(
             {
@@ -355,7 +353,7 @@ def reporting_api_sales_withoutxml(
 
                     msg = (
                         f"Status Code: {response.status_code}<br>"
-                        f"ZATCA Response: {response.text}"
+                        f"ZATCA Response: {format_zatca_response(response.text, response.status_code)}"
                     )
 
                     log_zatca_event(
@@ -372,7 +370,7 @@ def reporting_api_sales_withoutxml(
                     title = f"ZATCA API Failed - {invoice_number}"
                     msg = (
                         f"Status Code: {response.status_code}<br>"
-                        f"ZATCA Response: {response.text}"
+                        f"ZATCA Response: {format_zatca_response(response.text, response.status_code)}"
                     )
                     log_zatca_event(
                         invoice_number=invoice_number,
@@ -413,7 +411,7 @@ def reporting_api_sales_withoutxml(
                                 "Error: The request you are sending to ZATCA is in incorrect format. "
                                 "Please report to system administrator. "
                                 f"Status code: {response.status_code}<br><br>"
-                                f"{response.text}"
+                                f"{format_zatca_response(response.text, response.status_code)}"
                             )
                         )
                     )
@@ -450,7 +448,7 @@ def reporting_api_sales_withoutxml(
                                 "Your access token may be expired or not valid. "
                                 "Please contact your system administrator. "
                                 f"Status code: {response.status_code}<br><br>"
-                                f"{response.text}"
+                                f"{format_zatca_response(response.text, response.status_code)}"
                             )
                         )
                     )
@@ -458,7 +456,7 @@ def reporting_api_sales_withoutxml(
                     msg = "SUCCESS: <br><br>"
                     msg += (
                         f"Status Code: {response.status_code}<br><br> "
-                        f"ZATCA Response: {response.text}<br><br>"
+                        f"ZATCA Response: {format_zatca_response(response.text, response.status_code)}<br><br>"
                     )
 
                     # Update PIH
@@ -536,7 +534,7 @@ def reporting_api_sales_withoutxml(
                                 "Error: ZATCA server busy or not responding."
                                 " Try after sometime or contact your system administrator. "
                                 f"Status code: {response.status_code}<br><br>"
-                                f"{response.text}"
+                                f"{format_zatca_response(response.text, response.status_code)}"
                             )
                         )
                     )
@@ -553,7 +551,7 @@ def reporting_api_sales_withoutxml(
                     )
                     msg += (
                         f"Status Code: {response.status_code}<br><br> "
-                        f"ZATCA Response: {response.text}<br><br>"
+                        f"ZATCA Response: {format_zatca_response(response.text, response.status_code)}<br><br>"
                     )
 
                     if sales_invoice_doc.custom_zatca_pos_name:

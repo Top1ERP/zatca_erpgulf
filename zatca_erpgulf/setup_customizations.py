@@ -163,12 +163,22 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
             ],
         },
         {
+            "fieldname": "custom_zatca_sales_invoice_validation_section",
+            "label": "ZATCA Sales Invoice Validation Settings",
+            "fieldtype": "Section Break",
+            "insert_after": "custom_zatca_validation_section",
+            "module": MODULE_NAME,
+            "hidden": 0,
+            "collapsible": 1,
+            "description": "Controls ZATCA validation rules applied when saving Sales Invoices.",
+        },
+        {
             "fieldname": "custom_zatca_negative_line_validation_mode",
             "label": "ZATCA Negative Line Validation Mode",
             "fieldtype": "Select",
             "options": "Strict\nWarn Only\nDisabled",
             "default": "Strict",
-            "insert_after": "custom_zatca_validation_section",
+            "insert_after": "custom_zatca_sales_invoice_validation_section",
             "module": MODULE_NAME,
             "translatable": 0,
             "hidden": 0,
@@ -1464,7 +1474,10 @@ def normalize_company_zatca_settings_layout() -> dict[str, list[str]]:
         ("custom_send_invoice_to_zatca", "custom_send_einvoice_background"),
         ("custom_submit_or_not", "custom_send_invoice_to_zatca"),
         ("custom_zatca_validation_section", "custom_basic_auth_from_production"),
-        ("custom_zatca_negative_line_validation_mode", "custom_zatca_validation_section"),
+        ("custom_zatca_sales_invoice_validation_section", "custom_zatca_validation_section"),
+        ("custom_zatca_negative_line_validation_mode", "custom_zatca_sales_invoice_validation_section"),
+        ("custom_enforce_zatca_tax_category_source_validation", "custom_zatca_negative_line_validation_mode"),
+        ("custom_enforce_zatca_payment_entry_amount_limit", "custom_enforce_zatca_tax_category_source_validation"),
     ]
 
     for fieldname, insert_after in layout:
@@ -1628,6 +1641,47 @@ def normalize_arabic_name_field_layout() -> dict[str, list[str]]:
 
         frappe.clear_cache(doctype=dt)
 
+    return result
+
+
+def normalize_customer_arabic_fetch_sources() -> dict[str, list[str]]:
+    """Repair stale fetch mappings left by older ZATCA/ERPNext versions."""
+    result: dict[str, list[str]] = {"updated": [], "removed": [], "skipped": []}
+    if not _doctype_exists("Customer"):
+        result["skipped"].append("Customer - missing DocType")
+        return result
+
+    candidates = ["customer_name_in_arabic", "custom_customer_name_in_arabic", "zatca_customer_name_in_arabic"]
+    source = next((fieldname for fieldname in candidates if _field_exists_in_meta("Customer", fieldname)), None)
+    if not source:
+        result["skipped"].append("Customer - no Arabic name source field")
+        return result
+
+    for dt in ["Sales Invoice", "Sales Order", "POS Invoice", "Delivery Note"]:
+        if not _doctype_exists(dt):
+            continue
+        target = _get_custom_field_name(dt, "customer_name_in_arabic")
+        if not target:
+            continue
+        expected = f"customer.{source}"
+        target_doc = frappe.get_doc("Custom Field", target)
+        if getattr(target_doc, "fetch_from", None) != expected:
+            target_doc.fetch_from = expected
+            target_doc.flags.ignore_permissions = True
+            target_doc.save(ignore_permissions=True)
+            result["updated"].append(f"{target}.fetch_from={expected}")
+        if _property_setter_available():
+            setters = frappe.get_all("Property Setter", filters={"doc_type": dt, "field_name": "customer_name_in_arabic", "property": "fetch_from"}, fields=["name", "value"])
+            for setter in setters:
+                if setter.value == expected:
+                    continue
+                setter_doc = frappe.get_doc("Property Setter", setter.name)
+                setter_doc.value = expected
+                setter_doc.flags.ignore_permissions = True
+                setter_doc.save(ignore_permissions=True)
+                result["updated"].append(f"{setter.name}={expected}")
+        frappe.clear_cache(doctype=dt)
+    frappe.clear_cache(doctype="Customer")
     return result
 
 
@@ -1804,7 +1858,11 @@ def normalize_company_zatca_settings_layout_idx() -> dict[str, list[str]]:
         "custom_generate_production_csids",
         "custom_basic_auth_from_production",
         "custom_zatca_validation_section",
+        "custom_enforce_zatca_tax_category_rate_validation",
+        "custom_zatca_sales_invoice_validation_section",
         "custom_zatca_negative_line_validation_mode",
+        "custom_enforce_zatca_tax_category_source_validation",
+        "custom_enforce_zatca_payment_entry_amount_limit",
         "custom_section_break_hwvcd",
         "custom_zatca_offline_machines",
         "custom_submit_line_item_discount_to_zatca",
@@ -1821,9 +1879,13 @@ def normalize_company_zatca_settings_layout_idx() -> dict[str, list[str]]:
 
     start_idx = _get_effective_field_idx("Company", existing_chain[0]) or 117
 
+    previous = None
     for offset, fieldname in enumerate(existing_chain):
+        if previous:
+            _set_field_layout("Company", fieldname, visible=True, insert_after=previous)
         if _set_custom_field_idx("Company", fieldname, start_idx + offset):
             result["updated"].append(f"Company.{fieldname}.idx")
+        previous = fieldname
 
     frappe.clear_cache(doctype="Company")
     return result
@@ -2904,7 +2966,11 @@ def sync_company_zatca_fields_and_layout() -> dict[str, list[str]]:
         "custom_generate_production_csids",
         "custom_basic_auth_from_production",
         "custom_zatca_validation_section",
+        "custom_enforce_zatca_tax_category_rate_validation",
+        "custom_zatca_sales_invoice_validation_section",
         "custom_zatca_negative_line_validation_mode",
+        "custom_enforce_zatca_tax_category_source_validation",
+        "custom_enforce_zatca_payment_entry_amount_limit",
         "custom_section_break_hwvcd",
         "custom_zatca_offline_machines",
         "custom_submit_line_item_discount_to_zatca",
@@ -3768,7 +3834,7 @@ def sync_tax_template_zatca_source_fields() -> dict[str, list[str]]:
                     "fieldname": category_rate_fieldname,
                     "fieldtype": "Check",
                     "label": "Enforce ZATCA zero-rate category validation",
-                    "insert_after": company_fieldname,
+                    "insert_after": "custom_zatca_validation_section",
                     "default": "1",
                     "description": (
                         "When enabled in Phase-2 with ZATCA E-Invoicing enabled, Zero Rated, "
@@ -3779,7 +3845,7 @@ def sync_tax_template_zatca_source_fields() -> dict[str, list[str]]:
                     "fieldname": payment_entry_limit_fieldname,
                     "fieldtype": "Check",
                     "label": "Enforce ZATCA Payment Entry amount limit",
-                    "insert_after": category_rate_fieldname,
+                    "insert_after": company_fieldname,
                     "default": "1",
                     "description": (
                         "When enabled, a linked ZATCA Payment Entry cannot exceed the Sales Invoice total including VAT."
@@ -3925,6 +3991,10 @@ def sync_tax_template_zatca_source_fields() -> dict[str, list[str]]:
             )
             result["company_defaults_set"].append(fieldname)
     frappe.db.commit()
+
+    # Re-index the complete Company ZATCA chain after source fields are ensured.
+    if _doctype_exists("Company"):
+        normalize_company_zatca_settings_layout_idx()
 
     for doctype in custom_fields:
         frappe.clear_cache(doctype=doctype)
@@ -5076,6 +5146,7 @@ def sync_all_zatca_customizations() -> dict[str, Any]:
     zatca_advance_final_invoice_layout_result = sync_zatca_advance_final_invoice_layout()
     arabic_name_cleanup_result = cleanup_arabic_name_fields()
     arabic_name_layout_result = normalize_arabic_name_field_layout()
+    customer_arabic_fetch_sources_result = normalize_customer_arabic_fetch_sources()
     force_customer_layout_result = force_customer_arabic_and_tax_layout()
     customer_zatca_tax_layout_result = {
         "updated": [],
@@ -5116,6 +5187,7 @@ def sync_all_zatca_customizations() -> dict[str, Any]:
         "zatca_advance_final_invoice_layout": zatca_advance_final_invoice_layout_result,
         "arabic_name_cleanup": arabic_name_cleanup_result,
         "arabic_name_layout": arabic_name_layout_result,
+        "customer_arabic_fetch_sources": customer_arabic_fetch_sources_result,
         "customer_zatca_tax_layout": customer_zatca_tax_layout_result,
         "customer_details_tax_strict_layout": customer_details_tax_strict_layout_result,
         "force_customer_layout": force_customer_layout_result,

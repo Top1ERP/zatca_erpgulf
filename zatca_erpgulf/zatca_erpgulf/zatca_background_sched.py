@@ -71,12 +71,9 @@ def attach_qr_image(qrcodeb64, sales_invoice_doc):
     """Persist a Phase-1 QR only; Phase-2 artifacts are saved from ZATCA response XML."""
     try:
         company_doc = frappe.get_cached_doc("Company", sales_invoice_doc.company)
-        customer_doc = frappe.get_cached_doc("Customer", sales_invoice_doc.customer)
-        is_b2c = bool(get_alias_value("customer_b2c", customer_doc, 0))
         if (
             is_zatca_invoice_enabled(company_doc)
             and resolve_zatca_phase(company_doc) == PHASE_2_VALUE
-            and not is_b2c
         ):
             return
         if not hasattr(sales_invoice_doc, "ksa_einv_qr"):
@@ -100,7 +97,7 @@ def attach_qr_image(qrcodeb64, sales_invoice_doc):
             return
         qr_image = io.BytesIO()
         qr = qr_create(qrcodeb64, error="L")
-        qr.png(qr_image, scale=8, quiet_zone=1)
+        qr.png(qr_image, scale=4, quiet_zone=4)
 
         file_doc = frappe.get_doc(
             {

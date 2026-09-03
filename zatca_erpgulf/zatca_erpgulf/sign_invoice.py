@@ -11,11 +11,13 @@ import os
 import io
 import base64
 import json
+from lxml import etree
 from frappe import _
 import frappe
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 import requests
 from zatca_erpgulf.zatca_erpgulf.event_log import log_zatca_event
+from zatca_erpgulf.zatca_erpgulf.zatca_response import format_zatca_response
 from zatca_erpgulf.zatca_erpgulf.pih import update_pih_after_phase2_success
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
     PHASE_1_VALUE,
@@ -202,16 +204,14 @@ def error_log():
         return None
 
 
-def attach_qr_image(qrcodeb64, sales_invoice_doc):
+def attach_qr_image(qrcodeb64, sales_invoice_doc, allow_phase2=False):
     """Persist a Phase-1 QR only; Phase-2 artifacts are saved from ZATCA response XML."""
     try:
         company_doc = frappe.get_cached_doc("Company", sales_invoice_doc.company)
-        customer_doc = frappe.get_cached_doc("Customer", sales_invoice_doc.customer)
-        is_b2c = bool(get_alias_value("customer_b2c", customer_doc, 0))
         if (
             is_zatca_invoice_enabled(company_doc)
             and resolve_zatca_phase(company_doc) == PHASE_2_VALUE
-            and not is_b2c
+            and not allow_phase2
         ):
             return
         if not hasattr(sales_invoice_doc, "ksa_einv_qr"):
@@ -235,7 +235,7 @@ def attach_qr_image(qrcodeb64, sales_invoice_doc):
             return
         qr_image = io.BytesIO()
         qr = qr_create(qrcodeb64, error="L")
-        qr.png(qr_image, scale=2, quiet_zone=1)
+        qr.png(qr_image, scale=4, quiet_zone=4)
 
         file_doc = frappe.get_doc(
             {
@@ -274,6 +274,16 @@ def _attach_reported_xml(signed_xmlfile_name, sales_invoice_doc):
     )
     file.save(ignore_permissions=True)
     sales_invoice_doc.db_set("custom_ksa_einvoicing_xml", file.file_url)
+
+
+def _extract_qr_payload(signed_xmlfile_name):
+    """Read the exact QR TLV payload embedded in the XML submitted to ZATCA."""
+    root = etree.parse(signed_xmlfile_name)
+    nodes = root.xpath(
+        "//*[local-name()='AdditionalDocumentReference'][*[local-name()='ID' and normalize-space(.)='QR']]"
+        "//*[local-name()='EmbeddedDocumentBinaryObject']"
+    )
+    return nodes[0].text.strip() if nodes and nodes[0].text else None
 
 
 def reporting_api(
@@ -346,8 +356,8 @@ def reporting_api(
                         title = f"ZATCA Duplicate Success - {invoice_number}"
 
                     msg = (
-                        f"Status Code: {response.status_code}<br>"
-                        f"ZATCA Response: {response.text}"
+                        f"{_('Status Code')}: {response.status_code}<br>"
+                        f"{_('ZATCA Response')}: {format_zatca_response(response.text, response.status_code)}"
                     )
 
                     log_zatca_event(
@@ -363,8 +373,8 @@ def reporting_api(
                     status_label = f"Failed (HTTP {response.status_code})"
                     title = f"ZATCA API Failed - {invoice_number}"
                     msg = (
-                        f"Status Code: {response.status_code}<br>"
-                        f"ZATCA Response: {response.text}"
+                        f"{_('Status Code')}: {response.status_code}<br>"
+                        f"{_('ZATCA Response')}: {format_zatca_response(response.text, response.status_code)}"
                     )
 
                     log_zatca_event(
@@ -407,7 +417,7 @@ def reporting_api(
                                 "Error: The request you are sending to ZATCA is in incorrect format. "
                                 "Please report to system administrator. "
                                 f"Status code: {response.status_code}<br><br>"
-                                f"{response.text}"
+                                f"{format_zatca_response(response.text, response.status_code)}"
                             )
                         )
                     )
@@ -445,15 +455,15 @@ def reporting_api(
                                 "Your access token may be expired or not valid. "
                                 "Please contact your system administrator. "
                                 f"Status code: {response.status_code}<br><br>"
-                                f"{response.text}"
+                                f"{format_zatca_response(response.text, response.status_code)}"
                             )
                         )
                     )
                 if response.status_code == 409:
-                    msg = "SUCCESS: <br><br>"
+                    msg = _("Submission successful:") + "<br><br>"
                     msg += (
-                        f"Status Code: {response.status_code}<br><br> "
-                        f"ZATCA Response: {response.text}<br><br>"
+                        f"{_('Status Code')}: {response.status_code}<br><br> "
+                        f"{_('ZATCA Response')}: {format_zatca_response(response.text, response.status_code)}<br><br>"
                     )
 
                     # Update PIH
@@ -489,6 +499,10 @@ def reporting_api(
                         )
 
                     _attach_reported_xml(signed_xmlfile_name, sales_invoice_doc)
+                    # Persist the exact QR that was submitted after Reporting accepts it.
+                    qr_payload = _extract_qr_payload(signed_xmlfile_name)
+                    if qr_payload:
+                        attach_qr_image(qr_payload, sales_invoice_doc, allow_phase2=True)
                     invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
                     invoice_doc.custom_zatca_full_response = msg
                     invoice_doc.custom_uuid = uuid1
@@ -531,14 +545,14 @@ def reporting_api(
                                 "Error: ZATCA server busy or not responding."
                                 " Try after sometime or contact your system administrator. "
                                 f"Status code: {response.status_code}<br><br>"
-                                f"{response.text}"
+                                f"{format_zatca_response(response.text, response.status_code)}"
                             )
                         )
                     )
 
                 if response.status_code in (200, 202):
                     msg = (
-                        "SUCCESS: <br><br>"
+                        _("Submission successful:") + "<br><br>"
                         if response.status_code == 200
                         else (
                             "REPORTED WITH WARNINGS: <br><br> "
@@ -547,8 +561,8 @@ def reporting_api(
                         )
                     )
                     msg += (
-                        f"Status Code: {response.status_code}<br><br> "
-                        f"ZATCA Response: {response.text}<br><br>"
+                        f"{_('Status Code')}: {response.status_code}<br><br> "
+                        f"{_('ZATCA Response')}: {format_zatca_response(response.text, response.status_code)}<br><br>"
                     )
                     company_name = sales_invoice_doc.company
                     # settings = frappe.get_doc("Company", company_name)
@@ -595,6 +609,10 @@ def reporting_api(
                         )
 
                     _attach_reported_xml(signed_xmlfile_name, sales_invoice_doc)
+                    # Persist the exact QR that was submitted after Reporting accepts it.
+                    qr_payload = _extract_qr_payload(signed_xmlfile_name)
+                    if qr_payload:
+                        attach_qr_image(qr_payload, sales_invoice_doc, allow_phase2=True)
                     invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
                     # invoice_doc.db_set(
                     #     "custom_zatca_full_response",
@@ -702,8 +720,8 @@ def clearance_api(
                 title = f"ZATCA Duplicate Success - {invoice_number}"
 
             msg = (
-                f"Status Code: {response.status_code}<br>"
-                f"ZATCA Response: {response.text}"
+                f"{_('Status Code')}: {response.status_code}<br>"
+                f"{_('ZATCA Response')}: {format_zatca_response(response.text, response.status_code)}"
             )
 
             log_zatca_event(
@@ -719,8 +737,8 @@ def clearance_api(
             status_label = f"Failed (HTTP {response.status_code})"
             title = f"ZATCA API Failed - {invoice_number}"
             msg = (
-                f"Status Code: {response.status_code}<br>"
-                f"ZATCA Response: {response.text}"
+                f"{_('Status Code')}: {response.status_code}<br>"
+                f"{_('ZATCA Response')}: {format_zatca_response(response.text, response.status_code)}"
             )
 
             log_zatca_event(
@@ -761,7 +779,7 @@ def clearance_api(
                     (
                         "Error: The request you are sending to ZATCA is in incorrect format. "
                         f"Status code: {response.status_code}<br><br>"
-                        f"{response.text}"
+                        f"{format_zatca_response(response.text, response.status_code)}"
                     )
                 )
             )
@@ -783,16 +801,16 @@ def clearance_api(
                     (
                         "Error: ZATCA Authentication failed. "
                         f"Status code: {response.status_code}<br><br>"
-                        f"{response.text}"
+                        f"{format_zatca_response(response.text, response.status_code)}"
                     )
                 )
             )
 
         if response.status_code == 409:
-            msg = "SUCCESS: <br><br>"
+            msg = _("Submission successful:") + "<br><br>"
             msg += (
-                f"Status Code: {response.status_code}<br><br> "
-                f"ZATCA Response: {response.text}<br><br>"
+                f"{_('Status Code')}: {response.status_code}<br><br> "
+                f"{_('ZATCA Response')}: {format_zatca_response(response.text, response.status_code)}<br><br>"
             )
 
             # Update PIH
@@ -864,11 +882,11 @@ def clearance_api(
             msg = (
                 "CLEARED WITH WARNINGS: <br><br>"
                 if response.status_code == 202
-                else "SUCCESS: <br><br>"
+                else _("Submission successful:") + "<br><br>"
             )
             msg += (
-                f"Status Code: {response.status_code}<br><br>"
-                f"ZATCA Response: {response.text}<br><br>"
+                f"{_('Status Code')}: {response.status_code}<br><br>"
+                f"{_('ZATCA Response')}: {format_zatca_response(response.text, response.status_code)}<br><br>"
             )
 
             company_name = sales_invoice_doc.company

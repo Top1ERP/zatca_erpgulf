@@ -1102,7 +1102,9 @@ def ensure_final_sales_invoice_qr_for_print(doc, event=None, force=False):
 
     posting_date = getdate(doc.posting_date)
     posting_time = get_time(doc.get("posting_time") or "00:00:00")
-    timestamp = datetime.combine(posting_date, posting_time).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # Keep the timestamp in AST/local invoice time; do not label it UTC
+    # without first performing an explicit timezone conversion.
+    timestamp = datetime.combine(posting_date, posting_time).strftime("%Y-%m-%dT%H:%M:%S")
 
     conversion_rate = flt(doc.get("conversion_rate") or 1)
 
@@ -1138,7 +1140,7 @@ def ensure_final_sales_invoice_qr_for_print(doc, event=None, force=False):
     ).decode("utf-8")
 
     png = io.BytesIO()
-    pyqrcode.create(payload, error="L").png(png, scale=4, quiet_zone=1)
+    pyqrcode.create(payload, error="L").png(png, scale=4, quiet_zone=4)
 
     file_name = f"QR-ZATCA-Advance-Aware-{doc.name}.png"
 

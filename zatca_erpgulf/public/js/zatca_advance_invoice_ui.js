@@ -121,6 +121,7 @@
         const fields = invoiceTypeFields(frm);
 
         if (
+            Number(frm.doc.docstatus || 0) === 0 &&
             selectedField &&
             fields.includes(selectedField) &&
             cint(frm.doc[selectedField])
@@ -498,6 +499,10 @@
             ? helper.isAdvanceInvoice(frm, capabilities)
             : false;
         applyVisibility(frm, advance, capabilities, zatcaEnabled);
+        // Never auto-edit submitted or cancelled invoices while opening or refreshing.
+        if (Number(frm.doc.docstatus || 0) !== 0) {
+            return;
+        }
 
         if (capabilities.advance_payment_marker !== true) {
             return;

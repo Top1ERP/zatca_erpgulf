@@ -54,6 +54,31 @@ def get_company_arabic_name(company_name: str) -> str:
     return ""
 
 
+def _cleanup_qr_attachments(doc):
+    if doc.doctype != "Sales Invoice":
+        return None
+    rows = frappe.get_all("File", filters={"attached_to_doctype": doc.doctype, "attached_to_name": doc.name, "attached_to_field": "ksa_einv_qr"}, fields=["name", "file_name", "file_url"], order_by="creation desc")
+    if not rows:
+        return None
+    current = doc.get("ksa_einv_qr")
+    official = next((r for r in rows if str(r.file_name or "").startswith(("QR-Phase1-", "QR-Phase2-"))), None)
+    keep = next((r for r in rows if r.file_url == current and official and r.name == official.name), None) or official
+    if not keep:
+        for row in rows:
+            frappe.delete_doc("File", row.name, ignore_permissions=True)
+        if current:
+            frappe.db.set_value(doc.doctype, doc.name, "ksa_einv_qr", None, update_modified=False)
+            doc.ksa_einv_qr = None
+        return None
+    for row in rows:
+        if row.name != keep.name:
+            frappe.delete_doc("File", row.name, ignore_permissions=True)
+    if current != keep.file_url:
+        frappe.db.set_value(doc.doctype, doc.name, "ksa_einv_qr", keep.file_url, update_modified=False)
+        doc.ksa_einv_qr = keep.file_url
+    return keep.file_url
+
+
 def create_qr_code(doc, method=None):  # pylint: disable=unused-argument
     """Create ZATCA phase-1 QR code for invoice documents."""
     region = get_region(doc.company)
@@ -77,7 +102,9 @@ def create_qr_code(doc, method=None):  # pylint: disable=unused-argument
             }
         )
 
-    # Don't create QR Code if it already exists
+    # Reuse one official attachment and remove stale duplicates.
+    if _cleanup_qr_attachments(doc):
+        return
     qr_code = doc.get("ksa_einv_qr")
     if qr_code and frappe.db.exists({"doctype": "File", "file_url": qr_code}):
         return
@@ -122,7 +149,9 @@ def create_qr_code(doc, method=None):  # pylint: disable=unused-argument
         time = get_time(doc.posting_time)
         seconds = time.hour * 60 * 60 + time.minute * 60 + time.second
         time_stamp = add_to_date(posting_date, seconds=seconds)
-        time_stamp = time_stamp.strftime("%Y-%m-%dT%H:%M:%SZ")
+        # Preserve the stored invoice timestamp in AST/local time. A ``Z`` suffix
+        # is reserved for values explicitly converted to UTC.
+        time_stamp = time_stamp.strftime("%Y-%m-%dT%H:%M:%S")
 
         tag = bytes([3]).hex()
         length = bytes([len(time_stamp)]).hex()
@@ -151,7 +180,7 @@ def create_qr_code(doc, method=None):  # pylint: disable=unused-argument
 
         qr_image = io.BytesIO()
         url = qr_create(base64_string, error="L")
-        url.png(qr_image, scale=4, quiet_zone=1)
+        url.png(qr_image, scale=4, quiet_zone=4)
 
         # Make file
         filename = f"QR-Phase1-{doc.name}.png".replace(os.path.sep, "__")

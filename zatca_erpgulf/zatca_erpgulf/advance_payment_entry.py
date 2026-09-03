@@ -368,6 +368,38 @@ def _set_advance_marker(invoice) -> None:
     frappe.throw(_("Advance payment marker is missing from Sales Invoice."))
 
 
+def _copy_customer_zatca_fields(invoice, customer_name: str) -> None:
+    """Copy customer identity fields into an auto-created advance invoice.
+
+    ERPNext's fetch fields are not guaranteed to run when a document is built
+    server-side.  Sites also have legacy Arabic-name field variants, so resolve
+    the first populated source and only write fields that exist on the invoice.
+    """
+    customer = frappe.get_cached_doc("Customer", customer_name)
+    if invoice.meta.has_field("tax_id"):
+        invoice.tax_id = str(getattr(customer, "tax_id", "") or "").strip()
+
+    arabic_name = ""
+    for fieldname in (
+        "customer_name_in_arabic",
+        "custom_customer_name_in_arabic",
+        "zatca_customer_name_in_arabic",
+    ):
+        if getattr(customer, fieldname, None):
+            arabic_name = str(getattr(customer, fieldname)).strip()
+            if arabic_name:
+                break
+
+    if arabic_name:
+        for fieldname in (
+            "customer_name_in_arabic",
+            "custom_customer_name_in_arabic",
+            "zatca_customer_name_in_arabic",
+        ):
+            if invoice.meta.has_field(fieldname):
+                setattr(invoice, fieldname, arabic_name)
+
+
 def _require_create_permissions(payment_entry) -> None:
     if not frappe.has_permission("Payment Entry", "read", doc=payment_entry):
         frappe.throw(_("Not permitted to read this Payment Entry."), frappe.PermissionError)
@@ -404,6 +436,7 @@ def _build_advance_sales_invoice(payment_entry, mapping: dict[str, Any]):
 
     _set_advance_marker(invoice)
     invoice.run_method("set_missing_values")
+    _copy_customer_zatca_fields(invoice, mapping["customer"])
     if invoice.meta.has_field("disable_rounded_total"):
         invoice.disable_rounded_total = 0
 

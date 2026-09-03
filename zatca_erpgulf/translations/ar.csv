@@ -1,3 +1,32 @@
+"ZATCA Sales Invoice Validation Settings","إعدادات التحقق من فواتير مبيعات ZATCA"
+"Controls ZATCA validation rules applied when saving Sales Invoices.","يتحكم في قواعد تحقق ZATCA المطبقة عند حفظ فواتير المبيعات."
+Simulation,المحاكاة
+Sandbox,البيئة التجريبية المعزولة
+Production,الإنتاج
+"Conside Cost-Center as branch. ( If checked- Need to add Branch CRN and Address in Cost Center )","اعتبر مركز التكلفة فرعًا. عند التفعيل يجب إضافة الرقم التجاري للفرع وعنوانه في مركز التكلفة."
+"Attach QR code doctype","إرفاق نوع مستند رمز QR"
+"Attach e_invoice send status with invoice","إرفاق حالة إرسال الفاتورة الإلكترونية مع الفاتورة"
+"Controls Saudi National Address validation for linked Company and Customer addresses.","يتحكم في التحقق من العنوان الوطني السعودي للعناوين المرتبطة بالشركة والعميل."
+"Validate Saudi addresses marked as your company address when ZATCA E-Invoicing is enabled.","تحقق من العناوين السعودية المحددة كعنوان للشركة عند تفعيل الفوترة الإلكترونية لـ ZATCA."
+"Validate Saudi addresses linked to Customers when ZATCA E-Invoicing is enabled.","تحقق من العناوين السعودية المرتبطة بالعملاء عند تفعيل الفوترة الإلكترونية لـ ZATCA."
+"When enabled in Phase-2 with ZATCA E-Invoicing enabled, Zero Rated, Exempted, and Outside Scope categories must use zero VAT rate and zero tax.","عند التفعيل في المرحلة الثانية مع تفعيل الفوترة الإلكترونية لـ ZATCA، يجب أن تستخدم فئات النسبة الصفرية والمعفاة وخارج النطاق معدل ضريبة ومبلغ ضريبة يساوي صفرًا."
+"Display ZATCA response on the screen ( Untick for silent submission ) ","عرض استجابة ZATCA على الشاشة (ألغِ التحديد للإرسال الصامت)"
+"Select submission method for B2C  ( B2B always send Live as per ZATCA instruction )","اختر طريقة إرسال فواتير B2C (تُرسل فواتير B2B دائمًا بشكل مباشر وفق تعليمات ZATCA)"
+"If Invoice still in Draft status, submit and send to ZATCA( Applicable for B2C/POS Invoice only ) ","إذا كانت الفاتورة لا تزال مسودة، فقم بترحيلها وإرسالها إلى ZATCA (ينطبق على فواتير B2C وPOS فقط)"
+"Keys & Certificate For ZATCA","المفاتيح والشهادة الخاصة بـ ZATCA"
+"Keys & Certificate For Zatca","المفاتيح والشهادة الخاصة بـ ZATCA"
+"Consider Cost-Center as branch. ( If checked- Need to add Branch CRN and Address in Cost Center )","اعتبر مركز التكلفة فرعًا. عند التفعيل يجب إضافة الرقم التجاري للفرع وعنوانه في مركز التكلفة."
+"Display ZATCA response on the screen ( Untick for silent submission )","عرض استجابة ZATCA على الشاشة (ألغِ التحديد للإرسال الصامت)"
+"Select submission method for B2C ( B2B always send Live as per ZATCA instruction )","اختر طريقة إرسال فواتير B2C (تُرسل فواتير B2B دائمًا بشكل مباشر وفق تعليمات ZATCA)"
+"If Invoice still in Draft status, submit and send to ZATCA ( Applicable for B2C/POS Invoice only )","إذا كانت الفاتورة لا تزال مسودة، فقم بترحيلها وإرسالها إلى ZATCA (ينطبق على فواتير B2C وPOS فقط)"
+"Keys & Certificate For ZATCA","المفاتيح والشهادة الخاصة بـ ZATCA"
+"ZATCA Compliance Check. Check all options below.","فحص امتثال ZATCA. تحقق من جميع الخيارات أدناه."
+"Controls ZATCA validation behavior for this company.","يتحكم في سلوك تحقق ZATCA لهذه الشركة."
+"Controls ZATCA buyer-identification validation when saving Customer records.","يتحكم في التحقق من بيانات تعريف المشتري لدى ZATCA عند حفظ سجلات العملاء."
+"When enabled, Saudi B2B Customer records are checked for ZATCA buyer identification data.","عند التفعيل، يتم التحقق من بيانات تعريف المشتري لدى ZATCA لسجلات العملاء السعوديين بين الشركات."
+"When enabled, a Saudi B2B Customer cannot be saved without a Buyer ID. When disabled, incomplete customer records are saved with a warning.","عند التفعيل، لا يمكن حفظ عميل سعودي بين الشركات دون رقم تعريف المشتري. وعند التعطيل، تُحفظ سجلات العملاء غير المكتملة مع إظهار تحذير."
+"Validate the selected ZATCA identification scheme and number format.","تحقق من مخطط تعريف ZATCA المحدد ومن تنسيق الرقم."
+"Preserve legacy sites that identify B2B customers using tax_id.","يحافظ على توافق المواقع القديمة التي تحدد عملاء B2B باستخدام الحقل tax_id."
 ZATCA Tax Category is required when any Tax Rates row uses a Tax Account.,فئة ضريبة ZATCA مطلوبة عندما يستخدم أي صف في جدول معدلات الضرائب حسابًا من نوع Tax.
 Standard ZATCA tax category requires at least one tax row with a rate greater than zero in {0}.,تتطلب فئة ZATCA القياسية وجود صف ضريبة واحد على الأقل بمعدل أكبر من صفر في {0}.
 Default Exemption Reason Code,رمز سبب الإعفاء الافتراضي
@@ -33,6 +62,13 @@ Bonus for works ahead of schedule,مكافأة لإنجاز الأعمال قب�
 CLEARED,تمت الموافقة
 CRN: Commercial Registration Number issued by the Ministry of Commerce,CRN: رقم السجل التجاري الصادر عن وزارة التجارة
 Controls whether line item discounts are submitted to ZATCA as line-level discount data where supported.,يتحكم فيما إذا كان خصم السطر يُرسل إلى ZATCA كبيانات خصم على مستوى السطر عند دعم ذلك.
+Customer ID Number for ZATCA,رقم تعريف العميل لـ ZATCA
+"Customer ID Number for ZATCA format is invalid for the selected ZATCA identification type.","صيغة رقم تعريف العميل لـ ZATCA غير صحيحة لنوع تعريف ZATCA المحدد."
+"Optional Unified National Number (700) for Saudi establishments. If provided, it must contain 10 digits and start with 7.","الرقم الوطني الموحد الاختياري (700) للمنشآت السعودية. عند إدخاله، يجب أن يتكون من 10 أرقام وأن يبدأ بالرقم 7."
+10 digits starting with 3,10 أرقام تبدأ بالرقم 3
+10 digits,10 أرقام
+9 to 12 letters or digits,من 9 إلى 12 حرفًا أو رقمًا
+1 to 60 characters,من 1 إلى 60 خانة
 Customer ID Type for ZATCA. Select the type that matches the customer identification number.,نوع معرف العميل لZATCA. اختر النوع المطابق لرقم تعريف العميل.
 Discount,خصم
 "Discount reason code. Optional in the invoice, but use the official code when a discount reason is submitted.",رمز سبب الخصم. هو اختياري في الفاتورة، لكن عند إرسال سبب الخصم استخدم الرمز الرسمي.
@@ -508,7 +544,7 @@ ZATCA exemption reason is required when the ZATCA tax category is {0}. The field
 A transaction-specific Tax Exemption Reason is required when VATEX-SA-OOS is used.,يلزم إدخال سبب إعفاء خاص بالمعاملة عند استخدام VATEX-SA-OOS.
 Tax Exemption Reason,سبب الإعفاء الضريبي
 Enable ZATCA Clearance,تفعيل التخليص الإلكتروني لفوترة ZATCA
-Phase-2 only. When enabled, Standard ZATCA documents use the Clearance API. When disabled, they are submitted through the Reporting API variant.,للمرحلة الثانية فقط. عند التفعيل تستخدم مستندات ZATCA القياسية واجهة التخليص، وعند التعطيل تُرسل عبر مسار واجهة التقارير.
+"Phase-2 only. When enabled, Standard ZATCA documents use the Clearance API. When disabled, they are submitted through the Reporting API variant.","للمرحلة الثانية فقط. عند التفعيل، تستخدم مستندات ZATCA القياسية واجهة التخليص (Clearance API). عند التعطيل، تُرسل عبر واجهة التقارير (Reporting API)."
 "ZATCA Customer Validation Settings","إعدادات التحقق من عملاء ZATCA"
 "Enable ZATCA Customer Validation","تفعيل التحقق من عملاء ZATCA"
 "Require Buyer ID on Customer Save","إلزام رقم تعريف المشتري عند حفظ العميل"
@@ -517,7 +553,7 @@ Phase-2 only. When enabled, Standard ZATCA documents use the Clearance API. When
 "Customer ID Number for ZATCA is required for a Saudi B2B customer before ZATCA customer validation can be completed.<br><br><small>You can disable this required-field rule from Company ZATCA Customer Validation Settings.</small>","رقم Customer ID Number for ZATCA مطلوب للعميل السعودي بين الشركات قبل إكمال تحقق ZATCA من العميل.<br><br><small>يمكن تعطيل قاعدة الإلزام هذه من إعدادات تحقق عملاء ZATCA في الشركة.</small>"
 "Customer ID Type for ZATCA is required and must be a supported ZATCA identification scheme.","حقل Customer ID Type for ZATCA مطلوب ويجب أن يكون من مخططات تعريف ZATCA المدعومة."
 "Customer ID Number for ZATCA must not contain spaces.","لا يجوز أن يحتوي Customer ID Number for ZATCA على مسافات."
-"Customer ID Number for ZATCA of type {0} must contain {1}.","يجب أن يحتوي Customer ID Number for ZATCA من نوع {0} على {1}."
+"Customer ID Number for ZATCA of type {0} must contain {1}.","يجب أن يتكون رقم تعريف العميل لـ ZATCA من النوع {0} من {1}."
 "ZATCA Customer Validation","تحقق عميل ZATCA"
 "Continue Saving","متابعة الحفظ"
 "Return to Edit","العودة للتعديل"
@@ -533,6 +569,11 @@ Phase-2 only. When enabled, Standard ZATCA documents use the Clearance API. When
 "Enable Address Validation for Company","تفعيل التحقق من عناوين الشركة"
 "Enable Address Validation for Customers","تفعيل التحقق من عناوين العملاء"
 "Address in English","العنوان باللغة الإنجليزية"
+"Building Number","رقم المبنى"
+"Address in Arabic","العنوان باللغة العربية"
+"City / Town","المدينة / البلدة"
+"English address from the Saudi National Address when ZATCA invoice is enabled.","العنوان باللغة الإنجليزية المستمد من العنوان الوطني السعودي عند تفعيل الفوترة الإلكترونية لـ ZATCA."
+"Saudi National Address short address when ZATCA invoice is enabled. Must contain 8 characters: 4 letters followed by 4 digits.","العنوان المختصر من العنوان الوطني السعودي عند تفعيل الفوترة الإلكترونية لـ ZATCA. يجب أن يتكون من 8 خانات: أربعة أحرف يتبعها أربعة أرقام."
 "Short Address","العنوان المختصر"
 "English address from the Saudi National Address.","العنوان باللغة الإنجليزية المستمد من العنوان الوطني السعودي عند تفعيل فاتورة ZATCA."
 "Saudi National Address short address. Must contain 8 characters: 4 letters followed by 4 digits.","العنوان المختصر من العنوان الوطني السعودي عند تفعيل فاتورة ZATCA. يجب أن يتكون من 8 خانات: أربعة أحرف يتبعها أربعة أرقام."
@@ -553,3 +594,12 @@ Phase-2 only. When enabled, Standard ZATCA documents use the Clearance API. When
 "You can disable this ZATCA address warning/blocking rule from the Company ZATCA Address Validation Settings.","يمكنك تعطيل قاعدة التنبيه أو المنع الخاصة بعناوين ZATCA من إعدادات التحقق من عناوين ZATCA في الشركة."
 "UNN (700)","الرقم الوطني الموحد للمنشأة"
 "UNN (700) for a Saudi customer must contain exactly 10 digits and start with 7.","يجب أن يتكون UNN (700) للعميل السعودي من 10 أرقام بالضبط وأن يبدأ بالرقم 7."
+
+"Send invoice to ZATCA","إرسال الفاتورة إلى ZATCA"
+"Create XML for Debug","إنشاء XML للتصحيح"
+"Regenerate QR Code","إعادة إنشاء رمز QR"
+"Repairing QR Code locally...","جارٍ إصلاح رمز QR محليًا..."
+"Submission successful:","تم الإرسال بنجاح:"
+"Status Code","رمز الحالة"
+"ZATCA Response","استجابة هيئة الزكاة والضريبة والجمارك (ZATCA)"
+"XSD validation","تحقق XSD"

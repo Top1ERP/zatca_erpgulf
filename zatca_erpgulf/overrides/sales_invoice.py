@@ -181,6 +181,10 @@ def normalize_advance_payment_invoice(invoice) -> None:
     if not is_advance_payment_invoice(invoice):
         return
 
+    # Submitted/cancelled invoices are immutable; skip draft-only normalization.
+    if cint(getattr(invoice, "docstatus", 0)) != 0:
+        return
+
     if getattr(invoice, "remarks", None) in (None, "", *ADVANCE_REMARKS):
         invoice.remarks = _("Advance Payment Invoice")
 
@@ -255,6 +259,10 @@ def _naming_series_options(invoice) -> list[str]:
 def validate_advance_payment_naming_series(invoice) -> None:
     """Require advance invoices to use an ADV- naming series when configured."""
     if not is_advance_payment_invoice(invoice):
+        return
+
+    # Submitted/cancelled invoices are immutable; skip draft-only normalization.
+    if cint(getattr(invoice, "docstatus", 0)) != 0:
         return
 
     options = _naming_series_options(invoice)

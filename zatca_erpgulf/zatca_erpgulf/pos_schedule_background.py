@@ -5,6 +5,7 @@ from frappe import _
 import frappe
 import requests
 from zatca_erpgulf.zatca_erpgulf.event_log import log_zatca_event
+from zatca_erpgulf.zatca_erpgulf.zatca_response import format_zatca_response
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 from zatca_erpgulf.zatca_erpgulf.sales_invoice_with_xmlqr import (
     get_api_url,
@@ -283,7 +284,7 @@ def reporting_api_pos_without_xml(
 
                     msg = (
                         f"Status Code: {response.status_code}<br>"
-                        f"ZATCA Response: {response.text}"
+                        f"ZATCA Response: {format_zatca_response(response.text, response.status_code)}"
                     )
 
                     log_zatca_event(
@@ -300,7 +301,7 @@ def reporting_api_pos_without_xml(
                     title = f"ZATCA API Failed - {invoice_number}"
                     msg = (
                         f"Status Code: {response.status_code}<br>"
-                        f"ZATCA Response: {response.text}"
+                        f"ZATCA Response: {format_zatca_response(response.text, response.status_code)}"
                     )
                     log_zatca_event(
                         invoice_number=invoice_number,
@@ -341,7 +342,7 @@ def reporting_api_pos_without_xml(
                                 "Error: The request you are sending to ZATCA is in incorrect format. "
                                 "Please report to system administrator. "
                                 f"Status code: {response.status_code}<br><br> "
-                                f"{response.text}"
+                                f"{format_zatca_response(response.text, response.status_code)}"
                             )
                         )
                     )
@@ -379,7 +380,7 @@ def reporting_api_pos_without_xml(
                                 "Your access token may be expired or not valid. "
                                 "Please contact your system administrator. "
                                 f"Status code: {response.status_code}<br><br> "
-                                f"{response.text}"
+                                f"{format_zatca_response(response.text, response.status_code)}"
                             )
                         )
                     )
@@ -387,7 +388,7 @@ def reporting_api_pos_without_xml(
                     msg = "SUCCESS: <br><br>"
                     msg += (
                         f"Status Code: {response.status_code}<br><br> "
-                        f"ZATCA Response: {response.text}<br><br>"
+                        f"ZATCA Response: {format_zatca_response(response.text, response.status_code)}<br><br>"
                     )
 
                     # Update PIH
@@ -467,7 +468,7 @@ def reporting_api_pos_without_xml(
                                 "Error: ZATCA server busy or not responding."
                                 " Try after sometime or contact your system administrator. "
                                 f"Status code: {response.status_code}<br><br> "
-                                f"{response.text}"
+                                f"{format_zatca_response(response.text, response.status_code)}"
                             )
                         )
                     )
@@ -484,7 +485,7 @@ def reporting_api_pos_without_xml(
                     )
                     msg += (
                         f"Status Code: {response.status_code}<br><br>"
-                        f"ZATCA Response: {response.text}<br><br>"
+                        f"ZATCA Response: {format_zatca_response(response.text, response.status_code)}<br><br>"
                     )
                     if pos_invoice_doc.custom_zatca_pos_name:
                         if zatca_settings.custom__use_company_certificate__keys != 1:

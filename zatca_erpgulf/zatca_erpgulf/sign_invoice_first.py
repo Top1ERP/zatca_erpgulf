@@ -22,6 +22,8 @@ from cryptography.hazmat.primitives.asymmetric import ec
 import requests
 import asn1
 
+from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
+
 SUPPORTED_INVOICES = ["Sales Invoice", "POS Invoice"]
 
 
@@ -965,19 +967,51 @@ def get_tlv_for_value(tag_num, tag_value):
         if tag_value is None:
             frappe.throw(f"Error: Tag value for tag number {tag_num} is None")
         if isinstance(tag_value, str):
+            tag_value = tag_value.encode("utf-8")
             if len(tag_value) < 256:
                 tag_value_len_buf = bytes([len(tag_value)])
             else:
                 tag_value_len_buf = bytes(
                     [0xFF, (len(tag_value) >> 8) & 0xFF, len(tag_value) & 0xFF]
                 )
-            tag_value = tag_value.encode("utf-8")
         else:
             tag_value_len_buf = bytes([len(tag_value)])
         return tag_num_buf + tag_value_len_buf + tag_value
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(_(" error in getting the tlv data value: " + str(e)))
         return None
+
+
+
+
+def _is_simplified_document(source_doc):
+    """Resolve Simplified/B2C using existing document/customer fields."""
+    if not source_doc:
+        return False
+
+    getter = getattr(source_doc, "get", None)
+    get_value = getter if callable(getter) else lambda key, default=None: getattr(source_doc, key, default)
+
+    explicit_type = get_value("custom_zatca_invoice_type") or get_value("zatca_invoice_type")
+    if explicit_type:
+        normalized = str(explicit_type).strip().lower()
+        if "simplified" in normalized:
+            return True
+        if "standard" in normalized:
+            return False
+
+    if get_value("doctype") == "POS Invoice":
+        return True
+
+    customer = get_value("customer")
+    if not customer:
+        return False
+
+    try:
+        customer_doc = frappe.get_cached_doc("Customer", customer)
+        return bool(get_alias_value("customer_b2c", customer_doc, 0))
+    except Exception:
+        return False
 
 
 def tag8_publickey(company_abbr, source_doc):
@@ -1077,6 +1111,8 @@ def generate_tlv_xml(final_xml_string,company_abbr,source_doc):
         issue_time = (
             issue_time_results[0].text.strip() if issue_time_results else "Missing Data"
         )
+        # Preserve the XML IssueTime in AST/local invoice time. ``Z`` is
+        # reserved for timestamps explicitly converted to UTC.
         issue_date_time = issue_date + "T" + issue_time
         tags_xpaths = [
             (
@@ -1118,7 +1154,11 @@ def generate_tlv_xml(final_xml_string,company_abbr,source_doc):
                 result_dict[tag] = xpath
         result_dict[3] = issue_date_time
         result_dict[8] = tag8_publickey(company_abbr, source_doc)
-        result_dict[9] = tag9_signature_ecdsa(company_abbr, source_doc)
+        # Tag 9 is defined only for Simplified Tax Invoices and their notes.
+        if _is_simplified_document(source_doc):
+            result_dict[9] = tag9_signature_ecdsa(company_abbr, source_doc)
+        else:
+            result_dict.pop(9, None)
         result_dict[1] = result_dict[1].encode(
             "utf-8"
         )  # Handling Arabic company name in QR Code

@@ -203,7 +203,7 @@ def _buyer_errors(customer, policy: dict[str, Any]) -> tuple[list[str], list[str
     if not buyer_type or buyer_type not in rules:
         add_issue(_("Customer ID Type for ZATCA is required and must be a supported ZATCA identification scheme."))
     elif not re.fullmatch(rules[buyer_type][0], buyer_id):
-        add_issue(_("Customer ID Number for ZATCA of type {0} must contain {1}.").format(buyer_type, rules[buyer_type][1]))
+        add_issue(_("Customer ID Number for ZATCA of type {0} must contain {1}.").format(buyer_type, _(rules[buyer_type][1])))
     if buyer_type == "TIN" and tax_id and not tax_id.startswith(buyer_id):
         add_issue(
             _("TIN and Tax ID do not match. TIN must equal the first 10 digits of Tax ID.<br>TIN: {0}<br>Tax ID: {1}").format(buyer_id, tax_id)

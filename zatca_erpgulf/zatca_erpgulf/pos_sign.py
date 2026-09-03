@@ -13,6 +13,7 @@ import frappe
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import PHASE_1_VALUE, PHASE_2_VALUE, resolve_zatca_phase, is_zatca_invoice_enabled
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 from zatca_erpgulf.zatca_erpgulf.event_log import log_zatca_event
+from zatca_erpgulf.zatca_erpgulf.zatca_response import format_zatca_response
 from zatca_erpgulf.zatca_erpgulf.posxml import (
     xml_tags,
     salesinvoice_data,
@@ -183,7 +184,7 @@ def reporting_api(
 
                     msg = (
                         f"Status Code: {response.status_code}<br>"
-                        f"ZATCA Response: {response.text}"
+                        f"ZATCA Response: {format_zatca_response(response.text, response.status_code)}"
                     )
 
                     log_zatca_event(
@@ -200,7 +201,7 @@ def reporting_api(
                     title = f"ZATCA API Failed - {invoice_number}"
                     msg = (
                         f"Status Code: {response.status_code}<br>"
-                        f"ZATCA Response: {response.text}"
+                        f"ZATCA Response: {format_zatca_response(response.text, response.status_code)}"
                     )
                     log_zatca_event(
                         invoice_number=invoice_number,
@@ -235,7 +236,7 @@ def reporting_api(
                                 "Error: The request you are sending to ZATCA is in incorrect format. "
                                 "Please report to system administrator. "
                                 f"Status code: {response.status_code}<br><br> "
-                                f"{response.text}"
+                                f"{format_zatca_response(response.text, response.status_code)}"
                             )
                         )
                     )
@@ -267,7 +268,7 @@ def reporting_api(
                                 "Your access token may be expired or not valid. "
                                 "Please contact your system administrator. "
                                 f"Status code: {response.status_code}<br><br> "
-                                f"{response.text}"
+                                f"{format_zatca_response(response.text, response.status_code)}"
                             )
                         )
                     )
@@ -275,7 +276,7 @@ def reporting_api(
                     msg = "SUCCESS: <br><br>"
                     msg += (
                         f"Status Code: {response.status_code}<br><br> "
-                        f"ZATCA Response: {response.text}<br><br>"
+                        f"ZATCA Response: {format_zatca_response(response.text, response.status_code)}<br><br>"
                     )
 
                     # Update PIH
@@ -346,7 +347,7 @@ def reporting_api(
                                 "Error: ZATCA server busy or not responding."
                                 " Try after sometime or contact your system administrator. "
                                 f"Status code: {response.status_code}<br><br> "
-                                f"{response.text}"
+                                f"{format_zatca_response(response.text, response.status_code)}"
                             )
                         )
                     )
@@ -363,7 +364,7 @@ def reporting_api(
                     )
                     msg += (
                         f"Status Code: {response.status_code}<br><br>"
-                        f"ZATCA Response: {response.text}<br><br>"
+                        f"ZATCA Response: {format_zatca_response(response.text, response.status_code)}<br><br>"
                     )
 
                     company_name = pos_invoice_doc.company
@@ -518,7 +519,7 @@ def clearance_api(
 
             msg = (
                 f"Status Code: {response.status_code}<br>"
-                f"ZATCA Response: {response.text}"
+                f"ZATCA Response: {format_zatca_response(response.text, response.status_code)}"
             )
 
             log_zatca_event(
@@ -535,7 +536,7 @@ def clearance_api(
             title = f"ZATCA API Failed - {invoice_number}"
             msg = (
                 f"Status Code: {response.status_code}<br>"
-                f"ZATCA Response: {response.text}"
+                f"ZATCA Response: {format_zatca_response(response.text, response.status_code)}"
             )
             log_zatca_event(
                 invoice_number=invoice_number,
@@ -566,7 +567,7 @@ def clearance_api(
                     (
                         "Error: The request you are sending to ZATCA is in incorrect format. "
                         f"Status code: {response.status_code}<br><br>"
-                        f"{response.text}"
+                        f"{format_zatca_response(response.text, response.status_code)}"
                     )
                 )
             )
@@ -593,7 +594,7 @@ def clearance_api(
                     (
                         "Error: ZATCA Authentication failed. "
                         f"Status code: {response.status_code}<br><br>"
-                        f"{response.text}"
+                        f"{format_zatca_response(response.text, response.status_code)}"
                     )
                 )
             )
@@ -629,7 +630,7 @@ def clearance_api(
             )
             msg += (
                 f"Status Code: {response.status_code}<br><br>"
-                f"ZATCA Response: {response.text}<br><br>"
+                f"ZATCA Response: {format_zatca_response(response.text, response.status_code)}<br><br>"
             )
 
             # frappe.msgprint(msg)
