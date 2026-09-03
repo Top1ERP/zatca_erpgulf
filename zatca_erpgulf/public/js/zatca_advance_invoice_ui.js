@@ -471,7 +471,7 @@
         }
     }
 
-    async function synchronizeAdvanceInvoiceUI(frm) {
+    async function synchronizeAdvanceInvoiceUI(frm, { allow_mutation = false } = {}) {
         const helper = runtime();
         if (!helper) {
             return;
@@ -500,7 +500,7 @@
             : false;
         applyVisibility(frm, advance, capabilities, zatcaEnabled);
         // Never auto-edit submitted or cancelled invoices while opening or refreshing.
-        if (Number(frm.doc.docstatus || 0) !== 0) {
+        if (Number(frm.doc.docstatus || 0) !== 0 || (!frm.is_new() && !allow_mutation)) {
             return;
         }
 

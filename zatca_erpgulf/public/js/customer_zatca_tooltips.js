@@ -90,16 +90,16 @@ async function zatca_load_customer_policy(frm) {
         args: { customer: frm.doc.name && !frm.is_new() ? frm.doc.name : null },
     });
     const policy = response.message || {};
-    let country = String(frm.doc.territory || "").trim().toLowerCase();
+    let country = frm.doc.territory || "";
     if (frm.doc.customer_primary_address) {
         const address = await frappe.db.get_value("Address", frm.doc.customer_primary_address, "country");
-        country = String(address?.message?.country || country).trim().toLowerCase();
+        country = address?.message?.country || country;
     }
     frm.__zatca_customer_policy = {
         enabled: !!policy.enabled,
         require_on_save: !!policy.require_on_save,
         zatca_phase2: !!policy.zatca_phase2,
-        needs_id: !!policy.enabled && ["sa", "saudi arabia"].includes(country) && !Number(zatca_first_present(frm.doc, ["custom_b2c", "b2c", "is_b2c", "zatca_b2c"], 0) || 0),
+        needs_id: !!policy.enabled && zatca_is_saudi_country(country) && !Number(zatca_first_present(frm.doc, ["custom_b2c", "b2c", "is_b2c", "zatca_b2c"], 0) || 0),
     };
     zatca_sync_customer_fields_visibility(frm);
 

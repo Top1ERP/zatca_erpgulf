@@ -406,8 +406,16 @@ class ZatcaSalesInvoice(SalesInvoice):
 
         return super().set_indicator()
 
-    def get_gl_entries(self, warehouse_account=None):
-        gl_entries = super().get_gl_entries(warehouse_account)
+    def get_gl_entries(self, inventory_account_map=None, *args, **kwargs):
+        """Keep the GL hook compatible with ERPNext 15 and 16.
+
+        ERPNext 15 used the keyword ``warehouse_account`` while ERPNext 16
+        renamed it to ``inventory_account_map``. Normalize the legacy keyword
+        before delegating, without changing the underlying GL calculation.
+        """
+        if inventory_account_map is None and "warehouse_account" in kwargs:
+            inventory_account_map = kwargs.pop("warehouse_account")
+        gl_entries = super().get_gl_entries(inventory_account_map, *args, **kwargs)
         return append_advance_deduction_gl_entries(self, gl_entries)
 
     def validate(self):

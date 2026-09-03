@@ -11,12 +11,12 @@ function applyTooltips(context, fieldsWithTooltips) {
             fieldContainer = $(context.page).find(`[data-fieldname="${field.fieldname}"]`).closest('.frappe-control');
         }
         if (!fieldContainer) {
-            console.error(`Field '${field.fieldname}' not found in the provided context.`);
+            // Optional fields vary between legacy sites; do not interrupt
+            // refresh or link-field autocomplete when one is absent.
             return;
         }
         const fieldWrapper = fieldContainer.$wrapper || $(fieldContainer); // Handle both Doctype/Dialog and Page contexts
         if (!fieldWrapper || fieldWrapper.length === 0) {
-            console.error(`Field wrapper for '${field.fieldname}' not found.`);
             return;
         }
         let labelElement;
@@ -30,7 +30,6 @@ function applyTooltips(context, fieldsWithTooltips) {
         }
 
         if (!labelElement || labelElement.length === 0) {
-            console.error(`Label for field '${field.fieldname}' not found.`);
             return;
         }
         const tooltipContainer = labelElement.next('.tooltip-container');
@@ -105,6 +104,41 @@ function zatca_first_present(doc, fieldnames, fallback = undefined) {
     return fallback;
 }
 
+// Customer field names vary between ZATCA releases and site customizations.
+// Prefer the standard field and use a legacy alias only when it is missing or empty.
+const ZATCA_CUSTOMER_INVOICE_FIELD_ALIASES = {
+    customer_name_in_arabic: ["customer_name_in_arabic", "custom_customer_name_in_arabic", "zatca_customer_name_in_arabic"],
+    tax_id: ["tax_id", "custom_tax_id", "vat_number", "custom_vat_number"],
+    custom_b2c: ["custom_b2c", "b2c", "is_b2c", "zatca_b2c"],
+};
+
+function zatca_nonempty_value(doc, fieldnames) {
+    for (const fieldname of fieldnames) {
+        if (!doc || !Object.prototype.hasOwnProperty.call(doc, fieldname)) continue;
+        const value = doc[fieldname];
+        if (value !== undefined && value !== null && String(value).trim() !== "") return value;
+    }
+    return undefined;
+}
+
+async function zatca_fetch_customer_invoice_fields(frm, customer) {
+    if (!frm?.doc?.customer || !customer) return;
+    for (const [logicalName, aliases] of Object.entries(ZATCA_CUSTOMER_INVOICE_FIELD_ALIASES)) {
+        const invoiceField = aliases.find((fieldname) => !!frm.fields_dict?.[fieldname]);
+        if (!invoiceField) continue;
+        const currentValue = frm.doc[invoiceField];
+        if (currentValue !== undefined && currentValue !== null && String(currentValue).trim() !== "") continue;
+        const value = zatca_nonempty_value(customer, aliases);
+        if (value !== undefined) {
+            await frm.set_value(invoiceField, value);
+            // Normalize the in-memory customer snapshot too, so warning/XML
+            // logic sees a legacy Tax ID under the canonical key.
+            if (logicalName === "tax_id" && !String(customer.tax_id || "").trim()) customer.tax_id = value;
+            if (logicalName === "customer_name_in_arabic" && !String(customer.customer_name_in_arabic || "").trim()) customer.customer_name_in_arabic = value;
+        }
+    }
+}
+
 const ZATCA_B2B_NAME_INDICATORS = new Set([
     "شركة", "مؤسسة", "مؤسسه", "مجموعة", "مجموعه", "مصنع", "مصانع", "مقاولات", "مكتب", "مركز", "جمعية", "جمعيه",
     "llc", "l", "c", "ltd", "limited", "company", "co", "corporation", "corp", "inc", "incorporated",
@@ -122,8 +156,8 @@ function zatca_customer_name_looks_b2b(value) {
 
 function zatca_simplified_b2b_state(frm, customer) {
     const enabled = Number(frm.__zatca_company_invoice_enabled || 0) === 1;
-    const country = String(customer?.country || "").trim().toLowerCase();
-    const saudi = ["sa", "s.a.", "saudi arabia", "kingdom of saudi arabia"].includes(country);
+    const country = customer?.country || "";
+    const saudi = zatca_is_saudi_country(country);
     const vat = String(customer?.tax_id || "").trim();
     const validVat = /^3\d{13}3$/.test(vat);
     const invoiceB2C = zatca_first_present(frm.doc, ["custom_b2c", "b2c", "is_b2c", "zatca_b2c"]);
@@ -137,7 +171,7 @@ function zatca_simplified_b2b_state(frm, customer) {
     return { amount: supply.toFixed(2), reason: validVat ? "vat" : "name" };
 }
 
-async function load_zatca_simplified_b2b_state(frm) {
+async function load_zatca_simplified_b2b_state(frm, { sync_customer_fields = false } = {}) {
     if (!frm.doc.company || !frm.doc.customer) { frm.__zatca_simplified_b2b_warning = null; return; }
     const [company, customer] = await Promise.all([
         frappe.db.get_value("Company", frm.doc.company, "custom_zatca_invoice_enabled"),
@@ -145,6 +179,10 @@ async function load_zatca_simplified_b2b_state(frm) {
     ]);
     frm.__zatca_company_invoice_enabled = company?.message?.custom_zatca_invoice_enabled || 0;
     const customerData = customer || {};
+    // Keep refresh read-only; synchronize fallback fields only after explicit customer selection or save validation.
+    if (sync_customer_fields) {
+        await zatca_fetch_customer_invoice_fields(frm, customerData);
+    }
     if (customerData.customer_primary_address) {
         const address = await frappe.db.get_value("Address", customerData.customer_primary_address, "country");
         customerData.country = address?.message?.country || customerData.territory || "";
@@ -223,8 +261,28 @@ async function syncInvoiceTaxSource(frm) {
     filterInvoiceExemptionReason(frm);
 }
 
+function zatca_initialize_issue_timestamp(frm) {
+    if (!frm || !frm.is_new || !frm.is_new() || frm.__zatca_issue_timestamp_initialized) {
+        return;
+    }
+
+    // Capture the legal invoice timestamp once when a new draft is opened.
+    // Never overwrite values supplied by ERPNext, imports, or a copied invoice.
+    if (!frm.doc.posting_date) {
+        frm.doc.posting_date = frappe.datetime.nowdate();
+    }
+    if (!frm.doc.posting_time) {
+        frm.doc.posting_time = frappe.datetime.now_time();
+    }
+    frm.__zatca_issue_timestamp_initialized = true;
+};
+
 frappe.ui.form.on("Sales Invoice", {
+    onload(frm) {
+        zatca_initialize_issue_timestamp(frm);
+    },
     refresh(frm) {
+        zatca_initialize_issue_timestamp(frm);
         load_zatca_simplified_b2b_state(frm).catch(() => {});
         frm.set_df_property("custom_zatca_tax_category", "read_only", 1);
         if (frm.fields_dict.custom_zatca_discount_reason_code) {
@@ -241,28 +299,29 @@ frappe.ui.form.on("Sales Invoice", {
         syncInvoiceExemptionReasonField(frm);
     },
     customer(frm) {
-        load_zatca_simplified_b2b_state(frm).catch(() => {});
+        frm.__zatca_b2b_check_ready = false;
+        frm.__zatca_simplified_b2b_confirmed = null;
+        load_zatca_simplified_b2b_state(frm, { sync_customer_fields: true }).catch(() => {});
     },
     company(frm) {
+        frm.__zatca_b2b_check_ready = false;
         load_zatca_simplified_b2b_state(frm).catch(() => {});
     },
     custom_b2c(frm) {
         load_zatca_simplified_b2b_state(frm).catch(() => {});
     },
-    before_save(frm) {
-        if (frm.doc.customer && !frm.__zatca_customer_warning_data && !frm.__zatca_b2b_check_ready) {
-            if (frm.__zatca_b2b_check_pending) {
-                frappe.validated = false;
-                return;
+    async before_save(frm) {
+        // Keep the customer/company lookup inside the current save lifecycle.
+        // Cancelling save and calling frm.save() from a Promise callback can
+        // race with ERPNext validation and leave the Save button unresponsive.
+        if (frm.doc.customer && !frm.__zatca_b2b_check_ready) {
+            if (!frm.__zatca_b2b_check_pending) {
+                frm.__zatca_b2b_check_pending = load_zatca_simplified_b2b_state(frm, { sync_customer_fields: true })
+                    .catch(() => {})
+                    .finally(() => { frm.__zatca_b2b_check_pending = null; });
             }
-            frm.__zatca_b2b_check_pending = true;
-            frappe.validated = false;
-            load_zatca_simplified_b2b_state(frm).finally(() => {
-                frm.__zatca_b2b_check_pending = false;
-                frm.__zatca_b2b_check_ready = true;
-                frm.save();
-            });
-            return;
+            await frm.__zatca_b2b_check_pending;
+            frm.__zatca_b2b_check_ready = true;
         }
         const warning = zatca_simplified_b2b_state(frm, frm.__zatca_customer_warning_data || {});
         if (warning && frm.__zatca_simplified_b2b_confirmed !== warning.amount) {
@@ -523,11 +582,6 @@ frappe.ui.form.on('Sales Invoice', {
             {
                 fieldname: "custom_zatca_status",
                 text: __("Read-only ZATCA submission status."),
-                links: [],
-            },
-            {
-                fieldname: "custom_zatca_status_notification",
-                text: __("Visual ZATCA status notification shown on the invoice."),
                 links: [],
             },
         ];

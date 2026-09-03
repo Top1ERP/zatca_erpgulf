@@ -30,6 +30,8 @@ from pyqrcode import create as qr_create
 
 from erpnext import get_region
 
+from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country
+
 
 def get_company_arabic_name(company_name: str) -> str:
     """
@@ -82,7 +84,7 @@ def _cleanup_qr_attachments(doc):
 def create_qr_code(doc, method=None):  # pylint: disable=unused-argument
     """Create ZATCA phase-1 QR code for invoice documents."""
     region = get_region(doc.company)
-    if region not in ["Saudi Arabia"]:
+    if not is_saudi_country(region):
         return
 
     # If QR Code field not present, create it. Invoices without QR are invalid as per law.

@@ -15,6 +15,7 @@ from lxml import etree
 from frappe import _
 import frappe
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
+from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country
 import requests
 from zatca_erpgulf.zatca_erpgulf.event_log import log_zatca_event
 from zatca_erpgulf.zatca_erpgulf.zatca_response import format_zatca_response
@@ -1542,7 +1543,7 @@ def zatca_background(invoice_number, source_doc, bypass_background_check=False):
                     )
                 )
 
-            if address and address.country == SAUDI_ARABIA:
+            if address and is_saudi_country(address.country):
                 if (
                     not address.custom_building_number
                     or not address.custom_building_number.isdigit()
@@ -1565,8 +1566,8 @@ def zatca_background(invoice_number, source_doc, bypass_background_check=False):
                         )
                     )
             # if get_alias_value("customer_b2c", customer_doc, 0) != 1:
-            if address and address.country == SAUDI_ARABIA and not get_alias_value("customer_buyer_id", customer_doc, ""):
-            # if address and address.country == SAUDI_ARABIA:
+            if address and is_saudi_country(address.country) and not get_alias_value("customer_buyer_id", customer_doc, ""):
+            # if address and is_saudi_country(address.country):
                 if not customer_doc.tax_id:
                     frappe.throw(
                         _(
@@ -1990,7 +1991,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
                         "As per ZATCA regulations, Address Line 2 is required in customer address."
                     )
                 )
-            if address and address.country == SAUDI_ARABIA:
+            if address and is_saudi_country(address.country):
                 if (
                     not address.custom_building_number
                     or not address.custom_building_number.isdigit()
@@ -2011,8 +2012,8 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
                             "As per ZATCA regulations, Pincode must be exactly 5 digits in customer address."
                         )
                     )
-            if address and address.country == SAUDI_ARABIA and not get_alias_value("customer_buyer_id", customer_doc, ""):
-            # if address and address.country == SAUDI_ARABIA:
+            if address and is_saudi_country(address.country) and not get_alias_value("customer_buyer_id", customer_doc, ""):
+            # if address and is_saudi_country(address.country):
                 if not customer_doc.tax_id:
                     frappe.throw(
                         _(

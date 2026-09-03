@@ -449,39 +449,48 @@
     }
 
     frappe.ui.form.on("Sales Invoice", {
-        async setup(frm) {
-            const state = await getCurrentAllocationState(frm);
-            if (!state) {
-                return;
+        setup(frm) {
+            // Register the Link query synchronously.  Waiting for the async
+            // runtime-capability probe here leaves the child Link field with
+            // ERPNext's unrestricted default query during form initialization.
+            if (fieldExists(frm, TABLE_FIELD)) {
+                frm.set_query(
+                    "advance_invoice",
+                    TABLE_FIELD,
+                    function () {
+                        return {
+                            query: QUERY_METHOD,
+                            filters: {
+                                company: frm.doc.company || "",
+                                customer: frm.doc.customer || "",
+                                currency: frm.doc.currency || "",
+                                final_invoice: frm.is_new()
+                                    ? null
+                                    : frm.doc.name
+                            }
+                        };
+                    }
+                );
             }
 
-            configureAllocationGrid(frm);
-            frm.set_query(
-                "advance_invoice",
-                TABLE_FIELD,
-                function () {
-                    if (!allocationFeatureExists(frm)) {
-                        return {};
-                    }
-
-                    return {
-                        query: QUERY_METHOD,
-                        filters: {
-                            company: frm.doc.company,
-                            customer: frm.doc.customer,
-                            currency: frm.doc.currency,
-                            final_invoice: frm.is_new()
-                                ? null
-                                : frm.doc.name
-                        }
-                    };
+            getCurrentAllocationState(frm).then(function (state) {
+                if (!state) {
+                    return;
                 }
-            );
+                configureAllocationGrid(frm);
+            });
         },
 
         async refresh(frm) {
             const state = await getCurrentAllocationState(frm);
             if (!state) {
+                return;
+            }
+
+            // Keep refresh read-only for saved invoices; hydration and totals use
+            // set_value() and can mark a draft dirty merely by opening it.
+            if (!frm.is_new()) {
+                configureAllocationGrid(frm);
                 return;
             }
 

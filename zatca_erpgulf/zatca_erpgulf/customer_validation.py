@@ -15,6 +15,7 @@ from frappe import _
 from frappe.utils import cint
 
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
+from zatca_erpgulf.zatca_erpgulf.country import normalize_country_code
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
     PHASE_1_VALUE,
     PHASE_2_VALUE,
@@ -39,10 +40,8 @@ def _value(doc: Any, fieldname: str, default: Any = None) -> Any:
 
 
 def _normalise_country(value: Any) -> str:
-    value = str(value or "").strip().casefold()
-    if value in {"sa", "s.a.", "saudi arabia", "kingdom of saudi arabia"}:
-        return "SA"
-    return value.upper()
+    """Backward-compatible wrapper around the shared country normalizer."""
+    return normalize_country_code(value)
 
 
 def _company_policy(company_name: str) -> dict[str, Any]:

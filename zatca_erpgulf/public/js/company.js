@@ -23,7 +23,7 @@ frappe.realtime.on('show_gif', (data) => {
 
 frappe.ui.form.on("Company", {
     refresh(frm) {
-        if (!frm.is_new() && frm.doc.country === "Saudi Arabia") {
+        if (!frm.is_new() && zatca_is_saudi_country(frm.doc.country)) {
             // Use the existing ERPNext/Frappe button location if present:
             // Manage > Create Tax Template
             // Remove first to avoid duplicate buttons, then add our idempotent ZATCA/KSA implementation.

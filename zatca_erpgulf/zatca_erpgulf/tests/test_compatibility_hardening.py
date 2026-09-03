@@ -98,6 +98,10 @@ def _complete_runtime_schema():
     )
 
 
+class TestERPNext16ClassContract(unittest.TestCase):
+    def test_sales_invoice_override_inherits_erpnext_controller(self):
+        self.assertTrue(issubclass(sales_invoice_override.ZatcaSalesInvoice, sales_invoice_override.SalesInvoice))
+
 class TestRuntimeCapabilities(unittest.TestCase):
     def test_primary_marker_metadata_and_column_are_supported(self):
         with _runtime_environment(
@@ -678,6 +682,11 @@ class TestSalesInvoiceOverrideCompatibility(unittest.TestCase):
             doc.custom_zatca_advance_deducted_taxable_amount, Decimal("8.70")
         )
         self.assertEqual(doc.custom_zatca_advance_deducted_vat_amount, Decimal("1.30"))
+
+    def test_get_gl_entries_accepts_v15_and_v16_parameter_names(self):
+        signature = inspect.signature(sales_invoice_override.ZatcaSalesInvoice.get_gl_entries)
+        self.assertIn("inventory_account_map", signature.parameters)
+        self.assertIn("kwargs", signature.parameters)
 
     def test_capability_true_preserves_deduction_cleanup(self):
         doc = self._advance_doc()

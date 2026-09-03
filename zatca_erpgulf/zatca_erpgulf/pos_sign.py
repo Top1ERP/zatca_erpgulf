@@ -12,6 +12,7 @@ from frappe import _
 import frappe
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import PHASE_1_VALUE, PHASE_2_VALUE, resolve_zatca_phase, is_zatca_invoice_enabled
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
+from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country
 from zatca_erpgulf.zatca_erpgulf.event_log import log_zatca_event
 from zatca_erpgulf.zatca_erpgulf.zatca_response import format_zatca_response
 from zatca_erpgulf.zatca_erpgulf.posxml import (
@@ -1126,7 +1127,7 @@ def zatca_background_(invoice_number, source_doc, bypass_background_check=False)
                         "As per ZATCA regulation, Pincode must be exactly 5 digits in customer address."
                     )
                 )
-            if address and address.country == "Saudi Arabia":
+            if address and is_saudi_country(address.country):
                 if not customer_doc.tax_id:
                     frappe.throw(
                         _(
@@ -1482,7 +1483,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
                         "As per ZATCA regulation, Pincode must be exactly 5 digits in customer address."
                     )
                 )
-            if address and address.country == "Saudi Arabia":
+            if address and is_saudi_country(address.country):
                 if not customer_doc.tax_id:
                     frappe.throw(
                         _(

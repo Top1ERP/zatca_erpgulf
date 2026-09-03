@@ -380,7 +380,10 @@ fixtures = [
 ]
 
 app_include_css = "/assets/zatca_erpgulf/css/tooltip.css"
-app_include_js = "/assets/zatca_erpgulf/js/tooltip.js"
+app_include_js = [
+    "/assets/zatca_erpgulf/js/country.js",
+    "/assets/zatca_erpgulf/js/tooltip.js",
+]
 
 # ZATCA customization sync
 # Ensures required Custom Fields and optional Property Setters after install/sync/migrate.

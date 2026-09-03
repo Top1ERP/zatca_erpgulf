@@ -7,6 +7,7 @@ import frappe
 from frappe import _
 from frappe.utils import cint, flt
 from zatca_erpgulf.zatca_erpgulf.createxml import get_zatca_discount_reason_code
+from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
     PHASE_2_VALUE,
     is_zatca_invoice_enabled,
@@ -1109,7 +1110,7 @@ def validate_sales_invoice_taxes(doc, event=None):
         address = frappe.get_doc("Address", address_name)
         country = (getattr(address, "country", "") or "").strip()
 
-        if country.lower() == "saudi arabia":
+        if is_saudi_country(country):
             frappe.throw(
                 _(
                     "ZATCA Export Invoice cannot be enabled when the customer country is Saudi Arabia."

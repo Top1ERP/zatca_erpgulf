@@ -1,5 +1,6 @@
 import ast
 import csv
+from collections import Counter
 from pathlib import Path
 from string import Formatter
 import unittest
@@ -54,6 +55,26 @@ def _placeholders(value: str) -> set[str]:
         for _literal, field_name, _format_spec, _conversion in Formatter().parse(value)
         if field_name is not None
     }
+
+
+class TestTranslationCatalogIntegrity(unittest.TestCase):
+    def test_arabic_catalog_has_exactly_two_columns_and_unique_keys(self):
+        with TRANSLATION_FILE.open(encoding="utf-8", newline="") as source:
+            rows = list(csv.reader(source))
+
+        malformed = [row for row in rows if len(row) != 2 or not row[0].strip()]
+        self.assertEqual(malformed, [])
+
+        keys = [row[0] for row in rows]
+        duplicates = {key: count for key, count in Counter(keys).items() if count > 1}
+        self.assertEqual(duplicates, {})
+
+    def test_arabic_catalog_values_are_not_empty(self):
+        with TRANSLATION_FILE.open(encoding="utf-8", newline="") as source:
+            rows = list(csv.reader(source))
+
+        empty_values = [row[0] for row in rows if len(row) == 2 and not row[1].strip()]
+        self.assertEqual(empty_values, [])
 
 
 class TestAdvanceTranslationContract(unittest.TestCase):
