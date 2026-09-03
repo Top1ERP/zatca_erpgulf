@@ -10,7 +10,7 @@ A Frappe ERPNext app for businesses in Saudi Arabia, ensuring compliance with ZA
 ✅ Automatic CSR generation & compliance checks<br>
 ✅ Secure authentication & token management<br>
 ✅ Invoice submission for clearance & reporting<br>
-✅ Support for standard invoices, credit notes, debit notes <br>
+✅ Support for standard invoices, credit notes, debit notes, Advance Payment Invoice <br>
 ✅ Retrieve and attach QR Codes to invoices<br>
 ✅ Logging for audit trails & error handling<br>
 ✅ Reports to compare invoices with ZATCA portal statistics <br>
@@ -22,30 +22,30 @@ compatibility-focused implementation for real-world ERPNext sites:
 
 ✨ **Reliable Saudi tax data** – ZATCA tax categories and exemption reasons are
   synchronized on Sales Taxes and Charges Templates and Item Tax Templates,
-  with safe support for legacy field names.
+  with safe support for legacy field names. <br>
 ✨ **Customer validation controls** – optional company-level rules validate Saudi
   B2B buyer IDs, TIN/Tax ID relationships, UNN (700), and Arabic customer names,
-  with Arabic translations and configurable warnings.
+  with Arabic translations and configurable warnings. <br>
 ✨ **National Address validation** – configurable validation for linked Company
   and Customer addresses, including Building Number, Postal Code, Short Address,
-  and Arabic/English address compatibility.
+  and Arabic/English address compatibility. <br>
 ✨ **Advance-payment workflow** – Payment Entries can create linked advance
   Sales Invoices, with ADV- naming, account and VAT consistency checks, safe
-  allocation to final invoices, and return/credit-note handling.
+  allocation to final invoices, and return/credit-note handling. <br>
 ✨ **One consistent QR/XML path** – Sales Invoices use the ZATCA generator as
   the single QR source, retain one `ksa_einv_qr` attachment, and support local
-  QR regeneration without contacting ZATCA.
+  QR regeneration without contacting ZATCA. <br>
 ✨ **Correct machine timestamps** – XML IssueTime and QR Tag 3 preserve the
   invoice posting time in 24-hour `HH:mm:ss` form without accidental AM/PM
-  conversion.
+  conversion. <br>
 ✨ **Clearance and Reporting controls** – Phase-2 Clearance selection, B2C
   submission modes, response translation, debug XML, and improved error
-  diagnostics are available from Company settings.
+  diagnostics are available from Company settings. <br>
 ✨ **Legacy-site hardening** – idempotent migrations normalize layouts,
   permissions, translations, naming series, and stale fetch mappings without
-  changing existing transaction values.
+  changing existing transaction values. <br>
 ✨ **Regression coverage** – automated tests cover advance invoices, tax-source
-  priority, field compatibility, QR TLV payloads, layouts, and validation rules.
+  priority, field compatibility, QR TLV payloads, layouts, and validation rules. <br>
 
 🔹 Compatibility<br>
 🌐 ERPNext Version13, 14 and 15<br>
