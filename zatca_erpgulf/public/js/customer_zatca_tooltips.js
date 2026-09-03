@@ -153,12 +153,12 @@ function zatca_live_buyer_hint(frm) {
     if ((valid && !whitespaceInvalid && !taxIdInvalid && !tinMismatch) || frm.__zatca_last_buyer_hint === key) return;
     frm.__zatca_last_buyer_hint = key;
     const message = whitespaceInvalid
-        ? __("Buyer ID and Tax ID must not contain spaces.")
+        ? __("Customer ID Number for ZATCA and Tax ID must not contain spaces.")
         : taxIdInvalid
             ? __("The customer is in Saudi Arabia based on Territory or the primary address. Tax ID must contain 15 digits, start with 3, and end with 3.")
             : tinMismatch
                 ? __("TIN and Tax ID do not match. TIN must equal the first 10 digits of Tax ID.<br>TIN: {0}<br>Tax ID: {1}").replace("{0}", value).replace("{1}", taxId)
-                : __("Buyer ID format is invalid for the selected ZATCA identification type.");
+                : __("Customer ID Number for ZATCA format is invalid for the selected ZATCA identification type.");
     frappe.show_alert({ message, indicator: "orange" }, 7);
 }
 
@@ -180,7 +180,7 @@ frappe.ui.form.on("Customer", {
         if (!state || !state.enabled || !state.needs_id || state.require_on_save || zatca_first_present(frm.doc, ["custom_buyer_id", "buyer_id", "zatca_buyer_id"], "")) return;
         if (frm.__zatca_customer_warning_confirmed) return;
         frappe.validated = false;
-        const dialog = new frappe.ui.Dialog({ title: __("ZATCA Customer Validation"), fields: [{ fieldtype: "HTML", options: __("Buyer ID is empty. Continue saving this incomplete Saudi B2B Customer record?") }], primary_action_label: __("Continue Saving"), primary_action() { frm.__zatca_customer_warning_confirmed = true; dialog.hide(); frm.save(); } });
+        const dialog = new frappe.ui.Dialog({ title: __("ZATCA Customer Validation"), fields: [{ fieldtype: "HTML", options: __("Customer ID Number for ZATCA is empty. Continue saving this incomplete Saudi B2B Customer record?") }], primary_action_label: __("Continue Saving"), primary_action() { frm.__zatca_customer_warning_confirmed = true; dialog.hide(); frm.save(); } });
         dialog.set_secondary_action(() => dialog.hide());
         dialog.set_secondary_action_label(__("Return to Edit"));
         dialog.show();

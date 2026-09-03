@@ -164,7 +164,7 @@ def _buyer_errors(customer, policy: dict[str, Any]) -> tuple[list[str], list[str
 
 
     if any(char.isspace() for char in raw_buyer_id):
-        add_issue(_("Buyer ID must not contain spaces."))
+        add_issue(_("Customer ID Number for ZATCA must not contain spaces."))
     if any(char.isspace() for char in raw_tax_id):
         add_issue(_("Tax ID must not contain spaces."))
     if not tax_id:
@@ -174,12 +174,12 @@ def _buyer_errors(customer, policy: dict[str, Any]) -> tuple[list[str], list[str
 
     if not buyer_id and policy.get("tax_id_fallback"):
         if tax_id:
-            warnings.append(_("Buyer ID is empty; Tax ID fallback is being used for this Saudi B2B customer."))
+            warnings.append(_("Customer ID Number for ZATCA is empty; Tax ID fallback is being used for this Saudi B2B customer."))
             return errors, warnings
 
     if not buyer_id:
         message = _(
-            "Buyer ID is required for a Saudi B2B customer before ZATCA customer validation can be completed."
+            "Customer ID Number for ZATCA is required for a Saudi B2B customer before ZATCA customer validation can be completed."
         )
         (errors if policy.get("require_on_save") else warnings).append(message)
         return errors, warnings
@@ -201,9 +201,9 @@ def _buyer_errors(customer, policy: dict[str, Any]) -> tuple[list[str], list[str
         "OTH": (r".{1,60}$", "1 to 60 characters"),
     }
     if not buyer_type or buyer_type not in rules:
-        add_issue(_("Buyer ID Type is required and must be a supported ZATCA identification scheme."))
+        add_issue(_("Customer ID Type for ZATCA is required and must be a supported ZATCA identification scheme."))
     elif not re.fullmatch(rules[buyer_type][0], buyer_id):
-        add_issue(_("Buyer ID for {0} must contain {1}.").format(buyer_type, rules[buyer_type][1]))
+        add_issue(_("Customer ID Number for ZATCA of type {0} must contain {1}.").format(buyer_type, rules[buyer_type][1]))
     if buyer_type == "TIN" and tax_id and not tax_id.startswith(buyer_id):
         add_issue(
             _("TIN and Tax ID do not match. TIN must equal the first 10 digits of Tax ID.<br>TIN: {0}<br>Tax ID: {1}").format(buyer_id, tax_id)
