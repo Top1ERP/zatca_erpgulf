@@ -4177,9 +4177,21 @@ def sync_existing_tax_template_zatca_values() -> dict[str, list[str]]:
 
             if changed:
                 doc.flags.ignore_permissions = True
-                # Legacy tax templates can contain deleted links; this migration only updates ZATCA metadata.
+                # Legacy tax templates can contain deleted or cross-company links.
+                # This migration only updates ZATCA metadata, so fall back to a
+                # direct field update when ERPNext validation rejects unrelated
+                # historical accounting data.
                 doc.flags.ignore_links = True
-                doc.save(ignore_permissions=True)
+                try:
+                    doc.save(ignore_permissions=True)
+                except frappe.ValidationError as exc:
+                    values = {"custom_zatca_tax_category": doc.custom_zatca_tax_category}
+                    if inferred_reason:
+                        values["custom_exemption_reason_code"] = doc.custom_exemption_reason_code
+                    frappe.db.set_value(doctype, doc.name, values, update_modified=False)
+                    result["skipped"].append(
+                        f"{doctype} {doc.name} - legacy accounting link ({exc})"
+                    )
                 result["updated"].append(
                     f"{doctype} {doc.name} -> {inferred_category}"
                     + (f" / {inferred_reason}" if inferred_reason else "")
