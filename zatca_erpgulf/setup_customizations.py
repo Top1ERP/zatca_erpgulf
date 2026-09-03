@@ -5057,6 +5057,9 @@ def ensure_advance_payment_item() -> dict[str, Any]:
         }
     )
     item.flags.ignore_permissions = True
+    # Site-specific mandatory custom fields must not block creation of the
+    # app-owned service item; no existing item data is modified.
+    item.flags.ignore_mandatory = True
     item.insert(ignore_permissions=True)
     result["created"].append(ADVANCE_PAYMENT_ITEM_CODE)
     return result
