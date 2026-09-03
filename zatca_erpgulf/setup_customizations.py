@@ -4177,6 +4177,8 @@ def sync_existing_tax_template_zatca_values() -> dict[str, list[str]]:
 
             if changed:
                 doc.flags.ignore_permissions = True
+                # Legacy tax templates can contain deleted links; this migration only updates ZATCA metadata.
+                doc.flags.ignore_links = True
                 doc.save(ignore_permissions=True)
                 result["updated"].append(
                     f"{doctype} {doc.name} -> {inferred_category}"
