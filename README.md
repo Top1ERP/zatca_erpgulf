@@ -18,8 +18,9 @@ A Frappe ERPNext app for businesses in Saudi Arabia, ensuring compliance with ZA
 🔹 Version 4.0 Enhancements
 
 Version 4.0 extends the original ERPGulf ZATCA 3.0 application with a
-compatibility-focused implementation for real-world ERPNext sites:
+compatibility-focused implementation for real-world ERPNext sites **With significant improvements at all levels**:
 
+✨ **Significant improvements** in XML, QR code, and handling various types of discounts.<br>
 ✨ **Reliable Saudi tax data** – ZATCA tax categories and exemption reasons are
   synchronized on Sales Taxes and Charges Templates and Item Tax Templates,
   with safe support for legacy field names. <br>
