@@ -170,7 +170,7 @@ def _buyer_errors(customer, policy: dict[str, Any]) -> tuple[list[str], list[str
     if not tax_id:
         warnings.append(_("Tax ID is empty for this Saudi B2B customer. Provide a 15-digit Tax ID when available."))
     elif policy.get("validate_format") and not re.fullmatch(r"3\d{13}3", tax_id):
-        add_issue(_("Tax ID for a Saudi customer must contain 15 digits, start with 3, and end with 3."))
+        add_issue(_("The customer is in Saudi Arabia based on Territory or the primary address. Tax ID must contain 15 digits, start with 3, and end with 3."))
 
     if not buyer_id and policy.get("tax_id_fallback"):
         if tax_id:

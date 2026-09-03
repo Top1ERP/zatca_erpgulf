@@ -524,6 +524,7 @@ Phase-2 only. When enabled, Standard ZATCA documents use the Clearance API. When
 "Buyer ID is empty. Continue saving this incomplete Saudi B2B Customer record?","رقم تعريف المشتري فارغ. هل تريد متابعة حفظ سجل العميل السعودي بين الشركات رغم عدم اكتماله؟"
 "Tax ID must not contain spaces.","لا يجوز أن يحتوي الرقم الضريبي على مسافات."
 "Tax ID for a Saudi customer must contain 15 digits, start with 3, and end with 3.","يجب أن يتكون الرقم الضريبي للعميل السعودي من 15 رقمًا، وأن يبدأ بالرقم 3 وينتهي بالرقم 3."
+"The customer is in Saudi Arabia based on Territory or the primary address. Tax ID must contain 15 digits, start with 3, and end with 3.","بما أن العميل في المملكة العربية السعودية وفقًا لحقل الإقليم أو العنوان الأساسي، يجب أن يتكون الرقم الضريبي من 15 رقمًا، وأن يبدأ بالرقم 3 وينتهي بالرقم 3."
 "TIN and Tax ID do not match. TIN must equal the first 10 digits of Tax ID.<br>TIN: {0}<br>Tax ID: {1}","رقم TIN والرقم الضريبي غير متطابقين. يجب أن يساوي TIN أول 10 أرقام من الرقم الضريبي.<br>TIN: {0}<br>الرقم الضريبي: {1}"
 "Buyer ID and Tax ID must not contain spaces.","لا يجوز أن يحتوي رقم تعريف المشتري والرقم الضريبي على مسافات."
 "Tax ID is empty for this Saudi B2B customer. Provide a 15-digit Tax ID when available.","الرقم الضريبي فارغ لهذا العميل السعودي بين الشركات. أدخل رقمًا ضريبيًا من 15 رقمًا عند توفره."

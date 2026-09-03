@@ -155,7 +155,7 @@ function zatca_live_buyer_hint(frm) {
     const message = whitespaceInvalid
         ? __("Buyer ID and Tax ID must not contain spaces.")
         : taxIdInvalid
-            ? __("Tax ID for a Saudi customer must contain 15 digits, start with 3, and end with 3.")
+            ? __("The customer is in Saudi Arabia based on Territory or the primary address. Tax ID must contain 15 digits, start with 3, and end with 3.")
             : tinMismatch
                 ? __("TIN and Tax ID do not match. TIN must equal the first 10 digits of Tax ID.<br>TIN: {0}<br>Tax ID: {1}").replace("{0}", value).replace("{1}", taxId)
                 : __("Buyer ID format is invalid for the selected ZATCA identification type.");
