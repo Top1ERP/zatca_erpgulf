@@ -111,11 +111,10 @@ function zatca_sync_customer_fields_visibility(frm) {
         ["custom_buyer_id_type", ["custom_buyer_id_type", "buyer_id_type", "zatca_buyer_id_type"]],
         ["custom_buyer_id", ["custom_buyer_id", "buyer_id", "zatca_buyer_id"]],
     ];
-    const has_value = fields.some(([, aliases]) => aliases.some((fieldname) => {
-        const value = zatca_first_present(frm.doc, [fieldname], "");
-        return value !== null && value !== undefined && String(value).trim() !== "";
-    }));
-    const visible = has_value || !!policy.zatca_phase2;
+    // Customer ZATCA identification fields are a Phase-2 UI feature.
+    // Hide them in Phase-1 even when legacy records contain old values; the
+    // server-side aliases still preserve compatibility for those records.
+    const visible = !!policy.zatca_phase2;
     fields.forEach(([canonical]) => {
         if (frm.fields_dict[canonical]) frm.toggle_display(canonical, visible);
     });
