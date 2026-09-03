@@ -10,12 +10,12 @@ import xml.etree.ElementTree as ET
 from xml.dom import minidom
 from datetime import datetime
 from frappe.utils.data import get_time
+from zatca_erpgulf.ksa_compliance.tax_details import get_item_tax_detail
 from decimal import Decimal, ROUND_HALF_UP
 import frappe
 import json
 from frappe import _
 from zatca_erpgulf.zatca_erpgulf.xml_tax_data import (
-    get_tax_for_item,
     get_exemption_reason_map,
     resolve_exemption_reason_text,
 )
@@ -272,16 +272,9 @@ def _nominal_item_base_net_amount(single_item):
 def _nominal_tax_rate_without_template(sales_invoice_doc, single_item):
     try:
         item_code = single_item.get("item_code")
-        if (
-            sales_invoice_doc.get("taxes")
-            and sales_invoice_doc.taxes[0].get("item_wise_tax_detail")
-            and item_code
-        ):
-            _item_tax_amount, tax_percentage = get_tax_for_item(
-                sales_invoice_doc.taxes[0].item_wise_tax_detail,
-                item_code,
-            )
-            if tax_percentage not in (None, ""):
+        if sales_invoice_doc.get("taxes") and item_code:
+            _item_tax_amount, tax_percentage = get_item_tax_detail(sales_invoice_doc, single_item)
+            if tax_percentage not in (None, "") and tax_percentage != 0:
                 return _nominal_q2(tax_percentage)
     except Exception:
         pass
@@ -539,17 +532,8 @@ def add_line_item_discount(cac_price, single_item, sales_invoice_doc):
 
 def get_tax_wise_detail(sales_invoice_doc,single_item):
     """getting item wise tax"""
-    if int(frappe.__version__.split(".", 1)[0]) == 16 and sales_invoice_doc.item_wise_tax_details:
-                tax_rate = float(f"{sales_invoice_doc.item_wise_tax_details[0].rate:.1f}")
-                tax_amount = sales_invoice_doc.item_wise_tax_details[0].amount
-
-                # build JSON exactly like v15
-                tax_json = json.dumps({
-                    single_item.item_code: [tax_rate, float(tax_amount)]
-                })
-    else:
-        tax_json = sales_invoice_doc.taxes[0].item_wise_tax_detail
-    return tax_json
+    tax_amount, tax_rate = get_item_tax_detail(sales_invoice_doc, single_item)
+    return json.dumps({str(single_item.item_code): [tax_rate, tax_amount]})
 
 
 def _quantize_2(value):
@@ -672,9 +656,7 @@ def item_data(invoice, sales_invoice_doc):
     try:
         for single_item in sales_invoice_doc.items:
             tax_json = get_tax_wise_detail(sales_invoice_doc, single_item)
-            _item_tax_amount, item_tax_percentage = get_tax_for_item(
-                tax_json, single_item.item_code
-            )
+            _item_tax_amount, item_tax_percentage = get_item_tax_detail(sales_invoice_doc, single_item)
 
             line_net_amount = _line_net_amount(single_item, sales_invoice_doc)
             line_net_rate = _line_net_rate(single_item, sales_invoice_doc)
@@ -748,9 +730,7 @@ def item_data_advance_invoice(invoice, sales_invoice_doc):
         # Add regular item lines
         for single_item in sales_invoice_doc.items:
             tax_json = get_tax_wise_detail(sales_invoice_doc, single_item)
-            _item_tax_amount, item_tax_percentage = get_tax_for_item(
-                tax_json, single_item.item_code
-            )
+            _item_tax_amount, item_tax_percentage = get_item_tax_detail(sales_invoice_doc, single_item)
 
             line_net_amount = _line_net_amount(single_item, sales_invoice_doc)
             line_net_rate = _line_net_rate(single_item, sales_invoice_doc)

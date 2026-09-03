@@ -17,6 +17,7 @@ import unicodedata
 from difflib import SequenceMatcher
 import json
 from frappe.utils.data import get_time
+from zatca_erpgulf.ksa_compliance.tax_details import get_item_tax_detail
 from frappe import _
 import frappe
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
@@ -1023,9 +1024,7 @@ def get_tax_total_from_items(pos_invoice_doc):
         total_tax = 0
         for single_item in pos_invoice_doc.items:
             # _ = item_tax_amount
-            _item_tax_amount, tax_percent = get_tax_for_item(
-                pos_invoice_doc.taxes[0].item_wise_tax_detail, single_item.item_code
-            )
+            _item_tax_amount, tax_percent = get_item_tax_detail(pos_invoice_doc, single_item)
             total_tax = total_tax + (single_item.net_amount * (tax_percent / 100))
         return total_tax
     except (AttributeError, KeyError, ValueError, TypeError) as e:
