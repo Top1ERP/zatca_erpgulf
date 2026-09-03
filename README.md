@@ -15,13 +15,37 @@ A Frappe ERPNext app for businesses in Saudi Arabia, ensuring compliance with ZA
 ✅ Logging for audit trails & error handling<br>
 ✅ Reports to compare invoices with ZATCA portal statistics <br>
 
-🔹Version 3.0 Enhancements
+🔹 Version 4.0 Enhancements
 
-✨ Saves XML files directly without temporary storage → frees up hard disk space
-✨ Improved performance for invoice generation & submission
-✨ Enhanced error handling and logging for failed submissions
-✨ Optimized QR code generation and attachment
-✨ Updated compliance checks for latest ZATCA regulations
+Version 4.0 extends the original ERPGulf ZATCA 3.0 application with a
+compatibility-focused implementation for real-world ERPNext sites:
+
+✨ **Reliable Saudi tax data** – ZATCA tax categories and exemption reasons are
+  synchronized on Sales Taxes and Charges Templates and Item Tax Templates,
+  with safe support for legacy field names.
+✨ **Customer validation controls** – optional company-level rules validate Saudi
+  B2B buyer IDs, TIN/Tax ID relationships, UNN (700), and Arabic customer names,
+  with Arabic translations and configurable warnings.
+✨ **National Address validation** – configurable validation for linked Company
+  and Customer addresses, including Building Number, Postal Code, Short Address,
+  and Arabic/English address compatibility.
+✨ **Advance-payment workflow** – Payment Entries can create linked advance
+  Sales Invoices, with ADV- naming, account and VAT consistency checks, safe
+  allocation to final invoices, and return/credit-note handling.
+✨ **One consistent QR/XML path** – Sales Invoices use the ZATCA generator as
+  the single QR source, retain one `ksa_einv_qr` attachment, and support local
+  QR regeneration without contacting ZATCA.
+✨ **Correct machine timestamps** – XML IssueTime and QR Tag 3 preserve the
+  invoice posting time in 24-hour `HH:mm:ss` form without accidental AM/PM
+  conversion.
+✨ **Clearance and Reporting controls** – Phase-2 Clearance selection, B2C
+  submission modes, response translation, debug XML, and improved error
+  diagnostics are available from Company settings.
+✨ **Legacy-site hardening** – idempotent migrations normalize layouts,
+  permissions, translations, naming series, and stale fetch mappings without
+  changing existing transaction values.
+✨ **Regression coverage** – automated tests cover advance invoices, tax-source
+  priority, field compatibility, QR TLV payloads, layouts, and validation rules.
 
 🔹 Compatibility<br>
 🌐 ERPNext Version13, 14 and 15<br>
