@@ -3650,7 +3650,7 @@ def sync_address_zatca_customizations() -> dict[str, list[str]]:
                 "fieldname": "custom_zatca_address_validation_section",
                 "fieldtype": "Section Break",
                 "label": "ZATCA Address Validation Settings",
-                "insert_after": "custom_allow_zatca_tax_id_fallback",
+                "insert_after": "custom_validate_zatca_buyer_id_format",
                 "collapsible": 1,
                 "no_copy": 1,
                 "description": "Controls Saudi National Address validation for linked Company and Customer addresses.",
@@ -3896,14 +3896,6 @@ def sync_tax_template_zatca_source_fields() -> dict[str, list[str]]:
                     "default": "1",
                     "description": "Validate the selected ZATCA identification scheme and number format.",
                 },
-                {
-                    "fieldname": "custom_allow_zatca_tax_id_fallback",
-                    "fieldtype": "Check",
-                    "label": "Allow Tax ID Fallback for Legacy Sites",
-                    "insert_after": "custom_validate_zatca_buyer_id_format",
-                    "default": "1",
-                    "description": "Preserve legacy sites that identify B2B customers using tax_id.",
-                },
             ]
         )
         result["ensured"].append("Company ZATCA source and zero-rate validation settings")
@@ -3982,7 +3974,6 @@ def sync_tax_template_zatca_source_fields() -> dict[str, list[str]]:
     for fieldname, default in (
         ("custom_enable_zatca_customer_validation", 1),
         ("custom_validate_zatca_buyer_id_format", 1),
-        ("custom_allow_zatca_tax_id_fallback", 1),
     ):
         if _doctype_exists("Company") and frappe.db.has_column("Company", fieldname):
             frappe.db.sql(

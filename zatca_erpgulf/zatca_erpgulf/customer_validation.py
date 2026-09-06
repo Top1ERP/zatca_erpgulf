@@ -27,7 +27,6 @@ from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
 CUSTOMER_VALIDATION_FIELD = "custom_enable_zatca_customer_validation"
 REQUIRE_ON_SAVE_FIELD = "custom_require_zatca_buyer_id_on_customer_save"
 VALIDATE_FORMAT_FIELD = "custom_validate_zatca_buyer_id_format"
-TAX_ID_FALLBACK_FIELD = "custom_allow_zatca_tax_id_fallback"
 
 
 def _value(doc: Any, fieldname: str, default: Any = None) -> Any:
@@ -48,10 +47,10 @@ def _company_policy(company_name: str) -> dict[str, Any]:
     try:
         company = frappe.get_cached_doc("Company", company_name)
     except Exception:
-        return {"rank": 0, "enabled": False, "phase": "", "require_on_save": False, "validate_format": False, "tax_id_fallback": False}
+        return {"rank": 0, "enabled": False, "phase": "", "require_on_save": False, "validate_format": False}
 
     if not is_zatca_invoice_enabled(company):
-        return {"rank": 0, "enabled": False, "phase": "", "require_on_save": False, "validate_format": False, "tax_id_fallback": False}
+        return {"rank": 0, "enabled": False, "phase": "", "require_on_save": False, "validate_format": False}
 
     phase = str(resolve_zatca_phase(company) or "").strip().replace(" ", "-")
     if phase.casefold() in {"phase-2", "phase2"}:
@@ -59,7 +58,7 @@ def _company_policy(company_name: str) -> dict[str, Any]:
     elif phase.casefold() in {"phase-1", "phase1"}:
         phase, rank = PHASE_1_VALUE, 1
     else:
-        return {"rank": 0, "enabled": False, "phase": "", "require_on_save": False, "validate_format": False, "tax_id_fallback": False}
+        return {"rank": 0, "enabled": False, "phase": "", "require_on_save": False, "validate_format": False}
 
     return {
         "rank": rank,
@@ -67,7 +66,6 @@ def _company_policy(company_name: str) -> dict[str, Any]:
         "phase": phase,
         "require_on_save": bool(cint(_value(company, REQUIRE_ON_SAVE_FIELD, 0) or 0)),
         "validate_format": bool(cint(_value(company, VALIDATE_FORMAT_FIELD, 1) or 0)),
-        "tax_id_fallback": bool(cint(_value(company, TAX_ID_FALLBACK_FIELD, 1) or 0)),
     }
 
 
@@ -116,7 +114,6 @@ def get_customer_validation_policy(customer=None, custom_b2c=0, customer_primary
         "phase": policy.get("phase", ""),
         "require_on_save": bool(policy.get("require_on_save")),
         "validate_format": bool(policy.get("validate_format")),
-        "tax_id_fallback": bool(policy.get("tax_id_fallback")),
         # Customer is shared across companies. Visibility follows the
         # strictest linked company's ZATCA enablement and phase.
         "zatca_phase2": bool(policy.get("rank", 0) >= 2),
@@ -175,11 +172,6 @@ def _buyer_errors(customer, policy: dict[str, Any]) -> tuple[list[str], list[str
 
     if any(char.isspace() for char in raw_buyer_id):
         add_issue(_("Customer ID Number for ZATCA must not contain spaces."))
-    if not buyer_id and policy.get("tax_id_fallback"):
-        if tax_id:
-            warnings.append(_("Customer ID Number for ZATCA is empty; Tax ID fallback is being used for this Saudi B2B customer."))
-            return errors, warnings
-
     if not buyer_id:
         message = _(
             "Customer ID Number for ZATCA is required for a Saudi B2B customer before ZATCA customer validation can be completed.<br><br><small>You can disable this required-field rule from Company ZATCA Customer Validation Settings.</small>"
