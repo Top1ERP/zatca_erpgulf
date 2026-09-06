@@ -4,6 +4,7 @@ import base64
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from zatca_erpgulf.zatca_erpgulf.phase2_artifacts import _extract_qr_payload_from_xml
 from zatca_erpgulf.zatca_erpgulf.sign_invoice_first import (
     _is_simplified_document,
     get_tlv_for_value,
@@ -50,3 +51,19 @@ def test_b2c_invoice_gets_tag9():
 def test_pos_invoice_is_simplified_without_customer_lookup():
     doc = SimpleNamespace(doctype="POS Invoice")
     assert _is_simplified_document(doc) is True
+
+
+def test_phase2_qr_payload_is_read_from_cleared_invoice_xml():
+    xml = b"""
+    <Invoice xmlns=\"urn:oasis:names:specification:ubl:schema:xsd:Invoice-2\"
+             xmlns:cac=\"urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2\"
+             xmlns:cbc=\"urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2\">
+      <cac:AdditionalDocumentReference>
+        <cbc:ID>QR</cbc:ID>
+        <cac:Attachment>
+          <cbc:EmbeddedDocumentBinaryObject>QR-PAYLOAD</cbc:EmbeddedDocumentBinaryObject>
+        </cac:Attachment>
+      </cac:AdditionalDocumentReference>
+    </Invoice>
+    """
+    assert _extract_qr_payload_from_xml(xml) == "QR-PAYLOAD"

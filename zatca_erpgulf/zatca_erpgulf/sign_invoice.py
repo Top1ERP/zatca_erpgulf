@@ -125,6 +125,9 @@ from zatca_erpgulf.zatca_erpgulf.submit_xml_qr_notmultiple import (
 from zatca_erpgulf.zatca_erpgulf.zatca_background_sched import (
     zatca_call_scheduler_background,
 )
+from zatca_erpgulf.zatca_erpgulf.phase2_artifacts import (
+    _extract_qr_payload_from_xml,
+)
 
 REPORTED_XML = "%Reported xml file%"
 SAUDI_ARABIA = "Saudi Arabia"
@@ -205,7 +208,9 @@ def error_log():
         return None
 
 
-def attach_qr_image(qrcodeb64, sales_invoice_doc, allow_phase2=False):
+def attach_qr_image(
+    qrcodeb64, sales_invoice_doc, allow_phase2=False, phase2_status="REPORTED"
+):
     """Persist a Phase-1 QR only; Phase-2 artifacts are saved from ZATCA response XML."""
     try:
         company_doc = frappe.get_cached_doc("Company", sales_invoice_doc.company)
@@ -241,7 +246,7 @@ def attach_qr_image(qrcodeb64, sales_invoice_doc, allow_phase2=False):
         file_doc = frappe.get_doc(
             {
                 "doctype": "File",
-                "file_name": f"QR-Phase2-REPORTED-{sales_invoice_doc.name}.png".replace(
+                "file_name": f"QR-Phase2-{phase2_status.upper()}-{sales_invoice_doc.name}.png".replace(
                     os.path.sep, "__"
                 ),
                 "attached_to_doctype": sales_invoice_doc.doctype,
@@ -957,6 +962,20 @@ def clearance_api(
             )
             file.save(ignore_permissions=True)
             sales_invoice_doc.db_set("custom_ksa_einvoicing_xml", file.file_url)
+
+            # ZATCA returns the authoritative QR inside clearedInvoice. The
+            # phase-2 on_submit hook runs before this response is stored, and
+            # db_set does not fire on_update_after_submit, so create the image
+            # here while the response XML is available. This is local only;
+            # it never submits the invoice again.
+            qr_payload = _extract_qr_payload_from_xml(xml_cleared.encode("utf-8"))
+            if qr_payload:
+                attach_qr_image(
+                    qr_payload,
+                    invoice_doc,
+                    allow_phase2=True,
+                    phase2_status="CLEARED",
+                )
             success_log(response.text, uuid1, invoice_number)
             return xml_cleared
         else:

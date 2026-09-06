@@ -78,6 +78,9 @@ from zatca_erpgulf.zatca_erpgulf.pos_schedule_background import (
     zatca_call_pos_without_xml_background,
 )
 from zatca_erpgulf.zatca_erpgulf.pih import update_pih_after_phase2_success
+from zatca_erpgulf.zatca_erpgulf.phase2_artifacts import (
+    _extract_qr_payload_from_xml,
+)
 
 ITEM_TAX_TEMPLATE_WARNING = "If any one item has an Item Tax Template,"
 " all items must have an Item Tax Template."
@@ -700,6 +703,17 @@ def clearance_api(
             if file.is_private == 0:
                 frappe.db.set_value("File", file.name, "is_private", 1)
                 frappe.db.commit()
+
+            # Build the local QR from ZATCA's authoritative clearedInvoice
+            # without submitting the POS invoice again.
+            qr_payload = _extract_qr_payload_from_xml(xml_cleared.encode("utf-8"))
+            if qr_payload:
+                attach_qr_image(
+                    qr_payload,
+                    invoice_doc,
+                    allow_phase2=True,
+                    phase2_status="CLEARED",
+                )
 
             success_log(response.text, uuid1, invoice_number)
             return xml_cleared
