@@ -99,7 +99,7 @@ async function zatca_load_customer_policy(frm) {
         enabled: !!policy.enabled,
         require_on_save: !!policy.require_on_save,
         zatca_phase2: !!policy.zatca_phase2,
-        needs_id: !!policy.enabled && zatca_is_saudi_country(country) && !Number(zatca_first_present(frm.doc, ["custom_b2c", "b2c", "is_b2c", "zatca_b2c"], 0) || 0),
+        needs_id: !!policy.enabled && !!policy.zatca_phase2 && zatca_is_saudi_country(country) && !Number(zatca_first_present(frm.doc, ["custom_b2c", "b2c", "is_b2c", "zatca_b2c"], 0) || 0),
     };
     zatca_sync_customer_fields_visibility(frm);
 
