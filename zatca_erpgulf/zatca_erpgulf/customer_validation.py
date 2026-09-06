@@ -150,19 +150,24 @@ def _buyer_errors(customer, policy: dict[str, Any]) -> tuple[list[str], list[str
         if any(char.isspace() for char in raw_unn) or not re.fullmatch(r"7\d{9}", unn):
             errors.append(_("UNN (700) for a Saudi customer must contain exactly 10 digits and start with 7."))
 
-    # Customer buyer identification is a Phase-2 requirement. Keep the
-    # existing UNN validation above available for both ZATCA phases, but do
-    # not require Customer ID Number for ZATCA during Phase-1.
-    if policy.get("phase") != PHASE_2_VALUE:
-        return errors, warnings
-
     if not policy.get("enabled") or country != "SA" or cint(get_alias_value("customer_b2c", customer, 0) or 0):
         return errors, warnings
 
-    raw_buyer_id = str(get_alias_value("customer_buyer_id", customer, "") or "")
     raw_tax_id = str(_value(customer, "tax_id", "") or "")
-    buyer_id = raw_buyer_id.strip()
     tax_id = raw_tax_id.strip()
+    if any(char.isspace() for char in raw_tax_id):
+        errors.append(_("Tax ID must not contain spaces."))
+    if not tax_id:
+        warnings.append(_("Tax ID is empty for this Saudi B2B customer. Provide a 15-digit Tax ID when available."))
+    elif policy.get("validate_format") and not re.fullmatch(r"3\d{13}3", tax_id):
+        errors.append(_("The customer is in Saudi Arabia based on Territory or the primary address. Tax ID must contain 15 digits, start with 3, and end with 3."))
+
+    # Customer buyer identification is a Phase-2 requirement.
+    if policy.get("phase") != PHASE_2_VALUE:
+        return errors, warnings
+
+    raw_buyer_id = str(get_alias_value("customer_buyer_id", customer, "") or "")
+    buyer_id = raw_buyer_id.strip()
     buyer_type = str(get_alias_value("customer_buyer_id_type", customer, "") or "").strip().upper()
     def add_issue(message: str) -> None:
         errors.append(message)
@@ -170,13 +175,6 @@ def _buyer_errors(customer, policy: dict[str, Any]) -> tuple[list[str], list[str
 
     if any(char.isspace() for char in raw_buyer_id):
         add_issue(_("Customer ID Number for ZATCA must not contain spaces."))
-    if any(char.isspace() for char in raw_tax_id):
-        add_issue(_("Tax ID must not contain spaces."))
-    if not tax_id:
-        warnings.append(_("Tax ID is empty for this Saudi B2B customer. Provide a 15-digit Tax ID when available."))
-    elif policy.get("validate_format") and not re.fullmatch(r"3\d{13}3", tax_id):
-        add_issue(_("The customer is in Saudi Arabia based on Territory or the primary address. Tax ID must contain 15 digits, start with 3, and end with 3."))
-
     if not buyer_id and policy.get("tax_id_fallback"):
         if tax_id:
             warnings.append(_("Customer ID Number for ZATCA is empty; Tax ID fallback is being used for this Saudi B2B customer."))

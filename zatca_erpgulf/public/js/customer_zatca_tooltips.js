@@ -100,6 +100,7 @@ async function zatca_load_customer_policy(frm) {
         require_on_save: !!policy.require_on_save,
         zatca_phase2: !!policy.zatca_phase2,
         needs_id: !!policy.enabled && !!policy.zatca_phase2 && zatca_is_saudi_country(country) && !Number(zatca_first_present(frm.doc, ["custom_b2c", "b2c", "is_b2c", "zatca_b2c"], 0) || 0),
+        needs_tax_id: !!policy.enabled && zatca_is_saudi_country(country) && !Number(zatca_first_present(frm.doc, ["custom_b2c", "b2c", "is_b2c", "zatca_b2c"], 0) || 0),
     };
     zatca_sync_customer_fields_visibility(frm);
 
@@ -133,7 +134,7 @@ function zatca_sync_arabic_names(frm, source) {
 
 function zatca_missing_tax_id_hint(frm) {
     const state = frm.__zatca_customer_policy;
-    if (!state || !state.enabled || !state.needs_id || frm.doc.tax_id) return;
+    if (!state || !state.enabled || !state.needs_tax_id || frm.doc.tax_id) return;
     frappe.show_alert({ message: __("Tax ID is empty for this Saudi B2B customer. Provide a 15-digit Tax ID when available."), indicator: "orange" }, 7);
 }
 
