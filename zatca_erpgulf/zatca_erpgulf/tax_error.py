@@ -1555,14 +1555,18 @@ def _tax_row_has_nonzero_amount(tax_row):
     return False
 
 
-def _actual_tax_groups_for_reconciliation(doc, expected_groups):
+def _actual_tax_groups_for_reconciliation(doc, expected_groups, account_cache=None):
     """Group duplicate Sales Taxes and Charges rows by Account Head."""
+    account_cache = account_cache if account_cache is not None else {}
     groups = {}
     for tax_row in _invoice_tax_rows(doc):
         account = _safe_str(_field_value(tax_row, "account_head", ""))
-        if not account or account not in expected_groups:
-            # Freight, retention, deductions, rounding, and any other
-            # non-ZATCA rows are deliberately outside this comparison.
+        if not account:
+            continue
+        if account not in expected_groups and not _is_tax_account(account, account_cache):
+            # Freight, retention, deductions, rounding, and other non-tax rows
+            # remain outside this comparison. Extra Tax accounts are retained
+            # so the validator can report them instead of silently ignoring them.
             continue
 
         rate = _tax_reconciliation_rate(tax_row)
@@ -1585,12 +1589,12 @@ def _format_reconciliation_amount(value):
     return f"{_round_currency(value):.2f}"
 
 
-def _validate_expected_tax_groups(doc, expected_groups, source_label):
+def _validate_expected_tax_groups(doc, expected_groups, source_label, account_cache=None):
     """Compare expected groups with grouped invoice rows and raise one message."""
     if not expected_groups:
         return
 
-    actual_groups = _actual_tax_groups_for_reconciliation(doc, expected_groups)
+    actual_groups = _actual_tax_groups_for_reconciliation(doc, expected_groups, account_cache)
     issues = []
     for account, expected in expected_groups.items():
         actual = actual_groups.get(account)
@@ -1652,6 +1656,19 @@ def _validate_expected_tax_groups(doc, expected_groups, source_label):
                 )
             )
 
+    for account, actual in sorted(actual_groups.items()):
+        if account in expected_groups:
+            continue
+        issues.append(
+            _zt(
+                "Unexpected Sales Taxes and Charges row for tax account {0}: "
+                "found {1} after discount. Remove it or include it in the authoritative ZATCA tax source."
+            ).format(
+                account,
+                _format_reconciliation_amount(actual["actual_amount"]),
+            )
+        )
+
     if not issues:
         return
 
@@ -1706,4 +1723,4 @@ def validate_zatca_tax_table(doc, event=None):
         expected_groups = _expected_tax_groups_from_sales_template(doc, account_cache)
         source_label = _zt("Sales Taxes and Charges Template")
 
-    _validate_expected_tax_groups(doc, expected_groups, source_label)
+    _validate_expected_tax_groups(doc, expected_groups, source_label, account_cache)

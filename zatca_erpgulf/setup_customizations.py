@@ -4592,7 +4592,7 @@ def run_zatca_customization_sync_after_migrate() -> None:
     """
     try:
         _log("Running ZATCA customization sync from after_migrate hook.")
-        sync_all_zatca_customizations()
+        sync_all_zatca_customizations(provision_tax_templates=False)
         _log("ZATCA customization sync from after_migrate hook completed.")
     except Exception:
         # Do not block the entire site migration because of a UI/customization sync issue.
@@ -5055,7 +5055,7 @@ def enforce_tax_template_permissions() -> dict[str, list[str]]:
     return result
 
 
-def sync_all_zatca_customizations() -> dict[str, Any]:
+def sync_all_zatca_customizations(*, provision_tax_templates: bool = False) -> dict[str, Any]:
     """
     Main idempotent sync function.
 
@@ -5067,6 +5067,10 @@ def sync_all_zatca_customizations() -> dict[str, Any]:
 
     It never deletes customizations.
     It does not overwrite non-app-owned custom fields.
+
+    Tax template records are provisioned only when explicitly requested (the
+    first app installation). Normal app updates and migrations preserve all
+    existing Item Tax Template and Sales Taxes and Charges Template values.
     """
     frappe_major = _get_frappe_major_version()
 
@@ -5104,8 +5108,23 @@ def sync_all_zatca_customizations() -> dict[str, Any]:
     sales_invoice_zatca_field_order_property_setter_result = force_sales_invoice_zatca_field_order_property_setter()
     tax_template_zatca_source_fields_result = sync_tax_template_zatca_source_fields()
     address_zatca_validation_result = sync_address_zatca_customizations()
-    existing_tax_template_zatca_values_result = sync_existing_tax_template_zatca_values()
-    ksa_tax_templates_result = ensure_ksa_tax_templates_for_companies()
+    if provision_tax_templates:
+        existing_tax_template_zatca_values_result = sync_existing_tax_template_zatca_values()
+        ksa_tax_templates_result = ensure_ksa_tax_templates_for_companies()
+    else:
+        existing_tax_template_zatca_values_result = {
+            "updated": [],
+            "skipped": [
+                "template value synchronization disabled during update; existing values preserved"
+            ],
+        }
+        ksa_tax_templates_result = {
+            "companies": [],
+            "skipped": [
+                "template provisioning disabled during update; existing templates preserved"
+            ],
+            "templates": [],
+        }
     advance_payment_item_result = ensure_advance_payment_item()
     sales_invoice_print_heading_result = sync_sales_invoice_print_heading()
     zatca_arabic_translations_result = sync_zatca_arabic_translations()
@@ -5250,13 +5269,13 @@ def report_zatca_customization_status() -> dict[str, Any]:
 
 
 def after_install() -> None:
-    sync_all_zatca_customizations()
+    sync_all_zatca_customizations(provision_tax_templates=True)
     hide_legacy_discount_reason_code()
     enforce_tax_template_permissions()
 
 
 def after_sync() -> None:
-    sync_all_zatca_customizations()
+    sync_all_zatca_customizations(provision_tax_templates=False)
 
 
 def after_migrate() -> None:

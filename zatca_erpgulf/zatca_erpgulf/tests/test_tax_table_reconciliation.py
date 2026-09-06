@@ -88,9 +88,41 @@ class TestZATCATaxTableReconciliation(TestCase):
             side_effect=get_doc,
         ), patch(
             "zatca_erpgulf.zatca_erpgulf.tax_error._is_tax_account",
-            return_value=True,
+            side_effect=lambda account, cache=None: account != "Freight",
         ):
             validate_zatca_tax_table(doc)
+
+
+    def test_unexpected_tax_accounts_are_rejected(self):
+        doc = MockDoc(
+            doctype="Sales Invoice",
+            currency="SAR",
+            items=[_item(1, 100, "ITT-STANDARD")],
+            taxes=[
+                _tax_row("VAT 15", 0, 15),
+                _tax_row("VAT 5", 5, 5),
+                _tax_row("VAT Exempt", 0, 0),
+            ],
+            taxes_and_charges="KSA VAT 15",
+        )
+
+        with patch(
+            "zatca_erpgulf.zatca_erpgulf.tax_error.frappe.get_doc",
+            return_value=_item_template("Standard", "VAT 15", 15),
+        ), patch(
+            "zatca_erpgulf.zatca_erpgulf.tax_error._is_tax_account",
+            return_value=True,
+        ), patch(
+            "zatca_erpgulf.zatca_erpgulf.tax_error.frappe.throw",
+            side_effect=self._raise_validation,
+        ):
+            with self.assertRaises(ValidationError) as context:
+                validate_zatca_tax_table(doc)
+
+        message = str(context.exception)
+        self.assertIn("Unexpected Sales Taxes and Charges row", message)
+        self.assertIn("VAT 5", message)
+        self.assertIn("VAT Exempt", message)
 
     def test_missing_zero_category_row_is_rejected(self):
         doc = MockDoc(
@@ -234,7 +266,7 @@ class TestZATCATaxTableReconciliation(TestCase):
             return_value=sales_template,
         ), patch(
             "zatca_erpgulf.zatca_erpgulf.tax_error._is_tax_account",
-            return_value=True,
+            side_effect=lambda account, cache=None: account != "Expense",
         ):
             validate_zatca_tax_table(doc)
 
