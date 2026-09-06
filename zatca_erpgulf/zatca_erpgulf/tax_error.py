@@ -1608,7 +1608,11 @@ def _validate_expected_tax_groups(doc, expected_groups, source_label):
             continue
 
         expected_rate = expected["rate"]
-        if any(
+        # ERPNext may set the Sales Taxes and Charges row rate to zero after
+        # a discount while retaining the correct calculated tax amount. The
+        # amount comparison below is authoritative for positive-rate taxes.
+        # Keep the rate check only for categories that must be zero-rated.
+        if expected_rate <= _TAX_RECONCILIATION_TOLERANCE and any(
             abs(rate - expected_rate) > _TAX_RECONCILIATION_TOLERANCE
             for rate in actual["rates"]
         ):

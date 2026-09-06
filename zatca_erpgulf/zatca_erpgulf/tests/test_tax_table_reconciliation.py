@@ -151,6 +151,51 @@ class TestZATCATaxTableReconciliation(TestCase):
         self.assertIn("found 20.00", message)
         self.assertIn("total_taxes_and_charges", message)
 
+
+    def test_positive_tax_rate_field_is_ignored_when_amount_is_correct(self):
+        doc = MockDoc(
+            doctype="Sales Invoice",
+            currency="SAR",
+            items=[_item(1, 100, "ITT-STANDARD")],
+            # ERPNext can show rate 0 after a discount although the tax amount
+            # remains correct. The amount must be the authoritative check.
+            taxes=[_tax_row("VAT 15", 0, 15)],
+            taxes_and_charges="KSA VAT 15",
+        )
+
+        with patch(
+            "zatca_erpgulf.zatca_erpgulf.tax_error.frappe.get_doc",
+            return_value=_item_template("Standard", "VAT 15", 15),
+        ), patch(
+            "zatca_erpgulf.zatca_erpgulf.tax_error._is_tax_account",
+            return_value=True,
+        ):
+            validate_zatca_tax_table(doc)
+
+    def test_zero_tax_rate_is_still_enforced(self):
+        doc = MockDoc(
+            doctype="Sales Invoice",
+            currency="SAR",
+            items=[_item(1, 100, "ITT-EXEMPT")],
+            taxes=[_tax_row("VAT Exempt", 5, 0)],
+            taxes_and_charges="KSA VAT Exempted",
+        )
+
+        with patch(
+            "zatca_erpgulf.zatca_erpgulf.tax_error.frappe.get_doc",
+            return_value=_item_template("Exempted", "VAT Exempt", 0),
+        ), patch(
+            "zatca_erpgulf.zatca_erpgulf.tax_error._is_tax_account",
+            return_value=True,
+        ), patch(
+            "zatca_erpgulf.zatca_erpgulf.tax_error.frappe.throw",
+            side_effect=self._raise_validation,
+        ):
+            with self.assertRaises(ValidationError) as context:
+                validate_zatca_tax_table(doc)
+
+        self.assertIn("Tax rate mismatch", str(context.exception))
+
     def test_invoice_level_template_path_ignores_non_tax_rows(self):
         sales_template = MockDoc(
             name="KSA VAT 15",
