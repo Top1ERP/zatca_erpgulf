@@ -186,8 +186,7 @@ def _get_item_net_amount(item, currency):
 def _get_item_tax_rate_without_template(sales_invoice_doc, item):
     """Get tax rate for an item from item-wise tax detail or fallback to invoice tax rate."""
     try:
-        item_code = item.get("item_code")
-        if sales_invoice_doc.get("taxes") and item_code:
+        if sales_invoice_doc.get("taxes"):
             _tax_amount, tax_percentage = get_item_tax_detail(sales_invoice_doc, item)
             if tax_percentage not in (None, "") and tax_percentage != 0:
                 return q2(tax_percentage)

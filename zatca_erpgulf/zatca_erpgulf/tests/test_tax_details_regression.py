@@ -40,6 +40,46 @@ class TestTaxDetailsRegression(unittest.TestCase):
 
         self.assertEqual(get_item_tax_detail(doc, item), (10.0, 5.0))
 
+    def test_v15_invoice_level_tax_uses_each_duplicate_row_net(self):
+        """The legacy map aggregates duplicate keys; XML tax must not."""
+        doc = {
+            "currency": "SAR",
+            "taxes": [
+                {
+                    "account_head": "VAT - CO",
+                    "rate": 15,
+                    "item_wise_tax_detail": json.dumps({"ITEM-1": [15, 105]}),
+                }
+            ],
+        }
+        first_item = {
+            "name": "row-1",
+            "item_code": "ITEM-1",
+            "item_name": "Repeated item",
+            "base_net_amount": 100,
+            "idx": 1,
+        }
+        second_item = {
+            "name": "row-2",
+            "item_code": "ITEM-1",
+            "item_name": "Repeated item",
+            "base_net_amount": 600,
+            "idx": 2,
+        }
+
+        self.assertEqual(get_item_tax_detail(doc, first_item), (15.0, 15.0))
+        self.assertEqual(get_item_tax_detail(doc, second_item), (90.0, 15.0))
+
+    def test_v16_empty_tax_detail_table_uses_invoice_level_rate(self):
+        doc = {
+            "currency": "SAR",
+            "item_wise_tax_details": [],
+            "taxes": [{"rate": 15}],
+        }
+        item = {"name": "row-1", "item_code": "ITEM-1", "base_net_amount": 100}
+
+        self.assertEqual(get_item_tax_detail(doc, item), (15.0, 15.0))
+
     def test_v16_matches_only_child_row_name_not_idx_or_item_code(self):
         doc = {
             "item_wise_tax_details": [
@@ -62,6 +102,20 @@ class TestTaxDetailsRegression(unittest.TestCase):
 
         self.assertEqual(get_item_tax_detail(doc, first_item), (1275.0, 15.0))
         self.assertEqual(get_item_tax_detail(doc, second_item), (975.0, 15.0))
+
+    def test_v16_duplicate_rows_use_their_own_net_amounts(self):
+        doc = {
+            "currency": "SAR",
+            "item_wise_tax_details": [
+                {"item_row": "row-1", "rate": 15, "amount": 999},
+                {"item_row": "row-2", "rate": 15, "amount": 999},
+            ],
+        }
+        first_item = {"name": "row-1", "item_code": "ITEM-1", "base_net_amount": 100}
+        second_item = {"name": "row-2", "item_code": "ITEM-1", "base_net_amount": 200}
+
+        self.assertEqual(get_item_tax_detail(doc, first_item), (15.0, 15.0))
+        self.assertEqual(get_item_tax_detail(doc, second_item), (30.0, 15.0))
 
     def test_v16_zero_tax_row_is_authoritative_when_matched(self):
         doc = {

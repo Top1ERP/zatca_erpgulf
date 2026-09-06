@@ -150,6 +150,12 @@ def _buyer_errors(customer, policy: dict[str, Any]) -> tuple[list[str], list[str
         if any(char.isspace() for char in raw_unn) or not re.fullmatch(r"7\d{9}", unn):
             errors.append(_("UNN (700) for a Saudi customer must contain exactly 10 digits and start with 7."))
 
+    # Customer buyer identification is a Phase-2 requirement. Keep the
+    # existing UNN validation above available for both ZATCA phases, but do
+    # not require Customer ID Number for ZATCA during Phase-1.
+    if policy.get("phase") != PHASE_2_VALUE:
+        return errors, warnings
+
     if not policy.get("enabled") or country != "SA" or cint(get_alias_value("customer_b2c", customer, 0) or 0):
         return errors, warnings
 

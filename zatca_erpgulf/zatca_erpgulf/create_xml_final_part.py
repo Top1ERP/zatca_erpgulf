@@ -271,8 +271,7 @@ def _nominal_item_base_net_amount(single_item):
 
 def _nominal_tax_rate_without_template(sales_invoice_doc, single_item):
     try:
-        item_code = single_item.get("item_code")
-        if sales_invoice_doc.get("taxes") and item_code:
+        if sales_invoice_doc.get("taxes"):
             _item_tax_amount, tax_percentage = get_item_tax_detail(sales_invoice_doc, single_item)
             if tax_percentage not in (None, "") and tax_percentage != 0:
                 return _nominal_q2(tax_percentage)
