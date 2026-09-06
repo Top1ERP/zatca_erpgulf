@@ -593,3 +593,11 @@ Submission successful:,تم الإرسال بنجاح:
 Status Code,رمز الحالة
 ZATCA Response,استجابة هيئة الزكاة والضريبة والجمارك (ZATCA)
 XSD validation,تحقق XSD
+Compare only tax Account Head rows in Sales Taxes and Charges with the configured VAT source ({0}); duplicate Account Head rows are grouped before comparison. Tax totals and non-tax rows are ignored.,تتم مقارنة صفوف Account Head المصنّفة كحسابات ضريبية فقط في جدول Sales Taxes and Charges مع مصدر ضريبة القيمة المضافة المحدد ({0})، وتُجمع الصفوف المكررة للحساب نفسه قبل المقارنة. لا تُستخدم إجماليات الضريبة أو الإجمالي أو المبلغ المستحق أو الصفوف غير الضريبية.
+"Correct the tax Account Head rows in Sales Taxes and Charges, then save again.",صحّح صفوف Account Head الضريبية في جدول Sales Taxes and Charges ثم احفظ الفاتورة مرة أخرى.
+ZATCA tax table validation failed.,فشل التحقق من جدول ضرائب ZATCA.
+"Tax amount mismatch for {0}: expected {1}, found {2} after discount (difference {3}).",عدم تطابق مبلغ الضريبة للحساب {0}: المتوقع {1}، والموجود {2} بعد الخصم (الفارق {3}).
+Missing Sales Taxes and Charges row for tax account {0}. Expected {1} at {2}% (including required zero-value rows).,صف الحساب الضريبي {0} مفقود من جدول Sales Taxes and Charges. المتوقع {1} بنسبة {2}% (بما في ذلك صفوف القيمة الصفرية المطلوبة).
+"Tax rate mismatch for {0}: expected {1}%, found {2}%.",عدم تطابق معدل الضريبة للحساب {0}: المتوقع {1}%، والموجود {2}%.
+Zero-rate tax account {0} must have zero in every tax amount field.,يجب أن تكون جميع حقول مبلغ الضريبة للحساب ذي المعدل الصفري {0} مساوية للصفر.
+Unexpected Sales Taxes and Charges row for tax account {0}: found {1} after discount. Remove it or include it in the authoritative ZATCA tax source.,صف ضريبي غير متوقع للحساب {0} في جدول Sales Taxes and Charges: الموجود {1} بعد الخصم. احذفه أو أدرجه في مصدر ضريبة ZATCA المعتمد.

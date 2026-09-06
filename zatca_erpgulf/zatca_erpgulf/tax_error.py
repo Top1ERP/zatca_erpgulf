@@ -1677,17 +1677,18 @@ def _validate_expected_tax_groups(doc, expected_groups, source_label, account_ca
             [
                 _zt("ZATCA tax table validation failed."),
                 _zt(
-                    "Expected tax amounts are calculated from discounted invoice lines "
-                    "and the configured VAT source ({0})."
+                    "Compare only tax Account Head rows in Sales Taxes and Charges "
+                    "with the configured VAT source ({0}); duplicate Account Head "
+                    "rows are grouped before comparison. Tax totals and non-tax rows "
+                    "are ignored."
                 ).format(source_label),
-                _zt(
-                    "Duplicate Account Head rows are grouped before comparison. "
-                    "total_taxes_and_charges, grand_total, payable_amount, and non-tax rows are not used."
-                ),
                 "",
                 *[f"- {issue}" for issue in issues],
                 "",
-                _zt("Correct the Sales Taxes and Charges rows, then save again."),
+                _zt(
+                    "Correct the tax Account Head rows in Sales Taxes and Charges, "
+                    "then save again."
+                ),
             ]
         ),
         title=_zt("ZATCA tax table validation"),

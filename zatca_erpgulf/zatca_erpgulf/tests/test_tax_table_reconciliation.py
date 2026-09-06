@@ -181,7 +181,7 @@ class TestZATCATaxTableReconciliation(TestCase):
         message = str(context.exception)
         self.assertIn("expected 15.00", message)
         self.assertIn("found 20.00", message)
-        self.assertIn("total_taxes_and_charges", message)
+        self.assertIn("Tax totals and non-tax rows are ignored.", message)
 
 
     def test_positive_tax_rate_field_is_ignored_when_amount_is_correct(self):
