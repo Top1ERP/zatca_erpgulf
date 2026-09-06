@@ -184,6 +184,30 @@ class TestZATCATaxTableReconciliation(TestCase):
         self.assertIn("Tax totals and non-tax rows are ignored.", message)
 
 
+    def test_tax_table_validation_can_be_disabled_per_company(self):
+        doc = MockDoc(
+            doctype="Sales Invoice",
+            currency="SAR",
+            items=[_item(1, 100, "ITT-STANDARD")],
+            taxes=[_tax_row("VAT 15", 15, 20)],
+            taxes_and_charges="KSA VAT 15",
+        )
+        company_doc = MockDoc(custom_enforce_zatca_tax_table_validation=0)
+
+        with patch(
+            "zatca_erpgulf.zatca_erpgulf.tax_error.frappe.get_doc",
+            return_value=_item_template("Standard", "VAT 15", 15),
+        ), patch(
+            "zatca_erpgulf.zatca_erpgulf.tax_error._is_tax_account",
+            return_value=True,
+        ), patch(
+            "zatca_erpgulf.zatca_erpgulf.tax_error.frappe.throw",
+        ) as throw:
+            validate_zatca_tax_table(doc, company_doc=company_doc)
+
+        throw.assert_not_called()
+
+
     def test_positive_tax_rate_field_is_ignored_when_amount_is_correct(self):
         doc = MockDoc(
             doctype="Sales Invoice",

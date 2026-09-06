@@ -601,3 +601,5 @@ Missing Sales Taxes and Charges row for tax account {0}. Expected {1} at {2}% (i
 "Tax rate mismatch for {0}: expected {1}%, found {2}%.",عدم تطابق معدل الضريبة للحساب {0}: المتوقع {1}%، والموجود {2}%.
 Zero-rate tax account {0} must have zero in every tax amount field.,يجب أن تكون جميع حقول مبلغ الضريبة للحساب ذي المعدل الصفري {0} مساوية للصفر.
 Unexpected Sales Taxes and Charges row for tax account {0}: found {1} after discount. Remove it or include it in the authoritative ZATCA tax source.,صف ضريبي غير متوقع للحساب {0} في جدول Sales Taxes and Charges: الموجود {1} بعد الخصم. احذفه أو أدرجه في مصدر ضريبة ZATCA المعتمد.
+Enforce ZATCA Sales Invoice Tax Table Validation,فرض التحقق من جدول ضرائب فواتير مبيعات ZATCA
+"When enabled, tax Account Head rows in Sales Taxes and Charges are checked against the configured ZATCA VAT source before saving Sales Invoices.",عند التفعيل، يتم التحقق من صفوف Account Head الضريبية في جدول Sales Taxes and Charges مقابل مصدر ضريبة ZATCA المحدد قبل حفظ فواتير المبيعات.

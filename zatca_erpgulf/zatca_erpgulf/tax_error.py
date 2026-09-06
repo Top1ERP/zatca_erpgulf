@@ -72,6 +72,7 @@ def _get_pos_name(doc):
 
 _ZATCA_NEGATIVE_LINE_VALIDATION_FIELD = "custom_zatca_negative_line_validation_mode"
 _ZATCA_NEGATIVE_LINE_VALIDATION_MODES = {"Strict", "Warn Only", "Disabled"}
+_ZATCA_TAX_TABLE_VALIDATION_FIELD = "custom_enforce_zatca_tax_table_validation"
 
 _ZATCA_CATEGORY_RATE_VALIDATION_FIELD = "custom_enforce_zatca_tax_category_rate_validation"
 _ZATCA_NON_STANDARD_CATEGORIES = {
@@ -444,6 +445,30 @@ def _get_item_tax_template_doc(item):
         return None
 
     return frappe.get_doc("Item Tax Template", template_name)
+
+
+def _is_zatca_tax_table_validation_enabled(company_doc) -> bool:
+    """Return true unless the company explicitly disables tax-table validation."""
+    if not company_doc:
+        return True
+
+    try:
+        company_meta = getattr(company_doc, "meta", None)
+        if company_meta is not None:
+            if not company_meta.has_field(_ZATCA_TAX_TABLE_VALIDATION_FIELD):
+                return True
+        elif not hasattr(company_doc, _ZATCA_TAX_TABLE_VALIDATION_FIELD):
+            # Keep validation enabled on sites before the setting is installed.
+            return True
+
+        value = getattr(company_doc, _ZATCA_TAX_TABLE_VALIDATION_FIELD, None)
+        if value in (None, ""):
+            return True
+        return cint(value) == 1
+    except Exception:
+        # A missing or partially migrated setting must not silently disable
+        # the safety check.
+        return True
 
 
 def _is_zatca_tax_category_source_validation_enabled(company_doc) -> bool:
@@ -1068,7 +1093,7 @@ def validate_negative_item_values_on_save(doc, event=None):
     validate_zatca_tax_source_presence(doc, company_doc)
     validate_zatca_tax_category_and_exemption_reason(doc, company_doc)
     validate_zatca_zero_rate_categories(doc, company_doc)
-    validate_zatca_tax_table(doc, event)
+    validate_zatca_tax_table(doc, event, company_doc)
 
 def validate_sales_invoice_taxes(doc, event=None):
     """
@@ -1088,7 +1113,7 @@ def validate_sales_invoice_taxes(doc, event=None):
     validate_zatca_tax_source_presence(doc, company_doc)
     validate_zatca_tax_category_and_exemption_reason(doc, company_doc, enforce_source_consistency=True)
     validate_zatca_zero_rate_categories(doc, company_doc)
-    validate_zatca_tax_table(doc, event)
+    validate_zatca_tax_table(doc, event, company_doc)
 
     is_gpos_installed = "gpos" in frappe.get_installed_apps()
     meta = frappe.get_meta(doc.doctype)
@@ -1695,7 +1720,7 @@ def _validate_expected_tax_groups(doc, expected_groups, source_label, account_ca
     )
 
 
-def validate_zatca_tax_table(doc, event=None):
+def validate_zatca_tax_table(doc, event=None, company_doc=None):
     """Ensure the invoice tax table matches its selected ZATCA tax source.
 
     Item Tax Template is authoritative when every item has one. Otherwise the
@@ -1704,6 +1729,17 @@ def validate_zatca_tax_table(doc, event=None):
     rows, while requiring explicit zero rows for Z/E/O VAT accounts.
     """
     if doc.doctype not in {"Sales Invoice", "POS Invoice"}:
+        return
+
+    if company_doc is None:
+        company_name = _safe_str(_field_value(doc, "company", ""))
+        if company_name:
+            try:
+                company_doc = frappe.get_doc("Company", company_name)
+            except Exception:
+                company_doc = None
+
+    if not _is_zatca_tax_table_validation_enabled(company_doc):
         return
 
     items = _invoice_item_rows(doc)

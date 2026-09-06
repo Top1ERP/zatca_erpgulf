@@ -89,6 +89,7 @@ PYTHON_MANAGED_COMPANY_ZATCA_FIELDS = {
     ("Company", "custom_section_break_hwvcd"),
     ("Company", "custom_zatca_offline_machines"),
     ("Company", "custom_submit_line_item_discount_to_zatca"),
+    ("Company", "custom_enforce_zatca_tax_table_validation"),
     ("Company", "custom_enforce_zatca_tax_category_rate_validation"),
     ("Company", "custom_enforce_zatca_payment_entry_amount_limit"),
 
@@ -1470,7 +1471,8 @@ def normalize_company_zatca_settings_layout() -> dict[str, list[str]]:
         ("custom_zatca_sales_invoice_validation_section", "custom_zatca_validation_section"),
         ("custom_zatca_negative_line_validation_mode", "custom_zatca_sales_invoice_validation_section"),
         ("custom_enforce_zatca_tax_category_source_validation", "custom_zatca_negative_line_validation_mode"),
-        ("custom_enforce_zatca_payment_entry_amount_limit", "custom_enforce_zatca_tax_category_source_validation"),
+        ("custom_enforce_zatca_tax_table_validation", "custom_enforce_zatca_tax_category_source_validation"),
+        ("custom_enforce_zatca_payment_entry_amount_limit", "custom_enforce_zatca_tax_table_validation"),
     ]
 
     for fieldname, insert_after in layout:
@@ -1848,6 +1850,7 @@ def normalize_company_zatca_settings_layout_idx() -> dict[str, list[str]]:
         "custom_zatca_sales_invoice_validation_section",
         "custom_zatca_negative_line_validation_mode",
         "custom_enforce_zatca_tax_category_source_validation",
+        "custom_enforce_zatca_tax_table_validation",
         "custom_enforce_zatca_payment_entry_amount_limit",
         "custom_section_break_hwvcd",
         "custom_zatca_offline_machines",
@@ -2898,6 +2901,7 @@ def sync_company_zatca_fields_and_layout() -> dict[str, list[str]]:
         "custom_zatca_sales_invoice_validation_section",
         "custom_zatca_negative_line_validation_mode",
         "custom_enforce_zatca_tax_category_source_validation",
+        "custom_enforce_zatca_tax_table_validation",
         "custom_enforce_zatca_payment_entry_amount_limit",
         "custom_section_break_hwvcd",
         "custom_zatca_offline_machines",
@@ -3731,6 +3735,10 @@ def sync_tax_template_zatca_source_fields() -> dict[str, list[str]]:
     company_field_existed = bool(
         frappe.db.exists("Custom Field", f"Company-{company_fieldname}")
     )
+    tax_table_fieldname = "custom_enforce_zatca_tax_table_validation"
+    tax_table_field_existed = bool(
+        frappe.db.exists("Custom Field", f"Company-{tax_table_fieldname}")
+    )
     category_rate_fieldname = "custom_enforce_zatca_tax_category_rate_validation"
     category_rate_field_existed = bool(
         frappe.db.exists("Custom Field", f"Company-{category_rate_fieldname}")
@@ -3759,6 +3767,17 @@ def sync_tax_template_zatca_source_fields() -> dict[str, list[str]]:
                     ),
                 },
                 {
+                    "fieldname": tax_table_fieldname,
+                    "fieldtype": "Check",
+                    "label": "Enforce ZATCA Sales Invoice Tax Table Validation",
+                    "insert_after": company_fieldname,
+                    "default": "1",
+                    "description": (
+                        "When enabled, tax Account Head rows in Sales Taxes and Charges are checked "
+                        "against the configured ZATCA VAT source before saving Sales Invoices."
+                    ),
+                },
+                {
                     "fieldname": category_rate_fieldname,
                     "fieldtype": "Check",
                     "label": "Enforce ZATCA zero-rate category validation",
@@ -3773,7 +3792,7 @@ def sync_tax_template_zatca_source_fields() -> dict[str, list[str]]:
                     "fieldname": payment_entry_limit_fieldname,
                     "fieldtype": "Check",
                     "label": "Enforce ZATCA Payment Entry amount limit",
-                    "insert_after": company_fieldname,
+                    "insert_after": tax_table_fieldname,
                     "default": "1",
                     "description": (
                         "When enabled, a linked ZATCA Payment Entry cannot exceed the Sales Invoice total including VAT."
@@ -3856,6 +3875,20 @@ def sync_tax_template_zatca_source_fields() -> dict[str, list[str]]:
             """
         )
         result["company_defaults_set"].append(company_fieldname)
+
+    if (
+        _doctype_exists("Company")
+        and not tax_table_field_existed
+        and frappe.db.has_column("Company", tax_table_fieldname)
+    ):
+        frappe.db.sql(
+            f"""
+            UPDATE `tabCompany`
+            SET `{tax_table_fieldname}` = 1
+            WHERE COALESCE(`{tax_table_fieldname}`, 0) = 0
+            """
+        )
+        result["company_defaults_set"].append(tax_table_fieldname)
 
     if (
         _doctype_exists("Company")
