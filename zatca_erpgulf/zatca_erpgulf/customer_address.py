@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 import frappe
+from frappe import _
 from frappe.utils import cint
 
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
