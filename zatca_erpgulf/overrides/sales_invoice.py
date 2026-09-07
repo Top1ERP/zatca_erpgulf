@@ -18,6 +18,9 @@ from zatca_erpgulf.zatca_erpgulf import (
     advance_payment_entry,
     tax_error,
 )
+from zatca_erpgulf.zatca_erpgulf.customer_address import (
+    validate_customer_address_for_zatca,
+)
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
     is_advance_payment_invoice,
     supports_advance_deduction_schema,
@@ -333,6 +336,7 @@ def validate_zatca_sales_invoice_before_submit(doc, event=None) -> None:
         dict.fromkeys(getattr(doc.flags, "zatca_validation_errors", []) or [])
     )
     for validator in (
+        validate_customer_address_for_zatca,
         tax_error.validate_sales_invoice_taxes,
         advance_deduction.validate_sales_invoice_advance_deductions_on_submit,
         advance_credit_note.validate_advance_credit_note_against_original,

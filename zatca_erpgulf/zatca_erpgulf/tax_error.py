@@ -10,6 +10,7 @@ from frappe import _
 from frappe.utils import cint, flt
 from zatca_erpgulf.zatca_erpgulf.createxml import get_zatca_discount_reason_code
 from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country
+from zatca_erpgulf.zatca_erpgulf.customer_address import resolve_customer_address
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
     PHASE_2_VALUE,
     is_zatca_invoice_enabled,
@@ -1149,13 +1150,12 @@ def validate_sales_invoice_taxes(doc, event=None):
     # Export Invoice Validation
     # ----------------------------------------
     if cint(getattr(doc, "custom_zatca_export_invoice", 0)) == 1:
-        address_name = getattr(customer_doc, "customer_primary_address", None)
-        if not address_name:
+        address, _source = resolve_customer_address(doc, customer_doc)
+        if not address:
             frappe.throw(
                 _("Customer address is required to validate Export Invoice.")
             )
 
-        address = frappe.get_doc("Address", address_name)
         country = (getattr(address, "country", "") or "").strip()
 
         if is_saudi_country(country):

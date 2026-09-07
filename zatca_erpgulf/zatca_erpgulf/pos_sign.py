@@ -13,6 +13,7 @@ import frappe
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import PHASE_1_VALUE, PHASE_2_VALUE, resolve_zatca_phase, is_zatca_invoice_enabled
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country
+from zatca_erpgulf.zatca_erpgulf.customer_address import resolve_customer_address
 from zatca_erpgulf.zatca_erpgulf.event_log import log_zatca_event
 from zatca_erpgulf.zatca_erpgulf.zatca_response import format_zatca_response
 from zatca_erpgulf.zatca_erpgulf.posxml import (
@@ -1082,7 +1083,6 @@ def zatca_background_(invoice_number, source_doc, bypass_background_check=False)
                                 "As per ZATCA regulation, Check the ZATCA category code and enable it as standard."
                             )
                         )
-        address = None
         customer_doc = frappe.get_doc("Customer", pos_invoice_doc.customer)
         if get_alias_value("customer_b2c", customer_doc, 0) == 0:
             if not get_alias_value("customer_buyer_id", customer_doc, ""):
@@ -1090,16 +1090,7 @@ def zatca_background_(invoice_number, source_doc, bypass_background_check=False)
                     "As per ZATCA regulation- For B2B Customers, customer CR number has to be provided"
                 )
         if get_alias_value("customer_b2c", customer_doc, 0) != 1:
-            if int(frappe.__version__.split(".", maxsplit=1)[0]) == 13:
-                if pos_invoice_doc.customer_address:
-                    address = frappe.get_doc(
-                        "Address", pos_invoice_doc.customer_address
-                    )
-            else:
-                if customer_doc.customer_primary_address:
-                    address = frappe.get_doc(
-                        "Address", customer_doc.customer_primary_address
-                    )
+            address, _source = resolve_customer_address(pos_invoice_doc, customer_doc)
 
             if not address:
                 frappe.throw(
@@ -1438,7 +1429,6 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
                             )
                         )
 
-        address = None
         customer_doc = frappe.get_doc("Customer", pos_invoice_doc.customer)
         if get_alias_value("customer_b2c", customer_doc, 0) == 0:
             if not get_alias_value("customer_buyer_id", customer_doc, ""):
@@ -1446,16 +1436,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
                     "As per ZATCA regulation- For B2B Customers, customer CR number has to be provided"
                 )
         if get_alias_value("customer_b2c", customer_doc, 0) != 1:
-            if int(frappe.__version__.split(".", maxsplit=1)[0]) == 13:
-                if pos_invoice_doc.customer_address:
-                    address = frappe.get_doc(
-                        "Address", pos_invoice_doc.customer_address
-                    )
-            else:
-                if customer_doc.customer_primary_address:
-                    address = frappe.get_doc(
-                        "Address", customer_doc.customer_primary_address
-                    )
+            address, _source = resolve_customer_address(pos_invoice_doc, customer_doc)
 
             if not address:
                 frappe.throw(

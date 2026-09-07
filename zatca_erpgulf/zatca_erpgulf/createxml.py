@@ -14,6 +14,7 @@ from frappe.utils.data import get_time
 from frappe.utils import cint
 from zatca_erpgulf.zatca_erpgulf.country_code import country_code_mapping
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
+from zatca_erpgulf.zatca_erpgulf.customer_address import resolve_customer_address
 
 CBC_ID = "cbc:ID"
 DS_TRANSFORM = "ds:Transform"
@@ -183,48 +184,9 @@ def get_issue_time(invoice_number):
 
 
 
-def _get_first_customer_linked_address(customer_doc):
-    """Return the first Address linked to the customer when no primary address is set."""
-    try:
-        links = frappe.get_all(
-            "Dynamic Link",
-            filters={
-                "link_doctype": "Customer",
-                "link_name": customer_doc.name,
-                "parenttype": "Address",
-            },
-            fields=["parent"],
-            order_by="creation asc",
-            limit=1,
-        )
-
-        if links and links[0].get("parent"):
-            return frappe.get_doc("Address", links[0]["parent"])
-    except frappe.DoesNotExistError:
-        return None
-
-    return None
-
-
 def _get_customer_address(sales_invoice_doc, customer_doc):
-    """
-    Return customer address doc using this order:
-    1) Sales Invoice customer_address on Frappe 13
-    2) Customer.customer_primary_address on newer versions
-    3) First Address linked to the customer
-    """
-    address = None
-
-    if int(frappe.__version__.split(".", maxsplit=1)[0]) == 13:
-        if getattr(sales_invoice_doc, "customer_address", None):
-            address = frappe.get_doc("Address", sales_invoice_doc.customer_address)
-    else:
-        if getattr(customer_doc, "customer_primary_address", None):
-            address = frappe.get_doc("Address", customer_doc.customer_primary_address)
-
-    if not address:
-        address = _get_first_customer_linked_address(customer_doc)
-
+    """Return the address selected by the shared ERPNext-compatible resolver."""
+    address, _source = resolve_customer_address(sales_invoice_doc, customer_doc)
     return address
 
 

@@ -21,6 +21,7 @@ from zatca_erpgulf.ksa_compliance.tax_details import get_item_tax_detail
 from frappe import _
 import frappe
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
+from zatca_erpgulf.zatca_erpgulf.customer_address import resolve_customer_address
 
 
 def get_tax_for_item(full_string, item):
@@ -725,10 +726,9 @@ def customer_data(invoice, pos_invoice_doc):
         cbc_id_4.set("schemeID", str(get_alias_value("customer_buyer_id_type", customer_doc, "")))
         cbc_id_4.text = get_alias_value("customer_buyer_id", customer_doc, "")
         # frappe.throw(f"Customer Tax ID set to: {cbc_ID_4.text}")
-        if int(frappe.__version__.split(".", maxsplit=1)[0]) == 13:
-            address = frappe.get_doc("Address", pos_invoice_doc.customer_address)
-        else:
-            address = frappe.get_doc("Address", customer_doc.customer_primary_address)
+        address, _source = resolve_customer_address(pos_invoice_doc, customer_doc)
+        if not address:
+            frappe.throw(_("Customer address is mandatory for POS invoices."))
         cac_postaladdress_1 = ET.SubElement(cac_party_2, "cac:PostalAddress")
         cbc_streetname_1 = ET.SubElement(cac_postaladdress_1, "cbc:StreetName")
         cbc_streetname_1.text = address.address_line1

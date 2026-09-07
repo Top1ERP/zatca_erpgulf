@@ -16,6 +16,7 @@ from frappe import _
 import frappe
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country
+from zatca_erpgulf.zatca_erpgulf.customer_address import resolve_customer_address
 import requests
 from zatca_erpgulf.zatca_erpgulf.event_log import log_zatca_event
 from zatca_erpgulf.zatca_erpgulf.zatca_response import format_zatca_response
@@ -54,11 +55,10 @@ def _is_valid_zatca_uuid_value(value):
     return value.lower() not in invalid_values
 
 
-def _get_customer_country_code(customer_doc):
-    address_name = getattr(customer_doc, "customer_primary_address", None)
-    if not address_name:
+def _get_customer_country_code(sales_invoice_doc, customer_doc):
+    address, _source = resolve_customer_address(sales_invoice_doc, customer_doc)
+    if not address:
         return "SA"
-    address = frappe.get_doc("Address", address_name)
     country = (address.country or "").strip()
     if not country:
         return "SA"
@@ -1048,7 +1048,7 @@ def zatca_call(
 
         # Export validation
         if getattr(sales_invoice_doc, "custom_zatca_export_invoice", 0) == 1:
-            customer_country = _get_customer_country_code(customer_doc)
+            customer_country = _get_customer_country_code(sales_invoice_doc, customer_doc)
             if customer_country == "SA":
                 frappe.throw(_("Export Invoice cannot be enabled for a customer in Saudi Arabia."))
 
@@ -1528,18 +1528,8 @@ def zatca_background(invoice_number, source_doc, bypass_background_check=False):
                 frappe.throw(
                     "As per ZATCA regulations - For B2B Customers, customer CR number has to be provided"
                 )
-        address = None
         if get_alias_value("customer_b2c", customer_doc, 0) != 1:
-            if int(frappe.__version__.split(".", maxsplit=1)[0]) == 13:
-                if sales_invoice_doc.customer_address:
-                    address = frappe.get_doc(
-                        "Address", sales_invoice_doc.customer_address
-                    )
-            else:
-                if customer_doc.customer_primary_address:
-                    address = frappe.get_doc(
-                        "Address", customer_doc.customer_primary_address
-                    )
+            address, _source = resolve_customer_address(sales_invoice_doc, customer_doc)
             # frappe.throw(f"DEBUG: Country found in address: '{address.country}'")
             if not address:
                 frappe.throw(
@@ -1977,18 +1967,8 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
                 frappe.throw(
                     "As per ZATCA regulations- For B2B Customers, customer CR number has to be provided"
                 )
-        address = None
         if get_alias_value("customer_b2c", customer_doc, 0) != 1:
-            if int(frappe.__version__.split(".", maxsplit=1)[0]) == 13:
-                if sales_invoice_doc.customer_address:
-                    address = frappe.get_doc(
-                        "Address", sales_invoice_doc.customer_address
-                    )
-            else:
-                if customer_doc.customer_primary_address:
-                    address = frappe.get_doc(
-                        "Address", customer_doc.customer_primary_address
-                    )
+            address, _source = resolve_customer_address(sales_invoice_doc, customer_doc)
 
             if not address:
                 frappe.throw(
