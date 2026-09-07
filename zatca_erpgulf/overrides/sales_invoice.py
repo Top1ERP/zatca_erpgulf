@@ -286,7 +286,18 @@ def validate_advance_payment_naming_series(invoice) -> None:
 
 
 def _append_zatca_error(invoice, exc) -> None:
+    # Validators may use ``frappe.throw`` when called directly.  The
+    # before-submit aggregator catches that exception and raises one combined
+    # error below; remove the already-queued inner message so Frappe does not
+    # render the same validation twice in one dialog.
     message = str(exc).strip()
+    if message:
+        logged_messages = frappe.get_message_log()
+        if logged_messages:
+            last_message = logged_messages[-1]
+            if str(last_message.get("message", "") or "").strip() == message:
+                frappe.clear_last_message()
+
     if not message:
         return
     errors = getattr(invoice.flags, "zatca_validation_errors", [])
