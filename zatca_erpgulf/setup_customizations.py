@@ -15,6 +15,22 @@ MODULE_NAME = "Zatca Erpgulf"
 ADVANCE_PAYMENT_ITEM_CODE = "Advance Payment"
 
 
+# These Company fields were retired in v4.0. Keep the names in one place so
+# old Property Setters and DocType-level field-order values can be removed
+# safely on sites upgraded from earlier app revisions.
+RETIRED_COMPANY_OUTPUT_ATTACHMENT_FIELDS = frozenset(
+    {
+        "custom_zatca_output_attachments_section",
+        "custom_attach_xml_with_invoice",
+        "custom_zatca_output_attach_column_break_1",
+        "custom_attach_xml_with_qr_code",
+        "custom_zatca_output_attach_column_break_2",
+        "custom_attach_qr_code_doctype",
+        "custom_attach_e_invoice_send_status_with_invoice",
+    }
+)
+
+
 SALES_INVOICE_PRINT_HEADING_TEMPLATE = r"""<h1 style="text-align: center !important">
     {% set b2c = frappe.db.get_value("Customer", doc.customer, "custom_b2c") or 0 %}
     {% set is_return = doc.is_return|int %}
@@ -2808,6 +2824,7 @@ def sync_company_zatca_fields_and_layout() -> dict[str, list[str]]:
             "fieldname": "custom_zatca_pih_section",
             "label": "ZATCA Chain State",
             "fieldtype": "Section Break",
+            "insert_after": "custom_csr_data",
             "module": MODULE_NAME,
             "hidden": 0,
             "collapsible": 0,
@@ -2992,6 +3009,128 @@ def sync_company_zatca_fields_and_layout() -> dict[str, list[str]]:
             result["updated"].append("Company.effective_customize_form_order")
         else:
             result["skipped"].append("Company Customize Form.save_customization not available")
+
+    frappe.db.commit()
+    frappe.clear_cache(doctype="Company")
+    return result
+
+
+def cleanup_retired_company_output_attachment_layout() -> dict[str, list[str]]:
+    """Remove stale layout metadata for the retired output-attachment fields.
+
+    The v4.0 migration removes the old Company Custom Fields, but older sites
+    can still retain their Property Setters and a DocType-level ``field_order``
+    value. Those references point to fields that no longer exist and can make
+    Customize Form or the Company form render an inconsistent layout. Only
+    the app-owned retired field names are touched here.
+    """
+    result = {
+        "property_setters_deleted": [],
+        "property_setters_updated": [],
+        "field_order_updated": [],
+        "custom_fields_updated": [],
+        "skipped": [],
+    }
+
+    if not _doctype_exists("Company"):
+        result["skipped"].append("Company - missing DocType")
+        return result
+
+    retired_fields = list(RETIRED_COMPANY_OUTPUT_ATTACHMENT_FIELDS)
+
+    if _property_setter_available():
+        field_setters = frappe.get_all(
+            "Property Setter",
+            filters={
+                "doc_type": "Company",
+                "field_name": ["in", retired_fields],
+            },
+            pluck="name",
+        )
+        for setter_name in field_setters:
+            frappe.delete_doc(
+                "Property Setter",
+                setter_name,
+                force=True,
+                ignore_permissions=True,
+            )
+            result["property_setters_deleted"].append(setter_name)
+
+        stale_references = frappe.get_all(
+            "Property Setter",
+            filters={
+                "doc_type": "Company",
+                "property": "insert_after",
+                "value": ["in", retired_fields],
+            },
+            fields=["name", "field_name", "value"],
+        )
+        for row in stale_references:
+            setter = frappe.get_doc("Property Setter", row.name)
+
+            if row.field_name == "custom_zatca_pih_section":
+                setter.value = "custom_csr_data"
+                setter.flags.ignore_permissions = True
+                setter.save(ignore_permissions=True)
+                result["property_setters_updated"].append(row.name)
+                continue
+
+            # No active ZATCA field should refer to a retired anchor. Remove
+            # the obsolete app-owned setter rather than leaving a broken link.
+            frappe.delete_doc(
+                "Property Setter",
+                row.name,
+                force=True,
+                ignore_permissions=True,
+            )
+            result["property_setters_deleted"].append(row.name)
+
+    pih_field_name = _get_custom_field_name("Company", "custom_zatca_pih_section")
+    if pih_field_name:
+        pih_field = frappe.get_doc("Custom Field", pih_field_name)
+        if getattr(pih_field, "insert_after", None) != "custom_csr_data":
+            pih_field.insert_after = "custom_csr_data"
+            pih_field.flags.ignore_permissions = True
+            pih_field.save(ignore_permissions=True)
+            result["custom_fields_updated"].append(pih_field_name)
+
+    import json
+
+    field_order_setters = frappe.get_all(
+        "Property Setter",
+        filters={
+            "doc_type": "Company",
+            "property": "field_order",
+        },
+        fields=["name", "value"],
+    )
+
+    for row in field_order_setters:
+        old_value = row.get("value") or ""
+        try:
+            current_order = json.loads(old_value)
+        except Exception as exc:
+            result["skipped"].append(f"{row.name} invalid field_order JSON: {exc}")
+            continue
+
+        if not isinstance(current_order, list):
+            result["skipped"].append(f"{row.name} field_order is not a list")
+            continue
+
+        new_order = [
+            fieldname
+            for fieldname in current_order
+            if fieldname not in RETIRED_COMPANY_OUTPUT_ATTACHMENT_FIELDS
+        ]
+
+        if new_order == current_order:
+            continue
+
+        setter = frappe.get_doc("Property Setter", row.name)
+        setter.value = json.dumps(new_order)
+        setter.flags.ignore_permissions = True
+        setter.save(ignore_permissions=True)
+        result["field_order_updated"].append(row.name)
 
     frappe.db.commit()
     frappe.clear_cache(doctype="Company")
@@ -5098,7 +5237,8 @@ def sync_all_zatca_customizations(*, provision_tax_templates: bool = False) -> d
     - after migrate
     - manually via bench execute
 
-    It never deletes customizations.
+    It does not delete user customizations; the only deletion performed by the
+    sync is cleanup of explicitly retired, app-owned layout metadata.
     It does not overwrite non-app-owned custom fields.
 
     Tax template records are provisioned only when explicitly requested (the
@@ -5133,6 +5273,9 @@ def sync_all_zatca_customizations(*, provision_tax_templates: bool = False) -> d
     property_setters_result = sync_property_setters_from_fixture()
     critical_property_setters_result = ensure_critical_property_setters()
     company_zatca_ui_result = sync_company_zatca_fields_and_layout()
+    retired_company_output_attachment_cleanup_result = (
+        cleanup_retired_company_output_attachment_layout()
+    )
     user_invoice_number_removal_result = remove_unused_sales_invoice_user_invoice_number_field()
     sales_invoice_zatca_ui_result = sync_sales_invoice_zatca_integration_layout()
     sales_invoice_zatca_column_cleanup_result = remove_extra_sales_invoice_zatca_column_breaks()
@@ -5182,6 +5325,9 @@ def sync_all_zatca_customizations(*, provision_tax_templates: bool = False) -> d
         "property_setters": property_setters_result,
         "critical_property_setters": critical_property_setters_result,
         "company_zatca_ui": company_zatca_ui_result,
+        "retired_company_output_attachment_cleanup": (
+            retired_company_output_attachment_cleanup_result
+        ),
         "address_zatca_validation": address_zatca_validation_result,
         "sales_invoice_user_invoice_number_removal": user_invoice_number_removal_result,
         "sales_invoice_zatca_ui": sales_invoice_zatca_ui_result,
