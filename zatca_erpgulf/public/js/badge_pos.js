@@ -1,3 +1,55 @@
+function parseZatcaResponse(responseText) {
+    const text = String(responseText || '').trim();
+    if (!text) return null;
+
+    try {
+        return JSON.parse(text);
+    } catch (error) {
+        // Legacy values contain a display message around the JSON body.
+    }
+
+    const marker = text.search(/ZATCA\s+Response\s*:/i);
+    const startAt = marker >= 0 ? text.indexOf(':', marker) + 1 : 0;
+    let inString = false;
+    let escaped = false;
+    let depth = 0;
+    let start = -1;
+
+    for (let index = startAt; index < text.length; index += 1) {
+        const character = text[index];
+        if (start < 0) {
+            if (character === '{' || character === '[') {
+                start = index;
+                depth = 1;
+            }
+            continue;
+        }
+
+        if (inString) {
+            if (escaped) escaped = false;
+            else if (character === '\\') escaped = true;
+            else if (character === '"') inString = false;
+            continue;
+        }
+        if (character === '"') {
+            inString = true;
+            continue;
+        }
+        if (character === '{' || character === '[') depth += 1;
+        else if (character === '}' || character === ']') {
+            depth -= 1;
+            if (depth === 0) {
+                try {
+                    return JSON.parse(text.slice(start, index + 1));
+                } catch (error) {
+                    return null;
+                }
+            }
+        }
+    }
+    return null;
+}
+
 frappe.ui.form.on('POS Invoice', {
     refresh(frm) {
         console.log("POS Invoice Form refreshed!");
@@ -40,10 +92,9 @@ frappe.ui.form.on('POS Invoice', {
                 return;
             }
 
-            // ✅ Case 3: Parse JSON response
-            let jsonMatch = responseText.match(/ZATCA Response: ({.*})/);
-            if (!jsonMatch) throw "No JSON found in ZATCA response!";
-            let zatcaResponse = JSON.parse(jsonMatch[1]);
+            // ✅ Case 3: Parse raw JSON or a legacy display wrapper.
+            let zatcaResponse = parseZatcaResponse(responseText);
+            if (!zatcaResponse) throw new Error('No valid ZATCA response JSON found');
 
             const validationResults = zatcaResponse.validationResults || {};
             let errors = Array.isArray(validationResults.errorMessages) ? validationResults.errorMessages : [];

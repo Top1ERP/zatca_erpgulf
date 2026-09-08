@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 import frappe
 import pyqrcode
 from frappe.utils.file_manager import save_file
+from zatca_erpgulf.zatca_erpgulf.zatca_response import extract_raw_response
 
 
 def _local_name(tag):
@@ -17,13 +18,9 @@ def _text(node):
 
 
 def _extract_response_json(full_response):
-    raw = full_response or ""
-    start = raw.find("{")
-    if start < 0:
-        return None
-
+    raw = extract_raw_response(full_response)
     try:
-        obj, _ = json.JSONDecoder().raw_decode(raw[start:])
+        obj, _ = json.JSONDecoder().raw_decode(raw)
         return obj
     except Exception:
         return None

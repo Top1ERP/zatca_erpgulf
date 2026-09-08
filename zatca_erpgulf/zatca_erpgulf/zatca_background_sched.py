@@ -404,7 +404,7 @@ def reporting_api_sales_withoutxml(
                     # )
                     invoice_doc.custom_uuid = "Not Submitted"
                     invoice_doc.custom_zatca_status = "Not Submitted"
-                    invoice_doc.custom_zatca_full_response = "Not Submitted"
+                    invoice_doc.custom_zatca_full_response = response.text
                     invoice_doc.save(ignore_permissions=True)  # or with permissions if needed
                     frappe.db.commit()
 
@@ -441,7 +441,7 @@ def reporting_api_sales_withoutxml(
                     # )
                     invoice_doc.custom_uuid = "Not Submitted"
                     invoice_doc.custom_zatca_status = "Not Submitted"
-                    invoice_doc.custom_zatca_full_response = "Not Submitted"
+                    invoice_doc.custom_zatca_full_response = response.text
                     invoice_doc.save(ignore_permissions=True)  # or with permissions if needed
                     frappe.db.commit()
 
@@ -496,7 +496,7 @@ def reporting_api_sales_withoutxml(
                         )
 
                     invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
-                    invoice_doc.custom_zatca_full_response = msg
+                    invoice_doc.custom_zatca_full_response = response.text
                     invoice_doc.custom_uuid = uuid1
                     invoice_doc.custom_zatca_status = "REPORTED"
                     invoice_doc.save(ignore_permissions=True)
@@ -512,7 +512,7 @@ def reporting_api_sales_withoutxml(
                     invoice_doc = frappe.get_doc(SALES_INVOICE, invoice_number)
                     invoice_doc.custom_uuid = "Not Submitted"
                     invoice_doc.custom_zatca_status = "Not Submitted"
-                    invoice_doc.custom_zatca_full_response = "Not Submitted"
+                    invoice_doc.custom_zatca_full_response = response.text
                     invoice_doc.save(ignore_permissions=True)  # or with permissions if needed
                     frappe.db.commit()
                     # invoice_doc.db_set(
@@ -606,7 +606,7 @@ def reporting_api_sales_withoutxml(
                     #     commit=True,
                     #     update_modified=True,
                     # )
-                    invoice_doc.custom_zatca_full_response = msg
+                    invoice_doc.custom_zatca_full_response = response.text
                     invoice_doc.custom_uuid = uuid1
                     invoice_doc.custom_zatca_status = "REPORTED"
 

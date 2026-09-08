@@ -8,9 +8,14 @@ requires-python = ">=3.10"
 readme = "README.md"
 dynamic = ["version"]
 dependencies = [
+    # Frappe and ERPNext are installed and managed by bench.
     "asn1~=2.7.0",
-    "pikepdf"
-    # "frappe~=15.0.0" # Installed and managed by bench.
+    "cryptography>=41,<47",
+    "lxml>=4.9,<7",
+    "num2words>=0.5.12,<1",
+    "pikepdf>=8,<11",
+    "pyqrcode>=1.2.1,<2",
+    "requests>=2.28,<3",
 ]
 
 [build-system]

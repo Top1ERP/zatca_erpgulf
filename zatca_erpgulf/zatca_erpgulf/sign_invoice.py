@@ -19,7 +19,10 @@ from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country
 from zatca_erpgulf.zatca_erpgulf.customer_address import resolve_customer_address
 import requests
 from zatca_erpgulf.zatca_erpgulf.event_log import log_zatca_event
-from zatca_erpgulf.zatca_erpgulf.zatca_response import format_zatca_response
+from zatca_erpgulf.zatca_erpgulf.zatca_response import (
+    format_zatca_response,
+    set_zatca_full_response,
+)
 from zatca_erpgulf.zatca_erpgulf.pih import update_pih_after_phase2_success
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
     PHASE_1_VALUE,
@@ -414,7 +417,7 @@ def reporting_api(
                     if not _is_valid_zatca_uuid_value(getattr(invoice_doc, "custom_uuid", None)):
                         invoice_doc.custom_uuid = "Not Submitted"
                     invoice_doc.custom_zatca_status = "Not Submitted"
-                    invoice_doc.custom_zatca_full_response = "Not Submitted"
+                    invoice_doc.custom_zatca_full_response = response.text
                     invoice_doc.save(ignore_permissions=True)  # or with permissions if needed
                     frappe.db.commit()
                     frappe.throw(
@@ -451,7 +454,7 @@ def reporting_api(
                     if not _is_valid_zatca_uuid_value(getattr(invoice_doc, "custom_uuid", None)):
                         invoice_doc.custom_uuid = "Not Submitted"
                     invoice_doc.custom_zatca_status = "Not Submitted"
-                    invoice_doc.custom_zatca_full_response = "Not Submitted"
+                    invoice_doc.custom_zatca_full_response = response.text
                     invoice_doc.save(ignore_permissions=True)  # or with permissions if needed
                     frappe.db.commit()
                     frappe.throw(
@@ -510,7 +513,7 @@ def reporting_api(
                     if qr_payload:
                         attach_qr_image(qr_payload, sales_invoice_doc, allow_phase2=True)
                     invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
-                    invoice_doc.custom_zatca_full_response = msg
+                    invoice_doc.custom_zatca_full_response = response.text
                     invoice_doc.custom_uuid = uuid1
                     invoice_doc.custom_zatca_status = "REPORTED"
                     invoice_doc.save(ignore_permissions=True)
@@ -542,7 +545,7 @@ def reporting_api(
                     if not _is_valid_zatca_uuid_value(getattr(invoice_doc, "custom_uuid", None)):
                         invoice_doc.custom_uuid = "Not Submitted"
                     invoice_doc.custom_zatca_status = "Not Submitted"
-                    invoice_doc.custom_zatca_full_response = "Not Submitted"
+                    invoice_doc.custom_zatca_full_response = response.text
                     invoice_doc.save(ignore_permissions=True)  # or with permissions if needed
                     frappe.db.commit()
                     frappe.throw(
@@ -635,7 +638,7 @@ def reporting_api(
                     #     commit=True,
                     #     update_modified=True,
                     # )
-                    invoice_doc.custom_zatca_full_response = msg
+                    invoice_doc.custom_zatca_full_response = response.text
                     invoice_doc.custom_uuid = uuid1
                     invoice_doc.custom_zatca_status = "REPORTED"
                     invoice_doc.save(ignore_permissions=True)
@@ -779,7 +782,7 @@ def clearance_api(
                 commit=True,
                 update_modified=True,
             )
-            invoice_doc.db_set("custom_zatca_full_response", "Not Submitted")
+            set_zatca_full_response(invoice_doc, response.text)
             frappe.throw(
                 _(
                     (
@@ -801,7 +804,7 @@ def clearance_api(
                 commit=True,
                 update_modified=True,
             )
-            invoice_doc.db_set("custom_zatca_full_response", "Not Submitted")
+            set_zatca_full_response(invoice_doc, response.text)
             frappe.throw(
                 _(
                     (
@@ -854,7 +857,7 @@ def clearance_api(
                 )
 
             invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
-            invoice_doc.custom_zatca_full_response = msg
+            invoice_doc.custom_zatca_full_response = response.text
             invoice_doc.custom_uuid = uuid1
             invoice_doc.custom_zatca_status = "CLEARED"
             invoice_doc.save(ignore_permissions=True)
@@ -877,7 +880,7 @@ def clearance_api(
                 commit=True,
                 update_modified=True,
             )
-            invoice_doc.db_set("custom_zatca_full_response", "Not Submitted")
+            set_zatca_full_response(invoice_doc, response.text)
             frappe.throw(
                 _(
                     f"Error: ZATCA server busy or not responding. Status code: {response.status_code}"
@@ -939,8 +942,8 @@ def clearance_api(
                 )
 
             invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
-            invoice_doc.db_set(
-                "custom_zatca_full_response", msg, commit=True, update_modified=True
+            set_zatca_full_response(
+                invoice_doc, response.text, commit=True, update_modified=True
             )
             invoice_doc.db_set("custom_uuid", uuid1, commit=True, update_modified=True)
             invoice_doc.db_set(

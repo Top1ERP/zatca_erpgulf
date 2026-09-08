@@ -261,6 +261,7 @@ doc_events = {
     },
     "Sales Invoice": {
         # "before_insert": "zatca_erpgulf.zatca_erpgulf.sales_invoice_hooks.set_draft_series",
+        "before_save": "zatca_erpgulf.zatca_erpgulf.zatca_response.normalize_zatca_full_response",
         "validate": "zatca_erpgulf.overrides.sales_invoice.validate_zatca_sales_invoice",
         "before_cancel": [
             "zatca_erpgulf.zatca_erpgulf.validations.before_save",
@@ -287,6 +288,7 @@ doc_events = {
         "validate": "zatca_erpgulf.zatca_erpgulf.tax_error.validate_tax_template_category_constraints",
     },
     "POS Invoice": {
+        "before_save": "zatca_erpgulf.zatca_erpgulf.zatca_response.normalize_zatca_full_response",
         "validate": "zatca_erpgulf.zatca_erpgulf.tax_error.validate_negative_item_values_on_save",
         "before_cancel": "zatca_erpgulf.zatca_erpgulf.validations.before_save",
         "before_submit": [

@@ -110,6 +110,58 @@
 
 
 
+function parseZatcaResponse(responseText) {
+    const text = String(responseText || '').trim();
+    if (!text) return null;
+
+    try {
+        return JSON.parse(text);
+    } catch (error) {
+        // Legacy values contain a display message around the JSON body.
+    }
+
+    const marker = text.search(/ZATCA\s+Response\s*:/i);
+    const startAt = marker >= 0 ? text.indexOf(':', marker) + 1 : 0;
+    let inString = false;
+    let escaped = false;
+    let depth = 0;
+    let start = -1;
+
+    for (let index = startAt; index < text.length; index += 1) {
+        const character = text[index];
+        if (start < 0) {
+            if (character === '{' || character === '[') {
+                start = index;
+                depth = 1;
+            }
+            continue;
+        }
+
+        if (inString) {
+            if (escaped) escaped = false;
+            else if (character === '\\') escaped = true;
+            else if (character === '"') inString = false;
+            continue;
+        }
+        if (character === '"') {
+            inString = true;
+            continue;
+        }
+        if (character === '{' || character === '[') depth += 1;
+        else if (character === '}' || character === ']') {
+            depth -= 1;
+            if (depth === 0) {
+                try {
+                    return JSON.parse(text.slice(start, index + 1));
+                } catch (error) {
+                    return null;
+                }
+            }
+        }
+    }
+    return null;
+}
+
 frappe.ui.form.on('Sales Invoice', {
     refresh(frm) {
         console.log("Form refreshed!");
@@ -129,8 +181,9 @@ frappe.ui.form.on('Sales Invoice', {
                     return; // Exit since it's an error
                 }
 
-                // Parse JSON
-                let zatcaResponse = JSON.parse(ztcaresponse.match(/ZATCA Response: ({.*})/)[1]);
+                // Accept the new raw JSON body and legacy display wrappers.
+                let zatcaResponse = parseZatcaResponse(ztcaresponse);
+                if (!zatcaResponse) throw new Error('No valid ZATCA response JSON found');
                 const validationResults = zatcaResponse.validationResults || {};
                 const status = validationResults.status; // PASS / WARNING / FAILED
                 const reportingStatus = frm.doc.custom_zatca_status || ''; // Cleared / Reported

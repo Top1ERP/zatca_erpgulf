@@ -1,21 +1,20 @@
 import frappe
 import json
-import re
+
+from zatca_erpgulf.zatca_erpgulf.zatca_response import extract_raw_response
 
 
 def extract_json(text):
-    """
-    Extract JSON object from mixed ZATCA response text
-    (handles HTML + text + JSON)
-    """
+    """Return a valid raw ZATCA response body from stored text."""
     if not text:
         return None
 
-    match = re.search(r'({.*})', text, re.DOTALL)
-    if match:
-        return match.group(1)
-
-    return None
+    raw_response = extract_raw_response(text)
+    try:
+        json.loads(raw_response)
+    except (TypeError, ValueError):
+        return None
+    return raw_response
 
 
 def execute(filters=None):

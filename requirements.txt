@@ -1,1 +1,9 @@
-asn1
+# Runtime dependencies imported directly by zatca_erpgulf.
+# Frappe/ERPNext remain bench-managed and are intentionally not listed here.
+asn1~=2.7.0
+cryptography>=41,<47
+lxml>=4.9,<7
+num2words>=0.5.12,<1
+pikepdf>=8,<11
+pyqrcode>=1.2.1,<2
+requests>=2.28,<3

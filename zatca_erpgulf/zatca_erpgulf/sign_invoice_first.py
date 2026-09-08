@@ -14,9 +14,8 @@ import lxml.etree as MyTree
 from frappe import _
 import frappe
 from cryptography import x509
-from cryptography.hazmat._oid import NameOID
+from cryptography.x509.oid import NameOID, ObjectIdentifier
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.bindings._rust import ObjectIdentifier
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 import requests

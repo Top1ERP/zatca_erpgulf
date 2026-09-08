@@ -1,6 +1,9 @@
 from frappe.utils import now_datetime
 import frappe
 
+from zatca_erpgulf.zatca_erpgulf.zatca_response import extract_raw_response
+
+
 def log_zatca_event(invoice_number, response_text, status, uuid=None, title=None):
     """new doctype for handing logs"""
     try:
@@ -9,7 +12,8 @@ def log_zatca_event(invoice_number, response_text, status, uuid=None, title=None
             "title": title or f"ZATCA API Call for {invoice_number}",
             "invoice_number": invoice_number,
             "time": now_datetime(),  #
-            "api_response": response_text,  # store the API response here
+            # Keep the authority body, not the translated UI message.
+            "api_response": extract_raw_response(response_text),
             "custom_uuid": uuid or "",
             "status": status  # e.g., "Success", "Failed", "Warning"
         })

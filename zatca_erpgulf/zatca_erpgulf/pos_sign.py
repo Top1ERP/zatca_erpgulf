@@ -15,7 +15,10 @@ from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country
 from zatca_erpgulf.zatca_erpgulf.customer_address import resolve_customer_address
 from zatca_erpgulf.zatca_erpgulf.event_log import log_zatca_event
-from zatca_erpgulf.zatca_erpgulf.zatca_response import format_zatca_response
+from zatca_erpgulf.zatca_erpgulf.zatca_response import (
+    format_zatca_response,
+    set_zatca_full_response,
+)
 from zatca_erpgulf.zatca_erpgulf.posxml import (
     xml_tags,
     salesinvoice_data,
@@ -317,7 +320,7 @@ def reporting_api(
                         )
 
                     invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
-                    invoice_doc.custom_zatca_full_response = msg
+                    invoice_doc.custom_zatca_full_response = response.text
                     invoice_doc.custom_uuid = uuid1
                     invoice_doc.custom_zatca_status = "REPORTED"
                     invoice_doc.save(ignore_permissions=True)
@@ -677,8 +680,8 @@ def clearance_api(
                 )
 
             invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
-            invoice_doc.db_set(
-                "custom_zatca_full_response", msg, commit=True, update_modified=True
+            set_zatca_full_response(
+                invoice_doc, response.text, commit=True, update_modified=True
             )
             invoice_doc.db_set("custom_uuid", uuid1, commit=True, update_modified=True)
             invoice_doc.db_set(
