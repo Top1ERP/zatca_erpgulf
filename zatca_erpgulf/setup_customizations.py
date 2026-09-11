@@ -8,6 +8,7 @@ from typing import Any
 import frappe
 from frappe.utils import cint, flt
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+from frappe.utils.fixtures import sync_fixtures
 
 
 APP_NAME = "zatca_erpgulf"
@@ -5448,6 +5449,11 @@ def report_zatca_customization_status() -> dict[str, Any]:
 
 
 def after_install() -> None:
+    # Frappe runs app hooks before its normal fixture synchronization. The
+    # customization sync updates the ZATCA workspace and validates links to
+    # fixtures (number cards, dashboard, reports), so ensure those records
+    # exist before saving the workspace during a fresh installation.
+    sync_fixtures(APP_NAME)
     sync_all_zatca_customizations(provision_tax_templates=True)
     hide_legacy_discount_reason_code()
     enforce_tax_template_permissions()
