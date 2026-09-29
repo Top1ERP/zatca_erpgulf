@@ -12,13 +12,13 @@ Validate Saudi addresses linked to Customers when ZATCA E-Invoicing is enabled.,
 "When enabled in Phase-2 with ZATCA E-Invoicing enabled, Zero Rated, Exempted, and Outside Scope categories must use zero VAT rate and zero tax.",عند تفعيل هذا الخيار في المرحلة الثانية مع تفعيل الفوترة الإلكترونية لـ ZATCA، يجب أن تستخدم فئات النسبة الصفرية والمعفاة وخارج نطاق الضريبة معدل ضريبة ومبلغ ضريبة يساوي صفرًا.
 Display ZATCA response on the screen ( Untick for silent submission ) ,عرض استجابة ZATCA على الشاشة (ألغِ التحديد للإرسال الصامت)
 Select submission method for B2C  ( B2B always send Live as per ZATCA instruction ),اختر طريقة إرسال فواتير B2C (تُرسل فواتير B2B دائمًا بشكل مباشر وفق تعليمات ZATCA)
-"If Invoice still in Draft status, submit and send to ZATCA( Applicable for B2C/POS Invoice only ) ",إذا كانت الفاتورة لا تزال مسودة، فقم بترحيلها وإرسالها إلى ZATCA (ينطبق على فواتير B2C وPOS فقط)
+"If Invoice is still in Draft status, submit it and send it to ZATCA automatically through Background submission (Applicable for B2C/POS invoices only)",إذا كانت الفاتورة لا تزال مسودة، فقم بترحيلها ثم إرسالها إلى ZATCA تلقائيًا عبر الإرسال في الخلفية Background (ينطبق على فواتير B2C وPOS فقط)
 Keys & Certificate For ZATCA,المفاتيح والشهادة الخاصة بـ ZATCA
 Keys & Certificate For Zatca,المفاتيح والشهادة الخاصة بـ ZATCA
 Consider Cost-Center as branch. ( If checked- Need to add Branch CRN and Address in Cost Center ),اعتبر مركز التكلفة فرعًا. عند التفعيل يجب إضافة الرقم التجاري للفرع وعنوانه في مركز التكلفة.
 Display ZATCA response on the screen ( Untick for silent submission ),عرض استجابة ZATCA على الشاشة (ألغِ التحديد للإرسال الصامت)
 Select submission method for B2C ( B2B always send Live as per ZATCA instruction ),اختر طريقة إرسال فواتير B2C (تُرسل فواتير B2B دائمًا بشكل مباشر وفق تعليمات ZATCA)
-"If Invoice still in Draft status, submit and send to ZATCA ( Applicable for B2C/POS Invoice only )",إذا كانت الفاتورة لا تزال مسودة، فقم بترحيلها وإرسالها إلى ZATCA (ينطبق على فواتير B2C وPOS فقط)
+"If Invoice is still in Draft status, submit it and send it to ZATCA automatically through Background submission (Applicable for B2C/POS invoices only)",إذا كانت الفاتورة لا تزال مسودة، فقم بترحيلها ثم إرسالها إلى ZATCA تلقائيًا عبر الإرسال في الخلفية Background (ينطبق على فواتير B2C وPOS فقط)
 ZATCA Compliance Check. Check all options below.,فحص امتثال ZATCA. تحقق من جميع الخيارات أدناه.
 Controls ZATCA validation behavior for this company.,يتحكم في سلوك تحقق ZATCA لهذه الشركة.
 Controls ZATCA buyer-identification validation when saving Customer records.,يتحكم في التحقق من بيانات تعريف المشتري لدى ZATCA عند حفظ سجلات العملاء.
@@ -307,6 +307,18 @@ Existing Sales Invoice/POS Invoice number used for compliance testing,رقم ف�
 Check Compliance,فحص الامتثال
 Runs compliance check for the selected Validation Type and sample invoice,يشغل فحص الامتثال لنوع الفحص والفاتورة التجريبية المحددين.
 Run All Compliance,تشغيل كل فحوصات الامتثال
+Automatic ZATCA Onboarding Test,اختبار الربط التلقائي مع ZATCA
+This is an alternative to Run All Compliance. It creates temporary documents and does not create customers or sales invoices. Choose one method only before generating the Production CSID. Continue?,هذا الاختبار بديل عن تشغيل كل فحوصات الامتثال. ينشئ مستندات مؤقتة ولا ينشئ عملاء أو فواتير مبيعات. اختر طريقة واحدة فقط قبل إنشاء Production CSID. هل تريد المتابعة؟
+Running the automatic ZATCA onboarding test...,جارٍ تشغيل اختبار الربط التلقائي مع ZATCA...
+Automatic ZATCA Onboarding Test Passed,نجح اختبار الربط التلقائي مع ZATCA
+Automatic ZATCA Onboarding Test Failed,فشل اختبار الربط التلقائي مع ZATCA
+This alternative test uses temporary documents only; no customer or sales invoice was created.,يستخدم هذا الاختبار البديل مستندات مؤقتة فقط؛ ولم يتم إنشاء أي عميل أو فاتورة مبيعات.
+You may now use Generate Final CSID. Do not run both onboarding methods for the same compliance setup.,يمكنك الآن استخدام إنشاء CSID النهائي. لا تشغّل طريقتي الربط معًا لنفس إعداد الامتثال.
+Automatic onboarding test. It submits six temporary synthetic documents without creating a customer or Sales Invoice.,اختبار ربط تلقائي يرسل ستة مستندات مؤقتة مُنشأة آليًا دون إنشاء عميل أو فاتورة مبيعات.
+A company address is required before running the automatic ZATCA onboarding test.,يجب توفر عنوان للشركة قبل تشغيل اختبار الربط التلقائي مع ZATCA.
+Company Tax ID is required for the automatic ZATCA onboarding test.,الرقم الضريبي للشركة مطلوب لتشغيل اختبار الربط التلقائي مع ZATCA.
+Already completed by ZATCA; treated as PASS.,اكتمل مسبقًا لدى ZATCA؛ وسيُعامل كنجاح.
+Completed successfully.,اكتمل بنجاح.
 "Runs compliance checks for all supported invoices, credit notes, and debit notes types",يشغل فحوصات الامتثال لكل الفواتير وإشعارات الدائن والمدين المدعومة.
 Final CSID Generation,إنشاء CSID النهائي
 Generate Final CSID,إنشاء CSID النهائي
@@ -395,6 +407,8 @@ ZATCA Advance Deduction Details,تفاصيل خصم الدفعات المقدم�
 Advance Invoice Date,تاريخ فاتورة الدفعة المقدمة
 Advance Status,حالة فاتورة الدفعة المقدمة
 Advance Total Amount Incl. VAT,إجمالي فاتورة الدفعة المقدمة شامل الضريبة
+Available Advance Remaining Amount Incl. VAT,المبلغ المتبقي القابل للتسوية شامل الضريبة
+Return reversal was limited to the amount allocated by the original final invoice.,تم تحديد مبلغ عكس المردود بما لا يتجاوز المبلغ المخصص في الفاتورة النهائية الأصلية.
 Advance Taxable Amount,وعاء فاتورة الدفعة المقدمة
 Advance VAT Amount,ضريبة فاتورة الدفعة المقدمة
 Applied In Final Invoice,المحتسب في الفاتورة النهائية
@@ -464,6 +478,14 @@ Advance payment Sales Invoice {0} may appear only once in the deduction table.,�
 Account {0} currency {1} must match either Company Currency {2} or Sales Invoice Currency {3} for an advance deduction.,يجب أن تطابق عملة الحساب {0} وهي {1} إما عملة الشركة {2} أو عملة فاتورة المبيعات {3} عند خصم دفعة مقدمة.
 Customer account currency {0} must match either Company Currency {1} or Sales Invoice Currency {2} for an advance deduction.,يجب أن تطابق عملة حساب العميل {0} إما عملة الشركة {1} أو عملة فاتورة المبيعات {2} عند خصم دفعة مقدمة.
 Advance payment Sales Invoice {0} is used by submitted final invoices for {1}. Cancel those final invoices first.,فاتورة مبيعات الدفعة المقدمة {0} مستخدمة في فواتير نهائية معتمدة بمبلغ {1}. ألغِ تلك الفواتير النهائية أولًا.
+This return cannot contain ZATCA advance reversal rows because the original invoice has no ZATCA Advance Deduction Table rows.,لا يمكن أن يحتوي هذا المردود على صفوف عكس دفعات زاتكا لأن الفاتورة الأصلية لا تحتوي على صفوف في جدول خصم الدفعة المقدمة.
+Each ZATCA advance invoice may appear only once in the return reversal table.,لا يجوز ظهور فاتورة الدفعة المقدمة من زاتكا أكثر من مرة في جدول عكس المردود.
+Advance invoice {0} is not allocated by the original invoice {1}.,فاتورة الدفعة المقدمة {0} غير مخصصة في الفاتورة الأصلية {1}.
+Return reversal for advance invoice {0} cannot exceed the amount allocated by original invoice {1}: {2}.,لا يمكن أن يتجاوز عكس فاتورة الدفعة المقدمة {0} المبلغ المخصص لها في الفاتورة الأصلية {1}: {2}.
+ZATCA advance reversal cannot exceed the original invoice total.,لا يمكن أن يتجاوز عكس دفعة زاتكا المقدمة إجمالي الفاتورة الأصلية.
+The ZATCA advance allocation rows were copied as return reversals.,تم نسخ صفوف تخصيص دفعة زاتكا المقدمة باعتبارها عكسًا للمردود.
+Return ZATCA advance reversal amount must be negative.,يجب أن تكون قيمة عكس دفعة زاتكا المقدمة في المردود سالبة.
+Invalid advance reversal amount,قيمة عكس الدفعة المقدمة غير صحيحة
 Not permitted to read Sales Invoice {0}.,لا تملك صلاحية قراءة فاتورة المبيعات {0}.
 Sales Invoice {0} is not an accepted advance payment invoice.,فاتورة المبيعات {0} ليست فاتورة دفعة مقدمة مقبولة.
 Payment Entry must be submitted before creating an advance payment invoice.,يجب اعتماد سند القبض قبل إنشاء فاتورة دفعة مقدمة.
