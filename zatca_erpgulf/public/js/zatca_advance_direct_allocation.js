@@ -31,6 +31,10 @@
         );
     }
 
+    function isReturn(frm) {
+        return Number(frm?.doc?.is_return || 0) === 1;
+    }
+
     function allocationFeatureExists(frm) {
         const helper = runtime();
         return Boolean(
@@ -81,9 +85,9 @@
     }
 
     function finalInvoiceRemainingAmount(frm, currentRow) {
-        const invoiceTotal = roundCurrency(
+        const invoiceTotal = Math.abs(roundCurrency(
             frm.doc.rounded_total || frm.doc.grand_total
-        );
+        ));
         if (!invoiceTotal) {
             return Number.POSITIVE_INFINITY;
         }
@@ -94,7 +98,9 @@
             if (currentRow && row.name === currentRow.name) {
                 return total;
             }
-            return total + roundCurrency(row.allocated_total_amount);
+            return total + (isReturn(frm)
+                ? Math.abs(roundCurrency(row.allocated_total_amount))
+                : roundCurrency(row.allocated_total_amount));
         }, 0);
         return Math.max(0, roundCurrency(invoiceTotal - allocatedElsewhere));
     }
@@ -105,20 +111,50 @@
         }
 
         const row = locals[cdt][cdn];
-        const requested = Math.max(0, roundCurrency(row.allocated_total_amount));
+        const rawRequested = roundCurrency(row.allocated_total_amount);
+        if (isReturn(frm) && rawRequested > 0) {
+            frappe.model.set_value(cdt, cdn, "allocated_total_amount", -rawRequested);
+            frappe.msgprint({
+                title: __("Invalid advance reversal amount"),
+                message: __("Return ZATCA advance reversal amount must be negative."),
+                indicator: "red"
+            });
+        }
+        const requested = isReturn(frm)
+            ? Math.abs(rawRequested)
+            : Math.max(0, rawRequested);
         const available = Number(row.__zatca_available_amount);
         const advanceLimit = Number.isFinite(available)
             ? Math.max(0, roundCurrency(available))
             : roundCurrency(row.advance_total_amount);
         const invoiceLimit = finalInvoiceRemainingAmount(frm, row);
-        const capped = Math.min(requested, advanceLimit, invoiceLimit);
+        const originalFinalAllocationLimit = isReturn(frm)
+            ? Number(row.__zatca_return_source_amount)
+            : Number.POSITIVE_INFINITY;
+        const capped = Math.min(
+            requested,
+            advanceLimit,
+            invoiceLimit,
+            Number.isFinite(originalFinalAllocationLimit)
+                ? Math.max(0, roundCurrency(originalFinalAllocationLimit))
+                : Number.POSITIVE_INFINITY
+        );
 
         if (requested !== capped) {
-            frappe.model.set_value(cdt, cdn, "allocated_total_amount", capped);
+            frappe.model.set_value(
+                cdt,
+                cdn,
+                "allocated_total_amount",
+                isReturn(frm) ? -capped : capped
+            );
             frappe.show_alert({
-                message: __(
-                    "Applied amount was limited to the remaining invoice and advance balance."
-                ),
+                message: isReturn(frm)
+                    ? __(
+                        "Return reversal was limited to the amount allocated by the original final invoice."
+                    )
+                    : __(
+                        "Applied amount was limited to the remaining invoice and advance balance."
+                    ),
                 indicator: "orange"
             });
         }
@@ -152,6 +188,7 @@
             "advance_invoice_date",
             "advance_status",
             "currency",
+            "available_advance_remaining_amount",
             "advance_total_amount",
             "advance_taxable_amount",
             "advance_tax_amount",
@@ -177,9 +214,7 @@
         }
 
         const row = locals[cdt][cdn];
-        const total = roundCurrency(
-            row.allocated_total_amount
-        );
+        const total = roundCurrency(row.allocated_total_amount);
         const advanceTotal = roundCurrency(
             row.advance_total_amount
         );
@@ -187,7 +222,7 @@
             row.advance_taxable_amount
         );
 
-        if (!advanceTotal || total <= 0) {
+        if (!advanceTotal || !total) {
             frappe.model.set_value(
                 cdt,
                 cdn,
@@ -206,11 +241,11 @@
             return;
         }
 
-        const taxable = roundCurrency(
-            (total * advanceTaxable) / advanceTotal
-        );
+        const taxable = roundCurrency((Math.abs(total) * advanceTaxable) / advanceTotal) *
+            (isReturn(frm) ? -1 : 1);
 
-        const tax = roundCurrency(total - taxable);
+        const tax = roundCurrency(Math.abs(total) - Math.abs(taxable)) *
+            (isReturn(frm) ? -1 : 1);
 
         frappe.model.set_value(
             cdt,
@@ -250,7 +285,15 @@
         rows.forEach(function (row) {
             if (
                 row.advance_invoice &&
-                (!row.payment_entry || !Number(row.advance_total_amount || 0))
+                (
+                    !row.payment_entry ||
+                    !Number(row.advance_total_amount || 0) ||
+                    row.available_advance_remaining_amount == null ||
+                    (
+                        !Number(row.available_advance_remaining_amount) &&
+                        Number(row.advance_total_amount || 0) > 0
+                    )
+                )
             ) {
                 loadAdvanceDetails(
                     frm,
@@ -395,6 +438,7 @@
                     "advance_invoice_date",
                     "advance_status",
                     "currency",
+                    "available_advance_remaining_amount",
                     "advance_total_amount",
                     "advance_taxable_amount",
                     "advance_tax_amount"
@@ -419,7 +463,7 @@
                         cdt,
                         cdn,
                         "allocated_total_amount",
-                        Math.min(
+                        (isReturn(frm) ? -1 : 1) * Math.min(
                             currentRow.__zatca_available_amount,
                             finalInvoiceRemainingAmount(frm, currentRow)
                         )
@@ -530,6 +574,61 @@
             }
 
             updateDocumentTotals(frm);
+        }
+    });
+})();
+
+// A return created from a final invoice must carry the original allocation
+// rows so the server can treat them as reversals.  ERPNext does not always
+// copy custom child tables when the return is created from the form button.
+(function () {
+    const TABLE_FIELD = "custom_zatca_advance_deduction_details";
+    frappe.ui.form.on("Sales Invoice", {
+        async refresh(frm) {
+            if (frm.doc.docstatus !== 0 || !frm.doc.is_return || !frm.doc.return_against ||
+                frm.__zatca_return_rows_initialized) return;
+            if (!frm.fields_dict?.[TABLE_FIELD]) return;
+            frm.__zatca_return_rows_initialized = true;
+            const source = await frappe.db.get_doc("Sales Invoice", frm.doc.return_against);
+            const rows = source?.[TABLE_FIELD] || [];
+            const sourceLimits = Object.fromEntries(
+                rows.map((sourceRow) => [
+                    sourceRow.advance_invoice,
+                    Math.abs(Number(sourceRow.allocated_total_amount || 0))
+                ])
+            );
+            const existingRows = frm.doc[TABLE_FIELD] || [];
+            existingRows.forEach((row) => {
+                if (sourceLimits[row.advance_invoice] != null) {
+                    row.__zatca_return_source_amount =
+                        sourceLimits[row.advance_invoice];
+                }
+            });
+            if (existingRows.length || !rows.length) {
+                frm.refresh_field(TABLE_FIELD);
+                return;
+            }
+            rows.forEach((sourceRow) => {
+                const row = frm.add_child(TABLE_FIELD);
+                row.__zatca_return_source_amount = Math.abs(
+                    Number(sourceRow.allocated_total_amount || 0)
+                );
+                Object.keys(sourceRow).forEach((fieldname) => {
+                    if (!["name", "parent", "parenttype", "parentfield", "idx"].includes(fieldname) &&
+                        frm.fields_dict[TABLE_FIELD].grid.docfields.some(df => df.fieldname === fieldname)) {
+                        row[fieldname] = fieldname === "allocated_total_amount" ||
+                            fieldname === "allocated_taxable_amount" ||
+                            fieldname === "allocated_tax_amount"
+                            ? -Math.abs(Number(sourceRow[fieldname] || 0))
+                            : sourceRow[fieldname];
+                    }
+                });
+            });
+            frm.refresh_field(TABLE_FIELD);
+            frappe.show_alert({
+                message: __("The ZATCA advance allocation rows were copied as return reversals."),
+                indicator: "blue"
+            });
         }
     });
 })();

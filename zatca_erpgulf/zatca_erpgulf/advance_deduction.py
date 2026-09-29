@@ -162,7 +162,11 @@ def _submitted_final_allocation_total(
 
     result = frappe.db.sql(
         f"""
-        select coalesce(sum(detail.allocated_total_amount), 0)
+        select coalesce(sum(
+            case when parent_invoice.is_return = 1
+                 then -abs(detail.allocated_total_amount)
+                 else detail.allocated_total_amount end
+        ), 0)
           from `tab{DETAIL_DOCTYPE}` detail
           inner join `tabSales Invoice` parent_invoice
                   on parent_invoice.name = detail.parent
@@ -297,6 +301,7 @@ def populate_zatca_advance_deductions(sales_invoice_doc) -> list:
                 "advance_invoice_date": advance.get("posting_date"),
                 "advance_status": advance.get("custom_zatca_status"),
                 "currency": advance.get("currency"),
+                "available_advance_remaining_amount": float(available),
                 "advance_total_amount": float(_advance_total_amount(advance)),
                 "advance_taxable_amount": float(_advance_taxable_amount(advance)),
                 "advance_tax_amount": float(_advance_tax_amount(advance)),
@@ -517,6 +522,7 @@ def _validate_and_enrich_row(
         "advance_invoice_date": advance.get("posting_date"),
         "advance_status": advance.get("custom_zatca_status"),
         "currency": advance.get("currency"),
+        "available_advance_remaining_amount": float(available),
         "advance_total_amount": float(advance_total),
         "advance_taxable_amount": float(advance_taxable),
         "advance_tax_amount": float(advance_tax),
@@ -555,6 +561,137 @@ def _clear_advance_deduction_derived_fields(doc) -> None:
             setattr(doc, fieldname, value)
 
 
+def _validate_return_advance_reversals(doc, rows) -> list[dict]:
+    """Validate signed advance rows on a return without consuming the advance again.
+
+    ERPNext copies custom child tables when a return is created.  A copied row is
+    therefore a reversal of the allocation on ``return_against``; it is not a new
+    positive allocation.  The child row keeps the source amount for XML
+    traceability, while the balance query and GL flags apply the reversal sign.
+    """
+    reference = str(getattr(doc, "return_against", "") or "").strip()
+    if not reference and rows:
+        frappe.throw(
+            _(
+                "ZATCA advance reversal rows require Return Against to identify "
+                "the original final invoice."
+            )
+        )
+    if not reference or not rows:
+        _clear_advance_deduction_derived_fields(doc)
+        return []
+
+    if not frappe.db.exists("Sales Invoice", reference):
+        frappe.throw(_("Sales Invoice not found: {0}").format(reference))
+    source = frappe.get_doc("Sales Invoice", reference)
+    source_rows = {
+        str(_row_value(row, "advance_invoice", "") or "").strip(): row
+        for row in _detail_rows(source)
+        if str(_row_value(row, "advance_invoice", "") or "").strip()
+    }
+    if not source_rows:
+        frappe.throw(
+            _(
+                "This return cannot contain ZATCA advance reversal rows because the "
+                "original invoice has no ZATCA Advance Deduction Table rows."
+            )
+        )
+
+    active_rows = []
+    seen = set()
+    for row in rows:
+        advance_invoice = str(_row_value(row, "advance_invoice", "") or "").strip()
+        if not advance_invoice or advance_invoice in seen:
+            frappe.throw(
+                _(
+                    "Each ZATCA advance invoice may appear only once in the return "
+                    "reversal table."
+                )
+            )
+        seen.add(advance_invoice)
+        source_row = source_rows.get(advance_invoice)
+        if not source_row:
+            frappe.throw(
+                _(
+                    "Advance invoice {0} is not allocated by the original invoice "
+                    "{1}."
+                ).format(advance_invoice, reference)
+            )
+        amount = q2(_row_value(row, "allocated_total_amount", 0))
+        if amount > 0:
+            frappe.throw(
+                _(
+                    "Return ZATCA advance reversal amount must be negative. "
+                    "Enter the reversal as a negative value."
+                )
+            )
+        source_amount = abs(q2(_row_value(source_row, "allocated_total_amount", 0)))
+        if not amount:
+            continue
+        if abs(amount) > source_amount + AMOUNT_TOLERANCE:
+            frappe.throw(
+                _(
+                    "Return reversal for advance invoice {0} cannot exceed the "
+                    "amount allocated by original invoice {1}: {2}."
+                ).format(advance_invoice, reference, source_amount)
+            )
+        _set_row_value(row, "allocated_total_amount", float(amount))
+        _set_row_value(
+            row,
+            "available_advance_remaining_amount",
+            float(
+                get_advance_available_amount(
+                    frappe.get_doc("Sales Invoice", advance_invoice),
+                    exclude_sales_invoice=getattr(doc, "name", None),
+                )
+            ),
+        )
+        source_taxable = q2(_row_value(source_row, "allocated_taxable_amount", 0))
+        source_tax = q2(_row_value(source_row, "allocated_tax_amount", 0))
+        ratio = abs(amount) / source_amount if source_amount else Decimal("0.00")
+        _set_row_value(row, "allocated_taxable_amount", float(-q2(source_taxable * ratio)))
+        _set_row_value(row, "allocated_tax_amount", float(-q2(source_tax * ratio)))
+        for fieldname in ("payment_entry", "advance_invoice_date", "advance_status", "currency", "available_advance_remaining_amount", "advance_total_amount", "advance_taxable_amount", "advance_tax_amount"):
+            value = _row_value(source_row, fieldname, None)
+            if value is not None:
+                _set_row_value(row, fieldname, value)
+        active_rows.append({
+            "advance": frappe.get_doc("Sales Invoice", advance_invoice),
+            "advance_invoice": advance_invoice,
+            "allocated_total_amount": amount,
+            "allocated_taxable_amount": -q2(source_taxable * ratio),
+            "allocated_tax_amount": -q2(source_tax * ratio),
+        })
+        active_rows[-1]["income_breakdown"] = [
+            {**item, "allocated_amount": -q2(item["allocated_amount"] * ratio)}
+            for item in _source_income_breakdown(active_rows[-1]["advance"], source_taxable)
+        ]
+        active_rows[-1]["tax_breakdown"] = [
+            {**item, "allocated_amount": -q2(item["allocated_amount"] * ratio)}
+            for item in _source_tax_breakdown(active_rows[-1]["advance"], source_tax)
+        ]
+
+    total = q2(sum((abs(row["allocated_total_amount"]) for row in active_rows), Decimal("0.00")))
+    if total > abs(q2(getattr(source, "grand_total", 0))) + AMOUNT_TOLERANCE:
+        frappe.throw(_("ZATCA advance reversal cannot exceed the original invoice total."))
+    if hasattr(doc, "custom_zatca_prepaid_amount"):
+        doc.custom_zatca_prepaid_amount = float(-total)
+    if hasattr(doc, "custom_zatca_advance_deducted_taxable_amount"):
+        doc.custom_zatca_advance_deducted_taxable_amount = float(
+            q2(sum((row["allocated_taxable_amount"] or 0 for row in active_rows), Decimal("0.00")))
+        )
+    if hasattr(doc, "custom_zatca_advance_deducted_vat_amount"):
+        doc.custom_zatca_advance_deducted_vat_amount = float(
+            q2(sum((row["allocated_tax_amount"] or 0 for row in active_rows), Decimal("0.00")))
+        )
+    if hasattr(doc, "custom_zatca_advance_deduction_count"):
+        doc.custom_zatca_advance_deduction_count = len(active_rows)
+    if not getattr(doc, "flags", None):
+        doc.flags = frappe._dict()
+    doc.flags.zatca_direct_advance_rows = active_rows
+    return active_rows
+
+
 def _validate_sales_invoice_advance_deductions(doc, *, lock: bool) -> list[dict]:
     if not supports_advance_deduction_schema(doc):
         if getattr(doc, "flags", None):
@@ -573,16 +710,7 @@ def _validate_sales_invoice_advance_deductions(doc, *, lock: bool) -> list[dict]
         doc.calculate_taxes_and_totals()
 
     if _is_return_invoice(doc):
-        if rows:
-            frappe.throw(
-                _(
-                    "ZATCA advance deductions cannot be applied directly to a return "
-                    "or credit note. Remove the ZATCA advance deduction rows; "
-                    "advance reversal is handled separately."
-                )
-            )
-        _clear_advance_deduction_derived_fields(doc)
-        return []
+        return _validate_return_advance_reversals(doc, rows)
 
     if is_advance_payment_invoice(doc) and rows:
         frappe.throw(
@@ -669,7 +797,8 @@ def get_direct_advance_deduction_rows(sales_invoice_doc, strict: bool = False) -
 
 def get_direct_advance_prepaid_amount(sales_invoice_doc, strict: bool = False) -> Decimal:
     rows = get_direct_advance_deduction_rows(sales_invoice_doc, strict=strict)
-    return q2(sum((row["allocated_total_amount"] for row in rows), Decimal("0.00")))
+    amount = q2(sum((row["allocated_total_amount"] for row in rows), Decimal("0.00")))
+    return abs(amount) if _is_return_invoice(sales_invoice_doc) else amount
 
 
 def append_advance_deduction_gl_entries(sales_invoice_doc, gl_entries: list) -> list:
@@ -682,7 +811,7 @@ def append_advance_deduction_gl_entries(sales_invoice_doc, gl_entries: list) -> 
     if not supports_advance_deduction_schema(sales_invoice_doc):
         return gl_entries
 
-    if _is_return_invoice(sales_invoice_doc) or is_advance_payment_invoice(sales_invoice_doc):
+    if is_advance_payment_invoice(sales_invoice_doc):
         return gl_entries
 
     rows = getattr(
@@ -722,53 +851,51 @@ def append_advance_deduction_gl_entries(sales_invoice_doc, gl_entries: list) -> 
     for allocation in rows:
         allocation_start = len(custom_entries)
         debit_accounts: list[str] = []
+        gross_amount = q2(allocation["allocated_total_amount"])
+        reversal = gross_amount < 0
 
         for component in allocation["income_breakdown"]:
-            amount = q2(component["allocated_amount"])
-            if amount <= 0:
+            amount = abs(q2(component["allocated_amount"]))
+            if not amount:
                 continue
             account = component["account"]
             base_amount, amount_in_account_currency = account_amount(account, amount)
             debit_accounts.append(account)
+            values = {
+                "account": account,
+                "against": sales_invoice_doc.customer,
+                "cost_center": component.get("cost_center"),
+                "project": component.get("project"),
+                "remarks": _("Advance allocation from {0}").format(allocation["advance_invoice"]),
+            }
+            side = "credit" if reversal else "debit"
+            values.update({side: float(base_amount), f"{side}_in_account_currency": float(amount_in_account_currency), f"{side}_in_transaction_currency": float(amount)})
             custom_entries.append(
                 sales_invoice_doc.get_gl_dict(
-                    {
-                        "account": account,
-                        "against": sales_invoice_doc.customer,
-                        "debit": float(base_amount),
-                        "debit_in_account_currency": float(amount_in_account_currency),
-                        "debit_in_transaction_currency": float(amount),
-                        "cost_center": component.get("cost_center"),
-                        "project": component.get("project"),
-                        "remarks": _("Advance allocation from {0}").format(
-                            allocation["advance_invoice"]
-                        ),
-                    },
+                    values,
                     get_account_currency(account),
                     item=sales_invoice_doc,
                 )
             )
 
         for component in allocation["tax_breakdown"]:
-            amount = q2(component["allocated_amount"])
-            if amount <= 0:
+            amount = abs(q2(component["allocated_amount"]))
+            if not amount:
                 continue
             account = component["account"]
             base_amount, amount_in_account_currency = account_amount(account, amount)
             debit_accounts.append(account)
+            values = {
+                "account": account,
+                "against": sales_invoice_doc.customer,
+                "cost_center": component.get("cost_center"),
+                "remarks": _("Advance VAT allocation from {0}").format(allocation["advance_invoice"]),
+            }
+            side = "credit" if reversal else "debit"
+            values.update({side: float(base_amount), f"{side}_in_account_currency": float(amount_in_account_currency), f"{side}_in_transaction_currency": float(amount)})
             custom_entries.append(
                 sales_invoice_doc.get_gl_dict(
-                    {
-                        "account": account,
-                        "against": sales_invoice_doc.customer,
-                        "debit": float(base_amount),
-                        "debit_in_account_currency": float(amount_in_account_currency),
-                        "debit_in_transaction_currency": float(amount),
-                        "cost_center": component.get("cost_center"),
-                        "remarks": _("Advance VAT allocation from {0}").format(
-                            allocation["advance_invoice"]
-                        ),
-                    },
+                    values,
                     get_account_currency(account),
                     item=sales_invoice_doc,
                 )
@@ -814,8 +941,7 @@ def append_advance_deduction_gl_entries(sales_invoice_doc, gl_entries: list) -> 
                 )
             )
 
-        gross_amount = q2(allocation["allocated_total_amount"])
-        base_gross = q2(gross_amount * conversion_rate)
+        base_gross = q2(abs(gross_amount) * conversion_rate)
         allocation_entries = custom_entries[allocation_start:]
         base_net_debit = q2(
             sum(
@@ -826,23 +952,23 @@ def append_advance_deduction_gl_entries(sales_invoice_doc, gl_entries: list) -> 
                 Decimal("0.00"),
             )
         )
-        base_rounding_delta = q2(base_gross - base_net_debit)
+        expected_net = -base_gross if reversal else base_gross
+        base_rounding_delta = q2(expected_net - base_net_debit)
         if base_rounding_delta and allocation_entries:
             last_debit = next(
                 (
                     entry
                     for entry in reversed(allocation_entries)
-                    if q2(entry.get("debit", 0)) > 0
+                    if q2(entry.get("debit", 0)) > 0 or q2(entry.get("credit", 0)) > 0
                 ),
                 None,
             )
             if not last_debit:
                 frappe.throw(_("Advance deduction could not balance its base-currency entries."))
-            last_debit["debit"] = float(
-                q2(last_debit.get("debit", 0)) + base_rounding_delta
-            )
+            side = "credit" if reversal else "debit"
+            last_debit[side] = float(q2(last_debit.get(side, 0) + base_rounding_delta))
             if last_debit.get("account_currency") == company_currency:
-                last_debit["debit_in_account_currency"] = last_debit["debit"]
+                last_debit[f"{side}_in_account_currency"] = last_debit[side]
 
         if party_account_currency == company_currency:
             credit_in_account_currency = base_gross
@@ -856,6 +982,7 @@ def append_advance_deduction_gl_entries(sales_invoice_doc, gl_entries: list) -> 
                 ).format(party_account_currency, company_currency, invoice_currency)
             )
 
+        party_side = "debit" if reversal else "credit"
         custom_entries.append(
             sales_invoice_doc.get_gl_dict(
                 {
@@ -863,9 +990,9 @@ def append_advance_deduction_gl_entries(sales_invoice_doc, gl_entries: list) -> 
                     "party_type": "Customer",
                     "party": sales_invoice_doc.customer,
                     "against": ", ".join(sorted(set(debit_accounts))),
-                    "credit": float(base_gross),
-                    "credit_in_account_currency": float(credit_in_account_currency),
-                    "credit_in_transaction_currency": float(gross_amount),
+                    party_side: float(base_gross),
+                    f"{party_side}_in_account_currency": float(credit_in_account_currency),
+                    f"{party_side}_in_transaction_currency": float(abs(gross_amount)),
                     "against_voucher_type": "Sales Invoice",
                     "against_voucher": allocation["advance_invoice"],
                     "cost_center": getattr(sales_invoice_doc, "cost_center", None),
@@ -919,6 +1046,12 @@ def get_advance_allocation_details(advance_invoice: str, final_invoice: str | No
         "advance_invoice_date": advance.get("posting_date"),
         "advance_status": advance.get("custom_zatca_status"),
         "currency": advance.get("currency"),
+        "available_advance_remaining_amount": float(
+            get_advance_available_amount(
+                advance,
+                exclude_sales_invoice=str(final_invoice or "").strip() or None,
+            )
+        ),
         "advance_total_amount": float(_advance_total_amount(advance)),
         "advance_taxable_amount": float(_advance_taxable_amount(advance)),
         "advance_tax_amount": float(_advance_tax_amount(advance)),

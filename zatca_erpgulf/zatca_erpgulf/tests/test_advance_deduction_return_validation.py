@@ -435,11 +435,11 @@ class TestDirectAdvanceAllocation(FrappeTestCase):
             with self.assertRaisesRegex(frappe.ValidationError, "exchange rate"):
                 validate_sales_invoice_advance_deductions(doc)
 
-    def test_return_with_direct_rows_is_blocked(self):
+    def test_return_rows_require_original_invoice_reference(self):
         doc = _Invoice(rows=[_allocation_row(100)], is_return=1, grand_total=-115)
         with self.assertRaisesRegex(
             frappe.ValidationError,
-            "cannot be applied directly to a return or credit note",
+            "require Return Against",
         ):
             validate_sales_invoice_advance_deductions(doc)
 

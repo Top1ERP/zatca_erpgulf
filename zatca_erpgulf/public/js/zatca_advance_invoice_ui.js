@@ -437,6 +437,34 @@
         }
     }
 
+    function removeEmptyReturnAdvanceRows(frm) {
+        if (
+            !cint(frm.doc.is_return) ||
+            !fieldExists(frm, "advances") ||
+            !(frm.doc.advances || []).length
+        ) {
+            return;
+        }
+
+        const rows = frm.doc.advances || [];
+        const nonEmptyRows = rows.filter(function (row) {
+            return Boolean(
+                row.reference_type ||
+                row.reference_name ||
+                row.reference_row ||
+                Math.abs(Number(row.advance_amount || 0)) > 0.000001 ||
+                Math.abs(Number(row.allocated_amount || 0)) > 0.000001
+            );
+        });
+
+        if (nonEmptyRows.length === rows.length) {
+            return;
+        }
+
+        frm.doc.advances = nonEmptyRows;
+        frm.refresh_field("advances");
+    }
+
     async function clearDeductionFields(frm) {
         if (
             fieldExists(
@@ -499,6 +527,7 @@
             ? helper.isAdvanceInvoice(frm, capabilities)
             : false;
         applyVisibility(frm, advance, capabilities, zatcaEnabled);
+        removeEmptyReturnAdvanceRows(frm);
         // Never auto-edit submitted or cancelled invoices while opening or refreshing.
         if (Number(frm.doc.docstatus || 0) !== 0 || (!frm.is_new() && !allow_mutation)) {
             return;
