@@ -228,6 +228,60 @@ class TestZATCATaxTableReconciliation(TestCase):
         ):
             validate_zatca_tax_table(doc)
 
+    def test_expected_tax_matches_erpnext_non_row_wise_rounding(self):
+        """When row-wise rounding is disabled, ERPNext rounds the tax row once."""
+        doc = MockDoc(
+            doctype="Sales Invoice",
+            currency="SAR",
+            items=[
+                _item(1, 0.03, "ITT-STANDARD"),
+                _item(2, 0.03, "ITT-STANDARD"),
+                _item(3, 0.03, "ITT-STANDARD"),
+            ],
+            # 0.03 * 15% * 3 = 0.0135, rounded once = 0.01.
+            taxes=[_tax_row("VAT 15", 15, 0.01)],
+            taxes_and_charges="KSA VAT 15",
+        )
+
+        with patch(
+            "zatca_erpgulf.zatca_erpgulf.tax_error.frappe.get_doc",
+            return_value=_item_template("Standard", "VAT 15", 15),
+        ), patch(
+            "zatca_erpgulf.zatca_erpgulf.tax_error._is_tax_account",
+            return_value=True,
+        ), patch(
+            "zatca_erpgulf.zatca_erpgulf.tax_error._is_round_row_wise_tax_enabled",
+            return_value=False,
+        ):
+            validate_zatca_tax_table(doc)
+
+    def test_expected_tax_matches_erpnext_row_wise_rounding(self):
+        """When row-wise rounding is enabled, each line is rounded first."""
+        doc = MockDoc(
+            doctype="Sales Invoice",
+            currency="SAR",
+            items=[
+                _item(1, 0.03, "ITT-STANDARD"),
+                _item(2, 0.03, "ITT-STANDARD"),
+                _item(3, 0.03, "ITT-STANDARD"),
+            ],
+            # Each line is 0.0045 -> 0.00; total row = 0.00.
+            taxes=[_tax_row("VAT 15", 15, 0.00)],
+            taxes_and_charges="KSA VAT 15",
+        )
+
+        with patch(
+            "zatca_erpgulf.zatca_erpgulf.tax_error.frappe.get_doc",
+            return_value=_item_template("Standard", "VAT 15", 15),
+        ), patch(
+            "zatca_erpgulf.zatca_erpgulf.tax_error._is_tax_account",
+            return_value=True,
+        ), patch(
+            "zatca_erpgulf.zatca_erpgulf.tax_error._is_round_row_wise_tax_enabled",
+            return_value=True,
+        ):
+            validate_zatca_tax_table(doc)
+
     def test_zero_tax_rate_is_still_enforced(self):
         doc = MockDoc(
             doctype="Sales Invoice",

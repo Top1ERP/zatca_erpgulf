@@ -1349,12 +1349,72 @@ def _round_currency(value):
     return _decimal_value(value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
+def _tax_amount_precision(doc):
+    """Return ERPNext's precision for the invoice tax amount field.
+
+    ERPNext rounds the tax row using ``tax.precision("tax_amount")``. The
+    reconciliation code normally works with two-decimal SAR amounts, but
+    reading the document precision keeps the comparison aligned with the
+    actual tax table when a site uses another currency precision.
+    """
+    for tax_row in _invoice_tax_rows(doc):
+        try:
+            precision = tax_row.precision("tax_amount")
+        except (AttributeError, TypeError, ValueError):
+            precision = None
+
+        if precision is not None:
+            try:
+                return max(cint(precision), 0)
+            except (TypeError, ValueError):
+                pass
+
+    try:
+        precision = doc.precision("tax_amount", "taxes")
+    except (AttributeError, TypeError, ValueError):
+        precision = None
+
+    if precision is not None:
+        try:
+            return max(cint(precision), 0)
+        except (TypeError, ValueError):
+            pass
+
+    return 2
+
+
+def _round_tax_amount(doc, value):
+    """Round a tax amount using the precision configured by ERPNext."""
+    quantum = Decimal("1").scaleb(-_tax_amount_precision(doc))
+    return _decimal_value(value).quantize(quantum, rounding=ROUND_HALF_UP)
+
+
+def _is_round_row_wise_tax_enabled():
+    """Read ERPNext's Accounts Settings rounding policy.
+
+    This is intentionally read at validation time instead of relying on
+    ``frappe.flags.round_row_wise_tax``. ERPNext initializes that flag while
+    calculating a document, whereas ZATCA validation can run independently.
+    A missing setting must retain ERPNext's normal non-row-wise behavior.
+    """
+    try:
+        return cint(
+            frappe.db.get_single_value("Accounts Settings", "round_row_wise_tax")
+        ) == 1
+    except Exception:
+        return False
+
+
 def _is_tax_account(account_name, cache=None, default=True):
     """Return whether an Account is a tax account.
 
-    Unknown accounts default to tax accounts because ERPNext validates linked
-    accounts before this hook. This keeps older sites with incomplete account
-    metadata from silently skipping a VAT row.
+    An explicitly configured ``Tax`` account is always treated as a tax
+    account. Some ERPNext sites leave ``account_type`` empty for retention,
+    deduction, and other linked accounts; for those accounts, only a
+    ``Liability`` root is considered a tax account. Existing accounts with
+    any other root (for example ``Asset``) are non-tax rows and must not be
+    included in VAT reconciliation. Unknown accounts retain the caller's
+    fallback for backwards compatibility.
     """
     account_name = _safe_str(account_name)
     if not account_name:
@@ -1364,11 +1424,28 @@ def _is_tax_account(account_name, cache=None, default=True):
         return cache[account_name]
 
     try:
-        account_type = frappe.db.get_value("Account", account_name, "account_type")
+        account_meta = frappe.db.get_value(
+            "Account",
+            account_name,
+            ["account_type", "root_type"],
+            as_dict=True,
+        )
     except Exception:
-        account_type = None
+        account_meta = None
 
-    result = default if account_type in (None, "") else account_type == "Tax"
+    if not account_meta:
+        # Preserve the existing conservative fallback only when the account
+        # itself cannot be resolved. Existing accounts with a blank
+        # account_type are classified using root_type below.
+        result = default
+    else:
+        account_type = _safe_str(account_meta.get("account_type"))
+        root_type = _safe_str(account_meta.get("root_type"))
+        if account_type:
+            result = account_type.casefold() == "tax"
+        else:
+            result = root_type.casefold() == "liability"
+
     if cache is not None:
         cache[account_name] = result
     return result
@@ -1404,16 +1481,25 @@ def _tax_reconciliation_line_net_amount(doc, item):
     return _round_currency(abs(_decimal_value(value)))
 
 
-def _tax_reconciliation_line_tax_amount(doc, item, rate, charge_type="On Net Total"):
-    """Calculate a line tax without reading invoice tax totals."""
+def _tax_reconciliation_line_tax_amount(
+    doc, item, rate, charge_type="On Net Total", round_amount=True
+):
+    """Calculate a line tax without reading invoice tax totals.
+
+    ``round_amount`` mirrors ERPNext's ``round_row_wise_tax`` setting. When
+    disabled, the caller receives the unrounded line amount and rounds only
+    after accumulating the tax row.
+    """
     rate = _round_currency(abs(rate))
     if charge_type == "On Item Quantity":
         quantity = _decimal_value(_field_value(item, "qty", 0))
-        return _round_currency(abs(quantity) * rate)
+        amount = abs(quantity) * rate
+        return _round_currency(amount) if round_amount else amount
 
     if charge_type == "On Net Total":
         line_net = _tax_reconciliation_line_net_amount(doc, item)
-        return _round_currency(line_net * rate / Decimal("100"))
+        amount = line_net * rate / Decimal("100")
+        return _round_tax_amount(doc, amount) if round_amount else amount
 
     raise ValueError(charge_type)
 
@@ -1433,12 +1519,14 @@ def _tax_reconciliation_account(row, item_template=False):
     return _safe_str(account)
 
 
-def _add_expected_tax_group(groups, account, category, rate, amount, source_name):
+def _add_expected_tax_group(
+    groups, account, category, rate, amount, source_name, round_amount=True
+):
     """Accumulate expected tax by account and reject ambiguous reuse."""
     account = _safe_str(account)
     category = _safe_str(category)
     rate = _round_currency(rate)
-    amount = _round_currency(amount)
+    amount = _round_currency(amount) if round_amount else _decimal_value(amount)
     signature = (category, rate)
 
     current = groups.get(account)
@@ -1465,15 +1553,23 @@ def _add_expected_tax_group(groups, account, category, rate, amount, source_name
             "expected_amount": amount,
         }
     else:
-        current["expected_amount"] = _round_currency(
-            current["expected_amount"] + amount
+        current["expected_amount"] += amount
+
+
+def _finalize_expected_tax_groups(doc, groups):
+    """Apply the ERPNext tax-row rounding boundary to expected groups."""
+    for group in groups.values():
+        group["expected_amount"] = _round_tax_amount(
+            doc, group["expected_amount"]
         )
+    return groups
 
 
 def _expected_tax_groups_from_item_templates(doc, account_cache=None):
     """Build expected VAT groups from every item row's Item Tax Template."""
     account_cache = account_cache if account_cache is not None else {}
     groups = {}
+    round_row_wise_tax = _is_round_row_wise_tax_enabled()
 
     for item in _invoice_item_rows(doc):
         template_name = _safe_str(_field_value(item, "item_tax_template", ""))
@@ -1491,18 +1587,27 @@ def _expected_tax_groups_from_item_templates(doc, account_cache=None):
                 continue
 
             rate = _tax_reconciliation_rate(tax_row)
-            amount = _round_currency(line_net * rate / Decimal("100"))
+            amount = line_net * rate / Decimal("100")
+            if round_row_wise_tax:
+                amount = _round_tax_amount(doc, amount)
             _add_expected_tax_group(
-                groups, account, category, rate, amount, source_name
+                groups,
+                account,
+                category,
+                rate,
+                amount,
+                source_name,
+                round_amount=round_row_wise_tax,
             )
 
-    return groups
+    return _finalize_expected_tax_groups(doc, groups)
 
 
 def _expected_tax_groups_from_sales_template(doc, account_cache=None):
     """Build expected VAT groups from the invoice-level tax template."""
     account_cache = account_cache if account_cache is not None else {}
     groups = {}
+    round_row_wise_tax = _is_round_row_wise_tax_enabled()
     template = _get_sales_taxes_template_doc(doc)
     if not template:
         return groups
@@ -1532,13 +1637,23 @@ def _expected_tax_groups_from_sales_template(doc, account_cache=None):
         amount = Decimal("0.00")
         for item in _invoice_item_rows(doc):
             amount += _tax_reconciliation_line_tax_amount(
-                doc, item, rate, charge_type=charge_type
+                doc,
+                item,
+                rate,
+                charge_type=charge_type,
+                round_amount=round_row_wise_tax,
             )
         _add_expected_tax_group(
-            groups, account, category, rate, amount, source_name
+            groups,
+            account,
+            category,
+            rate,
+            amount,
+            source_name,
+            round_amount=round_row_wise_tax,
         )
 
-    return groups
+    return _finalize_expected_tax_groups(doc, groups)
 
 
 def _actual_tax_amount_for_reconciliation(doc, tax_row):
