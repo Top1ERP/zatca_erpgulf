@@ -9,6 +9,7 @@ from zatca_erpgulf.zatca_erpgulf.sign_invoice_first import (
     _is_simplified_document,
     get_tlv_for_value,
 )
+from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
 
 
 def parse_tlv(payload):
@@ -28,6 +29,32 @@ def test_string_tlv_length_is_utf8_byte_length():
     assert tag == 1
     assert length == len(value.encode("utf-8"))
     assert encoded == value.encode("utf-8")
+
+
+def test_qr_timestamp_is_normalized_to_utc_with_z_suffix():
+    with patch(
+        "zatca_erpgulf.zatca_erpgulf.qr_timestamp.get_system_timezone",
+        return_value="Asia/Riyadh",
+    ):
+        assert format_zatca_qr_timestamp("2026-09-28", "12:29:16") == (
+            "2026-09-28T09:29:16Z"
+        )
+
+
+def test_qr_timestamp_preserves_an_explicit_timezone():
+    assert format_zatca_qr_timestamp("2026-09-28", "12:29:16+03:00") == (
+        "2026-09-28T09:29:16Z"
+    )
+
+
+def test_qr_timestamp_accepts_single_digit_hour():
+    with patch(
+        "zatca_erpgulf.zatca_erpgulf.qr_timestamp.get_system_timezone",
+        return_value="Asia/Riyadh",
+    ):
+        assert format_zatca_qr_timestamp("2026-09-27", "9:05:42") == (
+            "2026-09-27T06:05:42Z"
+        )
 
 
 def test_standard_invoice_does_not_get_tag9():

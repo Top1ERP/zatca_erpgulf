@@ -4,6 +4,7 @@ from frappe.tests.utils import FrappeTestCase
 
 from zatca_erpgulf.setup_customizations import (
     force_sales_invoice_zatca_field_order_property_setter,
+    remove_purchase_invoice_sales_only_zatca_fields,
 )
 
 
@@ -81,3 +82,22 @@ class TestSalesInvoiceZATCALayoutRegression(FrappeTestCase):
                 "custom_zatca_status",
             ],
         )
+
+    def test_purchase_invoice_has_no_sales_only_zatca_fields(self):
+        remove_purchase_invoice_sales_only_zatca_fields()
+
+        purchase_only_fields = [
+            "custom_section_break_fse8j",
+            "custom_zatca_summary_invoice",
+            "custom_zatca_3rd_party_invoice",
+            "custom_zatca_self_billed_invoice",
+            "custom_zatca_import_invoice",
+            "custom_zatca_nominal_invoice",
+            "custom_column_break_z115k",
+            "custom_zatca_tax_category",
+            "custom_exemption_reason_code",
+        ]
+        meta = frappe.get_meta("Purchase Invoice")
+
+        for fieldname in purchase_only_fields:
+            self.assertFalse(meta.has_field(fieldname), fieldname)

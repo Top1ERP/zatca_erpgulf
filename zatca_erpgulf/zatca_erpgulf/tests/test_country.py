@@ -11,6 +11,7 @@ class TestCountryNormalization(unittest.TestCase):
 
     def test_known_non_saudi_country(self):
         self.assertEqual(normalize_country_code("United Arab Emirates"), "AE")
+        self.assertEqual(normalize_country_code("AE"), "AE")
         self.assertFalse(is_saudi_country("United Arab Emirates"))
 
     def test_empty_value_is_not_saudi(self):

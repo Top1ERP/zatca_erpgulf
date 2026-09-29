@@ -392,9 +392,9 @@ def get_purchase_vat_totals_sql(filters):
             pi.is_return AS is_return,
             pi.grand_total AS grand_total,
             pi.total_taxes_and_charges AS total_taxes_and_charges,
-            pi.custom_zatca_tax_category,
-            pi.custom_exemption_reason_code,
-            pi.custom_zatca_import_invoice
+            'Standard' AS custom_zatca_tax_category,
+            '' AS custom_exemption_reason_code,
+            0 AS custom_zatca_import_invoice
         FROM `tabPurchase Invoice` pi
         WHERE {where_clause}
     """
