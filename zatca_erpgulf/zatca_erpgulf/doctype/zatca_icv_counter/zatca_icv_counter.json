@@ -1,0 +1,31 @@
+{
+ "actions": [],
+ "autoname": "field:counter_key",
+ "creation": "2026-09-17 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": ["company", "issuing_unit", "environment", "counter_key", "last_issued_icv", "last_invoice", "last_issued_at", "active"],
+ "fields": [
+  {"fieldname":"company","fieldtype":"Link","label":"Company","options":"Company","reqd":1},
+  {"fieldname":"issuing_unit","fieldtype":"Data","label":"CSID / Issuing Unit","reqd":1},
+  {"fieldname":"environment","fieldtype":"Select","label":"Environment","options":"Production\nCompliance\nDebug","default":"Production","reqd":1},
+  {"fieldname":"counter_key","fieldtype":"Data","label":"Counter Key","read_only":1,"unique":1,"reqd":1},
+  {"fieldname":"last_issued_icv","fieldtype":"Long Int","label":"Last Issued ICV","read_only":1,"default":"0"},
+  {"fieldname":"last_invoice","fieldtype":"Dynamic Link","label":"Last Invoice","options":"last_invoice_doctype","read_only":1},
+  {"fieldname":"last_invoice_doctype","fieldtype":"Data","hidden":1},
+  {"fieldname":"last_issued_at","fieldtype":"Datetime","label":"Last Issued At","read_only":1},
+  {"fieldname":"active","fieldtype":"Check","label":"Active","default":"1"}
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-17 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Zatca Erpgulf",
+ "name": "ZATCA ICV Counter",
+ "owner": "Administrator",
+ "permissions": [
+  {"create":1,"delete":1,"read":1,"report":1,"role":"System Manager","write":1}
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}
