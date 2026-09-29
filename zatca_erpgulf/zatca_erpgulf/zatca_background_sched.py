@@ -48,6 +48,7 @@ from zatca_erpgulf.zatca_erpgulf.sign_invoice_first import (
     certificate_hash,
     signxml_modify,
     generate_signed_properties_hash,
+    signed_properties_hash_from_xml,
     populate_the_ubl_extensions_output,
     generate_tlv_xml,
     structuring_signedxml,
@@ -209,7 +210,10 @@ def zatca_call_scheduler_background(
         encoded_certificate_hash = certificate_hash(company_abbr, source_doc)
         modified_xml_string, namespaces, signing_time = signxml_modify(company_abbr,file_content, source_doc)
         signed_properties_base64 = generate_signed_properties_hash(
-            signing_time, issuer_name, serial_number, encoded_certificate_hash
+            signing_time,
+            issuer_name,
+            serial_number,
+            encoded_certificate_hash,
         )
         final_xml_string = populate_the_ubl_extensions_output(
             modified_xml_string,

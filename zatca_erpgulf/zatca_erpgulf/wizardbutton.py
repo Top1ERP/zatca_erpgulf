@@ -13,11 +13,11 @@ def get_api_url(company_abbr, base_url):
     try:
         company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
         if company_doc.custom_select == "Sandbox":
-            url = company_doc.custom_sandbox_url + base_url
+            url = (company_doc.custom_sandbox_url or "").strip() + base_url
         elif company_doc.custom_select == "Simulation":
-            url = company_doc.custom_simulation_url + base_url
+            url = (company_doc.custom_simulation_url or "").strip() + base_url
         else:
-            url = company_doc.custom_production_url + base_url
+            url = (company_doc.custom_production_url or "").strip() + base_url
         return url
 
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
@@ -125,7 +125,7 @@ def wizard_button(company_abbr, button, pos=0, machine=None):
             "Content-Type": "application/json",
         }
 
-        # API request
+        # API request follows the selected company environment.
         response = requests.request(
             "POST",
             url=get_api_url(company_abbr, base_url="compliance/invoices"),

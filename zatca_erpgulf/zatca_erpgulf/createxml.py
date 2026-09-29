@@ -10,11 +10,11 @@ import xml.etree.ElementTree as ET
 from difflib import SequenceMatcher
 from frappe import _
 import frappe
-from frappe.utils.data import get_time
 from frappe.utils import cint
-from zatca_erpgulf.zatca_erpgulf.country_code import country_code_mapping
+from zatca_erpgulf.zatca_erpgulf.country import normalize_country_code
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 from zatca_erpgulf.zatca_erpgulf.customer_address import resolve_customer_address
+from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
 
 CBC_ID = "cbc:ID"
 DS_TRANSFORM = "ds:Transform"
@@ -156,20 +156,10 @@ def _get_or_create_sales_invoice_uuid(sales_invoice_doc):
 
 
 def get_icv_code(invoice_number):
-    """
-    Extracts the numeric part from the invoice number to generate the ICV code.
-    """
-    try:
-        icv_code = re.sub(
-            r"\D", "", invoice_number
-        )  # taking the number part only  from doc name
-        return icv_code
-    except TypeError as e:
-        frappe.throw(_("Type error in getting ICV number: " + str(e)))
-        return None
-    except re.error as e:
-        frappe.throw(_("Regex error in getting ICV number: " + str(e)))
-        return None
+    """Backward-compatible wrapper; ICV is no longer derived from invoice names."""
+    from zatca_erpgulf.zatca_erpgulf.icv import get_icv
+    doc = frappe.get_doc("Sales Invoice", invoice_number)
+    return get_icv(doc)
 
 
 def get_issue_time(invoice_number):
@@ -177,9 +167,13 @@ def get_issue_time(invoice_number):
     Extracts and formats the posting time of a Sales Invoice as HH:MM:SS.
     """
     doc = frappe.get_doc("Sales Invoice", invoice_number)
-    time = get_time(doc.posting_time)
-    issue_time = time.strftime("%H:%M:%S")  # time in format of  hour,mints,secnds
-    return issue_time
+    return format_zatca_qr_timestamp(doc.posting_date, doc.posting_time).split("T", 1)[1]
+
+
+def get_issue_timestamp(invoice_number):
+    """Return the same UTC timestamp used for XML IssueDate/IssueTime and QR Tag 3."""
+    doc = frappe.get_doc("Sales Invoice", invoice_number)
+    return format_zatca_qr_timestamp(doc.posting_date, doc.posting_time)
 
 
 
@@ -191,8 +185,12 @@ def _get_customer_address(sales_invoice_doc, customer_doc):
 
 
 def _get_customer_country_code(sales_invoice_doc, customer_doc, address=None):
-    """Resolve customer country code from address; default blank/missing to SA."""
-    country_dict = country_code_mapping()
+    """Resolve customer country code from address; default blank/missing to SA.
+
+    ERPNext 15 commonly stores the country link as ``Saudi Arabia`` while
+    ERPNext 16 may store the ISO code ``SA``.  Normalize both forms before
+    applying country-specific ZATCA rules.
+    """
 
     if address is None:
         address = _get_customer_address(sales_invoice_doc, customer_doc)
@@ -204,8 +202,7 @@ def _get_customer_country_code(sales_invoice_doc, customer_doc, address=None):
     if not country_name:
         return "SA"
 
-    mapped = country_dict.get(country_name.lower())
-    return mapped or "SA"
+    return normalize_country_code(country_name) or "SA"
 
 
 def _address_get(address, fieldname):
@@ -307,9 +304,10 @@ def _validate_customer_b2b_address_for_zatca(customer_doc, address, customer_cou
 
     Policy:
     - B2C customers are not blocked.
-    - B2B / non-B2C customers must have a postal code to avoid ZATCA inaccurate-address warnings.
+    - Saudi B2B customers must have a postal code.
     - Saudi B2B customers must have 5-digit postal code.
-    - Foreign B2B customers must have postal code, but it may contain letters/spaces.
+    - Foreign B2B customers do not require a postal code from ZATCA, but any
+      supplied postal code is included in the XML as provided.
     """
     if cint(get_alias_value("customer_b2c", customer_doc, 0)) == 1:
         return
@@ -334,10 +332,10 @@ def _validate_customer_b2b_address_for_zatca(customer_doc, address, customer_cou
     if _is_placeholder_value(country_code):
         problems.append("Buyer country code is mandatory for B2B / non-B2C customers.")
 
-    if _is_placeholder_postal_code(postal_code):
-        problems.append("Buyer postal code is mandatory for B2B / non-B2C customers. Fill Address > Postal Code.")
-
     if country_code == "SA":
+        if _is_placeholder_postal_code(postal_code):
+            problems.append("Buyer postal code is mandatory for B2B / non-B2C customers. Fill Address > Postal Code.")
+
         if _is_placeholder_value(building_number):
             problems.append("Saudi buyer building number is mandatory.")
         elif not re.fullmatch(r"\d{4}", building_number):
@@ -691,11 +689,13 @@ def salesinvoice_data(invoice, invoice_number):
         uuid1 = _get_or_create_sales_invoice_uuid(sales_invoice_doc)
         cbc_uuid.text = uuid1
 
+        issue_timestamp = get_issue_timestamp(invoice_number)
+        issue_date, issue_time = issue_timestamp.split("T", 1)
         cbc_issue_date = ET.SubElement(invoice, "cbc:IssueDate")
-        cbc_issue_date.text = str(sales_invoice_doc.posting_date)
+        cbc_issue_date.text = issue_date
 
         cbc_issue_time = ET.SubElement(invoice, "cbc:IssueTime")
-        cbc_issue_time.text = get_issue_time(invoice_number)
+        cbc_issue_time.text = issue_time
 
         return invoice, uuid1, sales_invoice_doc
     except (AttributeError, ValueError, frappe.ValidationError) as e:
@@ -848,7 +848,7 @@ def invoice_typecode_standard(invoice, sales_invoice_doc):
         return None
 
 
-def doc_reference(invoice, sales_invoice_doc, invoice_number):
+def doc_reference(invoice, sales_invoice_doc, invoice_number, debug=False):
     """
     Adds document reference elements to the XML invoice,
     including currency codes and additional document references.
@@ -869,7 +869,8 @@ def doc_reference(invoice, sales_invoice_doc, invoice_number):
         cbc_id_1 = ET.SubElement(cac_additionaldocumentreference, CBC_ID)
         cbc_id_1.text = "ICV"
         cbc_uuid_1 = ET.SubElement(cac_additionaldocumentreference, "cbc:UUID")
-        cbc_uuid_1.text = str(get_icv_code(invoice_number))
+        from zatca_erpgulf.zatca_erpgulf.icv import get_icv
+        cbc_uuid_1.text = get_icv(sales_invoice_doc, "Debug" if debug else "Production", debug=debug)
         return invoice
     except (ET.ParseError, AttributeError, ValueError) as e:
         frappe.throw(_(f"Error occurred in reference doc: {e}"))
@@ -903,7 +904,8 @@ def doc_reference_compliance(
         cbc_id_1 = ET.SubElement(cac_additionaldocumentreference, CBC_ID)
         cbc_id_1.text = "ICV"
         cbc_uuid_1 = ET.SubElement(cac_additionaldocumentreference, "cbc:UUID")
-        cbc_uuid_1.text = str(get_icv_code(invoice_number))
+        from zatca_erpgulf.zatca_erpgulf.icv import get_icv
+        cbc_uuid_1.text = get_icv(sales_invoice_doc, "Compliance")
         return invoice
     except (ET.ParseError, AttributeError, ValueError) as e:
         frappe.throw(_(f"Error occurred in reference doc: {e}"))
@@ -1111,8 +1113,11 @@ def company_data(invoice, sales_invoice_doc):
         cbc_cityname.text = address.city
         cbc_postalzone = ET.SubElement(cac_postaladdress, "cbc:PostalZone")
         cbc_postalzone.text = address.pincode
-        cbc_countrysubentity = ET.SubElement(cac_postaladdress, "cbc:CountrySubentity")
-        cbc_countrysubentity.text = address.state
+        if address.state:
+            cbc_countrysubentity = ET.SubElement(
+                cac_postaladdress, "cbc:CountrySubentity"
+            )
+            cbc_countrysubentity.text = address.state
 
         cac_country = ET.SubElement(cac_postaladdress, "cac:Country")
         cbc_identificationcode = ET.SubElement(cac_country, "cbc:IdentificationCode")

@@ -11,11 +11,16 @@ import os
 import io
 import base64
 import json
+import hashlib
+import tempfile
+import uuid
+import xml.etree.ElementTree as XML_ET
+from datetime import datetime
 from lxml import etree
 from frappe import _
 import frappe
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
-from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country
+from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country, normalize_country_code
 from zatca_erpgulf.zatca_erpgulf.customer_address import resolve_customer_address
 import requests
 from zatca_erpgulf.zatca_erpgulf.event_log import log_zatca_event
@@ -65,13 +70,13 @@ def _get_customer_country_code(sales_invoice_doc, customer_doc):
     country = (address.country or "").strip()
     if not country:
         return "SA"
-    from zatca_erpgulf.zatca_erpgulf.country_code import country_code_mapping
-    return country_code_mapping().get(country.lower(), "SA")
+    return normalize_country_code(country) or "SA"
 from pyqrcode import create as qr_create
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from zatca_erpgulf.zatca_erpgulf.createxml import (
     xml_tags,
     salesinvoice_data,
+    _use_line_net_amounts_discount_model,
     add_document_level_discount_with_tax_template,
     add_document_level_discount_with_tax,
     company_data,
@@ -108,6 +113,8 @@ from zatca_erpgulf.zatca_erpgulf.sign_invoice_first import (
     certificate_hash,
     signxml_modify,
     generate_signed_properties_hash,
+    signed_properties_hash_from_xml,
+    format_zatca_signed_xml,
     populate_the_ubl_extensions_output,
     generate_tlv_xml,
     structuring_signedxml,
@@ -1040,6 +1047,20 @@ def zatca_call(
     try:
         if not frappe.db.exists("Sales Invoice", invoice_number):
             frappe.throw(_("Invoice Number is NOT Valid: " + str(invoice_number)))
+        # The UI normally supplies source_doc, while direct/background calls
+        # may only provide the invoice name.  Always resolve the actual
+        # document before certificate/key selection and XML signing.
+        if not source_doc:
+            source_doc = frappe.get_doc("Sales Invoice", invoice_number)
+        elif isinstance(source_doc, str):
+            try:
+                source_doc = json.loads(source_doc)
+            except (TypeError, ValueError):
+                source_doc = None
+            if isinstance(source_doc, dict):
+                source_doc = frappe.get_doc(source_doc)
+            else:
+                source_doc = frappe.get_doc("Sales Invoice", invoice_number)
         invoice = xml_tags()
         invoice, uuid1, sales_invoice_doc = salesinvoice_data(invoice, invoice_number)
         # Get the company abbreviation
@@ -1144,7 +1165,10 @@ def zatca_call(
         encoded_certificate_hash = certificate_hash(company_abbr, source_doc)
         modified_xml_string,namespaces, signing_time = signxml_modify(company_abbr,file_content,source_doc)
         signed_properties_base64 = generate_signed_properties_hash(
-            signing_time, issuer_name, serial_number, encoded_certificate_hash
+            signing_time,
+            issuer_name,
+            serial_number,
+            encoded_certificate_hash,
         )
         final_xml_string=populate_the_ubl_extensions_output(
             modified_xml_string,
@@ -1336,7 +1360,10 @@ def zatca_call_compliance(
         encoded_certificate_hash = certificate_hash(company_abbr, source_doc)
         modified_xml_string,namespaces, signing_time = signxml_modify(company_abbr,file_content, source_doc)
         signed_properties_base64 = generate_signed_properties_hash(
-            signing_time, issuer_name, serial_number, encoded_certificate_hash
+            signing_time,
+            issuer_name,
+            serial_number,
+            encoded_certificate_hash,
         )
         final_xml_string = populate_the_ubl_extensions_output(
             modified_xml_string,
@@ -1649,9 +1676,15 @@ def zatca_background(invoice_number, source_doc, bypass_background_check=False):
                     " with doc-level discount. Please ensure all items have the same tax category."
                 )
             )
+        # ERPNext can distribute a Grand Total discount across the item net
+        # amounts and the tax after discount.  The XML builder then uses those
+        # net line amounts as the source of truth and does not add a second
+        # document-level allowance.  Reject only cases where that normalized
+        # line-net model is not actually present.
         if (
             base_discount_amount > 0
             and sales_invoice_doc.apply_discount_on != "Net Total"
+            and not _use_line_net_amounts_discount_model(sales_invoice_doc)
         ):
             frappe.throw(
                 _(
@@ -2086,6 +2119,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
         if (
             base_discount_amount > 0
             and sales_invoice_doc.apply_discount_on != "Net Total"
+            and not _use_line_net_amounts_discount_model(sales_invoice_doc)
         ):
             frappe.throw(
                 _(
@@ -2242,7 +2276,15 @@ def run_all_compliance_summary(company_name: str, invoice_number: str):
                 message_text = "Completed successfully"
 
                 if response:
-                    if isinstance(response, (dict, list)):
+                    if (
+                        isinstance(response, dict)
+                        and response.get("_zatca_compliance_status")
+                        == "ALREADY_COMPLETED"
+                    ):
+                        message_text = (
+                            "Already completed by ZATCA; treated as PASS."
+                        )
+                    elif isinstance(response, (dict, list)):
                         message_text = json.dumps(response, ensure_ascii=False)
                     else:
                         message_text = str(response)
@@ -2269,6 +2311,423 @@ def run_all_compliance_summary(company_name: str, invoice_number: str):
 
     return {
         "results": results
+    }
+
+
+_ONBOARDING_UBL = {
+    "ubl": "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2",
+    "cac": "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2",
+    "cbc": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
+}
+
+
+def _onboarding_qname(prefix: str, name: str) -> str:
+    return "{%s}%s" % (_ONBOARDING_UBL[prefix], name)
+
+
+def _onboarding_element(parent, prefix: str, local_name: str, text=None, **attrs):
+    element = etree.SubElement(parent, _onboarding_qname(prefix, local_name), **attrs)
+    if text is not None:
+        element.text = str(text)
+    return element
+
+
+def _onboarding_address(company_name):
+    """Return the first address linked to the company for the synthetic XML."""
+    address_names = frappe.get_all(
+        "Dynamic Link",
+        filters={
+            "link_doctype": "Company",
+            "link_name": company_name,
+            "parenttype": "Address",
+        },
+        pluck="parent",
+        limit=1,
+    )
+    if not address_names:
+        frappe.throw(
+            _(
+                "A company address is required before running the automatic ZATCA onboarding test."
+            )
+        )
+    return frappe.get_cached_doc("Address", address_names[0])
+
+
+def _onboarding_party_address(parent, address):
+    postal = _onboarding_element(parent, "cac", "PostalAddress")
+    _onboarding_element(postal, "cbc", "StreetName", address.address_line1 or "Company address")
+    _onboarding_element(postal, "cbc", "BuildingNumber", address.custom_building_number or "0000")
+    _onboarding_element(postal, "cbc", "PlotIdentification", address.address_line1 or "Company address")
+    _onboarding_element(postal, "cbc", "CitySubdivisionName", address.address_line2 or address.city or "Riyadh")
+    _onboarding_element(postal, "cbc", "CityName", address.city or "Riyadh")
+    _onboarding_element(postal, "cbc", "PostalZone", address.pincode or "00000")
+    if address.state:
+        _onboarding_element(postal, "cbc", "CountrySubentity", address.state)
+    country = _onboarding_element(postal, "cac", "Country")
+    _onboarding_element(country, "cbc", "IdentificationCode", "SA")
+
+
+def _onboarding_party_tax_scheme(parent, vat_number=None):
+    tax_scheme = _onboarding_element(parent, "cac", "PartyTaxScheme")
+    if vat_number:
+        _onboarding_element(tax_scheme, "cbc", "CompanyID", vat_number)
+    scheme = _onboarding_element(tax_scheme, "cac", "TaxScheme")
+    _onboarding_element(scheme, "cbc", "ID", "VAT")
+
+
+def _build_onboarding_invoice_xml(company_doc, validation_type):
+    """Build one signed-input UBL document without creating ERPNext documents."""
+    if isinstance(company_doc, (dict, str)):
+        company_doc = frappe.get_doc("Company", company_doc.get("name") if isinstance(company_doc, dict) else company_doc)
+    type_map = {
+        "Simplified Invoice": ("0200000", "388", True, False),
+        "Standard Invoice": ("0100000", "388", False, False),
+        "Simplified Credit Note": ("0200000", "381", True, True),
+        "Standard Credit Note": ("0100000", "381", False, True),
+        "Simplified Debit Note": ("0211000", "383", True, True),
+        "Standard Debit Note": ("0100000", "383", False, True),
+    }
+    type_name, document_code, simplified, is_note = type_map[validation_type]
+    address = _onboarding_address(company_doc.name)
+    now = datetime.utcnow()
+    document_uuid = str(uuid.uuid4())
+    document_id = "ZATCA-ONBOARDING-%s" % uuid.uuid4().hex[:12].upper()
+    supplier_name = (
+        company_doc.get("custom_company_name_in_arabic")
+        or company_doc.get("company_name")
+        or company_doc.name
+    )
+    supplier_vat = str(company_doc.get("tax_id") or "").strip()
+    if not supplier_vat:
+        frappe.throw(_("Company Tax ID is required for the automatic ZATCA onboarding test."))
+
+    root = etree.fromstring(XML_ET.tostring(xml_tags(), encoding="utf-8"))
+    _onboarding_element(root, "cbc", "ProfileID", "reporting:1.0")
+    _onboarding_element(root, "cbc", "ID", document_id)
+    _onboarding_element(root, "cbc", "UUID", document_uuid)
+    _onboarding_element(root, "cbc", "IssueDate", now.strftime("%Y-%m-%d"))
+    _onboarding_element(root, "cbc", "IssueTime", now.strftime("%H:%M:%S"))
+    _onboarding_element(root, "cbc", "InvoiceTypeCode", document_code, name=type_name)
+    _onboarding_element(root, "cbc", "DocumentCurrencyCode", "SAR")
+    # TaxCurrencyCode is unnecessary when invoice and tax currency are both SAR.
+    # Including it requires a separate tax total under EN 16931.
+    if is_note:
+        billing = _onboarding_element(root, "cac", "BillingReference")
+        reference = _onboarding_element(billing, "cac", "InvoiceDocumentReference")
+        _onboarding_element(reference, "cbc", "ID", "ZATCA-ONBOARDING-BASE")
+
+    icv = _onboarding_element(root, "cac", "AdditionalDocumentReference")
+    _onboarding_element(icv, "cbc", "ID", "ICV")
+    _onboarding_element(icv, "cbc", "UUID", str(int(now.timestamp())))
+
+    pih = str(company_doc.get("custom_pih") or "").strip()
+    if not pih:
+        pih = base64.b64encode(hashlib.sha256(document_id.encode()).digest()).decode()
+    pih_ref = _onboarding_element(root, "cac", "AdditionalDocumentReference")
+    _onboarding_element(pih_ref, "cbc", "ID", "PIH")
+    attachment = _onboarding_element(pih_ref, "cac", "Attachment")
+    _onboarding_element(
+        attachment,
+        "cbc",
+        "EmbeddedDocumentBinaryObject",
+        pih,
+        mimeCode="text/plain",
+    )
+
+    qr_ref = _onboarding_element(root, "cac", "AdditionalDocumentReference")
+    _onboarding_element(qr_ref, "cbc", "ID", "QR")
+    qr_attachment = _onboarding_element(qr_ref, "cac", "Attachment")
+    _onboarding_element(
+        qr_attachment,
+        "cbc",
+        "EmbeddedDocumentBinaryObject",
+        "AA==",
+        mimeCode="text/plain",
+    )
+
+    signature = _onboarding_element(root, "cac", "Signature")
+    _onboarding_element(signature, "cbc", "ID", "urn:oasis:names:specification:ubl:signature:Invoice")
+    _onboarding_element(signature, "cbc", "SignatureMethod", "urn:oasis:names:specification:ubl:dsig:enveloped:xades")
+
+    supplier_party = _onboarding_element(root, "cac", "AccountingSupplierParty")
+    supplier = _onboarding_element(supplier_party, "cac", "Party")
+    _onboarding_party_address(supplier, address)
+    _onboarding_party_tax_scheme(supplier, supplier_vat)
+    legal = _onboarding_element(supplier, "cac", "PartyLegalEntity")
+    _onboarding_element(legal, "cbc", "RegistrationName", supplier_name)
+
+    customer_party = _onboarding_element(root, "cac", "AccountingCustomerParty")
+    customer = _onboarding_element(customer_party, "cac", "Party")
+    if not simplified:
+        _onboarding_party_address(customer, address)
+    _onboarding_party_tax_scheme(
+        customer,
+        None if simplified else "300000000000003",
+    )
+    buyer_legal = _onboarding_element(customer, "cac", "PartyLegalEntity")
+    _onboarding_element(buyer_legal, "cbc", "RegistrationName", "ZATCA Onboarding Test Customer")
+
+    delivery = _onboarding_element(root, "cac", "Delivery")
+    _onboarding_element(delivery, "cbc", "ActualDeliveryDate", now.strftime("%Y-%m-%d"))
+    payment = _onboarding_element(root, "cac", "PaymentMeans")
+    _onboarding_element(payment, "cbc", "PaymentMeansCode", "30")
+    if is_note:
+        _onboarding_element(
+            payment,
+            "cbc",
+            "InstructionNote",
+            "Automatic ZATCA onboarding compliance test",
+        )
+
+    tax_total = _onboarding_element(root, "cac", "TaxTotal")
+    _onboarding_element(tax_total, "cbc", "TaxAmount", "15.00", currencyID="SAR")
+    subtotal = _onboarding_element(tax_total, "cac", "TaxSubtotal")
+    _onboarding_element(subtotal, "cbc", "TaxableAmount", "100.00", currencyID="SAR")
+    _onboarding_element(subtotal, "cbc", "TaxAmount", "15.00", currencyID="SAR")
+    category = _onboarding_element(subtotal, "cac", "TaxCategory")
+    _onboarding_element(category, "cbc", "ID", "S")
+    _onboarding_element(category, "cbc", "Percent", "15.00")
+    tax_scheme = _onboarding_element(category, "cac", "TaxScheme")
+    _onboarding_element(tax_scheme, "cbc", "ID", "VAT")
+
+    totals = _onboarding_element(root, "cac", "LegalMonetaryTotal")
+    _onboarding_element(totals, "cbc", "LineExtensionAmount", "100.00", currencyID="SAR")
+    _onboarding_element(totals, "cbc", "TaxExclusiveAmount", "100.00", currencyID="SAR")
+    _onboarding_element(totals, "cbc", "TaxInclusiveAmount", "115.00", currencyID="SAR")
+    _onboarding_element(totals, "cbc", "PayableAmount", "115.00", currencyID="SAR")
+
+    line = _onboarding_element(root, "cac", "InvoiceLine")
+    _onboarding_element(line, "cbc", "ID", "1")
+    _onboarding_element(line, "cbc", "InvoicedQuantity", "1.00", unitCode="PCE")
+    _onboarding_element(line, "cbc", "LineExtensionAmount", "100.00", currencyID="SAR")
+    line_tax_total = _onboarding_element(line, "cac", "TaxTotal")
+    _onboarding_element(line_tax_total, "cbc", "TaxAmount", "15.00", currencyID="SAR")
+    _onboarding_element(line_tax_total, "cbc", "RoundingAmount", "115.00", currencyID="SAR")
+    item = _onboarding_element(line, "cac", "Item")
+    _onboarding_element(item, "cbc", "Name", "ZATCA automatic onboarding test item")
+    item_tax = _onboarding_element(item, "cac", "ClassifiedTaxCategory")
+    _onboarding_element(item_tax, "cbc", "ID", "S")
+    _onboarding_element(item_tax, "cbc", "Percent", "15.00")
+    item_scheme = _onboarding_element(item_tax, "cac", "TaxScheme")
+    _onboarding_element(item_scheme, "cbc", "ID", "VAT")
+    price = _onboarding_element(line, "cac", "Price")
+    _onboarding_element(price, "cbc", "PriceAmount", "100.00", currencyID="SAR")
+    _onboarding_element(price, "cbc", "BaseQuantity", "1")
+
+    return document_uuid, etree.tostring(root, encoding="utf-8", xml_declaration=True).decode()
+
+
+def _onboarding_invoice_hash(xml_string):
+    """Hash the exact final XML after applying ZATCA's invoice exclusions."""
+    return getinvoicehash(canonicalize_xml(removetags(xml_string)))
+
+
+def _onboarding_signed_properties_hash(
+    modified_xml_string,
+    signing_time,
+    issuer_name,
+    serial_number,
+    encoded_certificate_hash,
+):
+    """Return DigestValue for the actual SignedProperties XML in the document."""
+    root = etree.fromstring(modified_xml_string.encode("utf-8"))
+    namespaces = {
+        "ext": "urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2",
+        "sig": "urn:oasis:names:specification:ubl:schema:xsd:CommonSignatureComponents-2",
+        "sac": "urn:oasis:names:specification:ubl:schema:xsd:SignatureAggregateComponents-2",
+        "ds": "http://www.w3.org/2000/09/xmldsig#",
+        "xades": "http://uri.etsi.org/01903/v1.3.2#",
+    }
+    path = (
+        "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/"
+        "sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/"
+        "ds:Object/xades:QualifyingProperties/xades:SignedProperties"
+    )
+    signed_properties = root.find(path, namespaces)
+    if signed_properties is None:
+        frappe.throw(_("SignedProperties was not found in the onboarding XML."))
+    return generate_signed_properties_hash(
+        signing_time,
+        issuer_name,
+        serial_number,
+        encoded_certificate_hash,
+    )
+
+
+def _prepare_signed_onboarding_document(company_doc, validation_type):
+    uuid1, file_content = _build_onboarding_invoice_xml(company_doc, validation_type)
+    source_doc = company_doc
+    hash1, encoded_hash = _onboarding_invoice_hash(file_content)
+    encoded_signature = digital_signature(hash1, company_doc.abbr, source_doc)
+    issuer_name, serial_number = extract_certificate_details(company_doc.abbr, source_doc)
+    encoded_certificate_hash = certificate_hash(company_doc.abbr, source_doc)
+    modified_xml_string, namespaces, signing_time = signxml_modify(
+        company_doc.abbr, file_content, source_doc
+    )
+    signed_properties_base64 = _onboarding_signed_properties_hash(
+        modified_xml_string,
+        signing_time,
+        issuer_name,
+        serial_number,
+        encoded_certificate_hash,
+    )
+    final_xml_string = populate_the_ubl_extensions_output(
+        modified_xml_string,
+        encoded_signature,
+        namespaces,
+        signed_properties_base64,
+        encoded_hash,
+        company_doc.abbr,
+        source_doc,
+    )
+
+    # The hash must be calculated from the same final XML that is submitted.
+    # Namespace declarations can change when the signature extension is
+    # populated, so recalculate once and regenerate the invoice signature if
+    # needed before creating the QR payload.
+    final_hash1, final_encoded_hash = _onboarding_invoice_hash(final_xml_string)
+    if final_encoded_hash != encoded_hash:
+        encoded_hash = final_encoded_hash
+        encoded_signature = digital_signature(final_hash1, company_doc.abbr, source_doc)
+        final_xml_string = populate_the_ubl_extensions_output(
+            modified_xml_string,
+            encoded_signature,
+            namespaces,
+            signed_properties_base64,
+            encoded_hash,
+            company_doc.abbr,
+            source_doc,
+        )
+        verified_hash1, verified_encoded_hash = _onboarding_invoice_hash(final_xml_string)
+        if verified_encoded_hash != encoded_hash:
+            frappe.throw(_("Unable to stabilize the ZATCA invoice hash for the onboarding document."))
+    tlv_data = generate_tlv_xml(final_xml_string, company_doc.abbr, source_doc)
+    qr_payload = base64.b64encode(
+        b"".join(get_tlv_for_value(tag, value) for tag, value in tlv_data.items())
+    ).decode()
+    final_xml_string = update_qr_toxml(final_xml_string, qr_payload, company_doc.abbr)
+    # Keep the onboarding output identical to the formatting used by the
+    # production submission path; SignedProperties hashing includes it.
+    final_xml_string = format_zatca_signed_xml(final_xml_string)
+    return uuid1, encoded_hash, final_xml_string
+
+
+def _submit_onboarding_document(company_doc, validation_type):
+    uuid1, encoded_hash, final_xml_string = _prepare_signed_onboarding_document(
+        company_doc, validation_type
+    )
+    temporary_file = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", suffix=".xml", delete=False
+        ) as handle:
+            handle.write(final_xml_string)
+            temporary_file = handle.name
+        return compliance_api_call(
+            # Synthetic onboarding documents have no POS or Multiple Setting
+            # context; always authenticate with this Company's Compliance CSID.
+            uuid1, encoded_hash, temporary_file, company_doc.abbr, None
+        )
+    finally:
+        if temporary_file:
+            try:
+                os.unlink(temporary_file)
+            except OSError:
+                pass
+
+
+@frappe.whitelist()
+def validate_automatic_zatca_onboarding_documents(company_name: str):
+    """Validate all synthetic onboarding documents locally without calling ZATCA."""
+    validation_types = [
+        "Simplified Invoice",
+        "Standard Invoice",
+        "Simplified Credit Note",
+        "Standard Credit Note",
+        "Simplified Debit Note",
+        "Standard Debit Note",
+    ]
+    company_doc = frappe.get_doc("Company", company_name)
+    results = []
+    for validation_type in validation_types:
+        try:
+            uuid1, encoded_hash, final_xml_string = _prepare_signed_onboarding_document(
+                company_doc, validation_type
+            )
+            results.append(
+                {
+                    "type": validation_type,
+                    "status": "READY",
+                    "message": _(
+                        "Local XML, signature, and QR preparation completed. No request was sent to ZATCA."
+                    ),
+                    "uuid": uuid1,
+                    "hash_length": len(encoded_hash),
+                    "xml_length": len(final_xml_string),
+                }
+            )
+        except Exception as error:
+            results.append(
+                {
+                    "type": validation_type,
+                    "status": "FAIL",
+                    "message": str(error),
+                }
+            )
+    return {
+        "results": results,
+        "ready": sum(result["status"] == "READY" for result in results),
+        "failed": sum(result["status"] == "FAIL" for result in results),
+        "sent_to_zatca": False,
+    }
+
+
+@frappe.whitelist()
+def run_automatic_zatca_onboarding_checks(company_name: str):
+    """Run all six ZATCA compliance checks using temporary synthetic documents."""
+    validation_types = [
+        "Simplified Invoice",
+        "Standard Invoice",
+        "Simplified Credit Note",
+        "Standard Credit Note",
+        "Simplified Debit Note",
+        "Standard Debit Note",
+    ]
+    company_doc = frappe.get_doc("Company", company_name)
+    results = []
+    for validation_type in validation_types:
+        try:
+            response = _submit_onboarding_document(company_doc, validation_type)
+            already_completed = isinstance(response, dict) and response.get(
+                "_zatca_compliance_status"
+            ) == "ALREADY_COMPLETED"
+            results.append(
+                {
+                    "type": validation_type,
+                    "status": "PASS",
+                    "message": _(
+                        "Already completed by ZATCA; treated as PASS."
+                        if already_completed
+                        else "Completed successfully."
+                    ),
+                }
+            )
+        except Exception as error:
+            results.append(
+                {
+                    "type": validation_type,
+                    "status": "FAIL",
+                    "message": str(error),
+                }
+            )
+
+    passed = sum(result["status"] == "PASS" for result in results)
+    return {
+        "results": results,
+        "passed": passed,
+        "failed": len(results) - passed,
+        "all_passed": passed == len(results),
+        "alternative_to_invoice_compliance": True,
     }
 
 

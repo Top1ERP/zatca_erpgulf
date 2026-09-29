@@ -361,13 +361,27 @@ def _get_prepaid_amount_from_direct_allocations(sales_invoice_doc):
         get_direct_advance_prepaid_amount,
     )
 
-    return q2(get_direct_advance_prepaid_amount(sales_invoice_doc, strict=True))
+    prepaid_amount = q2(
+        get_direct_advance_prepaid_amount(sales_invoice_doc, strict=True)
+    )
+    # Returns keep the reversal negative in ERPNext/accounting, but ZATCA
+    # monetary amounts in the credit-note XML are emitted as positive values.
+    if int(getattr(sales_invoice_doc, "is_return", 0) or 0) == 1:
+        prepaid_amount = abs(prepaid_amount)
+    return prepaid_amount
 
 
 def _get_prepaid_amount(sales_invoice_doc):
     # The independent child table is the sole source of final-invoice allocation.
     # Payment Entry, Sales Invoice.advances, and legacy custom tables are excluded.
     return _get_prepaid_amount_from_direct_allocations(sales_invoice_doc)
+
+
+def _get_payable_rounding_amount(sales_invoice_doc):
+    """Return BT-114 in document currency when ERPNext rounding is enabled."""
+    if int(getattr(sales_invoice_doc, "disable_rounded_total", 0) or 0):
+        return Decimal("0.00")
+    return q2(getattr(sales_invoice_doc, "rounding_adjustment", 0) or 0)
 
 
 def _validate_tax_equations(
@@ -377,6 +391,7 @@ def _validate_tax_equations(
     tax_inclusive_amount,
     payable_amount,
     prepaid_amount=Decimal("0.00"),
+    payable_rounding_amount=Decimal("0.00"),
     tax_subtotal_amount=None,
     context="",
 ):
@@ -389,6 +404,7 @@ def _validate_tax_equations(
     tax_inclusive_amount = q2(tax_inclusive_amount)
     payable_amount = q2(payable_amount)
     prepaid_amount = q2(prepaid_amount)
+    payable_rounding_amount = q2(payable_rounding_amount)
 
     expected_tax_inclusive = q2(tax_exclusive_amount + tax_amount)
     if tax_inclusive_amount != expected_tax_inclusive:
@@ -402,7 +418,9 @@ def _validate_tax_equations(
             )
         )
 
-    expected_payable = q2(tax_inclusive_amount - prepaid_amount)
+    expected_payable = q2(
+        tax_inclusive_amount - prepaid_amount + payable_rounding_amount
+    )
     if payable_amount != expected_payable:
         frappe.throw(
             _(
@@ -434,6 +452,7 @@ def _build_legal_monetary_total(
     tax_amount,
     discount_amount,
     prepaid_amount=Decimal("0.00"),
+    payable_rounding_amount=Decimal("0.00"),
 ):
     """Create cac:LegalMonetaryTotal block."""
     totals = ET.SubElement(invoice, "cac:LegalMonetaryTotal")
@@ -443,6 +462,7 @@ def _build_legal_monetary_total(
     tax_amount = q2(tax_amount)
     discount_amount = q2(discount_amount)
     prepaid_amount = q2(prepaid_amount)
+    payable_rounding_amount = q2(payable_rounding_amount)
 
     cbc_lineextensionamount = ET.SubElement(totals, "cbc:LineExtensionAmount")
     cbc_lineextensionamount.set("currencyID", currency)
@@ -462,7 +482,7 @@ def _build_legal_monetary_total(
     cbc_allowancetotalamount.set("currencyID", currency)
     cbc_allowancetotalamount.text = str(discount_amount)
 
-    if prepaid_amount > Decimal("0.00"):
+    if prepaid_amount != Decimal("0.00"):
         cbc_prepaidamount = ET.SubElement(totals, "cbc:PrepaidAmount")
         cbc_prepaidamount.set("currencyID", currency)
         cbc_prepaidamount.text = str(prepaid_amount)
@@ -475,7 +495,16 @@ def _build_legal_monetary_total(
             )
         )
 
-    payable_amount = q2(tax_inclusive_amount - prepaid_amount)
+    if payable_rounding_amount:
+        cbc_payable_rounding = ET.SubElement(
+            totals, "cbc:PayableRoundingAmount"
+        )
+        cbc_payable_rounding.set("currencyID", currency)
+        cbc_payable_rounding.text = str(payable_rounding_amount)
+
+    payable_amount = q2(
+        tax_inclusive_amount - prepaid_amount + payable_rounding_amount
+    )
 
     cbc_payableamount = ET.SubElement(totals, "cbc:PayableAmount")
     cbc_payableamount.set("currencyID", currency)
@@ -488,6 +517,7 @@ def _build_legal_monetary_total(
         tax_inclusive_amount=tax_inclusive_amount,
         payable_amount=payable_amount,
         prepaid_amount=prepaid_amount,
+        payable_rounding_amount=payable_rounding_amount,
         context="[LegalMonetaryTotal]",
     )
 
@@ -499,6 +529,7 @@ def tax_data(invoice, sales_invoice_doc):
     try:
         currency = sales_invoice_doc.currency
         prepaid_amount = _get_prepaid_amount(sales_invoice_doc)
+        payable_rounding_amount = _get_payable_rounding_amount(sales_invoice_doc)
 
         tax_breakdown = _get_tax_breakdown_without_template(sales_invoice_doc)
         taxable_amount = q2(sum(row["taxable_amount"] for row in tax_breakdown))
@@ -515,8 +546,13 @@ def tax_data(invoice, sales_invoice_doc):
             tax_exclusive_amount=taxable_amount,
             tax_amount=total_tax,
             tax_inclusive_amount=q2(taxable_amount + total_tax),
-            payable_amount=q2(q2(taxable_amount + total_tax) - prepaid_amount),
+            payable_amount=q2(
+                q2(taxable_amount + total_tax)
+                - prepaid_amount
+                + payable_rounding_amount
+            ),
             prepaid_amount=prepaid_amount,
+            payable_rounding_amount=payable_rounding_amount,
             tax_subtotal_amount=subtotal_tax_sum,
             context="[tax_data]",
         )
@@ -529,6 +565,7 @@ def tax_data(invoice, sales_invoice_doc):
             tax_amount=total_tax,
             discount_amount=discount_amount,
             prepaid_amount=prepaid_amount,
+            payable_rounding_amount=payable_rounding_amount,
         )
 
         return invoice
@@ -543,6 +580,7 @@ def tax_data_with_template(invoice, sales_invoice_doc):
     try:
         currency = sales_invoice_doc.currency
         prepaid_amount = _get_prepaid_amount(sales_invoice_doc)
+        payable_rounding_amount = _get_payable_rounding_amount(sales_invoice_doc)
 
         tax_breakdown = _get_tax_breakdown_with_template(sales_invoice_doc)
         tax_exclusive_amount = q2(sum(row["taxable_amount"] for row in tax_breakdown))
@@ -560,8 +598,13 @@ def tax_data_with_template(invoice, sales_invoice_doc):
             tax_exclusive_amount=tax_exclusive_amount,
             tax_amount=total_tax,
             tax_inclusive_amount=q2(tax_exclusive_amount + total_tax),
-            payable_amount=q2(q2(tax_exclusive_amount + total_tax) - prepaid_amount),
+            payable_amount=q2(
+                q2(tax_exclusive_amount + total_tax)
+                - prepaid_amount
+                + payable_rounding_amount
+            ),
             prepaid_amount=prepaid_amount,
+            payable_rounding_amount=payable_rounding_amount,
             tax_subtotal_amount=subtotal_tax_sum,
             context="[tax_data_with_template]",
         )
@@ -574,6 +617,7 @@ def tax_data_with_template(invoice, sales_invoice_doc):
             tax_amount=total_tax,
             discount_amount=discount_amount,
             prepaid_amount=prepaid_amount,
+            payable_rounding_amount=payable_rounding_amount,
         )
 
         return invoice

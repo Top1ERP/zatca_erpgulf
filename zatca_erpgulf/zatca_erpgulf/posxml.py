@@ -16,7 +16,7 @@ import re
 import unicodedata
 from difflib import SequenceMatcher
 import json
-from frappe.utils.data import get_time
+from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
 from zatca_erpgulf.ksa_compliance.tax_details import get_item_tax_detail
 from frappe import _
 import frappe
@@ -43,18 +43,9 @@ def get_tax_for_item(full_string, item):
 
 
 def get_icv_code(invoice_number):
-    """Function for ICV code"""
-    try:
-        icv_code = re.sub(
-            r"\D", "", invoice_number
-        )  # taking the numb er part onl y from doc name
-        return icv_code
-    except TypeError as e:
-        frappe.throw(_("Type error in getting ICV number: " + str(e)))
-        return None
-    except re.error as e:
-        frappe.throw(_("Regex error in getting ICV number: " + str(e)))
-        return None
+    """Backward-compatible wrapper; ICV is no longer derived from invoice names."""
+    from zatca_erpgulf.zatca_erpgulf.icv import get_icv
+    return get_icv(frappe.get_doc("Sales Invoice", invoice_number))
 
 
 
@@ -135,9 +126,13 @@ def _append_names(party, names):
 def get_issue_time(invoice_number):
     """Function for Issue time"""
     doc = frappe.get_doc("POS Invoice", invoice_number)
-    time = get_time(doc.posting_time)
-    issue_time = time.strftime("%H:%M:%S")  # time in format of  hour,mints,secnds
-    return issue_time
+    return format_zatca_qr_timestamp(doc.posting_date, doc.posting_time).split("T", 1)[1]
+
+
+def get_issue_timestamp(invoice_number):
+    """Return the same UTC timestamp used for XML IssueDate/IssueTime and QR Tag 3."""
+    doc = frappe.get_doc("POS Invoice", invoice_number)
+    return format_zatca_qr_timestamp(doc.posting_date, doc.posting_time)
 
 def xml_tags():
     """Function for XML tags"""
@@ -281,10 +276,12 @@ def salesinvoice_data(invoice, invoice_number):
         cbc_uuid = ET.SubElement(invoice, "cbc:UUID")
         cbc_uuid.text = str(uuid.uuid1())
         uuid1 = cbc_uuid.text
+        issue_timestamp = get_issue_timestamp(invoice_number)
+        issue_date, issue_time = issue_timestamp.split("T", 1)
         cbc_issuedate = ET.SubElement(invoice, "cbc:IssueDate")
-        cbc_issuedate.text = str(pos_invoice_doc.posting_date)
+        cbc_issuedate.text = issue_date
         cbc_issuetime = ET.SubElement(invoice, "cbc:IssueTime")
-        cbc_issuetime.text = get_issue_time(invoice_number)
+        cbc_issuetime.text = issue_time
         return invoice, uuid1, pos_invoice_doc
     except (AttributeError, ValueError, frappe.ValidationError) as e:
         frappe.throw(_(("Error occurred in SalesInvoice data: " f"{str(e)}")))
@@ -369,7 +366,7 @@ def invoice_typecode_standard(invoice, pos_invoice_doc):
         return None
 
 
-def doc_reference(invoice, pos_invoice_doc, invoice_number):
+def doc_reference(invoice, pos_invoice_doc, invoice_number, debug=False):
     """function for doc reference"""
     try:
         cbc_documentcurrencycode = ET.SubElement(invoice, "cbc:DocumentCurrencyCode")
@@ -386,7 +383,8 @@ def doc_reference(invoice, pos_invoice_doc, invoice_number):
         cbc_id_1 = ET.SubElement(cac_additionaldocumentreference, "cbc:ID")
         cbc_id_1.text = "ICV"
         cbc_uuid_1 = ET.SubElement(cac_additionaldocumentreference, "cbc:UUID")
-        cbc_uuid_1.text = str(get_icv_code(invoice_number))
+        from zatca_erpgulf.zatca_erpgulf.icv import get_icv
+        cbc_uuid_1.text = get_icv(pos_invoice_doc, "Debug" if debug else "Production", debug=debug)
         return invoice
     except (ET.ParseError, AttributeError, ValueError) as e:
         frappe.throw(_(f"Error occurred in reference doc: {e}"))
@@ -416,7 +414,8 @@ def doc_reference_compliance(invoice, pos_invoice_doc, invoice_number, complianc
         cbc_id_1 = ET.SubElement(cac_additionaldocumentreference, "cbc:ID")
         cbc_id_1.text = "ICV"
         cbc_uuid_1 = ET.SubElement(cac_additionaldocumentreference, "cbc:UUID")
-        cbc_uuid_1.text = str(get_icv_code(invoice_number))
+        from zatca_erpgulf.zatca_erpgulf.icv import get_icv
+        cbc_uuid_1.text = get_icv(pos_invoice_doc, "Compliance")
         return invoice
     except (ET.ParseError, AttributeError, ValueError) as e:
         frappe.throw(_(f"Error occurred in reference doc: {e}"))
@@ -681,8 +680,11 @@ def company_data(invoice, pos_invoice_doc):
         cbc_cityname.text = address.city
         cbc_postalzone = ET.SubElement(cac_postaladdress, "cbc:PostalZone")
         cbc_postalzone.text = address.pincode
-        cbc_countrysubentity = ET.SubElement(cac_postaladdress, "cbc:CountrySubentity")
-        cbc_countrysubentity.text = address.state
+        if address.state:
+            cbc_countrysubentity = ET.SubElement(
+                cac_postaladdress, "cbc:CountrySubentity"
+            )
+            cbc_countrysubentity.text = address.state
 
         cac_country = ET.SubElement(cac_postaladdress, "cac:Country")
         cbc_identificationcode = ET.SubElement(cac_country, "cbc:IdentificationCode")
@@ -749,10 +751,11 @@ def customer_data(invoice, pos_invoice_doc):
         cbc_cityname_1.text = address.city
         cbc_postalzone_1 = ET.SubElement(cac_postaladdress_1, "cbc:PostalZone")
         cbc_postalzone_1.text = address.pincode
-        cbc_countrysubentity_1 = ET.SubElement(
-            cac_postaladdress_1, "cbc:CountrySubentity"
-        )
-        cbc_countrysubentity_1.text = address.state
+        if address.state:
+            cbc_countrysubentity_1 = ET.SubElement(
+                cac_postaladdress_1, "cbc:CountrySubentity"
+            )
+            cbc_countrysubentity_1.text = address.state
         cac_country_1 = ET.SubElement(cac_postaladdress_1, "cac:Country")
         cbc_identificationcode_1 = ET.SubElement(
             cac_country_1, "cbc:IdentificationCode"
