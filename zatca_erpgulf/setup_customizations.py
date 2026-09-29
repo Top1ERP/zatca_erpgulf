@@ -98,6 +98,7 @@ PYTHON_MANAGED_COMPANY_ZATCA_FIELDS = {
     ("Company", "custom_sample_invoice_number_to_test"),
     ("Company", "custom_check_compliance"),
     ("Company", "custom_run_all_compliance"),
+    ("Company", "custom_run_zatca_onboarding_checks"),
     ("Company", "custom_production__csid__generation"),
     ("Company", "custom_generate_production_csids"),
     ("Company", "custom_basic_auth_from_production"),
@@ -130,6 +131,19 @@ UPDATE_EXISTING_APP_CUSTOM_FIELDS = True
 # For v16 or future ERPNext versions, if a standard equivalent exists, we do not duplicate it.
 CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
     "Company": [
+        {
+            "fieldname": "custom_zatca_icv_counter",
+            "label": "ZATCA ICV Counter",
+            "fieldtype": "Link",
+            "options": "ZATCA ICV Counter",
+            "insert_after": "custom_basic_auth_from_production",
+            "module": MODULE_NAME,
+            "read_only": 1,
+            "no_copy": 1,
+            "hidden": 0,
+            "description": "Production ICV counter used when no multiple setting is selected.",
+            "_fallback_insert_after": ["custom_basic_auth_from_production", "company_name", "abbr"],
+        },
         {
             "fieldname": "custom_company_name_in_arabic",
             "label": "Company Name In Arabic",
@@ -184,6 +198,27 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
             "description": "Controls ZATCA validation rules applied when saving Sales Invoices.",
         },
         {
+            "fieldname": "custom_run_zatca_onboarding_checks",
+            "label": "Automatic ZATCA Onboarding Test",
+            "fieldtype": "Button",
+            "insert_after": "custom_run_all_compliance",
+            "module": MODULE_NAME,
+            "translatable": 1,
+            "hidden": 0,
+            "read_only": 0,
+            "reqd": 0,
+            "no_copy": 1,
+            "description": (
+                "Alternative onboarding test. It submits six temporary synthetic documents "
+                "without creating a customer or Sales Invoice."
+            ),
+            "_fallback_insert_after": [
+                "custom_run_all_compliance",
+                "custom_check_compliance",
+                "custom_validation_type",
+            ],
+        },
+        {
             "fieldname": "custom_zatca_negative_line_validation_mode",
             "label": "ZATCA Negative Line Validation Mode",
             "fieldtype": "Select",
@@ -212,6 +247,29 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
         },
     ],
     "Sales Invoice": [
+        {
+            "fieldname": "custom_zatca_icv",
+            "label": "ZATCA ICV",
+            "fieldtype": "Int",
+            "length": 20,
+            "insert_after": "custom_zatca_pos_name",
+            "module": MODULE_NAME,
+            "read_only": 1,
+            "no_copy": 1,
+            "hidden": 0,
+            "description": "Invoice Counter Value assigned to this document."
+        },
+        {
+            "fieldname": "custom_zatca_issuing_unit",
+            "label": "ZATCA Issuing Unit",
+            "fieldtype": "Data",
+            "insert_after": "custom_zatca_icv",
+            "module": MODULE_NAME,
+            "read_only": 1,
+            "no_copy": 1,
+            "hidden": 0,
+            "description": "Issuing unit used for the ZATCA counter."
+        },
         {
             "fieldname": "abbr",
             "label": "Company Abbreviation",
@@ -423,6 +481,21 @@ CRITICAL_CUSTOM_FIELDS: dict[str, list[dict[str, Any]]] = {
                 "customer_name",
             ],
         }
+    ],
+    "ZATCA Multiple Setting": [
+        {
+            "fieldname": "custom_zatca_icv_counter",
+            "label": "ZATCA ICV Counter",
+            "fieldtype": "Link",
+            "options": "ZATCA ICV Counter",
+            "insert_after": "custom_final_auth_csid",
+            "module": MODULE_NAME,
+            "read_only": 1,
+            "no_copy": 1,
+            "hidden": 0,
+            "description": "Production ICV counter used by this issuing setting.",
+            "_fallback_insert_after": ["custom_final_auth_csid", "section_break_4qzz"],
+        },
     ],
 }
 
@@ -664,6 +737,60 @@ def _field_has_rows(dt: str, fieldname: str) -> bool:
         return False
 
 
+def ensure_zatca_icv_bigint() -> dict[str, Any]:
+    """Keep the invoice ICV field and MariaDB column wide enough for ZATCA ICVs.
+
+    This is intentionally limited to the app-owned Sales Invoice field. It
+    preserves every existing value and lets Frappe's schema synchronizer
+    perform the widening from INT to BIGINT.
+    """
+    result: dict[str, Any] = {
+        "doctype": "Sales Invoice",
+        "fieldname": "custom_zatca_icv",
+        "updated_custom_field": False,
+        "schema_synced": False,
+        "skipped": None,
+    }
+
+    if not _doctype_exists("Sales Invoice") or not _table_exists("Sales Invoice"):
+        result["skipped"] = "Sales Invoice is unavailable"
+        return result
+
+    field_name = _get_custom_field_name("Sales Invoice", "custom_zatca_icv")
+    if not field_name:
+        result["skipped"] = "custom_zatca_icv is not installed"
+        return result
+
+    field = frappe.get_doc("Custom Field", field_name)
+    field_needs_update = field.fieldtype != "Int" or int(field.length or 0) != 20
+    if field_needs_update:
+        field.fieldtype = "Int"
+        field.length = 20
+        field.flags.ignore_validate = True
+        field.flags.ignore_permissions = True
+        field.save(ignore_permissions=True)
+        result["updated_custom_field"] = True
+        result["schema_synced"] = True
+        return result
+
+    column = frappe.db.sql(
+        """
+        select data_type
+        from information_schema.columns
+        where table_schema=database()
+          and table_name=%s
+          and column_name=%s
+        """,
+        ("tabSales Invoice", "custom_zatca_icv"),
+        as_dict=True,
+    )
+    if not column or column[0].data_type != "bigint":
+        frappe.clear_cache(doctype="Sales Invoice")
+        frappe.db.updatedb("Sales Invoice", frappe.get_meta("Sales Invoice", cached=False))
+    result["schema_synced"] = True
+    return result
+
+
 def _resolve_insert_after(dt: str, requested: str | None, fallback_candidates: list[str] | None = None) -> str | None:
     meta = _get_doctype_meta(dt)
 
@@ -786,6 +913,7 @@ def _update_app_owned_custom_field_from_row(row: dict[str, Any]) -> bool:
     cleaned = _prepare_custom_field_row(row)
 
     changed = False
+    created = False
 
     for key, value in cleaned.items():
         if key in {"doctype", "name", "dt", "fieldname"}:
@@ -1859,6 +1987,7 @@ def normalize_company_zatca_settings_layout_idx() -> dict[str, list[str]]:
         "custom_sample_invoice_number_to_test",
         "custom_check_compliance",
         "custom_run_all_compliance",
+        "custom_run_zatca_onboarding_checks",
         "custom_production__csid__generation",
         "custom_generate_production_csids",
         "custom_basic_auth_from_production",
@@ -2911,6 +3040,7 @@ def sync_company_zatca_fields_and_layout() -> dict[str, list[str]]:
         "custom_sample_invoice_number_to_test",
         "custom_check_compliance",
         "custom_run_all_compliance",
+        "custom_run_zatca_onboarding_checks",
         "custom_production__csid__generation",
         "custom_generate_production_csids",
         "custom_basic_auth_from_production",
@@ -4528,6 +4658,37 @@ def sync_sales_invoice_advance_deduction_detail_table_field() -> dict[str, list[
     return result
 
 
+def sync_zatca_advance_deduction_available_amount_field() -> dict[str, list[str]]:
+    """Ensure the read-only remaining advance balance exists on the child table."""
+    result = {"ensured": [], "updated": [], "skipped": []}
+    doctype = "ZATCA Sales Invoice Advance Deduction"
+    fieldname = "available_advance_remaining_amount"
+
+    if not _doctype_exists(doctype):
+        result["skipped"].append(f"{doctype} missing")
+        return result
+
+    # This is an app-owned standard DocType.  Reloading its JSON is the safe
+    # install/update path; saving the DocType document is blocked in production
+    # when developer mode is disabled.
+    try:
+        frappe.reload_doctype(doctype, force=True)
+        frappe.clear_cache(doctype=doctype)
+    except Exception as error:
+        result["skipped"].append(f"{doctype}.{fieldname}: {error}")
+        return result
+
+    meta = frappe.get_meta(doctype, cached=False)
+    field = meta.get_field(fieldname)
+    if not field:
+        result["skipped"].append(f"{doctype}.{fieldname} missing from app DocType JSON")
+    else:
+        result["ensured"].append(f"{doctype}.{fieldname}")
+
+    frappe.db.commit()
+    return result
+
+
 
 def sync_sales_invoice_advance_deduction_total_fields() -> dict[str, list[str]]:
     """Ensure Sales Invoice totals for ZATCA advance deductions.
@@ -4830,7 +4991,6 @@ def force_sales_invoice_zatca_field_order_property_setter() -> dict[str, Any]:
         "custom_section_break_gqwpx",
         "custom_zatca_tax_category",
         "custom_exemption_reason_code",
-        "custom_exemption_reason",
         "custom_zatca_discount_reason_code",
         "custom_zatca_discount_reason",
         "custom_submit_line_item_discount_to_zatca",
@@ -4844,6 +5004,9 @@ def force_sales_invoice_zatca_field_order_property_setter() -> dict[str, Any]:
         "custom_zatca_export_invoice",
         "custom_summary_invoice",
         "custom_self_billed_invoice",
+        # Legacy/free-text exemption detail is kept in the Property Setter,
+        # but outside the approved contiguous integration-field sequence.
+        "custom_exemption_reason",
         "custom_section_break_qhp4f",
         "custom_zatca_advance_deduction_details",
         "custom_zatca_advance_deduction_totals_section",
@@ -5101,6 +5264,83 @@ def sync_sales_invoice_print_heading() -> dict[str, Any]:
     return result
 
 
+def remove_purchase_invoice_sales_only_zatca_fields() -> dict[str, list[str]]:
+    """Remove Sales Invoice-only ZATCA fields from Purchase Invoice.
+
+    These fields were historically provisioned on Purchase Invoice by the
+    shared fixture, although they are only used by the sales-invoice flow.
+    Keep this cleanup idempotent so existing installations are corrected and
+    future migrations do not recreate the fields.
+    """
+
+    import json
+
+    doctype = "Purchase Invoice"
+    fieldnames = [
+        "custom_section_break_fse8j",
+        "custom_zatca_summary_invoice",
+        "custom_zatca_3rd_party_invoice",
+        "custom_zatca_self_billed_invoice",
+        "custom_zatca_import_invoice",
+        "custom_zatca_nominal_invoice",
+        "custom_column_break_z115k",
+        "custom_zatca_tax_category",
+        "custom_exemption_reason_code",
+    ]
+    result = {"deleted_fields": [], "deleted_property_setters": [], "updated_field_orders": []}
+
+    for fieldname in fieldnames:
+        custom_field_name = frappe.db.get_value(
+            "Custom Field", {"dt": doctype, "fieldname": fieldname}, "name"
+        )
+        if custom_field_name:
+            frappe.delete_doc(
+                "Custom Field",
+                custom_field_name,
+                ignore_permissions=True,
+                force=True,
+            )
+            result["deleted_fields"].append(custom_field_name)
+
+        for property_setter in frappe.get_all(
+            "Property Setter",
+            filters={"doc_type": doctype, "field_name": fieldname},
+            pluck="name",
+        ):
+            frappe.delete_doc(
+                "Property Setter",
+                property_setter,
+                ignore_permissions=True,
+                force=True,
+            )
+            result["deleted_property_setters"].append(property_setter)
+
+    for row in frappe.get_all(
+        "Property Setter",
+        filters={"doc_type": doctype, "property": "field_order"},
+        fields=["name", "value"],
+    ):
+        try:
+            order = json.loads(row.value or "[]")
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(order, list):
+            continue
+
+        new_order = [fieldname for fieldname in order if fieldname not in fieldnames]
+        if new_order != order:
+            property_setter = frappe.get_doc("Property Setter", row.name)
+            property_setter.value = json.dumps(new_order)
+            property_setter.save(ignore_permissions=True)
+            result["updated_field_orders"].append(row.name)
+
+    if any(result.values()):
+        frappe.db.commit()
+        frappe.clear_cache(doctype=doctype)
+
+    return result
+
+
 def ensure_advance_payment_item() -> dict[str, Any]:
     """Create the standard non-stock advance item once, without overwriting user data."""
     result = {"created": [], "present": [], "skipped": []}
@@ -5253,9 +5493,14 @@ def sync_all_zatca_customizations(*, provision_tax_templates: bool = False) -> d
     from zatca_erpgulf.ksa_compliance.workspace_tools import rename_zatca_workspace
     workspace_result = rename_zatca_workspace()
 
+    purchase_invoice_sales_only_fields_cleanup_result = (
+        remove_purchase_invoice_sales_only_zatca_fields()
+    )
     custom_fields_result = sync_custom_fields_from_fixture()
     critical_fields_result = ensure_critical_custom_fields()
+    sales_invoice_icv_field_result = ensure_zatca_icv_bigint()
     sales_invoice_advance_detail_table_result = sync_sales_invoice_advance_deduction_detail_table_field()
+    sales_invoice_advance_available_amount_result = sync_zatca_advance_deduction_available_amount_field()
     sales_invoice_advance_total_fields_result = sync_sales_invoice_advance_deduction_total_fields()
     zatca_advance_final_invoice_layout_result = sync_zatca_advance_final_invoice_layout()
     arabic_name_cleanup_result = cleanup_arabic_name_fields()
@@ -5312,9 +5557,14 @@ def sync_all_zatca_customizations(*, provision_tax_templates: bool = False) -> d
     result = {
         "frappe_major": frappe_major,
         "workspace": workspace_result,
+        "purchase_invoice_sales_only_fields_cleanup": (
+            purchase_invoice_sales_only_fields_cleanup_result
+        ),
         "custom_fields": custom_fields_result,
         "critical_custom_fields": critical_fields_result,
+        "sales_invoice_icv_field": sales_invoice_icv_field_result,
         "sales_invoice_advance_detail_table": sales_invoice_advance_detail_table_result,
+        "sales_invoice_advance_available_amount": sales_invoice_advance_available_amount_result,
         "sales_invoice_advance_total_fields": sales_invoice_advance_total_fields_result,
         "zatca_advance_final_invoice_layout": zatca_advance_final_invoice_layout_result,
         "arabic_name_cleanup": arabic_name_cleanup_result,

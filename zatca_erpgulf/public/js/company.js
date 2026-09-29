@@ -99,23 +99,40 @@ frappe.ui.form.on("Company", {
         });
     },
 
-    custom_generate_compliance_csid: function (frm) {
-        frappe.call({
-            method: "zatca_erpgulf.zatca_erpgulf.sign_invoice_first.create_csid",
-            args: {
-                "zatca_doc": {
-                    "doctype": frm.doc.doctype,
-                    "name": frm.doc.name
+    custom_generate_compliance_csid: async function (frm) {
+        try {
+            // OTP and environment changes are held in the form until Save.
+            // Persist them before the server reads Company from the database.
+            if (frm.is_dirty()) {
+                await frm.save();
+            }
+
+            const r = await frappe.call({
+                method: "zatca_erpgulf.zatca_erpgulf.sign_invoice_first.create_csid",
+                args: {
+                    "zatca_doc": {
+                        "doctype": frm.doc.doctype,
+                        "name": frm.doc.name
+                    },
+                    "portal_type": frm.doc.custom_select,
+                    "company_abbr": frm.doc.abbr
                 },
-                "portal_type": frm.doc.custom_select,
-                "company_abbr": frm.doc.abbr
-            },
-            callback: function (r) {
-                if (!r.exc) {
-                    frm.save();
-                }
-            },
-        });
+                freeze: true,
+                freeze_message: __('Generating Compliance CSID...')
+            });
+
+            if (!r.exc) {
+                // The server stores the returned certificate and request ID.
+                // Reload instead of saving the stale client copy over them.
+                await frm.reload_doc();
+            }
+        } catch (e) {
+            frappe.msgprint({
+                title: __('Compliance CSID Generation Failed'),
+                message: frappe.utils.escape_html(e.message || String(e)),
+                indicator: 'red'
+            });
+        }
     },
 
     custom_create_csr: function (frm) {
@@ -235,6 +252,82 @@ frappe.ui.form.on("Company", {
         } catch (e) {
             frappe.msgprint({
                 title: __('Run All Compliance Failed'),
+                message: frappe.utils.escape_html(e.message || String(e)),
+                indicator: 'red'
+            });
+        } finally {
+            frappe.dom.unfreeze();
+        }
+    },
+
+    custom_run_zatca_onboarding_checks: async function (frm) {
+        const confirmed = await new Promise(resolve => {
+            frappe.confirm(
+                __('This is an alternative to Run All Compliance. It creates temporary documents and does not create customers or sales invoices. Choose one method only before generating the Production CSID. Continue?'),
+                () => resolve(true),
+                () => resolve(false)
+            );
+        });
+
+        if (!confirmed) {
+            return;
+        }
+
+        frappe.dom.freeze(__('Running the automatic ZATCA onboarding test...'));
+
+        try {
+            const r = await frappe.call({
+                method: "zatca_erpgulf.zatca_erpgulf.sign_invoice.run_automatic_zatca_onboarding_checks",
+                args: {
+                    company_name: frm.doc.name
+                }
+            });
+
+            const response = (r && r.message) || {};
+            const results = response.results || [];
+            let html = `
+                <div style="max-height: 450px; overflow:auto;">
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;">${__('Validation Type')}</th>
+                                <th style="width: 12%;">${__('Status')}</th>
+                                <th>${__('Message')}</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+
+            results.forEach(row => {
+                const color = row.status === "PASS" ? "green" : "red";
+                html += `
+                    <tr>
+                        <td>${frappe.utils.escape_html(row.type || "")}</td>
+                        <td><strong style="color:${color};">${frappe.utils.escape_html(row.status || "")}</strong></td>
+                        <td>${frappe.utils.escape_html(row.message || "")}</td>
+                    </tr>`;
+            });
+
+            html += `</tbody></table></div>`;
+
+            const passed = Number(response.passed || 0);
+            const failed = Number(response.failed || 0);
+            const all_passed = response.all_passed === true;
+
+            frappe.msgprint({
+                title: all_passed ? __('Automatic ZATCA Onboarding Test Passed') : __('Automatic ZATCA Onboarding Test Failed'),
+                indicator: all_passed ? 'green' : 'red',
+                message: `
+                    <p>${__('This alternative test uses temporary documents only; no customer or sales invoice was created.')}</p>
+                    <p><strong>${__('Passed')}:</strong> ${passed}</p>
+                    <p><strong>${__('Failed')}:</strong> ${failed}</p>
+                    ${html}
+                    ${all_passed ? `<p><strong>${__('You may now use Generate Final CSID. Do not run both onboarding methods for the same compliance setup.')}</strong></p>` : ''}
+                `,
+                wide: true
+            });
+        } catch (e) {
+            frappe.msgprint({
+                title: __('Automatic ZATCA Onboarding Test Failed'),
                 message: frappe.utils.escape_html(e.message || String(e)),
                 indicator: 'red'
             });
