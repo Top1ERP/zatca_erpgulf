@@ -512,6 +512,22 @@ def item_data_with_template(invoice, pos_invoice_doc):
 def xml_structuring(invoice):
     """function for xml structuring"""
     try:
+        empty_elements = [
+            element.tag
+            for element in invoice.iter()
+            if len(element) == 0
+            and not (element.text or "").strip()
+            # The ds/xades signature skeleton is populated by the signing
+            # step after XML structuring; do not validate it as invoice data.
+            and not str(element.tag).startswith(("ds:", "xades:"))
+        ]
+        if empty_elements:
+            frappe.throw(
+                _(
+                    "ZATCA XML contains empty elements: {0}. "
+                    "Populate mandatory values or omit optional fields before signing."
+                ).format(", ".join(empty_elements))
+            )
 
         # xml_file_path = f"{frappe.local.site}/private/files/xml_files_{invoice_number}.xml"
         tree = ET.ElementTree(invoice)

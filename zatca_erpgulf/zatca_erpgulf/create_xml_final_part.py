@@ -70,7 +70,7 @@ def _direct_advance_rows(sales_invoice_doc):
             "custom_zatca_advance_deduction_details", []
         ) or []
         if row.get("advance_invoice")
-        and _nominal_q2(row.get("allocated_total_amount")) > Decimal("0.00")
+        and _nominal_q2(row.get("allocated_total_amount")) != Decimal("0.00")
     ]
 
 
@@ -99,8 +99,11 @@ def _append_direct_advance_reference_lines(invoice, sales_invoice_doc):
         existing_ids.add(line_id)
         next_line_id += 1
         advance = frappe.get_doc("Sales Invoice", row.advance_invoice)
-        taxable = _nominal_q2(row.allocated_taxable_amount)
-        tax = _nominal_q2(row.allocated_tax_amount)
+        # ZATCA requires document/prepayment amounts to be positive.  The
+        # return child row is intentionally stored as a negative reversal;
+        # only the XML representation uses its absolute amount.
+        taxable = _nominal_abs_q2(row.allocated_taxable_amount)
+        tax = _nominal_abs_q2(row.allocated_tax_amount)
         tax_rate = (
             _nominal_q2(tax * Decimal("100") / taxable)
             if taxable > Decimal("0.00")
@@ -1188,6 +1191,22 @@ def xml_structuring(invoice):
     Xml structuring and final saving of the xml into private files
     """
     try:
+        empty_elements = [
+            element.tag
+            for element in invoice.iter()
+            if len(element) == 0
+            and not (element.text or "").strip()
+            # The ds/xades signature skeleton is populated by the signing
+            # step after XML structuring; do not validate it as invoice data.
+            and not str(element.tag).startswith(("ds:", "xades:"))
+        ]
+        if empty_elements:
+            frappe.throw(
+                _(
+                    "ZATCA XML contains empty elements: {0}. "
+                    "Populate mandatory values or omit optional fields before signing."
+                ).format(", ".join(empty_elements))
+            )
 
         tree = ET.ElementTree(invoice)
         # xml_file_path = frappe.local.site + "/private/files/xml_files_{invoice_number}.xml"

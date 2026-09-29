@@ -8,6 +8,7 @@ import hashlib
 import base64
 import json
 import binascii
+import re
 from datetime import datetime
 from lxml import etree
 import lxml.etree as MyTree
@@ -22,6 +23,7 @@ import requests
 import asn1
 
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
+from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
 
 SUPPORTED_INVOICES = ["Sales Invoice", "POS Invoice"]
 
@@ -302,11 +304,11 @@ def get_api_url(company_abbr, base_url):
     try:
         company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
         if company_doc.custom_select == "Sandbox":
-            url = company_doc.custom_sandbox_url + base_url
+            url = (company_doc.custom_sandbox_url or "").strip() + base_url
         elif company_doc.custom_select == "Simulation":
-            url = company_doc.custom_simulation_url + base_url
+            url = (company_doc.custom_simulation_url or "").strip() + base_url
         else:
-            url = company_doc.custom_production_url + base_url
+            url = (company_doc.custom_production_url or "").strip() + base_url
         return url
 
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
@@ -316,8 +318,33 @@ def get_api_url(company_abbr, base_url):
         return None
 
 
+def get_compliance_api_url(company_abbr, base_url="compliance/invoices", environment=None):
+    """Return the compliance/onboarding URL for the selected environment."""
+    try:
+        company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
+        selected_environment = (
+            environment or company_doc.custom_select or "Production"
+        ).strip()
+        if selected_environment == "Sandbox":
+            base_url_value = (company_doc.custom_sandbox_url or "").strip()
+        elif selected_environment == "Simulation":
+            base_url_value = (company_doc.custom_simulation_url or "").strip()
+        else:
+            base_url_value = (company_doc.custom_production_url or "").strip()
+        if not base_url_value:
+            frappe.throw(
+                _(
+                    "ZATCA {0} URL is required for company {1}."
+                ).format(selected_environment, company_abbr)
+            )
+        return base_url_value.rstrip("/") + "/" + base_url.lstrip("/")
+    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
+        frappe.throw(_("Unexpected error getting compliance API URL: {0}").format(e))
+        return None
+
+
 @frappe.whitelist(allow_guest=False)
-def create_csid(zatca_doc, company_abbr):
+def create_csid(zatca_doc, company_abbr, portal_type=None):
     """creating csid"""
     try:
         if isinstance(zatca_doc, str):
@@ -357,10 +384,10 @@ def create_csid(zatca_doc, company_abbr):
         payload = json.dumps({"csr": csr_contents})
         # frappe.msgprint(f"Using OTP: {company_doc.custom_otp}")
         if doc.doctype == "ZATCA Multiple Setting":
-            otp = multiple_setting_doc.get("custom_otp", "")
+            otp = str(multiple_setting_doc.get("custom_otp", "") or "").strip()
             # frappe.msgprint(f"Using OTP (Multiple Setting): {csr_values}")
         elif doc.doctype == "Company":
-            otp = company_doc.get("custom_otp", "")
+            otp = str(company_doc.get("custom_otp", "") or "").strip()
 
             # frappe.msgprint(f"Using OTP (Company): {csr_values}")
         else:
@@ -370,7 +397,6 @@ def create_csid(zatca_doc, company_abbr):
             "OTP": otp,
             "Accept-Version": "V2",
             "Content-Type": "application/json",
-            "Cookie": "TS0106293e=0132a679c07382ce7821148af16b99da546c13ce1dcddbef0e19802eb470e539a4d39d5ef63d5c8280b48c529f321e8b0173890e4f",
         }
 
         frappe.publish_realtime(
@@ -379,18 +405,52 @@ def create_csid(zatca_doc, company_abbr):
             user=frappe.session.user,
         )
 
+        selected_environment = portal_type
+        if not selected_environment and doc.doctype == "Company":
+            selected_environment = company_doc.get("custom_select") or "Production"
+        api_url = get_compliance_api_url(
+            company_abbr,
+            base_url="compliance",
+            environment=selected_environment,
+        )
         response = requests.post(
-            url=get_api_url(company_abbr, base_url="compliance"),
+            url=api_url,
             headers=headers,
             data=payload,
             timeout=300,
         )
         frappe.publish_realtime("hide_gif", user=frappe.session.user)
 
+        request_id = response.headers.get("x-request-id") or response.headers.get(
+            "X-Request-ID"
+        )
+        request_context = _(
+            "Environment: {0}; endpoint: {1}; OTP length: {2}; CSR payload length: {3}"
+        ).format(
+            selected_environment or "Production",
+            api_url,
+            len(otp),
+            len(csr_contents),
+        )
+
         if response.status_code == 400:
-            frappe.throw(_("Error: OTP is not valid. " + response.text))
+            details = response.text
+            if request_id:
+                details += _(" (request id: {0})").format(request_id)
+            frappe.throw(
+                _("Error: OTP is not valid. {0}\n{1}").format(
+                    details, request_context
+                )
+            )
         if response.status_code != 200:
-            frappe.throw(_("Error: Issue with Certificate or OTP. " + response.text))
+            details = response.text
+            if request_id:
+                details += _(" (request id: {0})").format(request_id)
+            frappe.throw(
+                _("Error: Issue with Certificate or OTP. {0}\n{1}").format(
+                    details, request_context
+                )
+            )
         frappe.msgprint(_(str(response.text)))
         data = json.loads(response.text)
 
@@ -415,6 +475,100 @@ def create_csid(zatca_doc, company_abbr):
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(_("Error in creating CSID: " + str(e)))
         return None
+
+
+def _csid_material_diagnostics(company_name):
+    """Return non-secret diagnostics for the saved OTP/CSR material."""
+    company_doc = frappe.get_doc("Company", company_name)
+    environment = company_doc.get("custom_select") or "Production"
+    endpoint = get_compliance_api_url(
+        company_doc.abbr, base_url="compliance", environment=environment
+    )
+    csr_contents = str(company_doc.get("custom_csr_data") or "").strip()
+    otp = str(company_doc.get("custom_otp") or "").strip()
+    result = {
+        "environment": environment,
+        "endpoint": endpoint,
+        "otp_length": len(otp),
+        "otp_is_six_digits": bool(re.fullmatch(r"\d{6}", otp)),
+        "csr_encoded_length": len(csr_contents),
+        "compliance_request_id": company_doc.get("custom_compliance_request_id_"),
+    }
+    if not csr_contents:
+        result["csr_error"] = "missing"
+        return result
+
+    try:
+        csr = x509.load_pem_x509_csr(
+            base64.b64decode(csr_contents), default_backend()
+        )
+        result["csr_signature_valid"] = bool(csr.is_signature_valid)
+        result["csr_subject"] = csr.subject.rfc4514_string()
+        result["csr_oid"] = ""
+        for extension in csr.extensions:
+            if extension.oid.dotted_string == "1.3.6.1.4.1.311.20.2":
+                result["csr_oid"] = extension.value.value.decode(
+                    "utf-8", errors="replace"
+                )
+            if isinstance(extension.value, x509.SubjectAlternativeName):
+                for value in extension.value:
+                    if isinstance(value, x509.DirectoryName):
+                        result["csr_directory_name"] = value.value.rfc4514_string()
+        private_key = company_doc.get("custom_private_key")
+        if private_key:
+            key = serialization.load_pem_private_key(
+                private_key.encode(), password=None, backend=default_backend()
+            )
+            result["csr_private_key_match"] = (
+                csr.public_key().public_numbers() == key.public_key().public_numbers()
+            )
+
+        basic_auth = str(company_doc.get("custom_basic_auth_from_csid") or "").strip()
+        if basic_auth:
+            auth_bytes = base64.b64decode(basic_auth).decode("utf-8")
+            auth_parts = auth_bytes.split(":", 1)
+            result["basic_auth_has_separator"] = len(auth_parts) == 2
+            result["basic_auth_csid_length"] = len(auth_parts[0])
+            result["basic_auth_secret_length"] = len(auth_parts[1]) if len(auth_parts) == 2 else 0
+
+        certificate_value = str(company_doc.get("custom_certificate") or "").strip()
+        if certificate_value:
+            certificate_candidates = [certificate_value.encode()]
+            try:
+                decoded_certificate = base64.b64decode(certificate_value)
+                certificate_candidates.append(decoded_certificate)
+                try:
+                    certificate_candidates.append(base64.b64decode(decoded_certificate))
+                except Exception:
+                    pass
+            except Exception:
+                pass
+            certificate = None
+            for candidate in certificate_candidates:
+                for loader in (
+                    x509.load_pem_x509_certificate,
+                    x509.load_der_x509_certificate,
+                ):
+                    try:
+                        certificate = loader(candidate, default_backend())
+                        break
+                    except Exception:
+                        continue
+                if certificate:
+                    break
+            result["csid_certificate_found"] = bool(certificate)
+            if certificate:
+                result["csid_certificate_subject"] = certificate.subject.rfc4514_string()
+                result["csid_certificate_issuer"] = certificate.issuer.rfc4514_string()
+                result["csid_certificate_serial"] = str(certificate.serial_number)
+                if private_key:
+                    result["csid_private_key_match"] = (
+                        certificate.public_key().public_numbers()
+                        == key.public_key().public_numbers()
+                    )
+    except Exception as error:
+        result["csr_error"] = str(error)
+    return result
 
 
 def create_public_key(company_abbr, source_doc):
@@ -509,8 +663,16 @@ def create_public_key(company_abbr, source_doc):
 def removetags(finalzatcaxml):
     """remove the unwanted tags from created xml"""
     try:
-        # Code corrected by Farook K - ERPGulf
-        xml_file = MyTree.fromstring(finalzatcaxml)
+        # lxml does not accept a Unicode string containing an encoding
+        # declaration.  The synthetic onboarding flow serializes XML with
+        # ``encoding='utf-8'``; convert text to bytes before parsing so both
+        # normal invoices and temporary onboarding documents use the same path.
+        xml_input = (
+            finalzatcaxml.encode("utf-8")
+            if isinstance(finalzatcaxml, str)
+            else finalzatcaxml
+        )
+        xml_file = MyTree.fromstring(xml_input)
         xsl_file = MyTree.fromstring(
             """<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
                                     xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -704,10 +866,11 @@ def certificate_hash(company_abbr, source_doc):
                 _(f"No valid certificate data found for company {company_name}")
             )
 
-        # Calculate the SHA-256 hash of the certificate data
+        # ZATCA's implementation guide specifies hashing the certificate
+        # value as stored (the base64 certificate content), then encoding the
+        # hexadecimal hash text as Base64.
         certificate_data_bytes = certificate_data.encode("utf-8")
         sha256_hash = hashlib.sha256(certificate_data_bytes).hexdigest()
-        # Encode the hash in base64
         base64_encoded_hash = base64.b64encode(sha256_hash.encode("utf-8")).decode(
             "utf-8"
         )
@@ -820,16 +983,82 @@ def generate_signed_properties_hash(
             issuer_name=issuer_name,
             serial_number=str(serial_number),
         )
-        utf8_bytes = xml_string_rendered.encode("utf-8")
-        hash_object = hashlib.sha256(utf8_bytes)
-        hex_sha256 = hash_object.hexdigest()
-        signed_properties_base64 = base64.b64encode(hex_sha256.encode("utf-8")).decode(
-            "utf-8"
-        )
-        return signed_properties_base64
+        return _zatca_property_hash_to_base64(xml_string_rendered)
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(_(" error in generating signed properties hash: " + str(e)))
         return None
+
+
+def _zatca_property_hash_to_base64(xml_value):
+    """Hash a ZATCA property tag using its documented HEX-to-Base64 flow."""
+    if isinstance(xml_value, etree._Element):
+        xml_value = etree.tostring(xml_value, encoding="utf-8").decode("utf-8")
+    # ZATCA validates the exact SignedProperties block that is submitted.
+    # In particular, its indentation/newlines are significant.  Normalize
+    # only the platform line ending; do not strip or collapse whitespace.
+    signed_properties_xml = str(xml_value).replace("\r\n", "\n")
+    hex_digest = hashlib.sha256(signed_properties_xml.encode("utf-8")).hexdigest()
+    return base64.b64encode(hex_digest.encode("utf-8")).decode("utf-8")
+
+
+def format_zatca_signed_xml(xml_string):
+    """Apply the fixed SignedProperties indentation expected by ZATCA."""
+    indentations = {
+        29: [
+            '<xades:QualifyingProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Target="signature">',
+            "</xades:QualifyingProperties>",
+        ],
+        33: [
+            '<xades:SignedProperties Id="xadesSignedProperties">',
+            "</xades:SignedProperties>",
+        ],
+        37: [
+            "<xades:SignedSignatureProperties>",
+            "</xades:SignedSignatureProperties>",
+        ],
+        41: [
+            "<xades:SigningTime>",
+            "<xades:SigningCertificate>",
+            "</xades:SigningCertificate>",
+        ],
+        45: ["<xades:Cert>", "</xades:Cert>"],
+        49: [
+            "<xades:CertDigest>",
+            "<xades:IssuerSerial>",
+            "</xades:CertDigest>",
+            "</xades:IssuerSerial>",
+        ],
+        53: [
+            '<ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>',
+            "<ds:DigestValue>",
+            "<ds:X509IssuerName>",
+            "<ds:X509SerialNumber>",
+        ],
+    }
+
+    def adjust_indentation(line):
+        for column, tags in indentations.items():
+            for tag in tags:
+                if line.strip().startswith(tag):
+                    return " " * (column - 1) + line.lstrip()
+        return line
+
+    return "".join(
+        adjust_indentation(line)
+        for line in str(xml_string).splitlines(keepends=True)
+    )
+
+
+def signed_properties_hash_from_xml(modified_xml_string):
+    """Create the ZATCA SignedProperties DigestValue from the actual XML node."""
+    formatted_xml = format_zatca_signed_xml(modified_xml_string)
+    start = formatted_xml.find("<xades:SignedProperties")
+    end_tag = "</xades:SignedProperties>"
+    end = formatted_xml.find(end_tag, start)
+    if start < 0 or end < 0:
+        frappe.throw(_("SignedProperties was not found in the signed XML."))
+    signed_properties = formatted_xml[start : end + len(end_tag)]
+    return _zatca_property_hash_to_base64(signed_properties)
 
 
 def populate_the_ubl_extensions_output(
@@ -1110,9 +1339,8 @@ def generate_tlv_xml(final_xml_string,company_abbr,source_doc):
         issue_time = (
             issue_time_results[0].text.strip() if issue_time_results else "Missing Data"
         )
-        # Preserve the XML IssueTime in AST/local invoice time. ``Z`` is
-        # reserved for timestamps explicitly converted to UTC.
-        issue_date_time = issue_date + "T" + issue_time
+        # ZATCA requires QR Tag 3 to be an ISO-8601 UTC timestamp.
+        issue_date_time = format_zatca_qr_timestamp(issue_date, issue_time)
         tags_xpaths = [
             (
                 1,
@@ -1123,7 +1351,10 @@ def generate_tlv_xml(final_xml_string,company_abbr,source_doc):
                 "/ubl:Invoice/cac:AccountingSupplierParty/cac:Party/cac:PartyTaxScheme/cbc:CompanyID",
             ),
             (3, None),
-            (4, "/ubl:Invoice/cac:LegalMonetaryTotal/cbc:TaxInclusiveAmount"),
+            # QR Tag 4 follows BT-115 (PayableAmount). For ordinary invoices
+            # it normally equals TaxInclusiveAmount; with prepayments or
+            # rounding it is the final amount due.
+            (4, "/ubl:Invoice/cac:LegalMonetaryTotal/cbc:PayableAmount"),
             (5, "/ubl:Invoice/cac:TaxTotal/cbc:TaxAmount"),
             (
                 6,
@@ -1146,15 +1377,38 @@ def generate_tlv_xml(final_xml_string,company_abbr,source_doc):
                         if isinstance(elements[0], etree._Element)
                         else elements[0]
                     )
+                    if tag == 4 and not str(value or "").strip():
+                        frappe.throw(
+                            _(
+                                "Cannot generate QR Tag 4: "
+                                "cbc:PayableAmount is empty."
+                            )
+                        )
                     result_dict[tag] = value
                 else:
+                    if tag == 4:
+                        frappe.throw(
+                            _(
+                                "Cannot generate QR Tag 4: "
+                                "cbc:PayableAmount is missing from the XML."
+                            )
+                        )
                     result_dict[tag] = "Not found"
             else:
                 result_dict[tag] = xpath
         result_dict[3] = issue_date_time
         result_dict[8] = tag8_publickey(company_abbr, source_doc)
         # Tag 9 is defined only for Simplified Tax Invoices and their notes.
-        if _is_simplified_document(source_doc):
+        invoice_typecode = root.xpath(
+            "/ubl:Invoice/cbc:InvoiceTypeCode", namespaces=namespaces
+        )
+        invoice_type_name = (
+            (invoice_typecode[0].get("name") or "").strip()
+            if invoice_typecode
+            else ""
+        )
+        is_simplified_xml = invoice_type_name.startswith("02")
+        if is_simplified_xml or _is_simplified_document(source_doc):
             result_dict[9] = tag9_signature_ecdsa(company_abbr, source_doc)
         else:
             result_dict.pop(9, None)
@@ -1204,65 +1458,14 @@ def update_qr_toxml(final_xml_string,qrcodeb64, company_abbr):
 def structuring_signedxml(invoice_number,updated_xml_string):
     """structuring the signed xml"""
     try:
-        # with open(
-        #     f"{frappe.local.site}/private/files/final_xml_after_sign_{invoice_number}.xml",
-        #     "r",
-        #     encoding="utf-8",
-        # ) as file:
-        #     xml_content = file.readlines()
-
-        # update_xml_string=xml_content
-        indentations = {
-            29: [
-                '<xades:QualifyingProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Target="signature">',
-                "</xades:QualifyingProperties>",
-            ],
-            33: [
-                '<xades:SignedProperties Id="xadesSignedProperties">',
-                "</xades:SignedProperties>",
-            ],
-            37: [
-                "<xades:SignedSignatureProperties>",
-                "</xades:SignedSignatureProperties>",
-            ],
-            41: [
-                "<xades:SigningTime>",
-                "<xades:SigningCertificate>",
-                "</xades:SigningCertificate>",
-            ],
-            45: ["<xades:Cert>", "</xades:Cert>"],
-            49: [
-                "<xades:CertDigest>",
-                "<xades:IssuerSerial>",
-                "</xades:CertDigest>",
-                "</xades:IssuerSerial>",
-            ],
-            53: [
-                '<ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>',
-                "<ds:DigestValue>",
-                "<ds:X509IssuerName>",
-                "<ds:X509SerialNumber>",
-            ],
-        }
-
-        def adjust_indentation(line):
-            for col, tags in indentations.items():
-                for tag in tags:
-                    if line.strip().startswith(tag):
-                        return " " * (col - 1) + line.lstrip()
-            return line
-
-        # adjusted_xml_content = [adjust_indentation(line) for line in xml_content]
-        adjusted_xml_content = [
-        adjust_indentation(line) for line in updated_xml_string.splitlines(keepends=True)
-        ]
+        adjusted_xml_content = format_zatca_signed_xml(updated_xml_string)
 
         with open(
             f"{frappe.local.site}/private/files/final_xml_after_indent_{invoice_number}.xml",
             "w",
             encoding="utf-8",
         ) as file:
-            file.writelines(adjusted_xml_content)
+            file.write(adjusted_xml_content)
     
 
         # adjusted_xml_content = [adjust_indentation(line) for line in updated_xml_string]
@@ -1300,17 +1503,19 @@ def compliance_api_call(
             }
         )
 
-        # csid = company_doc.custom_basic_auth_from_csid
+        auth_source = "company"
         if (
             hasattr(source_doc, "custom_zatca_pos_name")
             and source_doc.custom_zatca_pos_name
         ):
+            auth_source = "multiple_setting"
             zatca_settings = frappe.get_doc(
                 "ZATCA Multiple Setting", source_doc.custom_zatca_pos_name
             )
             if zatca_settings.custom__use_company_certificate__keys != 1:
                 csid = zatca_settings.custom_basic_auth_from_csid
             else:
+                auth_source = "linked_company"
                 linked_doc = frappe.get_doc("Company", zatca_settings.custom_linked_doctype)
                 csid = linked_doc.custom_basic_auth_from_csid
         else:
@@ -1318,29 +1523,82 @@ def compliance_api_call(
         if not csid:
             frappe.throw(_((f"CSID for company {company_abbr} not foundor not found in multpile setting page")))
 
+        # CSID values are stored as the base64 portion of HTTP Basic Auth.
+        # Normalize legacy values that may contain copied whitespace or the
+        # complete ``Basic ...`` prefix before constructing the header.
+        csid = str(csid).strip()
+        if csid.lower().startswith("basic "):
+            authorization = csid
+        else:
+            authorization = "Basic " + "".join(csid.split())
+
+        api_url = get_compliance_api_url(company_abbr)
+
         headers = {
             "accept": "application/json",
             "Accept-Language": "en",
             "Accept-Version": "V2",
-            "Authorization": "Basic " + csid,
+            "Authorization": authorization,
             "Content-Type": "application/json",
         }
-        # frappe.throw(get_api_url(company_abbr, base_url="compliance/invoices"))
         response = requests.request(
             "POST",
-            url=get_api_url(company_abbr, base_url="compliance/invoices"),
+            url=api_url,
             headers=headers,
             data=payload,
             timeout=300,
         )
-        # frappe.throw(response.status_code)
-        frappe.throw(_(response.text))
-        if response.status_code != 200:
-            frappe.throw(_(f"Error in compliance: {response.text}"))
-        if response.status_code != 202:
-            frappe.throw(_(f"Warning from zatca in compliance: {response.text}"))
 
-        return response.text
+        try:
+            response_data = response.json()
+        except ValueError:
+            response_data = response.text
+
+        already_completed = False
+        if response.status_code == 406 and isinstance(response_data, dict):
+            error_messages = (
+                (response_data.get("validationResults") or {}).get("errorMessages")
+                or []
+            )
+            already_completed = bool(error_messages) and all(
+                message.get("code") == "Submitted before"
+                for message in error_messages
+                if isinstance(message, dict)
+            )
+
+        if already_completed:
+            response_data["_zatca_compliance_status"] = "ALREADY_COMPLETED"
+            return response_data
+
+        if response.status_code not in (200, 202):
+            response_body = (response.text or "").strip()
+            request_id = response.headers.get("x-request-id") or response.headers.get(
+                "X-Request-ID"
+            )
+            details = response_body or response.reason or "No response body"
+            if request_id:
+                details += f" (request id: {request_id})"
+            if response.status_code == 401:
+                details += _(
+                    " [environment: {0}; endpoint: {1}; auth source: {2}; CSID length: {3}]"
+                ).format(
+                    company_doc.get("custom_select") or "Production",
+                    api_url,
+                    auth_source,
+                    len(authorization.removeprefix("Basic ").strip()),
+                )
+            frappe.throw(
+                _(
+                    f"Error in compliance [HTTP {response.status_code}]: {details}"
+                )
+            )
+
+        if isinstance(response_data, dict):
+            validation_results = response_data.get("validationResults") or {}
+            if validation_results.get("status") == "ERROR":
+                frappe.throw(json.dumps(response_data, ensure_ascii=False))
+
+        return response_data
     except requests.exceptions.RequestException as e:
         frappe.msgprint(_(f"Request exception occurred: {str(e)}"))
         return "error in compliance", "NOT ACCEPTED"
@@ -1400,19 +1658,84 @@ def production_csid(zatca_doc, company_abbr):
             user=frappe.session.user,
         )
 
+        # This button is part of the pre-onboarding test flow. The Developer
+        # Portal Sandbox exposes the Production CSID onboarding endpoint and
+        # accepts the test Compliance CSID generated there.
         response = requests.post(
-            url=get_api_url(company_abbr, base_url="production/csids"),
+            url=get_compliance_api_url(company_abbr, base_url="production/csids"),
             headers=headers,
             json=payload,
             timeout=300,
         )
         frappe.publish_realtime("hide_gif", user=frappe.session.user)
-        frappe.msgprint(response.text)
 
         if response.status_code != 200:
-            frappe.throw("Error in production: " + response.text)
+            response_body = (response.text or "").strip()
+            request_id = response.headers.get("x-request-id") or response.headers.get(
+                "X-Request-ID"
+            )
+            details = response_body or response.reason or "No response body"
+            if request_id:
+                details += f" (request id: {request_id})"
+            frappe.throw(_(f"Error in production [HTTP {response.status_code}]: {details}"))
 
         data = response.json()
+        company_vat = ""
+        if doc.doctype == "Company":
+            company_vat = (company_doc.tax_id or "").strip()
+
+        # Never save a test/production certificate for a different taxpayer.
+        # ZATCA rejects subsequent invoice calls with certificate-permissions,
+        # which is otherwise surfaced to users as a misleading HTTP 401.
+        if company_vat and data.get("binarySecurityToken"):
+            token_bytes = base64.b64decode(data["binarySecurityToken"])
+            certificate_candidates = [token_bytes]
+            try:
+                certificate_candidates.append(base64.b64decode(token_bytes))
+            except Exception:
+                pass
+
+            certificate = None
+            for candidate in certificate_candidates:
+                for loader in (
+                    x509.load_der_x509_certificate,
+                    x509.load_pem_x509_certificate,
+                ):
+                    try:
+                        certificate = loader(candidate, default_backend())
+                        break
+                    except Exception:
+                        continue
+                if certificate is not None:
+                    break
+
+            if certificate is not None:
+                certificate_text = certificate.subject.rfc4514_string()
+                try:
+                    certificate_text += " " + str(
+                        certificate.extensions.get_extension_for_class(
+                            x509.SubjectAlternativeName
+                        ).value
+                    )
+                except Exception:
+                    pass
+                certificate_vat_match = re.search(
+                    r"(?<!\d)3\d{13}3(?!\d)", certificate_text
+                )
+                certificate_vat = (
+                    certificate_vat_match.group(0)
+                    if certificate_vat_match
+                    else ""
+                )
+                if certificate_vat and certificate_vat != company_vat:
+                    frappe.throw(
+                        _(
+                            "ZATCA returned a Production CSID for VAT {0}, "
+                            "but company {1} uses VAT {2}. Generate the CSID "
+                            "with the company's VAT number."
+                        ).format(certificate_vat, company_abbr, company_vat)
+                    )
+
         concatenated_value = data["binarySecurityToken"] + ":" + data["secret"]
         encoded_value = base64.b64encode(concatenated_value.encode()).decode()
         if doc.doctype == "ZATCA Multiple Setting":
@@ -1430,7 +1753,10 @@ def production_csid(zatca_doc, company_abbr):
 
             company_doc.save(ignore_permissions=True)
 
-        return response.text
+        return json.dumps(
+            {"status": "SUCCESS", "request_id": data.get("requestID")},
+            ensure_ascii=False,
+        )
 
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(_("Error in production CSID formation: " + str(e)))

@@ -25,12 +25,12 @@ from base64 import b64encode
 import frappe
 from frappe import _
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
-from frappe.utils.data import add_to_date, get_time, getdate
 from pyqrcode import create as qr_create
 
 from erpnext import get_region
 
 from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country
+from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
 
 
 def get_company_arabic_name(company_name: str) -> str:
@@ -147,13 +147,7 @@ def create_qr_code(doc, method=None):  # pylint: disable=unused-argument
         tlv_array.append("".join([tag, length, value]))
 
         # Time Stamp
-        posting_date = getdate(doc.posting_date)
-        time = get_time(doc.posting_time)
-        seconds = time.hour * 60 * 60 + time.minute * 60 + time.second
-        time_stamp = add_to_date(posting_date, seconds=seconds)
-        # Preserve the stored invoice timestamp in AST/local time. A ``Z`` suffix
-        # is reserved for values explicitly converted to UTC.
-        time_stamp = time_stamp.strftime("%Y-%m-%dT%H:%M:%S")
+        time_stamp = format_zatca_qr_timestamp(doc.posting_date, doc.posting_time)
 
         tag = bytes([3]).hex()
         length = bytes([len(time_stamp)]).hex()
