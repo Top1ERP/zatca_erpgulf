@@ -319,6 +319,8 @@ A company address is required before running the automatic ZATCA onboarding test
 Company Tax ID is required for the automatic ZATCA onboarding test.,الرقم الضريبي للشركة مطلوب لتشغيل اختبار الربط التلقائي مع ZATCA.
 Already completed by ZATCA; treated as PASS.,اكتمل مسبقًا لدى ZATCA؛ وسيُعامل كنجاح.
 Completed successfully.,اكتمل بنجاح.
+ZATCA did not confirm compliance. This check cannot be marked as passed.,لم تؤكد هيئة الزكاة نجاح فحص الامتثال. لا يمكن احتساب هذا الفحص كناجح.
+The ZATCA compliance request could not be completed. Check the connection and try again; compliance has not been confirmed.,تعذر إكمال طلب فحص الامتثال لدى هيئة الزكاة. تحقق من الاتصال وأعد المحاولة؛ لم يتم تأكيد نجاح الفحص.
 "Runs compliance checks for all supported invoices, credit notes, and debit notes types",يشغل فحوصات الامتثال لكل الفواتير وإشعارات الدائن والمدين المدعومة.
 Final CSID Generation,إنشاء CSID النهائي
 Generate Final CSID,إنشاء CSID النهائي

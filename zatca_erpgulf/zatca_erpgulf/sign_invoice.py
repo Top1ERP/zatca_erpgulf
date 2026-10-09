@@ -20,6 +20,7 @@ from lxml import etree
 from frappe import _
 import frappe
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
+from zatca_erpgulf.zatca_erpgulf.compliance_result import compliance_result_status
 from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country, normalize_country_code
 from zatca_erpgulf.zatca_erpgulf.customer_address import resolve_customer_address
 import requests
@@ -2273,25 +2274,22 @@ def run_all_compliance_summary(company_name: str, invoice_number: str):
                     compliance_type="0",
                 )
 
-                message_text = "Completed successfully"
+                outcome = compliance_result_status(response)
+                if outcome is None:
+                    frappe.throw(
+                        _("ZATCA did not confirm compliance. This check cannot be marked as passed.")
+                    )
 
-                if response:
-                    if (
-                        isinstance(response, dict)
-                        and response.get("_zatca_compliance_status")
-                        == "ALREADY_COMPLETED"
-                    ):
-                        message_text = (
-                            "Already completed by ZATCA; treated as PASS."
-                        )
-                    elif isinstance(response, (dict, list)):
-                        message_text = json.dumps(response, ensure_ascii=False)
-                    else:
-                        message_text = str(response)
+                message_text = (
+                    _("Already completed by ZATCA; treated as PASS.")
+                    if outcome == "ALREADY_COMPLETED"
+                    else json.dumps(response, ensure_ascii=False)
+                )
 
                 results.append({
                     "type": validation_type,
                     "status": "PASS",
+                    "compliance_status": outcome,
                     "message": message_text,
                 })
 
@@ -2698,16 +2696,19 @@ def run_automatic_zatca_onboarding_checks(company_name: str):
     for validation_type in validation_types:
         try:
             response = _submit_onboarding_document(company_doc, validation_type)
-            already_completed = isinstance(response, dict) and response.get(
-                "_zatca_compliance_status"
-            ) == "ALREADY_COMPLETED"
+            outcome = compliance_result_status(response)
+            if outcome is None:
+                frappe.throw(
+                    _("ZATCA did not confirm compliance. This check cannot be marked as passed.")
+                )
             results.append(
                 {
                     "type": validation_type,
                     "status": "PASS",
+                    "compliance_status": outcome,
                     "message": _(
                         "Already completed by ZATCA; treated as PASS."
-                        if already_completed
+                        if outcome == "ALREADY_COMPLETED"
                         else "Completed successfully."
                     ),
                 }

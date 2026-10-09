@@ -23,6 +23,10 @@ import requests
 import asn1
 
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
+from zatca_erpgulf.zatca_erpgulf.compliance_result import (
+    compliance_result_status,
+    is_already_completed_response,
+)
 from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
 
 SUPPORTED_INVOICES = ["Sales Invoice", "POS Invoice"]
@@ -1487,7 +1491,11 @@ def structuring_signedxml(invoice_number,updated_xml_string):
 def compliance_api_call(
     uuid1, encoded_hash, signed_xmlfile_name, company_abbr, source_doc
 ):
-    """compliance api call for testing with sandbox"""
+    """Submit a compliance sample in the company's configured environment.
+
+    This is not a production clearance/reporting call. Return only confirmed
+    validation or previous completion; transport and ambiguous outcomes raise.
+    """
     try:
 
         company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
@@ -1554,19 +1562,7 @@ def compliance_api_call(
         except ValueError:
             response_data = response.text
 
-        already_completed = False
-        if response.status_code == 406 and isinstance(response_data, dict):
-            error_messages = (
-                (response_data.get("validationResults") or {}).get("errorMessages")
-                or []
-            )
-            already_completed = bool(error_messages) and all(
-                message.get("code") == "Submitted before"
-                for message in error_messages
-                if isinstance(message, dict)
-            )
-
-        if already_completed:
+        if is_already_completed_response(response.status_code, response_data):
             response_data["_zatca_compliance_status"] = "ALREADY_COMPLETED"
             return response_data
 
@@ -1594,14 +1590,28 @@ def compliance_api_call(
             )
 
         if isinstance(response_data, dict):
-            validation_results = response_data.get("validationResults") or {}
-            if validation_results.get("status") == "ERROR":
+            validation_results = response_data.get("validationResults")
+            if (
+                isinstance(validation_results, dict)
+                and validation_results.get("status") == "ERROR"
+            ):
                 frappe.throw(json.dumps(response_data, ensure_ascii=False))
 
+        if compliance_result_status(response_data) != "PASS":
+            frappe.throw(
+                _("ZATCA did not confirm compliance. This check cannot be marked as passed.")
+            )
+
         return response_data
-    except requests.exceptions.RequestException as e:
-        frappe.msgprint(_(f"Request exception occurred: {str(e)}"))
-        return "error in compliance", "NOT ACCEPTED"
+    except requests.exceptions.RequestException:
+        # A timeout is an unknown remote outcome, not proof of rejection or
+        # success. Never return an error tuple that a caller can treat as PASS.
+        frappe.throw(
+            _(
+                "The ZATCA compliance request could not be completed. "
+                "Check the connection and try again; compliance has not been confirmed."
+            )
+        )
 
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(_(f"ERROR in clearance invoice, ZATCA validation: {str(e)}"))
