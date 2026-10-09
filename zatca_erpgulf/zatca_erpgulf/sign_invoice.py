@@ -12,7 +12,6 @@ import io
 import base64
 import json
 import hashlib
-import tempfile
 import uuid
 import xml.etree.ElementTree as XML_ET
 from datetime import datetime
@@ -21,6 +20,8 @@ from frappe import _
 import frappe
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 from zatca_erpgulf.zatca_erpgulf.compliance_result import compliance_result_status
+from zatca_erpgulf.zatca_erpgulf.compliance_types import COMPLIANCE_TYPES, resolve_compliance_type
+from zatca_erpgulf.zatca_erpgulf.nonproduction import temporary_compliance_xml
 from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country, normalize_country_code
 from zatca_erpgulf.zatca_erpgulf.customer_address import resolve_customer_address
 import requests
@@ -1250,8 +1251,9 @@ def zatca_call_compliance(
     compliance_type="0",
     any_item_has_tax_template=False,
     company_name=None,
+    validation_type=None,
 ):
-    """zatca call compliance"""
+    """Test an invoice snapshot; an explicit type never changes Company settings."""
 
     try:
         if source_doc:
@@ -1269,22 +1271,22 @@ def zatca_call_compliance(
 
         company_doc = frappe.get_doc("Company", company_name)
 
-        if company_doc.custom_validation_type == "Simplified Invoice":
-            compliance_type = "1"
-        elif company_doc.custom_validation_type == "Standard Invoice":
-            compliance_type = "2"
-        elif company_doc.custom_validation_type == "Simplified Credit Note":
-            compliance_type = "3"
-        elif company_doc.custom_validation_type == "Standard Credit Note":
-            compliance_type = "4"
-        elif company_doc.custom_validation_type == "Simplified Debit Note":
-            compliance_type = "5"
-        elif company_doc.custom_validation_type == "Standard Debit Note":
-            compliance_type = "6"
+        try:
+            # Existing single-check callers select the Company label (some UI
+            # callers also send a hard-coded numeric value). Batch callers pass
+            # an explicit label, avoiding shared mutable Company state.
+            compliance_type = resolve_compliance_type(
+                company_doc.custom_validation_type if validation_type is None else validation_type,
+                fallback=compliance_type if validation_type is None else "0",
+            )
+        except ValueError:
+            frappe.throw(_("Select a valid ZATCA compliance document type."))
         if not frappe.db.exists("Sales Invoice", invoice_number):
             frappe.throw(_("Invoice Number is NOT Valid: " + str(invoice_number)))
         invoice = xml_tags()
-        invoice, uuid1, sales_invoice_doc = salesinvoice_data(invoice, invoice_number)
+        invoice, uuid1, sales_invoice_doc = salesinvoice_data(
+            invoice, invoice_number, purpose="compliance"
+        )
 
         if getattr(sales_invoice_doc, "company", None) and sales_invoice_doc.company != company_doc.name:
             frappe.throw(
@@ -1385,11 +1387,12 @@ def zatca_call_compliance(
         qrcodeb64 = base64.b64encode(qrcodebuf).decode("utf-8")
 
         updated_xml_string=update_qr_toxml(final_xml_string,qrcodeb64,company_abbr)
-        signed_xmlfile_name = structuring_signedxml(invoice_number, updated_xml_string)
-        value = compliance_api_call(
-            uuid1, encoded_hash, signed_xmlfile_name, company_abbr, source_doc
-        )
-        return value
+        # Use the established formatter, but never write the live invoice's
+        # submission filename. The sample disappears even when the API raises.
+        with temporary_compliance_xml(format_zatca_signed_xml(updated_xml_string)) as sample_path:
+            return compliance_api_call(
+                uuid1, encoded_hash, sample_path, company_abbr, source_doc
+            )
 
     except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
         frappe.log_error(
@@ -2232,84 +2235,36 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
 
 @frappe.whitelist()
 def run_all_compliance_summary(company_name: str, invoice_number: str):
-    """
-    Run all compliance validation types sequentially and return one aggregated result.
-
-    Notes:
-    - This helper is intended for the new "Run All Compliance" button on Company.
-    - It does not modify the front-end document state during the loop.
-    - The original company validation type is restored at the end.
-    """
-
-    validation_types = [
-        "Simplified Invoice",
-        "Standard Invoice",
-        "Simplified Credit Note",
-        "Standard Credit Note",
-        "Simplified Debit Note",
-        "Standard Debit Note",
-    ]
-
+    """Run all types without temporarily changing shared Company settings."""
     company_doc = frappe.get_doc("Company", company_name)
-    original_validation_type = company_doc.custom_validation_type or ""
-
     results = []
-
-    try:
-        for validation_type in validation_types:
-            try:
-                company_doc.db_set(
-                    "custom_validation_type",
-                    validation_type,
-                    update_modified=False,
+    for validation_type in COMPLIANCE_TYPES:
+        try:
+            response = zatca_call_compliance(
+                invoice_number=invoice_number,
+                company_abbr=company_doc.abbr,
+                source_doc=json.dumps({"doctype": company_doc.doctype, "name": company_doc.name}),
+                validation_type=validation_type,
+            )
+            outcome = compliance_result_status(response)
+            if outcome is None:
+                frappe.throw(
+                    _("ZATCA did not confirm compliance. This check cannot be marked as passed.")
                 )
-
-                response = zatca_call_compliance(
-                    invoice_number=invoice_number,
-                    company_abbr=company_doc.abbr,
-                    source_doc=json.dumps({
-                        "doctype": company_doc.doctype,
-                        "name": company_doc.name,
-                    }),
-                    compliance_type="0",
-                )
-
-                outcome = compliance_result_status(response)
-                if outcome is None:
-                    frappe.throw(
-                        _("ZATCA did not confirm compliance. This check cannot be marked as passed.")
-                    )
-
-                message_text = (
-                    _("Already completed by ZATCA; treated as PASS.")
-                    if outcome == "ALREADY_COMPLETED"
-                    else json.dumps(response, ensure_ascii=False)
-                )
-
-                results.append({
-                    "type": validation_type,
-                    "status": "PASS",
-                    "compliance_status": outcome,
-                    "message": message_text,
-                })
-
-            except Exception as e:
-                results.append({
-                    "type": validation_type,
-                    "status": "FAIL",
-                    "message": str(e),
-                })
-
-    finally:
-        company_doc.db_set(
-            "custom_validation_type",
-            original_validation_type,
-            update_modified=False,
-        )
-
-    return {
-        "results": results
-    }
+            message_text = (
+                _("Already completed by ZATCA; treated as PASS.")
+                if outcome == "ALREADY_COMPLETED"
+                else json.dumps(response, ensure_ascii=False)
+            )
+            results.append({
+                "type": validation_type,
+                "status": "PASS",
+                "compliance_status": outcome,
+                "message": message_text,
+            })
+        except Exception as error:
+            results.append({"type": validation_type, "status": "FAIL", "message": str(error)})
+    return {"results": results}
 
 
 _ONBOARDING_UBL = {
@@ -2614,37 +2569,18 @@ def _submit_onboarding_document(company_doc, validation_type):
     uuid1, encoded_hash, final_xml_string = _prepare_signed_onboarding_document(
         company_doc, validation_type
     )
-    temporary_file = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w", encoding="utf-8", suffix=".xml", delete=False
-        ) as handle:
-            handle.write(final_xml_string)
-            temporary_file = handle.name
+    with temporary_compliance_xml(final_xml_string) as temporary_file:
         return compliance_api_call(
             # Synthetic onboarding documents have no POS or Multiple Setting
             # context; always authenticate with this Company's Compliance CSID.
             uuid1, encoded_hash, temporary_file, company_doc.abbr, None
         )
-    finally:
-        if temporary_file:
-            try:
-                os.unlink(temporary_file)
-            except OSError:
-                pass
 
 
 @frappe.whitelist()
 def validate_automatic_zatca_onboarding_documents(company_name: str):
     """Validate all synthetic onboarding documents locally without calling ZATCA."""
-    validation_types = [
-        "Simplified Invoice",
-        "Standard Invoice",
-        "Simplified Credit Note",
-        "Standard Credit Note",
-        "Simplified Debit Note",
-        "Standard Debit Note",
-    ]
+    validation_types = COMPLIANCE_TYPES
     company_doc = frappe.get_doc("Company", company_name)
     results = []
     for validation_type in validation_types:
@@ -2683,14 +2619,7 @@ def validate_automatic_zatca_onboarding_documents(company_name: str):
 @frappe.whitelist()
 def run_automatic_zatca_onboarding_checks(company_name: str):
     """Run all six ZATCA compliance checks using temporary synthetic documents."""
-    validation_types = [
-        "Simplified Invoice",
-        "Standard Invoice",
-        "Simplified Credit Note",
-        "Standard Credit Note",
-        "Simplified Debit Note",
-        "Standard Debit Note",
-    ]
+    validation_types = COMPLIANCE_TYPES
     company_doc = frappe.get_doc("Company", company_name)
     results = []
     for validation_type in validation_types:

@@ -4,7 +4,6 @@ import json
 import base64
 from frappe import _
 import traceback
-from pathlib import Path
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from zatca_erpgulf.zatca_erpgulf.createxml import (
     xml_tags,
@@ -50,7 +49,7 @@ from zatca_erpgulf.zatca_erpgulf.sign_invoice_first import (
     signed_properties_hash_from_xml,
     populate_the_ubl_extensions_output,
     generate_tlv_xml,
-    structuring_signedxml,
+    format_zatca_signed_xml,
     get_tlv_for_value,
     update_qr_toxml,
     compliance_api_call,
@@ -128,11 +127,9 @@ def debug_call(
         customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
         if company_doc.tax_id and customer_doc.tax_id:
             if company_doc.tax_id.strip() == customer_doc.tax_id.strip():
-                sales_invoice_doc.custom_zatca_status = "Intra-company transfer"
-                sales_invoice_doc.custom_zatca_full_response = "Intra-company transfer"
-                sales_invoice_doc.save(ignore_permissions=True)
-                frappe.db.commit()
-                return
+                message = _("Debug XML was skipped for an intra-company transfer. The invoice was not changed.")
+                frappe.msgprint(message)
+                return {"status": "skipped", "message": message}
         # Check if GPOS installed & custom fields exist
         is_gpos_installed = "gpos" in frappe.get_installed_apps()
         field_exists = frappe.get_meta(SALES_INVOICE).has_field("custom_unique_id")
@@ -145,7 +142,9 @@ def debug_call(
         def generate_and_attach_xml(invoice_doc, handle_b2c_simplified=True):
             # Step 1: XML creation
             invoice = xml_tags()
-            invoice, uuid1, invoice_doc = salesinvoice_data(invoice, invoice_doc.name)
+            invoice, uuid1, invoice_doc = salesinvoice_data(
+                invoice, invoice_doc.name, purpose="debug"
+            )
             customer_doc = frappe.get_doc("Customer", invoice_doc.customer)
 
             # Step 2: Invoice type logic
@@ -244,13 +243,10 @@ def debug_call(
             qrcodebuf = b"".join(tagsbufsarray)
             qrcodeb64 = base64.b64encode(qrcodebuf).decode("utf-8")
             updated_xml_string = update_qr_toxml(final_xml_string, qrcodeb64, company_abbr)
-            signed_xmlfile_name = structuring_signedxml(invoice_number,updated_xml_string)
-            # Step 8: Save & attach final XML
-            
-            signed_xmlfile_name = f"{frappe.local.site}/private/files/final_xml_after_indent_{invoice_number}.xml"
+            # Attach the same formatted bytes without writing, replacing, or
+            # unlinking an intermediate file that a live worker may be using.
+            xml_data = format_zatca_signed_xml(updated_xml_string)
             debug_filename = f"DEBUG_INVOICE_{invoice_doc.name}.xml"
-            with open(signed_xmlfile_name, "r", encoding="utf-8") as f:
-                xml_data = f.read()
             existing_files = frappe.get_all(
                 "File",
                 filters={
@@ -276,14 +272,6 @@ def debug_call(
                 "is_private": 1,
             })
             file_doc.save(ignore_permissions=True)
-            # Keep only the attached Debug XML; this signed intermediate is disposable.
-            try:
-                Path(signed_xmlfile_name).unlink()
-            except OSError:
-                frappe.log_error(
-                    frappe.get_traceback(),
-                    f"Debug XML intermediate cleanup failed for {invoice_doc.name}",
-                )
             frappe.msgprint(f"✅ Debug XML attached as {debug_filename}")
 
             return {"status": "success", "message": f"XML attached: {debug_filename}"}

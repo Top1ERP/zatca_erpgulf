@@ -2,7 +2,8 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and the first Compliance outcome fix are complete locally.
+Safety preparation, the first Compliance outcome fix, and the second isolation
+increment are complete in the development branch.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA.
 
@@ -56,19 +57,42 @@ Changes:
 This does **not** change endpoint routing, credentials, signing, QR payloads,
 discounts, GL/VAT reporting, or the server's final-CSID requirements. In particular,
 it does not claim to fix a cryptographic digest error or incomplete remote tests.
-Company validation-type mutation and debug/counter side effects remain queued
-for subsequent increments.
+The second increment below addresses Company validation-type mutation and the
+dedicated Compliance/Debug identity and file side effects. Remaining legacy
+branches and credential-context differences are recorded in
+[SETTINGS_AND_ROUTES.md](SETTINGS_AND_ROUTES.md).
+
+## Increment 2: dedicated Compliance and Debug isolation
+
+- Centralized the six type labels/codes. Batch calls pass the type explicitly,
+  without a Company write/restore cycle. Single-check UI precedence is preserved.
+- Sales/POS metadata builders accept an explicit non-production purpose. Debug
+  reuses a valid existing UUID or creates an unpersisted preview; Compliance
+  creates a fresh sample UUID. Default live generation remains unchanged.
+- Compliance still uses its separate counter but cannot write the source
+  invoice's `custom_zatca_icv` or `custom_zatca_issuing_unit`.
+- Dedicated Sales/POS compliance and synthetic onboarding share owner-only,
+  unique temporary files, automatically removed on return or exception.
+- Debug attaches formatted XML directly from memory, without overwriting or
+  unlinking a live submission file. Intra-company debug no longer saves a new
+  invoice status or commits the transaction.
+- The dedicated POS check now returns its API result and verifies invoice
+  Company ownership before signing or sending.
+- Added English explanations and Arabic messages. Endpoint, certificate, and
+  credential selection were audited but not changed in this increment.
 
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
 unchanged implementation (after isolating the Frappe HTTP decorator). The first
-fix passed all 31 cases; the expanded suite plus baseline now passes **160 tests**:
+fix passed all 31 cases, then 160 with expanded coverage. After increment 2, the
+combined selected suite passes **206 tests**:
 
 | Suite | Scope |
 | --- | --- |
 | `test_compliance_result.py` | Pure result classification and malformed payloads |
 | `test_compliance_api_outcomes.py` | Mocked real API/button functions, failures, previous completion, translations |
+| `test_nonproduction_isolation.py` | Preview identity, live-identity regression, counter boundaries, explicit types, cross-company rejection, debug artifact protection, temporary-file lifetime |
 | `test_tax_details_compat.py`, `test_tax_details_regression.py` | Tax adapter regressions |
 | `test_qr_tlv_compliance.py` | Existing QR/TLV regressions |
 | `test_zatca_response.py` | Existing response handling |
@@ -82,6 +106,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
   ../../env/bin/python -m pytest -q -p no:cacheprovider \
   zatca_erpgulf/zatca_erpgulf/tests/test_compliance_result.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_compliance_api_outcomes.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_nonproduction_isolation.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_tax_details_compat.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_tax_details_regression.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_qr_tlv_compliance.py \
@@ -95,8 +120,9 @@ request, or production invoice submission was performed in this increment.
 
 ## Next gate
 
-Inventory and test the shared endpoint/credential/settings context, then isolate
-Compliance/Debug from live invoice UUID/ICV/PIH changes. Prepare a separately
+Implement and test the shared endpoint/credential/settings context from the new
+inventory, then consolidate the remaining legacy nonzero-compliance branches
+without changing live submission behavior. Prepare a separately
 pinned v16 bench and golden XML fixtures before consolidating cryptography or
 advance-payment calculations. Obtain a suitable off-host backup destination and
 choose the pilot/rollout window before any production deployment.

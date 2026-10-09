@@ -157,7 +157,8 @@ def test_both_buttons_reject_unconfirmed_results(boundary, monkeypatch, payload,
         assert result["failed"] == 6
         assert result["all_passed"] is False
     else:
-        assert company.db_set.call_args.args == ("custom_validation_type", "ORIGINAL TYPE")
+        company.db_set.assert_not_called()
+        assert company.custom_validation_type == "ORIGINAL TYPE"
 
 
 @pytest.mark.parametrize("automatic", [False, True])
@@ -243,5 +244,7 @@ def test_new_error_messages_have_arabic_translations():
         "ZATCA did not confirm compliance. This check cannot be marked as passed.",
         "The ZATCA compliance request could not be completed. Check the connection and try again; compliance has not been confirmed.",
         "Already completed by ZATCA; treated as PASS.",
+        "Select a valid ZATCA compliance document type.",
+        "Debug XML was skipped for an intra-company transfer. The invoice was not changed.",
     ):
         assert any("\u0600" <= char <= "\u06ff" for char in translations[message])

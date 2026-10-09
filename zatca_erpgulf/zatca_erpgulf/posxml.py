@@ -17,6 +17,7 @@ import unicodedata
 from difflib import SequenceMatcher
 import json
 from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
+from zatca_erpgulf.zatca_erpgulf.nonproduction import preview_invoice_uuid
 from zatca_erpgulf.ksa_compliance.tax_details import get_item_tax_detail
 from frappe import _
 import frappe
@@ -265,8 +266,8 @@ def xml_tags():
         return None
 
 
-def salesinvoice_data(invoice, invoice_number):
-    """Function for sales invoice data"""
+def salesinvoice_data(invoice, invoice_number, *, purpose="production"):
+    """Populate POS metadata; non-production UUIDs never mutate the source."""
     try:
         pos_invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
         cbc_profileid = ET.SubElement(invoice, "cbc:ProfileID")
@@ -274,7 +275,11 @@ def salesinvoice_data(invoice, invoice_number):
         cbc_id = ET.SubElement(invoice, "cbc:ID")
         cbc_id.text = str(pos_invoice_doc.name)
         cbc_uuid = ET.SubElement(invoice, "cbc:UUID")
-        cbc_uuid.text = str(uuid.uuid1())
+        cbc_uuid.text = (
+            str(uuid.uuid1())
+            if purpose == "production"
+            else preview_invoice_uuid(getattr(pos_invoice_doc, "custom_uuid", None), purpose)
+        )
         uuid1 = cbc_uuid.text
         issue_timestamp = get_issue_timestamp(invoice_number)
         issue_date, issue_time = issue_timestamp.split("T", 1)

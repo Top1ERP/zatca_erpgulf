@@ -15,6 +15,7 @@ from zatca_erpgulf.zatca_erpgulf.country import normalize_country_code
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 from zatca_erpgulf.zatca_erpgulf.customer_address import resolve_customer_address
 from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
+from zatca_erpgulf.zatca_erpgulf.nonproduction import preview_invoice_uuid
 
 CBC_ID = "cbc:ID"
 DS_TRANSFORM = "ds:Transform"
@@ -672,9 +673,9 @@ def xml_tags():
         return None
 
 
-def salesinvoice_data(invoice, invoice_number):
+def salesinvoice_data(invoice, invoice_number, *, purpose="production"):
     """
-    Populates the Sales Invoice XML with key elements and metadata.
+    Populate metadata, persisting issuance identity only for the live workflow.
     """
     try:
         sales_invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
@@ -686,7 +687,11 @@ def salesinvoice_data(invoice, invoice_number):
         cbc_id.text = str(sales_invoice_doc.name)
 
         cbc_uuid = ET.SubElement(invoice, "cbc:UUID")
-        uuid1 = _get_or_create_sales_invoice_uuid(sales_invoice_doc)
+        uuid1 = (
+            _get_or_create_sales_invoice_uuid(sales_invoice_doc)
+            if purpose == "production"
+            else preview_invoice_uuid(getattr(sales_invoice_doc, "custom_uuid", None), purpose)
+        )
         cbc_uuid.text = uuid1
 
         issue_timestamp = get_issue_timestamp(invoice_number)

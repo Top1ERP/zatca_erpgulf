@@ -49,7 +49,11 @@ def _get_or_create_counter(company, issuing_unit, environment):
 
 
 def get_icv(doc, environment="Production", debug=False):
-	"""Return a persistent ICV for production/compliance, or a non-persistent preview for debug."""
+	"""Allocate within the selected chain; only production owns invoice fields.
+
+	Compliance keeps its dedicated counter for compatibility, but must never
+	overwrite the source invoice's live ICV or issuing unit. Debug only reads.
+	"""
 	if environment == "Debug" or debug:
 		if doc and frappe.get_meta(doc.doctype).has_field(fieldname := "custom_zatca_icv") and doc.get(fieldname):
 			return str(cint(doc.get(fieldname)))
@@ -86,9 +90,9 @@ def get_icv(doc, environment="Production", debug=False):
 		"last_invoice_doctype": doc.doctype,
 		"last_issued_at": now_datetime(),
 	}, update_modified=False)
-	if frappe.get_meta(doc.doctype).has_field(fieldname):
+	if environment == "Production" and frappe.get_meta(doc.doctype).has_field(fieldname):
 		doc.db_set(fieldname, next_icv, commit=True, update_modified=False)
-	if frappe.get_meta(doc.doctype).has_field("custom_zatca_issuing_unit"):
+	if environment == "Production" and frappe.get_meta(doc.doctype).has_field("custom_zatca_issuing_unit"):
 		doc.db_set("custom_zatca_issuing_unit", issuing_unit, commit=True, update_modified=False)
 	return str(next_icv)
 

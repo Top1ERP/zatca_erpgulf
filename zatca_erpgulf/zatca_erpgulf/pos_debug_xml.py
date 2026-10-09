@@ -55,7 +55,7 @@ from zatca_erpgulf.zatca_erpgulf.sign_invoice_first import (
     signed_properties_hash_from_xml,
     populate_the_ubl_extensions_output,
     generate_tlv_xml,
-    structuring_signedxml,
+    format_zatca_signed_xml,
     get_tlv_for_value,
     update_qr_toxml,
     compliance_api_call,
@@ -118,11 +118,9 @@ def debug_call(
         # Intra-company transfer
         if company_doc.tax_id and customer_doc.tax_id:
             if company_doc.tax_id.strip() == customer_doc.tax_id.strip():
-                pos_invoice_doc.custom_zatca_status = "Intra-company transfer"
-                pos_invoice_doc.custom_zatca_full_response = "Intra-company transfer"
-                pos_invoice_doc.save(ignore_permissions=True)
-                frappe.db.commit()
-                return
+                message = _("Debug XML was skipped for an intra-company transfer. The invoice was not changed.")
+                frappe.msgprint(message)
+                return {"status": "skipped", "message": message}
 
         if not get_alias_value("customer_buyer_id_type", customer_doc, "") and get_alias_value("customer_buyer_id", customer_doc, ""):
             frappe.throw(_("Buyer ID must be blank if Buyer ID Type is not set."))
@@ -145,7 +143,9 @@ def debug_call(
         # --- Function to generate and attach XML ---
         def generate_and_attach_xml(invoice_doc, handle_b2c_simplified=True):
             invoice = xml_tags()
-            invoice, uuid1, invoice_doc = salesinvoice_data(invoice, invoice_number)
+            invoice, uuid1, invoice_doc = salesinvoice_data(
+                invoice, invoice_number, purpose="debug"
+            )
 
             company_abbr = frappe.db.get_value("Company", {"name": invoice_doc.company}, "abbr")
             customer_doc_inner = frappe.get_doc("Customer", invoice_doc.customer)
@@ -203,12 +203,9 @@ def debug_call(
             qrcodeb64 = base64.b64encode(qrcodebuf).decode("utf-8")
             updated_xml_string = update_qr_toxml(final_xml_string, qrcodeb64, company_abbr)
 
-            signed_xmlfile_name = structuring_signedxml(invoice_number ,updated_xml_string)
-            signed_xmlfile_name = f"{frappe.local.site}/private/files/final_xml_after_indent_{invoice_number}.xml"
+            # Never share the live submission artifact's filename with Debug.
+            xml_data = format_zatca_signed_xml(updated_xml_string)
             debug_filename = f"DEBUG_INVOICE_{invoice_doc.name}.xml"
-
-            with open(signed_xmlfile_name, "r", encoding="utf-8") as f:
-                xml_data = f.read()
 
             # Delete older debug files
             existing_files = frappe.get_all(

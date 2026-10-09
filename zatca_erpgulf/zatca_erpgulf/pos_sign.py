@@ -14,6 +14,8 @@ from zatca_erpgulf.zatca_erpgulf.zatca_runtime import PHASE_1_VALUE, PHASE_2_VAL
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country
 from zatca_erpgulf.zatca_erpgulf.customer_address import resolve_customer_address
+from zatca_erpgulf.zatca_erpgulf.compliance_types import resolve_compliance_type
+from zatca_erpgulf.zatca_erpgulf.nonproduction import temporary_compliance_xml
 from zatca_erpgulf.zatca_erpgulf.event_log import log_zatca_event
 from zatca_erpgulf.zatca_erpgulf.zatca_response import (
     format_zatca_response,
@@ -66,6 +68,7 @@ from zatca_erpgulf.zatca_erpgulf.sign_invoice_first import (
     populate_the_ubl_extensions_output,
     generate_tlv_xml,
     structuring_signedxml,
+    format_zatca_signed_xml,
     get_tlv_for_value,
     update_qr_toxml,
     compliance_api_call,
@@ -887,6 +890,7 @@ def zatca_call_compliance(
     compliance_type="0",
     any_item_has_tax_template=False,
     source_doc=None,
+    validation_type=None,
 ):
     """Function for zatca call compliance"""
 
@@ -899,26 +903,28 @@ def zatca_call_compliance(
 
         company_doc = frappe.get_doc("Company", company_name)
 
-        # Determine compliance type based on company settings
-        if company_doc.custom_validation_type == "Simplified Invoice":
-            compliance_type = "1"
-        elif company_doc.custom_validation_type == "Standard Invoice":
-            compliance_type = "2"
-        elif company_doc.custom_validation_type == "Simplified Credit Note":
-            compliance_type = "3"
-        elif company_doc.custom_validation_type == "Standard Credit Note":
-            compliance_type = "4"
-        elif company_doc.custom_validation_type == "Simplified Debit Note":
-            compliance_type = "5"
-        elif company_doc.custom_validation_type == "Standard Debit Note":
-            compliance_type = "6"
+        try:
+            compliance_type = resolve_compliance_type(
+                company_doc.custom_validation_type if validation_type is None else validation_type,
+                fallback=compliance_type if validation_type is None else "0",
+            )
+        except ValueError:
+            frappe.throw(_("Select a valid ZATCA compliance document type."))
         # Validate the invoice number
         if not frappe.db.exists("POS Invoice", invoice_number):
             frappe.throw("Invoice Number is NOT Valid1: " + str(invoice_number))
 
         # Fetch and process the sales invoice data
         invoice = xml_tags()
-        invoice, uuid1, pos_invoice_doc = salesinvoice_data(invoice, invoice_number)
+        invoice, uuid1, pos_invoice_doc = salesinvoice_data(
+            invoice, invoice_number, purpose="compliance"
+        )
+        if pos_invoice_doc.company != company_doc.name:
+            frappe.throw(
+                _("Sample Invoice {0} belongs to Company {1}, not selected Company {2}.").format(
+                    invoice_number, pos_invoice_doc.company, company_doc.name
+                )
+            )
         # Check if any item has a tax template and validate it
         any_item_has_tax_template = any(
             item.item_tax_template for item in pos_invoice_doc.items
@@ -1001,12 +1007,10 @@ def zatca_call_compliance(
         qrcodeb64 = base64.b64encode(qrcodebuf).decode("utf-8")
 
         updated_xml_string = update_qr_toxml(final_xml_string, qrcodeb64, company_abbr)
-        signed_xmlfile_name = structuring_signedxml(invoice_number,updated_xml_string)
-
-        # Make the compliance API call
-        compliance_api_call(
-            uuid1, encoded_hash, signed_xmlfile_name, company_abbr, source_doc
-        )
+        with temporary_compliance_xml(format_zatca_signed_xml(updated_xml_string)) as sample_path:
+            return compliance_api_call(
+                uuid1, encoded_hash, sample_path, company_abbr, source_doc
+            )
 
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.log_error(
