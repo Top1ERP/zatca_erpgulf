@@ -1,4 +1,4 @@
-# Settings and route audit — updated through development increment 9
+# Settings and route audit — updated through development increment 10
 
 This inventory describes source behavior, not a new regulatory interpretation or
 a claim that live settings were changed. No credentials or tenant values are
@@ -18,6 +18,8 @@ remain pending.
 Increment 9 adds the opt-in saved-identity/attached-XML inventory in
 [ARTIFACT_EVIDENCE.md](ARTIFACT_EVIDENCE.md). It is not a submission hook or
 authority to repair UUIDs/counters or replay an invoice.
+Increment 10 adds explicitly opt-in response/counter observations in
+[HISTORY_EVIDENCE.md](HISTORY_EVIDENCE.md), without changing live selection or keys.
 
 ## Entry points and isolation boundaries
 

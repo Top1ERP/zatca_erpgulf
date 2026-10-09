@@ -1,8 +1,8 @@
 """Operator-only attached-XML evidence inventory; no writes or remote requests.
 
-Not whitelisted or registered as a hook. This opt-in diagnostic covers saved
-invoice fields and local attached XML only. It does not scan loose generated
-files, accepted response payloads, counters, or signing credentials yet.
+Not whitelisted or registered as a hook. The default covers saved invoice fields
+and local attached XML. Optional history includes stored responses and the saved
+unit's counter. Neither mode scans loose files or signing credentials.
 """
 
 import hashlib
@@ -21,6 +21,8 @@ from zatca_erpgulf.zatca_erpgulf.artifact_evidence import (
     compare_saved_identity,
     inspect_invoice_artifact,
 )
+from zatca_erpgulf.zatca_erpgulf.counter_inventory import read_invoice_counter_evidence
+from zatca_erpgulf.zatca_erpgulf.history_evidence import inspect_stored_response
 
 
 def _read_local_attachment(file_doc, doctype, invoice_name):
@@ -74,12 +76,33 @@ def _read_local_attachment(file_doc, doctype, invoice_name):
     return content
 
 
-def inspect_saved_invoice_artifacts(doctype, invoice_name):
+def _inspect_candidate_bytes(content, saved):
+    """Share identity inspection for attachments and embedded response XML."""
+    result = {
+        "file_sha256": hashlib.sha256(content).hexdigest(),
+        "byte_length": len(content), "issues": [],
+    }
+    try:
+        evidence = inspect_invoice_artifact(content)
+        result.update(
+            invoice_id=evidence.invoice_id, uuid=evidence.uuid, icv=evidence.icv,
+            seller_tax_id=evidence.seller_tax_id, qr_present=evidence.qr_present,
+            issues=list(compare_saved_identity(saved, evidence)),
+        )
+    except ArtifactEvidenceError as exc:
+        result["issues"] = [exc.code]
+        return result, None
+    return result, evidence.file_sha256
+
+
+def inspect_saved_invoice_artifacts(doctype, invoice_name, *, include_history=False):
     """Report all attached XML candidates without selecting an authoritative file.
 
     Explicit read permissions apply even though this is not an HTTP endpoint.
     Neither a consistent result nor stored acceptance status authorizes replay.
     """
+    if not isinstance(include_history, bool):
+        frappe.throw(_("The artifact history inspection option must be true or false."))
     if doctype not in ("Sales Invoice", "POS Invoice"):
         frappe.throw(
             _("Only Sales Invoice and POS Invoice artifact inspection is supported.")
@@ -114,15 +137,10 @@ def inspect_saved_invoice_artifacts(doctype, invoice_name):
             file_doc = frappe.get_doc("File", row["name"])
             file_doc.check_permission("read")
             content = _read_local_attachment(file_doc, doctype, invoice.name)
-            result["file_sha256"] = hashlib.sha256(content).hexdigest()
-            result["byte_length"] = len(content)
-            evidence = inspect_invoice_artifact(content)
-            result.update(
-                invoice_id=evidence.invoice_id, uuid=evidence.uuid, icv=evidence.icv,
-                seller_tax_id=evidence.seller_tax_id, qr_present=evidence.qr_present,
-                issues=list(compare_saved_identity(saved, evidence)),
-            )
-            fingerprints.add(evidence.file_sha256)
+            facts, fingerprint = _inspect_candidate_bytes(content, saved)
+            result.update(facts)
+            if fingerprint:
+                fingerprints.add(fingerprint)
         except ArtifactEvidenceError as exc:
             result["issues"] = [exc.code]
         except frappe.PermissionError:
@@ -131,18 +149,45 @@ def inspect_saved_invoice_artifacts(doctype, invoice_name):
             result["issues"] = ["attachment_missing"]
         candidates.append(result)
     issues = []
+    response_report, counter_report, response_candidates = None, None, []
+    if include_history:
+        observation = inspect_stored_response(
+            invoice.get("custom_zatca_full_response"), saved.status
+        )
+        response_report = {
+            "format": observation.format, "outcome": observation.outcome,
+            "issues": list(observation.issues), "text_sha256": observation.text_sha256,
+            "byte_length": observation.byte_length,
+        }
+        for fieldname, content in observation.xml_candidates:
+            candidate, fingerprint = _inspect_candidate_bytes(content, saved)
+            candidate["source"] = f"stored_response:{fieldname}"
+            if fingerprint:
+                fingerprints.add(fingerprint)
+            response_candidates.append(candidate)
+        counter_report = read_invoice_counter_evidence(saved)
     if len(fingerprints) > 1:
         issues.append("artifact_bytes_conflict")
     if issues:
         state = "CONFLICT"
-    elif any(candidate["issues"] for candidate in candidates):
+    elif (
+        any(candidate["issues"] for candidate in candidates + response_candidates)
+        or (response_report and response_report["issues"])
+        or (counter_report and (
+            counter_report["issues"]
+            or any(candidate["issues"] for candidate in counter_report["candidates"])
+        ))
+    ):
         state = "RECONCILIATION_REQUIRED"
-    elif candidates:
+    elif candidates or response_candidates:
         state = "IDENTITY_CONSISTENT"
     else:
-        state = "NO_ATTACHED_XML"
-    return {
-        "scope": "saved_identity_and_attached_xml_only",
+        state = "NO_XML_EVIDENCE" if include_history else "NO_ATTACHED_XML"
+    report = {
+        "scope": (
+            "saved_identity_attached_xml_response_and_counter" if include_history
+            else "saved_identity_and_attached_xml_only"
+        ),
         "doctype": doctype, "invoice": invoice.name, "company": company.name,
         "environment": saved.environment, "saved_status": saved.status,
         "saved_issuing_unit": saved.issuing_unit,
@@ -153,3 +198,9 @@ def inspect_saved_invoice_artifacts(doctype, invoice_name):
         "signature_verified": False, "remote_acceptance_verified": False,
         "replay_authorized": False,
     }
+    if include_history:
+        report.update(
+            response=response_report, counter=counter_report,
+            response_candidates=response_candidates, history_complete=False,
+        )
+    return report

@@ -104,13 +104,14 @@ def _uuid(value):
     return str(UUID(value.strip()))
 
 
-def _icv(value):
+def parse_diagnostic_icv(value, *, allow_zero=False):
+    """Bound read-only integer parsing; zero is valid only for a counter position."""
     text = str(value).strip()
     # Bound diagnostic integer parsing, independently of live counter policy.
     if isinstance(value, bool) or len(text) > 64 or not re.fullmatch(r"[0-9]+", text):
         raise ValueError("Invalid ICV format.")
     parsed = int(text)
-    if parsed <= 0:
+    if parsed < 0 or (parsed == 0 and not allow_zero):
         raise ValueError("ICV must be positive.")
     return parsed
 
@@ -163,7 +164,7 @@ def inspect_invoice_artifact(content):
         _additional_reference(root, "ICV", "invoice_icv"), "./cbc:UUID", "invoice_icv"
     )
     try:
-        icv = _icv(icv_text)
+        icv = parse_diagnostic_icv(icv_text)
     except ValueError:
         raise ArtifactEvidenceError("invoice_icv_format") from None
     supplier = _one_node(root, "./cac:AccountingSupplierParty", "seller_tax_id")
@@ -237,7 +238,7 @@ def compare_saved_identity(saved, evidence):
         issues.append("saved_icv_missing")
     else:
         try:
-            matched = _icv(saved.icv) == evidence.icv
+            matched = parse_diagnostic_icv(saved.icv) == evidence.icv
         except ValueError:
             issues.append("saved_icv_invalid")
         else:

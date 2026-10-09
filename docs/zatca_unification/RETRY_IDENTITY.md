@@ -86,3 +86,9 @@ Increment 9 adds an opt-in saved-identity/attached-XML evidence inspector, witho
 changing any generation or HTTP adapter. Its scope and reconciliation states are
 documented in [ARTIFACT_EVIDENCE.md](ARTIFACT_EVIDENCE.md). Loose generated files,
 accepted responses, counters, and credential-version provenance remain pending.
+
+Increment 10 extends that diagnostic with stored response XML/declarations and
+the saved unit's historical counter, explicitly separating API environment from
+counter purpose. See [HISTORY_EVIDENCE.md](HISTORY_EVIDENCE.md). Loose generated
+files, complete historical mapping, provenance/credential epochs, and actual
+restored-site rehearsal remain pending before any identity migration.

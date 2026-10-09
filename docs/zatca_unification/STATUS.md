@@ -2,11 +2,12 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and nine bounded increments (Compliance outcomes, dedicated
+Safety preparation and ten bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
-Company-scoped Sales/POS scheduling, and opt-in attached-XML evidence inspection)
+Company-scoped Sales/POS scheduling, opt-in attached-XML evidence inspection,
+and opt-in stored response/counter observations)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA.
@@ -196,6 +197,20 @@ branches and credential-context differences are recorded in
 - No tenant inventory execution, migration, hook/UI registration, or generation/
   HTTP behavior change. Wider response/counter/loose-file inventory is pending.
 
+## Increment 10: opt-in response/counter history
+
+- Preserved the default attached-XML inspector; explicit `include_history=True`
+  adds strict stored response observations and saved-unit counter diagnostics.
+- Shared one XML identity checker for local attachments and embedded response
+  XML; reject JSON/field ambiguity without changing stored evidence or accepting
+  a saved status/display label as remote verification.
+- Inspect legacy Production-purpose counter tuple/key/position/tail with read
+  permission; distinguish API environment and flag collisions/missing contexts
+  without auth-derived remapping, seeding, merging, or reducing counters.
+- Added 129 local pure/bridge tests and an Arabic diagnostic. Wider history,
+  credential epochs, atomic snapshots, and restored-site execution remain pending.
+  See [HISTORY_EVIDENCE.md](HISTORY_EVIDENCE.md). No live behavior was changed.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -207,7 +222,8 @@ Increment 6 added 173 cases to reach 778. Increment 7 adds 241 cases, bringing
 the selected suite to 1,019. Increment 8 adds 168 cases, bringing the combined
 selected suite to 1,187. The follow-up retry audit adds 61 cases, bringing the
 combined selected suite to 1,248. Increment 9 adds 145 cases, bringing the
-combined selected suite to **1,393 passing tests**:
+combined selected suite to 1,393. Increment 10 adds 129 cases, bringing the
+combined selected suite to **1,522 passing tests**:
 
 | Suite | Scope |
 | --- | --- |
@@ -223,6 +239,7 @@ combined selected suite to **1,393 passing tests**:
 | `test_background_scheduling.py` | Shared Sales/POS worker selection, Company isolation/windows/settings, stale status and draft boundaries, actual parent routing and worker bridge |
 | `test_retry_identity_contract.py` | Read-only Sales/POS UUID regeneration/filtering, twelve HTTP failure/timeout boundaries, saved ICV and existing artifact identity divergence |
 | `test_artifact_evidence.py`, `test_artifact_inventory.py` | Namespace-aware immutable metadata, saved identity reconciliation, exact-byte conflicts, permission/privacy/path/file controls, static safe errors, and no-write diagnostic bridge |
+| `test_history_evidence.py`, `test_history_inventory.py` | Strict stored response observations, response/file XML identity, saved-unit counter purpose/key/position/tail, permissions, and unchanged default diagnostics |
 | `test_tax_details_compat.py`, `test_tax_details_regression.py` | Tax adapter regressions |
 | `test_qr_tlv_compliance.py` | Existing QR/TLV regressions |
 | `test_zatca_response.py` | Existing response handling |
@@ -249,6 +266,8 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
   zatca_erpgulf/zatca_erpgulf/tests/test_retry_identity_contract.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_artifact_evidence.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_artifact_inventory.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_history_evidence.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_history_inventory.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_tax_details_compat.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_tax_details_regression.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_qr_tlv_compliance.py \
@@ -268,8 +287,9 @@ Resolve foreground unique-ID/gPOS policy parity and transactional worker/retry
 coordination; design an explicit ICV continuity mapping using the increment 6 audit.
 Use the follow-up [retry identity evidence](RETRY_IDENTITY.md) to introduce a
 durable issuance artifact contract before changing UUID or counter allocation.
-Extend the increment 9 inventory with accepted responses, counters, generated
-files, and credential-version provenance before proposing tenant reconciliation.
+Extend the increment 10 inventory with generated files, wider counter/log history,
+and credential-version provenance; rehearse on restored sites before proposing
+tenant reconciliation or changes to issuance/replay.
 Prepare a separately
 pinned v16 bench and golden XML fixtures before consolidating cryptography or
 advance-payment calculations. Obtain a suitable off-host backup destination and

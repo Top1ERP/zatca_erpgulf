@@ -86,3 +86,7 @@ the certificate, or current PIH. It provides no concurrent-worker/file snapshot
 lock. Identity consistency alone cannot authorize regeneration or exact replay.
 Those are separate ledger/service and integration gates before any live retry
 policy changes.
+
+Increment 10 adds opt-in stored response/counter observations with
+`include_history=True`. The default and its permission/file safeguards remain
+unchanged; see [HISTORY_EVIDENCE.md](HISTORY_EVIDENCE.md) for the extended scope.
