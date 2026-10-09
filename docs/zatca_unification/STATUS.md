@@ -173,6 +173,15 @@ branches and credential-context differences are recorded in
   remain separate release gates. See [BACKGROUND_SCHEDULING.md](BACKGROUND_SCHEDULING.md).
 - Added 168 local cases, including the actual parent routing and worker bridge.
 
+### Follow-up retry identity audit
+
+- Added 61 read-only metadata/HTTP/artifact-wrapper characterization cases.
+- Confirmed POS regeneration, UUID reset in ten adapters versus retention in the
+  two primary Sales adapters, retained ICV on rejection, and file/field identity
+  divergence. UUID/ICV/signing behavior was deliberately not changed in this audit.
+- Recorded the evidence-ledger and exact-artifact replay sequence in
+  [RETRY_IDENTITY.md](RETRY_IDENTITY.md), including concurrency/migration gates.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -182,7 +191,8 @@ Increment 3 passed 358 cases; increment 4 passed 467 (104 new credential cases
 plus five existing field-alias cases). Increment 5 added 138 cases to reach 605.
 Increment 6 added 173 cases to reach 778. Increment 7 adds 241 cases, bringing
 the selected suite to 1,019. Increment 8 adds 168 cases, bringing the combined
-selected suite to **1,187 passing tests**:
+selected suite to 1,187. The follow-up retry audit adds 61 cases, bringing the
+combined selected suite to **1,248 passing tests**:
 
 | Suite | Scope |
 | --- | --- |
@@ -196,6 +206,7 @@ selected suite to **1,187 passing tests**:
 | `test_icv_identity_contract.py` | Read-only characterization of legacy identity/rotation/purpose behavior and collision edge cases; not a counter migration |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |
 | `test_background_scheduling.py` | Shared Sales/POS worker selection, Company isolation/windows/settings, stale status and draft boundaries, actual parent routing and worker bridge |
+| `test_retry_identity_contract.py` | Read-only Sales/POS UUID regeneration/filtering, twelve HTTP failure/timeout boundaries, saved ICV and existing artifact identity divergence |
 | `test_tax_details_compat.py`, `test_tax_details_regression.py` | Tax adapter regressions |
 | `test_qr_tlv_compliance.py` | Existing QR/TLV regressions |
 | `test_zatca_response.py` | Existing response handling |
@@ -219,6 +230,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
   zatca_erpgulf/zatca_erpgulf/tests/test_icv_identity_contract.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_generation_routes.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_background_scheduling.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_retry_identity_contract.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_tax_details_compat.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_tax_details_regression.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_qr_tlv_compliance.py \
@@ -236,6 +248,8 @@ Bind the shared route and saved-owner policy to one credential/version snapshot;
 resolve certificate issuance/rotation field conflicts before any deployment.
 Resolve foreground unique-ID/gPOS policy parity and transactional worker/retry
 coordination; design an explicit ICV continuity mapping using the increment 6 audit.
+Use the follow-up [retry identity evidence](RETRY_IDENTITY.md) to introduce a
+durable issuance artifact contract before changing UUID or counter allocation.
 Prepare a separately
 pinned v16 bench and golden XML fixtures before consolidating cryptography or
 advance-payment calculations. Obtain a suitable off-host backup destination and

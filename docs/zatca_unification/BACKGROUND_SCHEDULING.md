@@ -77,3 +77,6 @@ ICV, atomic counter/PIH coordination, transaction isolation, queue ownership,
 creation-horizon policy, and unique-ID/gPOS foreground branch parity still need
 separate audited changes and integration tests. This change does not establish
 ZATCA acceptance or ERPNext 16 runtime compatibility.
+
+The follow-up [retry identity audit](RETRY_IDENTITY.md) adds concrete metadata and
+twelve-adapter failure evidence for the issuance/artifact consolidation work.
