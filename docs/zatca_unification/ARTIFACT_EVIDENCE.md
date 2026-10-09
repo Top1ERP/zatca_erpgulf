@@ -78,7 +78,7 @@ The wider selected regression suite passes 1,393 cases in the existing Python
 3.10/Frappe 15 environment. The bridge's Linux file flags match this Bench; a
 different OS and a real ERPNext 16 runtime were not verified.
 
-Remaining inventory sources include loose generated XML, stored accepted
+At increment 9, remaining inventory sources include loose generated XML, stored accepted
 responses, counters and their historical identity mapping, and credential-version
 provenance. This checker does not compare line items, tax/discount totals,
 issue timestamps, reference invoices, key/certificate binding, environment in

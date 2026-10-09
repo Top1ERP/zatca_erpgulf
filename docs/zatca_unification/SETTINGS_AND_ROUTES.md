@@ -1,4 +1,9 @@
-# Settings and route audit — updated through development increment 10
+# Settings and route audit — updated through development increment 11
+
+Increment 11 adds only opt-in generated XML diagnostics with System Manager and
+Invoice/Company read permissions. It detects the legacy same-name Sales/POS file
+ambiguity without changing generation or replay; see
+[GENERATED_EVIDENCE.md](GENERATED_EVIDENCE.md).
 
 This inventory describes source behavior, not a new regulatory interpretation or
 a claim that live settings were changed. No credentials or tenant values are

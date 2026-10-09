@@ -3,6 +3,7 @@ Only Sales Invoice and POS Invoice artifact inspection is supported.,فحص مل
 An invoice name is required for artifact inspection.,يجب تحديد اسم الفاتورة لفحص ملفاتها.
 Company is required for invoice artifact inspection.,يجب تحديد الشركة لفحص ملفات الفاتورة.
 The artifact history inspection option must be true or false.,يجب تفعيل خيار فحص الأدلة التاريخية للفاتورة أو تعطيله صراحةً.
+The generated XML inspection option must be true or false.,يجب تفعيل خيار فحص ملف XML المولّد أو تعطيله صراحةً.
 Controls ZATCA validation rules applied when saving Sales Invoices.,يتحكم في قواعد تحقق ZATCA المطبقة عند حفظ فواتير المبيعات.
 Simulation,المحاكاة
 Sandbox,البيئة التجريبية المعزولة

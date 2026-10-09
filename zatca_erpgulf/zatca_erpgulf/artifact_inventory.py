@@ -1,8 +1,9 @@
-"""Operator-only attached-XML evidence inventory; no writes or remote requests.
+"""Permission-checked invoice XML evidence inventory; no writes or requests.
 
 Not whitelisted or registered as a hook. The default covers saved invoice fields
 and local attached XML. Optional history includes stored responses and the saved
-unit's counter. Neither mode scans loose files or signing credentials.
+unit's counter. A separate System Manager option inspects one known generated
+filename, never a directory scan. No mode reads signing credentials.
 """
 
 import hashlib
@@ -50,17 +51,36 @@ def _read_local_attachment(file_doc, doctype, invoice_name):
         or any(c in filename for c in ("/", "\\", "\x00"))
     ):
         raise ArtifactEvidenceError("attachment_path")
+    return _read_private_xml(filename)
+
+
+def _read_private_xml(filename, *, source="attachment", missing_ok=False):
+    """Read bounded exact bytes without following a leaf symlink.
+
+    Callers validate a single basename and supply an internal, static source
+    label. Missing optional generated files are not evidence of non-issuance.
+    """
+    if (
+        not isinstance(filename, str) or not filename or filename in (".", "..")
+        or any(c in filename for c in ("/", "\\", "\x00"))
+    ):
+        raise ArtifactEvidenceError(f"{source}_path")
     try:
         folder = Path(frappe.get_site_path("private", "files")).resolve(strict=True)
         path = folder / filename
+        if missing_ok:
+            try:
+                path.lstat()
+            except FileNotFoundError:
+                return None
         if not path.resolve(strict=True).is_relative_to(folder):
-            raise ArtifactEvidenceError("attachment_path")
+            raise ArtifactEvidenceError(f"{source}_path")
         # Do not follow a leaf symlink after validation; do not normalize bytes.
         fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
         try:
             info = os.fstat(fd)
             if not stat.S_ISREG(info.st_mode):
-                raise ArtifactEvidenceError("attachment_file_type")
+                raise ArtifactEvidenceError(f"{source}_file_type")
             if not 0 < info.st_size <= MAX_XML_BYTES:
                 raise ArtifactEvidenceError("xml_size")
             with os.fdopen(fd, "rb", closefd=False) as handle:
@@ -70,14 +90,14 @@ def _read_local_attachment(file_doc, doctype, invoice_name):
     except ArtifactEvidenceError:
         raise
     except (OSError, ValueError):
-        raise ArtifactEvidenceError("attachment_read") from None
+        raise ArtifactEvidenceError(f"{source}_read") from None
     if not content or len(content) > MAX_XML_BYTES:
         raise ArtifactEvidenceError("xml_size")
     return content
 
 
 def _inspect_candidate_bytes(content, saved):
-    """Share identity inspection for attachments and embedded response XML."""
+    """Share identity inspection for attachments, responses and generated XML."""
     result = {
         "file_sha256": hashlib.sha256(content).hexdigest(),
         "byte_length": len(content), "issues": [],
@@ -95,14 +115,53 @@ def _inspect_candidate_bytes(content, saved):
     return result, evidence.file_sha256
 
 
-def inspect_saved_invoice_artifacts(doctype, invoice_name, *, include_history=False):
-    """Report all attached XML candidates without selecting an authoritative file.
+def _inspect_generated_xml(saved):
+    """Inspect the current legacy signed-file location, without claiming ownership.
+
+    The legacy writer encodes neither Company nor DocType in its basename. Even
+    matching metadata does not prove this file's history, signature or endpoint.
+    """
+    report = {"status": "UNKNOWN", "issues": [], "candidates": []}
+    if (
+        saved.invoice_name in (".", "..")
+        or any(c in saved.invoice_name for c in ("/", "\\", "\x00"))
+    ):
+        report.update(status="UNSAFE_NAME", issues=["generated_name_unsafe"])
+        return report, None
+    other_doctype = "POS Invoice" if saved.doctype == "Sales Invoice" else "Sales Invoice"
+    # Expose only the ambiguity, not the other document's fields or Company.
+    if frappe.db.exists(other_doctype, saved.invoice_name):
+        report["issues"].append("generated_doctype_ambiguous")
+    filename = f"final_xml_after_indent_{saved.invoice_name}.xml"
+    candidate = {"source": "generated_signed_xml", "issues": []}
+    try:
+        content = _read_private_xml(filename, source="generated", missing_ok=True)
+        if content is None:
+            report["status"] = "MISSING"
+            return report, None
+        facts, fingerprint = _inspect_candidate_bytes(content, saved)
+        candidate.update(facts)
+        report["status"] = "PRESENT"
+    except ArtifactEvidenceError as exc:
+        candidate["issues"] = [exc.code]
+        fingerprint = None
+        report["status"] = "UNREADABLE"
+    report["candidates"].append(candidate)
+    return report, fingerprint
+
+
+def inspect_saved_invoice_artifacts(
+    doctype, invoice_name, *, include_history=False, include_generated=False
+):
+    """Report requested XML candidates without selecting an authoritative file.
 
     Explicit read permissions apply even though this is not an HTTP endpoint.
     Neither a consistent result nor stored acceptance status authorizes replay.
     """
     if not isinstance(include_history, bool):
         frappe.throw(_("The artifact history inspection option must be true or false."))
+    if not isinstance(include_generated, bool):
+        frappe.throw(_("The generated XML inspection option must be true or false."))
     if doctype not in ("Sales Invoice", "POS Invoice"):
         frappe.throw(
             _("Only Sales Invoice and POS Invoice artifact inspection is supported.")
@@ -115,6 +174,9 @@ def inspect_saved_invoice_artifacts(doctype, invoice_name, *, include_history=Fa
         frappe.throw(_("Company is required for invoice artifact inspection."))
     company = frappe.get_doc("Company", invoice.company)
     company.check_permission("read")
+    if include_generated:
+        # Loose files have no File-row ACL. Invoice read permission is not enough.
+        frappe.only_for("System Manager", message=True)
     saved = SavedInvoiceIdentity(
         doctype, invoice.name, company.name, str(company.get("tax_id") or ""),
         str(company.get("custom_select") or "").strip(),
@@ -148,6 +210,12 @@ def inspect_saved_invoice_artifacts(doctype, invoice_name, *, include_history=Fa
         except frappe.DoesNotExistError:
             result["issues"] = ["attachment_missing"]
         candidates.append(result)
+    generated_report, generated_candidates = None, []
+    if include_generated:
+        generated_report, fingerprint = _inspect_generated_xml(saved)
+        generated_candidates = generated_report["candidates"]
+        if fingerprint:
+            fingerprints.add(fingerprint)
     issues = []
     response_report, counter_report, response_candidates = None, None, []
     if include_history:
@@ -171,7 +239,10 @@ def inspect_saved_invoice_artifacts(doctype, invoice_name, *, include_history=Fa
     if issues:
         state = "CONFLICT"
     elif (
-        any(candidate["issues"] for candidate in candidates + response_candidates)
+        any(candidate["issues"] for candidate in (
+            candidates + response_candidates + generated_candidates
+        ))
+        or (generated_report and generated_report["issues"])
         or (response_report and response_report["issues"])
         or (counter_report and (
             counter_report["issues"]
@@ -179,15 +250,20 @@ def inspect_saved_invoice_artifacts(doctype, invoice_name, *, include_history=Fa
         ))
     ):
         state = "RECONCILIATION_REQUIRED"
-    elif candidates or response_candidates:
+    elif candidates or response_candidates or generated_candidates:
         state = "IDENTITY_CONSISTENT"
     else:
-        state = "NO_XML_EVIDENCE" if include_history else "NO_ATTACHED_XML"
+        state = "NO_XML_EVIDENCE" if include_history or include_generated else "NO_ATTACHED_XML"
+    scope = "saved_identity_and_attached_xml_only"
+    if include_history:
+        scope = "saved_identity_attached_xml_response_and_counter"
+    if include_generated:
+        scope = (
+            "saved_identity_attached_generated_xml_response_and_counter" if include_history
+            else "saved_identity_attached_and_generated_xml"
+        )
     report = {
-        "scope": (
-            "saved_identity_attached_xml_response_and_counter" if include_history
-            else "saved_identity_and_attached_xml_only"
-        ),
+        "scope": scope,
         "doctype": doctype, "invoice": invoice.name, "company": company.name,
         "environment": saved.environment, "saved_status": saved.status,
         "saved_issuing_unit": saved.issuing_unit,
@@ -203,4 +279,6 @@ def inspect_saved_invoice_artifacts(doctype, invoice_name, *, include_history=Fa
             response=response_report, counter=counter_report,
             response_candidates=response_candidates, history_complete=False,
         )
+    if include_generated:
+        report.update(generated=generated_report, generated_inventory_complete=False)
     return report

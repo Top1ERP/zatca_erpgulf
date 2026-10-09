@@ -83,8 +83,8 @@ purpose versus API selection, key/tuple collisions, inactive/regressed counters,
 tail metadata, permissions, schema absence, and no-write/no-credential paths.
 The selected suite passes 1,522 cases in the existing v15/Python 3.10 environment.
 
-There is no actual site/SQL/SDK/HTTP or ERPNext 16 integration result. Inventory
-still excludes loose generated files, success/event logs, full historical counter
+There is no actual site/SQL/SDK/HTTP or ERPNext 16 integration result. Increment 10
+inventory excludes loose generated files, success/event logs, full historical counter
 enumeration/mapping, credential epochs, and chain-wide PIH/signature verification.
 The legacy counter key can still collide; this step observes, not repairs it.
 Queries and records are not an atomic concurrent-worker snapshot. Live response
@@ -95,3 +95,7 @@ Extend/rehearse that inventory on isolated restored data, then implement durable
 issuance/version and exact-byte replay with explicit migration/transaction gates.
 Do not connect diagnostic observations directly to submission success or automatic
 UUID/counter repair.
+
+Increment 11 subsequently adds a separately permission-gated, known generated
+file location; see [GENERATED_EVIDENCE.md](GENERATED_EVIDENCE.md). This is not a
+directory scan or a complete historical ledger.
