@@ -4,11 +4,13 @@ Not whitelisted or registered as a hook. The default covers saved invoice fields
 and local attached XML. Optional history includes stored responses and the saved
 unit's counter. A separate System Manager option inspects one known generated
 filename, never a directory scan. No mode reads signing credentials.
+Optional embedded-certificate fingerprints are observations, not verified epochs.
 """
 
 import hashlib
 import os
 import stat
+from dataclasses import asdict
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -22,6 +24,7 @@ from zatca_erpgulf.zatca_erpgulf.artifact_evidence import (
     compare_saved_identity,
     inspect_invoice_artifact,
 )
+from zatca_erpgulf.zatca_erpgulf.certificate_evidence import inspect_embedded_certificate
 from zatca_erpgulf.zatca_erpgulf.counter_inventory import read_invoice_counter_evidence
 from zatca_erpgulf.zatca_erpgulf.history_evidence import inspect_stored_response
 
@@ -96,12 +99,13 @@ def _read_private_xml(filename, *, source="attachment", missing_ok=False):
     return content
 
 
-def _inspect_candidate_bytes(content, saved):
+def _inspect_candidate_bytes(content, saved, *, include_certificate=False):
     """Share identity inspection for attachments, responses and generated XML."""
     result = {
         "file_sha256": hashlib.sha256(content).hexdigest(),
         "byte_length": len(content), "issues": [],
     }
+    fingerprint = None
     try:
         evidence = inspect_invoice_artifact(content)
         result.update(
@@ -109,13 +113,22 @@ def _inspect_candidate_bytes(content, saved):
             seller_tax_id=evidence.seller_tax_id, qr_present=evidence.qr_present,
             issues=list(compare_saved_identity(saved, evidence)),
         )
+        fingerprint = evidence.file_sha256
     except ArtifactEvidenceError as exc:
         result["issues"] = [exc.code]
-        return result, None
-    return result, evidence.file_sha256
+    if include_certificate:
+        certificate_report = {"issues": []}
+        try:
+            certificate_report.update(asdict(inspect_embedded_certificate(content)))
+        except ArtifactEvidenceError as exc:
+            certificate_report["issues"] = [exc.code]
+            if exc.code not in result["issues"]:
+                result["issues"].append(exc.code)
+        result["certificate"] = certificate_report
+    return result, fingerprint
 
 
-def _inspect_generated_xml(saved):
+def _inspect_generated_xml(saved, *, include_certificate=False):
     """Inspect the current legacy signed-file location, without claiming ownership.
 
     The legacy writer encodes neither Company nor DocType in its basename. Even
@@ -139,7 +152,9 @@ def _inspect_generated_xml(saved):
         if content is None:
             report["status"] = "MISSING"
             return report, None
-        facts, fingerprint = _inspect_candidate_bytes(content, saved)
+        facts, fingerprint = _inspect_candidate_bytes(
+            content, saved, include_certificate=include_certificate
+        )
         candidate.update(facts)
         report["status"] = "PRESENT"
     except ArtifactEvidenceError as exc:
@@ -151,7 +166,8 @@ def _inspect_generated_xml(saved):
 
 
 def inspect_saved_invoice_artifacts(
-    doctype, invoice_name, *, include_history=False, include_generated=False
+    doctype, invoice_name, *, include_history=False, include_generated=False,
+    include_certificate=False,
 ):
     """Report requested XML candidates without selecting an authoritative file.
 
@@ -162,6 +178,8 @@ def inspect_saved_invoice_artifacts(
         frappe.throw(_("The artifact history inspection option must be true or false."))
     if not isinstance(include_generated, bool):
         frappe.throw(_("The generated XML inspection option must be true or false."))
+    if not isinstance(include_certificate, bool):
+        frappe.throw(_("The embedded certificate inspection option must be true or false."))
     if doctype not in ("Sales Invoice", "POS Invoice"):
         frappe.throw(
             _("Only Sales Invoice and POS Invoice artifact inspection is supported.")
@@ -199,7 +217,9 @@ def inspect_saved_invoice_artifacts(
             file_doc = frappe.get_doc("File", row["name"])
             file_doc.check_permission("read")
             content = _read_local_attachment(file_doc, doctype, invoice.name)
-            facts, fingerprint = _inspect_candidate_bytes(content, saved)
+            facts, fingerprint = _inspect_candidate_bytes(
+                content, saved, include_certificate=include_certificate
+            )
             result.update(facts)
             if fingerprint:
                 fingerprints.add(fingerprint)
@@ -212,7 +232,9 @@ def inspect_saved_invoice_artifacts(
         candidates.append(result)
     generated_report, generated_candidates = None, []
     if include_generated:
-        generated_report, fingerprint = _inspect_generated_xml(saved)
+        generated_report, fingerprint = _inspect_generated_xml(
+            saved, include_certificate=include_certificate
+        )
         generated_candidates = generated_report["candidates"]
         if fingerprint:
             fingerprints.add(fingerprint)
@@ -228,7 +250,9 @@ def inspect_saved_invoice_artifacts(
             "byte_length": observation.byte_length,
         }
         for fieldname, content in observation.xml_candidates:
-            candidate, fingerprint = _inspect_candidate_bytes(content, saved)
+            candidate, fingerprint = _inspect_candidate_bytes(
+                content, saved, include_certificate=include_certificate
+            )
             candidate["source"] = f"stored_response:{fieldname}"
             if fingerprint:
                 fingerprints.add(fingerprint)
@@ -236,6 +260,15 @@ def inspect_saved_invoice_artifacts(
         counter_report = read_invoice_counter_evidence(saved)
     if len(fingerprints) > 1:
         issues.append("artifact_bytes_conflict")
+    certificate_versions, public_keys = set(), set()
+    if include_certificate:
+        for candidate in candidates + response_candidates + generated_candidates:
+            certificate = candidate.get("certificate") or {}
+            if certificate.get("der_sha256"):
+                certificate_versions.add(certificate["der_sha256"])
+                public_keys.add(certificate["public_key_sha256"])
+        if len(certificate_versions) > 1:
+            issues.append("artifact_certificate_versions_differ")
     if issues:
         state = "CONFLICT"
     elif (
@@ -262,6 +295,8 @@ def inspect_saved_invoice_artifacts(
             "saved_identity_attached_generated_xml_response_and_counter" if include_history
             else "saved_identity_attached_and_generated_xml"
         )
+    if include_certificate:
+        scope += "_and_embedded_certificate"
     report = {
         "scope": scope,
         "doctype": doctype, "invoice": invoice.name, "company": company.name,
@@ -281,4 +316,10 @@ def inspect_saved_invoice_artifacts(
         )
     if include_generated:
         report.update(generated=generated_report, generated_inventory_complete=False)
+    if include_certificate:
+        report["certificate_observation"] = {
+            "version_count": len(certificate_versions), "public_key_count": len(public_keys),
+            "credential_epoch_verified": False, "owner_verified": False,
+            "purpose_verified": False, "trust_verified": False,
+        }
     return report

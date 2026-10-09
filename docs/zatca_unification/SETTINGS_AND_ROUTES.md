@@ -1,4 +1,9 @@
-# Settings and route audit — updated through development increment 11
+# Settings and route audit — updated through development increment 12
+
+Increment 12 adds opt-in embedded public certificate fingerprints only, without
+reading today's credential fields or changing settings/signing/HTTP. An observed
+DER marker is not a verified credential epoch; see
+[CERTIFICATE_EVIDENCE.md](CERTIFICATE_EVIDENCE.md).
 
 Increment 11 adds only opt-in generated XML diagnostics with System Manager and
 Invoice/Company read permissions. It detects the legacy same-name Sales/POS file

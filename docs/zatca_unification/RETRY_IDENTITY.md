@@ -92,3 +92,11 @@ the saved unit's historical counter, explicitly separating API environment from
 counter purpose. See [HISTORY_EVIDENCE.md](HISTORY_EVIDENCE.md). Loose generated
 files, complete historical mapping, provenance/credential epochs, and actual
 restored-site rehearsal remain pending before any identity migration.
+
+Increment 11 adds a separately permission-gated known generated-file location,
+including same-name Sales/POS ambiguity; see [GENERATED_EVIDENCE.md](GENERATED_EVIDENCE.md).
+Increment 12 adds embedded certificate/key fingerprints across all requested XML
+sources; see [CERTIFICATE_EVIDENCE.md](CERTIFICATE_EVIDENCE.md). This is observed
+public evidence, not a verified credential epoch. The durable issuance/version
+contract, complete historical mapping, atomic provenance and restored-site
+rehearsal still precede any live identity or retry migration.

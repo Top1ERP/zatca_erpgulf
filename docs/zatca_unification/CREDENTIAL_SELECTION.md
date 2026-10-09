@@ -21,6 +21,11 @@ Increment 7 connects the four without-XML/background reporting adapters in
 [GENERATION_AND_COMPLIANCE.md](GENERATION_AND_COMPLIANCE.md). CSID issuance,
 wizard flows, ICV migration, and an atomic credential-version snapshot remain pending.
 
+Increment 12 adds independent observations of the public certificate embedded in
+historical XML, without reading today's credentials. This is not a verified
+epoch or an atomic signing/request snapshot; see
+[CERTIFICATE_EVIDENCE.md](CERTIFICATE_EVIDENCE.md).
+
 ## Saved ownership and fields
 
 Caller objects, dictionaries, and JSON supply only saved document identity.

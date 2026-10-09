@@ -128,12 +128,10 @@ def _base64(value, code, *, length=None):
     return compact
 
 
-def inspect_invoice_artifact(content):
-    """Extract unambiguous issuance metadata from bounded, namespace-aware bytes.
+def parse_diagnostic_xml(content):
+    """Share bounded, no-DTD/no-external-resource parsing for read-only evidence.
 
-    Reject DTDs/entities, ambiguous root values/references, and wrong roots.
-    Never use the first arbitrary UUID, CompanyID, or DigestValue in a document.
-    Bytes preserve XML encoding declarations and the evidence fingerprint.
+    The returned tree is diagnostic only; never serialize it for live submission.
     """
     if not isinstance(content, bytes):
         raise ArtifactEvidenceError("xml_bytes_required")
@@ -154,6 +152,17 @@ def inspect_invoice_artifact(content):
         raise ArtifactEvidenceError("xml_entity")
     if root.tag != f"{{{NS['ubl']}}}Invoice":
         raise ArtifactEvidenceError("xml_root")
+    return root
+
+
+def inspect_invoice_artifact(content):
+    """Extract unambiguous issuance metadata from bounded, namespace-aware bytes.
+
+    Reject DTDs/entities, ambiguous root values/references, and wrong roots.
+    Never use the first arbitrary UUID, CompanyID, or DigestValue in a document.
+    Bytes preserve XML encoding declarations and the evidence fingerprint.
+    """
+    root = parse_diagnostic_xml(content)
     invoice_id = _one_text(root, "./cbc:ID", "invoice_id")
     uuid_text = _one_text(root, "./cbc:UUID", "invoice_uuid")
     try:
