@@ -1,14 +1,15 @@
-# Settings and route audit — updated through development increment 5
+# Settings and route audit — updated through development increment 6
 
 This inventory describes source behavior, not a new regulatory interpretation or
 a claim that live settings were changed. No credentials or tenant values are
 included. The implementation plan remains [PLAN.md](PLAN.md).
 Shared routing is implemented as described in [API_ROUTING.md](API_ROUTING.md).
 Signing and dedicated Compliance owner selection now share the read-only policy
-in [CREDENTIAL_SELECTION.md](CREDENTIAL_SELECTION.md). The four primary live HTTP
-adapters now pin request and PIH owner as described in
-[SUBMISSION_CONTEXT.md](SUBMISSION_CONTEXT.md). Legacy HTTP/ICV ownership and
-certificate issuance/rotation remain pending.
+in [CREDENTIAL_SELECTION.md](CREDENTIAL_SELECTION.md). Four primary and four
+existing-XML HTTP adapters now pin request and PIH owner as described in
+[SUBMISSION_CONTEXT.md](SUBMISSION_CONTEXT.md) and
+[LEGACY_XML_AND_ICV.md](LEGACY_XML_AND_ICV.md). Without-XML/background auth,
+ICV migration, and certificate issuance/rotation remain pending.
 
 ## Entry points and isolation boundaries
 
@@ -37,13 +38,13 @@ tests and a common context first. Relevant modules include `sign_invoice`,
 | Environment | Company `custom_select`; shared `api_routing` resolver through legacy wrappers | Blank/unknown selection now blocks; legacy Company settings need preflight before deployment |
 | Base URL | `custom_sandbox_url`, `custom_simulation_url`, `custom_production_url` | Joining/HTTPS/standard-gateway environment checks centralized; custom gateway trust still needs review |
 | Compliance authorization | `custom_basic_auth_from_csid` on the shared saved credential owner | Direct Multiple Setting / serialized identities now resolve consistently; full version/environment binding remains pending |
-| Live authorization | Company `custom_basic_auth_from_production`; machine `custom_final_auth_csid` | Four primary adapters share route/auth/PIH owner; remaining legacy adapters and ICV require migration |
+| Live authorization | Company `custom_basic_auth_from_production`; machine `custom_final_auth_csid` | Eight adapters share route/auth/PIH owner; four without-XML/background adapters and ICV require migration |
 | Private key | `custom_private_key` from the shared saved owner, matched to its selected certificate | Legacy live HTTP/ICV consumers still need migration; full-pipeline rotation snapshot pending |
 | Certificate | Company `custom_certificate`; machine readers support both registered spellings and reject conflicts | Issuance writes different fields at different stages; purpose/version-aware migration must precede deployment |
 | Linked credentials | `custom_zatca_pos_name`, `custom__use_company_certificate__keys`, `custom_linked_doctype` | One credential owner must drive signing, HTTP, and identity; linked-company fallback must be explicit |
 | Compliance type | `custom_validation_type`; legacy numeric `compliance_type`; new explicit batch `validation_type` | Fixed the batch race while preserving the existing single-button precedence |
 | Invoice identity | `custom_uuid`, `custom_zatca_icv`, `custom_zatca_issuing_unit` | Dedicated tests no longer persist sample identity on source invoices |
-| Counter identity | `icv._issuing_unit`, `_counter_key`, environment string | Legacy machine credential preference and Production/Compliance distinctions must align with the future context |
+| Counter identity | `icv._issuing_unit`, `_counter_key`, environment string | Increment 6 characterizes raw-token fingerprints, linked-owner mismatch, purpose/API-environment differences, and key collisions; explicit continuity mapping required |
 | Field aliases | `ksa_compliance/field_compat.py`, runtime schema checks | Preserve missing/blank/zero distinctions and detect conflicts; do not add a second alias registry |
 
 Code anchors for the next increment:

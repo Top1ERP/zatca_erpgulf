@@ -64,10 +64,9 @@ switch, full-site transaction test, or ERPNext 16 run occurred. See
 
 ## Remaining release gates
 
-1. Migrate the legacy XML/QR and scheduler request adapters, including
-   `submit_xml_qr_notmultiple`, `submit_poswithqr_notmultiple`,
-   `sales_invoice_with_xmlqr`, and `pos_submit_with_xml_qr`. Their duplicated auth
-   and PIH branches have not been changed by this increment.
+1. Increment 6 migrates the four existing-XML adapters listed in
+   [LEGACY_XML_AND_ICV.md](LEGACY_XML_AND_ICV.md). Without-XML/background request
+   adapters and their nonzero Compliance branches remain pending.
 2. Reconcile ICV owner/environment fingerprinting with the selected owner, with
    an explicit continuity/migration policy. Never reset or merge existing chains
    merely because a resolver has changed.

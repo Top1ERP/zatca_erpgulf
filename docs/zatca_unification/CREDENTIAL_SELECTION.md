@@ -15,8 +15,9 @@ private-key selection, certificate details/hash, UBL certificate population,
 QR public key, and QR certificate signature. The dedicated Compliance HTTP
 function uses the same owner policy. Existing call signatures remain compatible.
 Increment 5 also connects the four primary live reporting/clearance adapters as
-described in [SUBMISSION_CONTEXT.md](SUBMISSION_CONTEXT.md). Legacy XML/QR HTTP
-adapters, CSID issuance, wizard flows, and ICV fingerprinting remain pending.
+described in [SUBMISSION_CONTEXT.md](SUBMISSION_CONTEXT.md); increment 6 connects
+four existing-XML adapters in [LEGACY_XML_AND_ICV.md](LEGACY_XML_AND_ICV.md).
+Without-XML/background auth, CSID issuance, wizard flows, and ICV migration remain pending.
 
 ## Saved ownership and fields
 
@@ -46,7 +47,8 @@ unknown values do not silently select linked credentials.
 | Production | `custom_basic_auth_from_production` | `custom_final_auth_csid` |
 
 The Production selector was introduced here and is connected to the four primary
-live HTTP adapters in increment 5. Empty credentials never fall back to the other purpose.
+live HTTP adapters in increment 5 and four existing-XML adapters in increment 6.
+Empty credentials never fall back to the other purpose.
 An optional Basic prefix and copied whitespace are normalized. Tokens remain
 opaque: their embedded certificate/environment is not validated in this increment.
 

@@ -22,7 +22,10 @@ class SubmissionContext:
     authorization: ApiAuthorization
 
 
-def get_submission_context(company_abbr, source_doc, invoice_number, endpoint, *, expected_doctype=None):
+def get_submission_context(
+    company_abbr, source_doc, invoice_number, endpoint, *, expected_doctype=None,
+    require_issuing_unit=False,
+):
     """Validate the target and select Production-purpose auth before sending.
 
     Production-purpose credentials are also used for simulated reporting and
@@ -37,6 +40,12 @@ def get_submission_context(company_abbr, source_doc, invoice_number, endpoint, *
         or not invoice_number or source_doc.name != invoice_number
     ):
         frappe.throw(_("The ZATCA submission target must match the source invoice."))
+    if require_issuing_unit:
+        # Machine-specific legacy entry points must not silently fall back to
+        # Company credentials. Check the saved link, not a caller-supplied DTO.
+        saved_source = frappe.get_doc(source_doc.doctype, source_doc.name)
+        if not saved_source.get("custom_zatca_pos_name"):
+            frappe.throw(_("A saved ZATCA issuing unit is required for this XML submission path."))
     route = get_company_api_route(company_abbr, endpoint)
     authorization = get_api_authorization(
         company_abbr, source_doc, purpose=route.required_credential

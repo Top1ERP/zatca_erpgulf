@@ -7,7 +7,9 @@ import requests
 from lxml import etree
 from zatca_erpgulf.zatca_erpgulf.event_log import log_zatca_event
 from zatca_erpgulf.zatca_erpgulf.zatca_response import format_zatca_response
-from zatca_erpgulf.zatca_erpgulf.pih import update_pih_after_phase2_success
+from zatca_erpgulf.zatca_erpgulf.submission_context import (
+    get_submission_context, record_submission_owner_success,
+)
 from zatca_erpgulf.zatca_erpgulf.api_settings import get_company_api_route
 
 CONTENT_TYPE_JSON = "application/json"
@@ -117,40 +119,22 @@ def reporting_api_xml_sales_invoice(
             "Company", {"name": sales_invoice_doc.company}, "abbr"
         )
 
+        submission = get_submission_context(
+            company_abbr, sales_invoice_doc, invoice_number, "invoices/reporting/single",
+            expected_doctype="Sales Invoice", require_issuing_unit=True,
+        )
+
         payload = {
             "invoiceHash": encoded_hash,
             "uuid": uuid1,
             "invoice": xml_base64_decode(signed_xmlfile_name),
         }
-        company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
-        # production_csid = company_doc.custom_basic_auth_from_p roduction
-        if not sales_invoice_doc.custom_zatca_pos_name:
-            frappe.throw(
-                _(f"ZATCA POS name is missing for invoice with xml {invoice_number}.")
-            )
-        if sales_invoice_doc.custom_zatca_pos_name:
-            zatca_settings = frappe.get_doc(
-                "ZATCA Multiple Setting", sales_invoice_doc.custom_zatca_pos_name
-            )
-            if zatca_settings.custom__use_company_certificate__keys != 1:
-                production_csid = zatca_settings.custom_final_auth_csid
-            else:
-                linked_doc = frappe.get_doc("Company", zatca_settings.custom_linked_doctype)
-                production_csid = linked_doc.custom_basic_auth_from_production
-        else:
-            production_csid = company_doc.custom_basic_auth_from_production
-        if not production_csid:
-            frappe.throw(
-                _(
-                    f"Production CSID is missing in multiple ZATCA settings for sales invoice with xml or  {company_abbr}."
-                )
-            )
         headers = {
             "accept": "application/json",
             "accept-language": "en",
             "Clearance-Status": "0",
             "Accept-Version": "V2",
-            "Authorization": "Basic " + production_csid,
+            "Authorization": submission.authorization.header,
             "Content-Type": "application/json",
             "Cookie": "TS0106293e=0132a679c0639d13d069bcba831384623a2ca6da47fac8d91bef610c47c7119dcdd3b817f963ec301682dae864351c67ee3a402866",
         }
@@ -162,7 +146,7 @@ def reporting_api_xml_sales_invoice(
                 user=frappe.session.user,
             )
             response = requests.post(
-                url=get_api_url(company_abbr, base_url="invoices/reporting/single"),
+                url=submission.route.url,
                 headers=headers,
                 json=payload,
                 timeout=300,
@@ -281,36 +265,9 @@ def reporting_api_xml_sales_invoice(
                 )
 
                 # Update PIH
-                if sales_invoice_doc.custom_zatca_pos_name:
-                    zatca_settings = frappe.get_doc(
-                        "ZATCA Multiple Setting", sales_invoice_doc.custom_zatca_pos_name
-                    )
-                    if zatca_settings.custom__use_company_certificate__keys != 1:
-                        if zatca_settings.custom_send_pos_invoices_to_zatca_on_background:
-                            frappe.msgprint(msg)
-                        update_pih_after_phase2_success(
-                            zatca_settings,
-                            encoded_hash,
-                            source_doc=locals().get("sales_invoice_doc") or locals().get("pos_invoice_doc") or locals().get("invoice_doc") or locals().get("doc"),
-                        )
-                    else:
-                        linked_doc = frappe.get_doc("Company", zatca_settings.custom_linked_doctype)
-                        if linked_doc.custom_send_einvoice_background:
-                            frappe.msgprint(msg)
-                        update_pih_after_phase2_success(
-                            linked_doc,
-                            encoded_hash,
-                            source_doc=locals().get("sales_invoice_doc") or locals().get("pos_invoice_doc") or locals().get("invoice_doc") or locals().get("doc"),
-                        )
-                else:
-                    company_doc = frappe.get_doc("Company", sales_invoice_doc.company)
-                    if company_doc.custom_send_einvoice_background:
-                        frappe.msgprint(msg)
-                    update_pih_after_phase2_success(
-                        company_doc,
-                        encoded_hash,
-                        source_doc=locals().get("sales_invoice_doc") or locals().get("pos_invoice_doc") or locals().get("invoice_doc") or locals().get("doc"),
-                    )
+                record_submission_owner_success(
+                    submission, encoded_hash, sales_invoice_doc, msg
+                )
 
                 invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
                 invoice_doc.custom_zatca_full_response = response.text
@@ -372,36 +329,9 @@ def reporting_api_xml_sales_invoice(
                     f"Status Code: {response.status_code}<br><br> "
                     f"ZATCA Response: {format_zatca_response(response.text, response.status_code)}<br><br>"
                 )
-                if sales_invoice_doc.custom_zatca_pos_name:
-                    if zatca_settings.custom__use_company_certificate__keys != 1:
-                        if zatca_settings.custom_send_pos_invoices_to_zatca_on_background:
-                            frappe.msgprint(msg)
-
-                        # Update PIH data without JSON formatting
-                        update_pih_after_phase2_success(
-                            zatca_settings,
-                            encoded_hash,
-                            source_doc=locals().get("sales_invoice_doc") or locals().get("pos_invoice_doc") or locals().get("invoice_doc") or locals().get("doc"),
-                        )
-                    else:
-                        linked_doc = frappe.get_doc("Company", zatca_settings.custom_linked_doctype)
-                        if linked_doc.custom_send_einvoice_background:
-                            frappe.msgprint(msg)
-                        update_pih_after_phase2_success(
-                            linked_doc,
-                            encoded_hash,
-                            source_doc=locals().get("sales_invoice_doc") or locals().get("pos_invoice_doc") or locals().get("invoice_doc") or locals().get("doc"),
-                        )
-                else:
-                    company_doc = frappe.get_doc("Company", sales_invoice_doc.company)
-                    if company_doc.custom_send_einvoice_background:
-                        frappe.msgprint(msg)
-                    update_pih_after_phase2_success(
-                        company_doc,
-                        encoded_hash,
-                        source_doc=locals().get("sales_invoice_doc") or locals().get("pos_invoice_doc") or locals().get("invoice_doc") or locals().get("doc"),
-                    )
-
+                record_submission_owner_success(
+                    submission, encoded_hash, sales_invoice_doc, msg
+                )
 
                 invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
                 # invoice_doc.db_set(
