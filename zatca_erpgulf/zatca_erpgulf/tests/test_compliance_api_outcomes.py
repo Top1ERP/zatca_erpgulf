@@ -246,5 +246,10 @@ def test_new_error_messages_have_arabic_translations():
         "Already completed by ZATCA; treated as PASS.",
         "Select a valid ZATCA compliance document type.",
         "Debug XML was skipped for an intra-company transfer. The invoice was not changed.",
+        "Select a valid ZATCA environment: Sandbox, Simulation, or Production.",
+        "Unsupported ZATCA API operation.",
+        "This operation is not part of ZATCA onboarding.",
+        "Configure a valid HTTPS base URL for the selected ZATCA environment.",
+        "The ZATCA URL does not match the selected environment.",
     ):
         assert any("\u0600" <= char <= "\u06ff" for char in translations[message])

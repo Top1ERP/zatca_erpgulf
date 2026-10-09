@@ -8,6 +8,7 @@ from lxml import etree
 from zatca_erpgulf.zatca_erpgulf.event_log import log_zatca_event
 from zatca_erpgulf.zatca_erpgulf.zatca_response import format_zatca_response
 from zatca_erpgulf.zatca_erpgulf.pih import update_pih_after_phase2_success
+from zatca_erpgulf.zatca_erpgulf.api_settings import get_company_api_route
 
 CONTENT_TYPE_JSON = "application/json"
 
@@ -26,21 +27,8 @@ def xml_base64_decode(signed_xmlfile_name):
 
 
 def get_api_url(company_abbr, base_url):
-    """There are many api susing in zatca which can be defined by a feild in settings"""
-    try:
-        company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
-        if company_doc.custom_select == "Sandbox":
-            url = company_doc.custom_sandbox_url + base_url
-        elif company_doc.custom_select == "Simulation":
-            url = company_doc.custom_simulation_url + base_url
-        else:
-            url = company_doc.custom_production_url + base_url
-
-        return url
-
-    except (ValueError, TypeError, KeyError) as e:
-        frappe.throw(_(("get api url" f"error: {str(e)}")))
-        return None
+    """Compatibility entry point; all URL decisions use the shared resolver."""
+    return get_company_api_route(company_abbr, base_url).url
 
 
 def success_log(response, uuid1, invoice_number):

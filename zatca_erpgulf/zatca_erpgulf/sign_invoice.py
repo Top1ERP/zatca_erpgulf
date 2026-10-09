@@ -19,6 +19,7 @@ from lxml import etree
 from frappe import _
 import frappe
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
+from zatca_erpgulf.zatca_erpgulf.api_settings import get_company_api_route
 from zatca_erpgulf.zatca_erpgulf.compliance_result import compliance_result_status
 from zatca_erpgulf.zatca_erpgulf.compliance_types import COMPLIANCE_TYPES, resolve_compliance_type
 from zatca_erpgulf.zatca_erpgulf.nonproduction import temporary_compliance_xml
@@ -35,7 +36,6 @@ from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
     PHASE_1_VALUE,
     PHASE_2_VALUE,
     get_b2c_submission_method,
-    get_zatca_environment,
     is_clearance_enabled,
     is_zatca_invoice_enabled,
     resolve_zatca_phase,
@@ -159,22 +159,8 @@ def xml_base64_decode(signed_xmlfile_name):
 
 
 def get_api_url(company_abbr, base_url):
-    """There are many api susing in zatca which can be defined by a feild in settings"""
-    try:
-        company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
-        environment = get_zatca_environment(company_doc)
-        if environment == "Sandbox":
-            url = company_doc.custom_sandbox_url + base_url
-        elif environment == "Simulation":
-            url = company_doc.custom_simulation_url + base_url
-        else:
-            url = company_doc.custom_production_url + base_url
-
-        return url
-
-    except (ValueError, TypeError, KeyError) as e:
-        frappe.throw(_(("get api url" f"error: {str(e)}")))
-        return None
+    """Compatibility entry point; all URL decisions use the shared resolver."""
+    return get_company_api_route(company_abbr, base_url).url
 
 
 def get_reporting_status(result):

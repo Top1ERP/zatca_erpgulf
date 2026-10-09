@@ -6,25 +6,12 @@ import requests
 from frappe import _
 import frappe
 import lxml.etree as ET
+from zatca_erpgulf.zatca_erpgulf.api_settings import get_company_api_route
 
 
 def get_api_url(company_abbr, base_url):
-    """There are many api susing in zatca which can be defined by a feild in settings"""
-    try:
-        company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
-        if company_doc.custom_select == "Sandbox":
-            url = (company_doc.custom_sandbox_url or "").strip() + base_url
-        elif company_doc.custom_select == "Simulation":
-            url = (company_doc.custom_simulation_url or "").strip() + base_url
-        else:
-            url = (company_doc.custom_production_url or "").strip() + base_url
-        return url
-
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(
-            _("unexpected error occurred api for company {company_abbr} " + str(e))
-        )
-        return None
+    """Compatibility entry point; all URL decisions use the shared resolver."""
+    return get_company_api_route(company_abbr, base_url).url
 
 
 @frappe.whitelist(allow_guest=False)

@@ -2,8 +2,8 @@
 
 ## Scope delivered in this increment
 
-Safety preparation, the first Compliance outcome fix, and the second isolation
-increment are complete in the development branch.
+Safety preparation and three increments (Compliance outcomes, dedicated
+Compliance/Debug isolation, and shared API routing) are complete in development.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA.
 
@@ -54,7 +54,7 @@ Changes:
   boundary. Existing PASS/FAIL UI fields remain compatible.
 - Added Arabic translations and English explanations of the new invariants.
 
-This does **not** change endpoint routing, credentials, signing, QR payloads,
+This first increment did **not** change endpoint routing, credentials, signing, QR payloads,
 discounts, GL/VAT reporting, or the server's final-CSID requirements. In particular,
 it does not claim to fix a cryptographic digest error or incomplete remote tests.
 The second increment below addresses Company validation-type mutation and the
@@ -81,18 +81,34 @@ branches and credential-context differences are recorded in
 - Added English explanations and Arabic messages. Endpoint, certificate, and
   credential selection were audited but not changed in this increment.
 
+## Increment 3: shared API routing
+
+- Replaced six URL-selection implementations with compatibility wrappers over a
+  pure resolver and a read-only Frappe adapter.
+- Added an immutable route with explicit environment, operation, base field,
+  and required credential purpose. Actual credential resolution is not yet unified.
+- Removed implicit Production fallback for blank/unknown selections, including
+  CSR creation and diagnostics. Valid explicit onboarding overrides remain local.
+- Standardized slash/whitespace handling, required valid HTTPS bases, and blocked
+  standard-gateway paths that conflict with the selected environment.
+- The dedicated onboarding helper cannot resolve reporting/clearance operations.
+  Production onboarding remains supported; it is not forced to Sandbox.
+- Added translated errors and tests at the CSR, Compliance, and final-CSID request
+  boundaries. See [API_ROUTING.md](API_ROUTING.md) for compatibility and release gates.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
 unchanged implementation (after isolating the Frappe HTTP decorator). The first
-fix passed all 31 cases, then 160 with expanded coverage. After increment 2, the
-combined selected suite passes **206 tests**:
+fix passed all 31 cases, then 160 with expanded coverage and 206 after increment 2.
+After increment 3, the combined selected suite passes **358 tests**:
 
 | Suite | Scope |
 | --- | --- |
 | `test_compliance_result.py` | Pure result classification and malformed payloads |
 | `test_compliance_api_outcomes.py` | Mocked real API/button functions, failures, previous completion, translations |
 | `test_nonproduction_isolation.py` | Preview identity, live-identity regression, counter boundaries, explicit types, cross-company rejection, debug artifact protection, temporary-file lifetime |
+| `test_api_route_contract.py`, `test_api_routing.py` | Pure routing, six compatibility wrappers, malformed settings, environment overrides, and mocked onboarding request boundaries |
 | `test_tax_details_compat.py`, `test_tax_details_regression.py` | Tax adapter regressions |
 | `test_qr_tlv_compliance.py` | Existing QR/TLV regressions |
 | `test_zatca_response.py` | Existing response handling |
@@ -107,6 +123,8 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
   zatca_erpgulf/zatca_erpgulf/tests/test_compliance_result.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_compliance_api_outcomes.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_nonproduction_isolation.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_api_route_contract.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_api_routing.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_tax_details_compat.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_tax_details_regression.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_qr_tlv_compliance.py \
@@ -120,8 +138,8 @@ request, or production invoice submission was performed in this increment.
 
 ## Next gate
 
-Implement and test the shared endpoint/credential/settings context from the new
-inventory, then consolidate the remaining legacy nonzero-compliance branches
+Bind the shared route to a validated Company/issuing-unit credential context,
+then consolidate the remaining legacy nonzero-compliance branches
 without changing live submission behavior. Prepare a separately
 pinned v16 bench and golden XML fixtures before consolidating cryptography or
 advance-payment calculations. Obtain a suitable off-host backup destination and

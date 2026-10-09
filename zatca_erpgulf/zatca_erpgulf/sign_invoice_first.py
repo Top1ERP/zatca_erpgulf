@@ -23,6 +23,7 @@ import requests
 import asn1
 
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
+from zatca_erpgulf.zatca_erpgulf.api_settings import get_company_api_route
 from zatca_erpgulf.zatca_erpgulf.compliance_result import (
     compliance_result_status,
     is_already_completed_response,
@@ -304,47 +305,15 @@ def create_csr(zatca_doc, portal_type, company_abbr):
 
 
 def get_api_url(company_abbr, base_url):
-    """There are many api susing in zatca which can be defined by a feild in settings"""
-    try:
-        company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
-        if company_doc.custom_select == "Sandbox":
-            url = (company_doc.custom_sandbox_url or "").strip() + base_url
-        elif company_doc.custom_select == "Simulation":
-            url = (company_doc.custom_simulation_url or "").strip() + base_url
-        else:
-            url = (company_doc.custom_production_url or "").strip() + base_url
-        return url
-
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(
-            _("unexpected error occurred api for company {company_abbr} " + str(e))
-        )
-        return None
+    """Compatibility entry point; all URL decisions use the shared resolver."""
+    return get_company_api_route(company_abbr, base_url).url
 
 
 def get_compliance_api_url(company_abbr, base_url="compliance/invoices", environment=None):
-    """Return the compliance/onboarding URL for the selected environment."""
-    try:
-        company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
-        selected_environment = (
-            environment or company_doc.custom_select or "Production"
-        ).strip()
-        if selected_environment == "Sandbox":
-            base_url_value = (company_doc.custom_sandbox_url or "").strip()
-        elif selected_environment == "Simulation":
-            base_url_value = (company_doc.custom_simulation_url or "").strip()
-        else:
-            base_url_value = (company_doc.custom_production_url or "").strip()
-        if not base_url_value:
-            frappe.throw(
-                _(
-                    "ZATCA {0} URL is required for company {1}."
-                ).format(selected_environment, company_abbr)
-            )
-        return base_url_value.rstrip("/") + "/" + base_url.lstrip("/")
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(_("Unexpected error getting compliance API URL: {0}").format(e))
-        return None
+    """Resolve onboarding only; never return reporting or clearance endpoints."""
+    return get_company_api_route(
+        company_abbr, base_url, environment=environment, onboarding_only=True
+    ).url
 
 
 @frappe.whitelist(allow_guest=False)
@@ -403,19 +372,15 @@ def create_csid(zatca_doc, company_abbr, portal_type=None):
             "Content-Type": "application/json",
         }
 
+        route = get_company_api_route(
+            company_abbr, "compliance", environment=portal_type, onboarding_only=True,
+        )
+        selected_environment = route.environment
+        api_url = route.url
         frappe.publish_realtime(
             "show_gif",
             {"gif_url": "/assets/zatca_erpgulf/js/loading.gif"},
             user=frappe.session.user,
-        )
-
-        selected_environment = portal_type
-        if not selected_environment and doc.doctype == "Company":
-            selected_environment = company_doc.get("custom_select") or "Production"
-        api_url = get_compliance_api_url(
-            company_abbr,
-            base_url="compliance",
-            environment=selected_environment,
         )
         response = requests.post(
             url=api_url,
@@ -431,7 +396,7 @@ def create_csid(zatca_doc, company_abbr, portal_type=None):
         request_context = _(
             "Environment: {0}; endpoint: {1}; OTP length: {2}; CSR payload length: {3}"
         ).format(
-            selected_environment or "Production",
+            selected_environment,
             api_url,
             len(otp),
             len(csr_contents),
@@ -484,15 +449,12 @@ def create_csid(zatca_doc, company_abbr, portal_type=None):
 def _csid_material_diagnostics(company_name):
     """Return non-secret diagnostics for the saved OTP/CSR material."""
     company_doc = frappe.get_doc("Company", company_name)
-    environment = company_doc.get("custom_select") or "Production"
-    endpoint = get_compliance_api_url(
-        company_doc.abbr, base_url="compliance", environment=environment
-    )
+    route = get_company_api_route(company_doc.abbr, "compliance", onboarding_only=True)
     csr_contents = str(company_doc.get("custom_csr_data") or "").strip()
     otp = str(company_doc.get("custom_otp") or "").strip()
     result = {
-        "environment": environment,
-        "endpoint": endpoint,
+        "environment": route.environment,
+        "endpoint": route.url,
         "otp_length": len(otp),
         "otp_is_six_digits": bool(re.fullmatch(r"\d{6}", otp)),
         "csr_encoded_length": len(csr_contents),
@@ -1662,17 +1624,17 @@ def production_csid(zatca_doc, company_abbr):
             "Authorization": "Basic " + csid,
             "Content-Type": "application/json",
         }
+        api_url = get_compliance_api_url(company_abbr, base_url="production/csids")
         frappe.publish_realtime(
             "show_gif",
             {"gif_url": "/assets/zatca_erpgulf/js/loading.gif"},
             user=frappe.session.user,
         )
 
-        # This button is part of the pre-onboarding test flow. The Developer
-        # Portal Sandbox exposes the Production CSID onboarding endpoint and
-        # accepts the test Compliance CSID generated there.
+        # Final-CSID generation uses Compliance credentials in the configured
+        # environment. It is not a live invoice reporting/clearance operation.
         response = requests.post(
-            url=get_compliance_api_url(company_abbr, base_url="production/csids"),
+            url=api_url,
             headers=headers,
             json=payload,
             timeout=300,

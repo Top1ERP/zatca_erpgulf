@@ -1,8 +1,10 @@
-# Settings and route audit — development increment 2
+# Settings and route audit — updated through development increment 3
 
 This inventory describes source behavior, not a new regulatory interpretation or
 a claim that live settings were changed. No credentials or tenant values are
 included. The implementation plan remains [PLAN.md](PLAN.md).
+Shared routing is now implemented as described in [API_ROUTING.md](API_ROUTING.md);
+the remaining credential-selection risks below have not been migrated yet.
 
 ## Entry points and isolation boundaries
 
@@ -28,8 +30,8 @@ tests and a common context first. Relevant modules include `sign_invoice`,
 
 | Concern | Current sources/consumers | Risk to address in the shared context |
 | --- | --- | --- |
-| Environment | Company `custom_select`; `get_compliance_api_url`; multiple `get_api_url` copies | Unknown selection can fall through to Production; whitespace/default handling differs |
-| Base URL | `custom_sandbox_url`, `custom_simulation_url`, `custom_production_url` | Some paths join slashes safely, others concatenate; validate environment/purpose before requesting |
+| Environment | Company `custom_select`; shared `api_routing` resolver through legacy wrappers | Blank/unknown selection now blocks; legacy Company settings need preflight before deployment |
+| Base URL | `custom_sandbox_url`, `custom_simulation_url`, `custom_production_url` | Joining/HTTPS/standard-gateway environment checks centralized; custom gateway trust still needs review |
 | Compliance authorization | `custom_basic_auth_from_csid` on Company or selected issuing unit | `compliance_api_call` mainly follows `source_doc.custom_zatca_pos_name`; direct Multiple Setting source shape needs a contract |
 | Live authorization | Company `custom_basic_auth_from_production`; machine `custom_final_auth_csid` | Preserve purpose and owner while centralizing selection |
 | Private key | `custom_private_key` selected inside `digital_signature` | Selection duplicated independently of HTTP authorization |
@@ -50,12 +52,16 @@ Code anchors for the next increment:
 - `pos_sign.py`: dedicated compliance and reporting/clearance adapters.
 - `icv.py`: issuing-unit fingerprint and environment-specific counter allocation.
 
-## Context contract proposed for the next increment
+## Remaining credential-context contract
 
 Resolve one immutable request context before XML signing or HTTP. It should carry
 document purpose, environment, Company, issuing-unit owner, credential purpose
 and version, endpoint, and non-secret provenance. Keep keys/tokens out of its
 printable representation. Required checks include:
+
+Increment 3 supplies an immutable **route**, not this complete credential context.
+Items involving ownership, actual key/certificate matching, and rotation remain
+pending even though environment/path validation is now shared.
 
 1. Recognized environment and permitted endpoint for the requested purpose.
 2. Source invoice Company matches the requested Company; linked ownership is
