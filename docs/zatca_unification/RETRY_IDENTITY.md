@@ -100,3 +100,9 @@ sources; see [CERTIFICATE_EVIDENCE.md](CERTIFICATE_EVIDENCE.md). This is observe
 public evidence, not a verified credential epoch. The durable issuance/version
 contract, complete historical mapping, atomic provenance and restored-site
 rehearsal still precede any live identity or retry migration.
+
+Increment 13 implements the pure prepared-candidate/version contract and scoped
+key versus content-manifest drift comparison; see
+[ISSUANCE_CANDIDATE.md](ISSUANCE_CANDIDATE.md). It does not create a DocType,
+persist evidence, verify credential/chain provenance or authorize replay. Actual
+ledger/outcome/locking services and restored-site migration remain pending.

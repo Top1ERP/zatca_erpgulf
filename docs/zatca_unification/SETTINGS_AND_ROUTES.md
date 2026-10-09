@@ -1,4 +1,8 @@
-# Settings and route audit — updated through development increment 12
+# Settings and route audit — updated through development increment 13
+
+Increment 13 adds a pure immutable prepared-artifact contract. It pins explicit
+route/chain/epoch/snapshot declarations and observes drift without reading current
+settings or changing live paths. See [ISSUANCE_CANDIDATE.md](ISSUANCE_CANDIDATE.md).
 
 Increment 12 adds opt-in embedded public certificate fingerprints only, without
 reading today's credential fields or changing settings/signing/HTTP. An observed
