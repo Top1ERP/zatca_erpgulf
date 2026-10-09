@@ -1,4 +1,4 @@
-# Settings and route audit — updated through development increment 8
+# Settings and route audit — updated through development increment 9
 
 This inventory describes source behavior, not a new regulatory interpretation or
 a claim that live settings were changed. No credentials or tenant values are
@@ -14,6 +14,10 @@ in [GENERATION_AND_COMPLIANCE.md](GENERATION_AND_COMPLIANCE.md). Increment 8 sha
 Company-scoped worker eligibility in [BACKGROUND_SCHEDULING.md](BACKGROUND_SCHEDULING.md).
 ICV migration, transactional worker/retry safety, and certificate issuance/rotation
 remain pending.
+
+Increment 9 adds the opt-in saved-identity/attached-XML inventory in
+[ARTIFACT_EVIDENCE.md](ARTIFACT_EVIDENCE.md). It is not a submission hook or
+authority to repair UUIDs/counters or replay an invoice.
 
 ## Entry points and isolation boundaries
 

@@ -81,3 +81,8 @@ cannot substitute for an issuance ledger spanning POS and unknown outcomes.
 
 This sequence avoids treating one retained field as a complete retry-safety
 solution. No runtime identity migration is part of this audit.
+
+Increment 9 adds an opt-in saved-identity/attached-XML evidence inspector, without
+changing any generation or HTTP adapter. Its scope and reconciliation states are
+documented in [ARTIFACT_EVIDENCE.md](ARTIFACT_EVIDENCE.md). Loose generated files,
+accepted responses, counters, and credential-version provenance remain pending.
