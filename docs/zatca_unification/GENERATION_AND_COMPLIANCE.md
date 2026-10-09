@@ -76,20 +76,22 @@ production functions keep their decorators. The full selected suite passes
 1,019 local cases. No remote acceptance, SDK verification, real accounting
 integration, or ERPNext 16 runtime result follows from these tests.
 
-## Background execution finding and next work
+## Background caller trace (clarified in increment 8)
 
 The current foreground without-XML adapters defer `Batches`. Their background
-counterparts defer both `Batches` and `Background`. Thus a background variant can
-prepare/attach XML and then decline HTTP for its own configured Background mode.
-This behavior has been characterized, not altered by the ownership refactor.
-Follow-up must distinguish foreground deferral from an authorized worker send,
-and trace parent calls and per-Company scheduling eligibility together.
+counterparts defer both `Batches` and `Background`. Caller tracing shows that the
+Background variants prepare XML during foreground submission. The scheduled
+worker then calls the main on_submit adapter with `bypass_background_check=True`,
+which selects ordinary generation or an existing-XML adapter. The preparation
+adapter's deferral is intentional; making it send Background immediately would
+break that separation. Increment 8 preserves this behavior and tests the actual
+parent branch selection, not just the flag on a mocked callback.
 
-Scheduler entry points also use an any-Company time-window gate before collecting
-invoices across Companies. The next change must evaluate the specific invoice's
-Company, phase, enabled flag, submission method, and scheduling windows. Preserve
-explicit manual/batch authority and verify retries without bypassing another
-Company's policy. No running scheduler was changed by this increment.
+The old scheduler entry points used an any-Company time-window gate before
+collecting invoices across Companies. Increment 8 replaces it with per-invoice
+Company eligibility and enables both POS windows. Explicit manual/batch authority
+is unaffected. See [BACKGROUND_SCHEDULING.md](BACKGROUND_SCHEDULING.md). No running
+scheduler was changed by either development increment.
 
 ICV continuity mapping, stable retry identity, certificate issuance/renewal,
 atomic signing/request credential version, structured 409 acceptance, golden

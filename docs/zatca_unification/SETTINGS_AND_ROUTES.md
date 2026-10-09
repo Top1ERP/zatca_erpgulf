@@ -1,4 +1,4 @@
-# Settings and route audit — updated through development increment 7
+# Settings and route audit — updated through development increment 8
 
 This inventory describes source behavior, not a new regulatory interpretation or
 a claim that live settings were changed. No credentials or tenant values are
@@ -10,8 +10,10 @@ existing-XML HTTP adapters now pin request and PIH owner as described in
 [SUBMISSION_CONTEXT.md](SUBMISSION_CONTEXT.md) and
 [LEGACY_XML_AND_ICV.md](LEGACY_XML_AND_ICV.md). Increment 7 completes the four
 without-XML/background request adapters and early generator Compliance diversion
-in [GENERATION_AND_COMPLIANCE.md](GENERATION_AND_COMPLIANCE.md). Worker scheduling,
-ICV migration, and certificate issuance/rotation remain pending.
+in [GENERATION_AND_COMPLIANCE.md](GENERATION_AND_COMPLIANCE.md). Increment 8 shares
+Company-scoped worker eligibility in [BACKGROUND_SCHEDULING.md](BACKGROUND_SCHEDULING.md).
+ICV migration, transactional worker/retry safety, and certificate issuance/rotation
+remain pending.
 
 ## Entry points and isolation boundaries
 
@@ -22,7 +24,7 @@ ICV migration, and certificate issuance/rotation remain pending.
 | POS dedicated compliance method | Disposable identity/file; returns API result; rejects an invoice belonging to another Company | Normalize serialized `source_doc` and issuing-unit context |
 | Synthetic onboarding | Shared temporary-file lifetime; no live invoice identity | Golden signed fixtures and remote six-type acceptance |
 | Sales/POS Debug XML | Disposable/reused preview UUID; read-only ICV; formatted XML attached directly as private `DEBUG_INVOICE_*` | Remove remaining duplicated tax/type logic and review Phase-1 behavior |
-| Live and background submission | Existing default metadata/ICV behavior retained | Stable POS retry identity and scheduler/transaction audit |
+| Live and background submission | Shared per-Company worker eligibility; existing default metadata/ICV retained | Stable POS retry identity, foreground unique-ID parity, and transaction audit |
 
 The dedicated compliance methods and two Debug menu actions isolate their sample
 identity/artifacts. Increment 7 also redirects nonzero `compliance_type` calls
@@ -46,6 +48,7 @@ identity and attachments are protected by this boundary.
 | Invoice identity | `custom_uuid`, `custom_zatca_icv`, `custom_zatca_issuing_unit` | Dedicated tests no longer persist sample identity on source invoices |
 | Counter identity | `icv._issuing_unit`, `_counter_key`, environment string | Increment 6 characterizes raw-token fingerprints, linked-owner mismatch, purpose/API-environment differences, and key collisions; explicit continuity mapping required |
 | Field aliases | `ksa_compliance/field_compat.py`, runtime schema checks | Preserve missing/blank/zero distinctions and detect conflicts; do not add a second alias registry |
+| Automatic Background eligibility | Company enablement, saved phase aliases, submission mode, both Company windows | Shared Sales/POS selector; no any-Company authorization; preserve manual/batch authority |
 
 Code anchors for the next increment:
 

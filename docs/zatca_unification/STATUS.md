@@ -2,10 +2,11 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and seven bounded increments (Compliance outcomes, dedicated
+Safety preparation and eight bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
-and generator/background request ownership with early Compliance dispatch)
+generator/background request ownership with early Compliance dispatch,
+and Company-scoped Sales/POS scheduling)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA.
@@ -159,6 +160,19 @@ branches and credential-context differences are recorded in
   characterizes the old Background deferral behavior, pending worker-policy work.
   See [GENERATION_AND_COMPLIANCE.md](GENERATION_AND_COMPLIANCE.md).
 
+## Increment 8: Company-scoped background scheduling
+
+- Shared one selection loop and pure scheduling rules for Sales/POS, preserving
+  the public cron/helper entry points and foreground preparation deferral.
+- Replaced cross-Company window authorization with saved invoice Company policy;
+  both POS windows work, including overnight/midnight/fractional Time values.
+- Rechecked saved status before processing, and reloaded drafts after on_submit;
+  invalid Company settings or one invoice failure do not stop other Companies.
+- Preserved the discovery horizon and Sales/POS commit distinction. Concurrency,
+  rollback/savepoints, stable signed retries, and foreground unique-ID parity
+  remain separate release gates. See [BACKGROUND_SCHEDULING.md](BACKGROUND_SCHEDULING.md).
+- Added 168 local cases, including the actual parent routing and worker bridge.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -167,7 +181,8 @@ fix passed all 31 cases, then 160 with expanded coverage and 206 after increment
 Increment 3 passed 358 cases; increment 4 passed 467 (104 new credential cases
 plus five existing field-alias cases). Increment 5 added 138 cases to reach 605.
 Increment 6 added 173 cases to reach 778. Increment 7 adds 241 cases, bringing
-the combined selected suite to **1,019 passing tests**:
+the selected suite to 1,019. Increment 8 adds 168 cases, bringing the combined
+selected suite to **1,187 passing tests**:
 
 | Suite | Scope |
 | --- | --- |
@@ -180,6 +195,7 @@ the combined selected suite to **1,019 passing tests**:
 | `test_legacy_submission_context.py` | Four existing-XML adapters and wrappers, actual temporary file reads, saved machine-link guards, unchanged artifacts, auth and PIH ownership |
 | `test_icv_identity_contract.py` | Read-only characterization of legacy identity/rotation/purpose behavior and collision edge cases; not a counter migration |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |
+| `test_background_scheduling.py` | Shared Sales/POS worker selection, Company isolation/windows/settings, stale status and draft boundaries, actual parent routing and worker bridge |
 | `test_tax_details_compat.py`, `test_tax_details_regression.py` | Tax adapter regressions |
 | `test_qr_tlv_compliance.py` | Existing QR/TLV regressions |
 | `test_zatca_response.py` | Existing response handling |
@@ -202,6 +218,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
   zatca_erpgulf/zatca_erpgulf/tests/test_legacy_submission_context.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_icv_identity_contract.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_generation_routes.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_background_scheduling.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_tax_details_compat.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_tax_details_regression.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_qr_tlv_compliance.py \
@@ -217,8 +234,8 @@ request, or production invoice submission was performed in this increment.
 
 Bind the shared route and saved-owner policy to one credential/version snapshot;
 resolve certificate issuance/rotation field conflicts before any deployment.
-Resolve worker-versus-foreground submission and per-Company scheduling eligibility;
-design an explicit ICV continuity mapping using the increment 6 audit.
+Resolve foreground unique-ID/gPOS policy parity and transactional worker/retry
+coordination; design an explicit ICV continuity mapping using the increment 6 audit.
 Prepare a separately
 pinned v16 bench and golden XML fixtures before consolidating cryptography or
 advance-payment calculations. Obtain a suitable off-host backup destination and
