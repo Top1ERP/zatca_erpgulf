@@ -2,9 +2,9 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and four bounded increments (Compliance outcomes, dedicated
+Safety preparation and five bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, and signing/Compliance credential
-selection) are complete in development.
+selection, and primary live request/PIH ownership) are complete in development.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA.
 
@@ -113,16 +113,32 @@ branches and credential-context differences are recorded in
 - Added English documentation, Arabic errors, generated-certificate tests, and
   local preparation checks for all six synthetic document types. Signing/digest
   algorithms are unchanged. See [CREDENTIAL_SELECTION.md](CREDENTIAL_SELECTION.md).
-- Production authorization selection is unit tested but not yet connected to live
-  HTTP adapters. A single immutable end-to-end credential snapshot remains pending.
+- At the end of increment 4, Production authorization selection was unit tested
+  but not yet connected to live HTTP adapters. Increment 5 integrates the four
+  primary adapters; a full signing/credential-version snapshot remains pending.
+
+## Increment 5: primary reporting/clearance request context
+
+- Added an immutable route/auth/owner result consumed by the four main Sales/POS
+  reporting and clearance adapters, with target name/doctype checks and strict
+  Production-purpose authorization in the configured environment.
+- Replaced seven repeated PIH/notification branches with a shared completion
+  helper using the owner identity selected for HTTP. It retains the existing PIH
+  Phase-2 and unchanged-hash guards without changing ICV allocation.
+- Invalid local context blocks HTTP and artifact preparation; existing exception
+  handlers can still record errors on invoices. Deferred reporting stays deferred.
+- Added 138 mocked cases, Arabic messages, and English documentation. Legacy 409
+  differences are characterized, not changed. See
+  [SUBMISSION_CONTEXT.md](SUBMISSION_CONTEXT.md) for scope and deployment gates.
 
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
 unchanged implementation (after isolating the Frappe HTTP decorator). The first
 fix passed all 31 cases, then 160 with expanded coverage and 206 after increment 2.
-Increment 3 passed 358 cases. After increment 4, the combined selected suite
-passes **467 tests** (104 new credential cases plus five existing field-alias cases):
+Increment 3 passed 358 cases; increment 4 passed 467 (104 new credential cases
+plus five existing field-alias cases). Increment 5 adds 138 cases, bringing the
+combined selected suite to **605 passing tests**:
 
 | Suite | Scope |
 | --- | --- |
@@ -131,6 +147,7 @@ passes **467 tests** (104 new credential cases plus five existing field-alias ca
 | `test_nonproduction_isolation.py` | Preview identity, live-identity regression, counter boundaries, explicit types, cross-company rejection, debug artifact protection, temporary-file lifetime |
 | `test_api_route_contract.py`, `test_api_routing.py` | Pure routing, six compatibility wrappers, malformed settings, environment overrides, and mocked onboarding request boundaries |
 | `test_credential_selection.py`, `test_field_compat.py` | Saved owner resolution, certificate aliases, key matching, signing/QR parity without writes, auth purposes, Arabic messages, six-type local preparation, existing field compatibility |
+| `test_submission_context.py` | Four primary request adapters, environments/owners, Production auth, actual PIH helper with mocked records, rejection/timeout, request-pinned owner, batch mode, legacy 409 behavior |
 | `test_tax_details_compat.py`, `test_tax_details_regression.py` | Tax adapter regressions |
 | `test_qr_tlv_compliance.py` | Existing QR/TLV regressions |
 | `test_zatca_response.py` | Existing response handling |
@@ -149,6 +166,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
   zatca_erpgulf/zatca_erpgulf/tests/test_api_routing.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_credential_selection.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_field_compat.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_submission_context.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_tax_details_compat.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_tax_details_regression.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_qr_tlv_compliance.py \
@@ -164,7 +182,8 @@ request, or production invoice submission was performed in this increment.
 
 Bind the shared route and saved-owner policy to one credential/version snapshot;
 resolve certificate issuance/rotation field conflicts before any deployment.
-Migrate live HTTP/ICV ownership together, then consolidate legacy nonzero-compliance branches
+Migrate the remaining legacy HTTP adapters and reconcile ICV continuity/ownership,
+then consolidate legacy nonzero-compliance branches
 without changing live submission behavior. Prepare a separately
 pinned v16 bench and golden XML fixtures before consolidating cryptography or
 advance-payment calculations. Obtain a suitable off-host backup destination and

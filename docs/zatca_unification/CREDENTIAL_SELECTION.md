@@ -14,8 +14,9 @@ The shared policy is now used by the signing helpers in `sign_invoice_first.py`:
 private-key selection, certificate details/hash, UBL certificate population,
 QR public key, and QR certificate signature. The dedicated Compliance HTTP
 function uses the same owner policy. Existing call signatures remain compatible.
-Live reporting/clearance authorization, CSID issuance, wizard flows, and ICV
-fingerprinting have **not** yet been migrated to this policy.
+Increment 5 also connects the four primary live reporting/clearance adapters as
+described in [SUBMISSION_CONTEXT.md](SUBMISSION_CONTEXT.md). Legacy XML/QR HTTP
+adapters, CSID issuance, wizard flows, and ICV fingerprinting remain pending.
 
 ## Saved ownership and fields
 
@@ -44,8 +45,8 @@ unknown values do not silently select linked credentials.
 | Compliance | `custom_basic_auth_from_csid` | `custom_basic_auth_from_csid` |
 | Production | `custom_basic_auth_from_production` | `custom_final_auth_csid` |
 
-The Production selector is implemented and unit tested but is not yet connected
-to live HTTP adapters. Empty credentials never fall back to the other purpose.
+The Production selector was introduced here and is connected to the four primary
+live HTTP adapters in increment 5. Empty credentials never fall back to the other purpose.
 An optional Basic prefix and copied whitespace are normalized. Tokens remain
 opaque: their embedded certificate/environment is not validated in this increment.
 
@@ -91,7 +92,7 @@ Local preparation is not SDK validation or confirmed remote Compliance.
 1. Bind environment/route, owner, credential purpose/version, and certificate/key
    into one immutable request snapshot. Current helpers reload records between
    calls, so a concurrent rotation can still mix versions across a full pipeline.
-2. Migrate and test all live/background HTTP adapters and ICV ownership together.
+2. Finish migration/testing of legacy live/background HTTP adapters and ICV ownership.
    Exercise saved/unsaved document lifecycle behavior in Frappe before rollout.
 3. Separate Compliance and Production certificate lifecycles; verify expiry,
    supported algorithm, certificate taxpayer identity, CSID/key binding, and

@@ -1,11 +1,13 @@
-# Settings and route audit — updated through development increment 4
+# Settings and route audit — updated through development increment 5
 
 This inventory describes source behavior, not a new regulatory interpretation or
 a claim that live settings were changed. No credentials or tenant values are
 included. The implementation plan remains [PLAN.md](PLAN.md).
 Shared routing is implemented as described in [API_ROUTING.md](API_ROUTING.md).
 Signing and dedicated Compliance owner selection now share the read-only policy
-in [CREDENTIAL_SELECTION.md](CREDENTIAL_SELECTION.md). Live HTTP/ICV ownership and
+in [CREDENTIAL_SELECTION.md](CREDENTIAL_SELECTION.md). The four primary live HTTP
+adapters now pin request and PIH owner as described in
+[SUBMISSION_CONTEXT.md](SUBMISSION_CONTEXT.md). Legacy HTTP/ICV ownership and
 certificate issuance/rotation remain pending.
 
 ## Entry points and isolation boundaries
@@ -35,7 +37,7 @@ tests and a common context first. Relevant modules include `sign_invoice`,
 | Environment | Company `custom_select`; shared `api_routing` resolver through legacy wrappers | Blank/unknown selection now blocks; legacy Company settings need preflight before deployment |
 | Base URL | `custom_sandbox_url`, `custom_simulation_url`, `custom_production_url` | Joining/HTTPS/standard-gateway environment checks centralized; custom gateway trust still needs review |
 | Compliance authorization | `custom_basic_auth_from_csid` on the shared saved credential owner | Direct Multiple Setting / serialized identities now resolve consistently; full version/environment binding remains pending |
-| Live authorization | Company `custom_basic_auth_from_production`; machine `custom_final_auth_csid` | Preserve purpose and owner while centralizing selection |
+| Live authorization | Company `custom_basic_auth_from_production`; machine `custom_final_auth_csid` | Four primary adapters share route/auth/PIH owner; remaining legacy adapters and ICV require migration |
 | Private key | `custom_private_key` from the shared saved owner, matched to its selected certificate | Legacy live HTTP/ICV consumers still need migration; full-pipeline rotation snapshot pending |
 | Certificate | Company `custom_certificate`; machine readers support both registered spellings and reject conflicts | Issuance writes different fields at different stages; purpose/version-aware migration must precede deployment |
 | Linked credentials | `custom_zatca_pos_name`, `custom__use_company_certificate__keys`, `custom_linked_doctype` | One credential owner must drive signing, HTTP, and identity; linked-company fallback must be explicit |
@@ -64,7 +66,7 @@ printable representation. Required checks include:
 Increment 3 supplies an immutable **route**; increment 4 adds shared saved-owner
 selection for signing/Compliance, source/link consistency guards, and actual
 key/certificate public-key matching. This is not the complete request context:
-live HTTP/ICV consumers, certificate subject/expiry/environment checks, CSID
+legacy HTTP/ICV consumers, certificate subject/expiry/environment checks, CSID
 binding, issuance migration, and atomic version/rotation handling remain pending.
 
 1. Recognized environment and permitted endpoint for the requested purpose.
