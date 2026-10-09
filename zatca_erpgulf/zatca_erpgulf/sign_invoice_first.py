@@ -24,6 +24,9 @@ import asn1
 
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 from zatca_erpgulf.zatca_erpgulf.api_settings import get_company_api_route
+from zatca_erpgulf.zatca_erpgulf.credential_settings import (
+    get_api_authorization, get_certificate_public_key, get_signing_certificate, get_signing_key,
+)
 from zatca_erpgulf.zatca_erpgulf.compliance_result import (
     compliance_result_status,
     is_already_completed_response,
@@ -538,7 +541,11 @@ def _csid_material_diagnostics(company_name):
 
 
 def create_public_key(company_abbr, source_doc):
-    """Create a public key based on the company abbreviation and source document."""
+    """Legacy explicit cache writer; QR generation must not call this function.
+
+    Kept for external callers during staged migration. Read-only consumers use
+    credential_settings.get_certificate_public_key instead of saving/committing.
+    """
     try:
         # Get the company name using the provided abbreviation
         company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
@@ -694,39 +701,7 @@ def getinvoicehash(canonicalized_xml):
 def digital_signature(hash1, company_abbr, source_doc):
     """find digital signature of xml"""
     try:
-        company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
-        if not company_name:
-            frappe.throw(_(f"Company with abbreviation {company_abbr} not found."))
-
-        company_doc = frappe.get_doc("Company", company_name)
-        # frappe.throw(f"Source doc type: {type(source_doc)}, value: {source_doc}")
-        private_key_data_str = None
-
-        if source_doc:
-            if source_doc.doctype in SUPPORTED_INVOICES:
-                # Use certificate from the company document for Sales Invoice
-                if source_doc.custom_zatca_pos_name:
-                    zatca_settings = frappe.get_doc(
-                        "ZATCA Multiple Setting", source_doc.custom_zatca_pos_name
-                    )
-                    if zatca_settings.custom__use_company_certificate__keys != 1:
-                        private_key_data_str = zatca_settings.get("custom_private_key")
-                    else:
-                        linked_doc = frappe.get_doc("Company", zatca_settings.custom_linked_doctype)
-                        private_key_data_str = linked_doc.get("custom_private_key")
-                else:
-                    private_key_data_str = company_doc.get("custom_private_key")
-            elif source_doc.doctype == "Company":
-                private_key_data_str = company_doc.get("custom_private_key")
-            elif source_doc.doctype == "ZATCA Multiple Setting":
-                private_key_data_str = source_doc.get("custom_private_key")
-
-        if not private_key_data_str:
-            frappe.throw(_("No private key data found for the company."))
-        private_key_bytes = private_key_data_str.encode("utf-8")
-        private_key = serialization.load_pem_private_key(
-            private_key_bytes, password=None, backend=default_backend()
-        )
+        private_key = get_signing_key(company_abbr, source_doc)
         hash_bytes = bytes.fromhex(hash1)
         signature = private_key.sign(hash_bytes, ec.ECDSA(hashes.SHA256()))
         encoded_signature = base64.b64encode(signature).decode()
@@ -741,41 +716,7 @@ def digital_signature(hash1, company_abbr, source_doc):
 def extract_certificate_details(company_abbr, source_doc):
     """extracting the certificate details from the certificate data"""
     try:
-        company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
-        if not company_name:
-            frappe.throw(_(f"Company with abbreviation {company_abbr} not found."))
-
-        company_doc = frappe.get_doc("Company", company_name)
-        certificate_data_str = None     
-        if source_doc:
-            if source_doc.doctype in SUPPORTED_INVOICES:
-                # Use certificate from the company document for Sales Invoice
-                if source_doc.custom_zatca_pos_name:
-                    # Fetch Zatca settings and use its certificate
-                    zatca_settings = frappe.get_doc(
-                        "ZATCA Multiple Setting", source_doc.custom_zatca_pos_name
-                    )
-                    if zatca_settings.custom__use_company_certificate__keys != 1:
-                        certificate_data_str = zatca_settings.get("custom_certficate")
-                    else:
-                        linked_doc = frappe.get_doc("Company", zatca_settings.custom_linked_doctype)
-                        certificate_data_str = linked_doc.get("custom_certificate")
-                else:
-                    certificate_data_str = company_doc.get("custom_certificate")
-            elif source_doc.doctype == "Company":
-                certificate_data_str = company_doc.get("custom_certificate")
-            elif source_doc.doctype == "ZATCA Multiple Setting":
-                certificate_data_str = source_doc.get("custom_certficate")
-
-        if not certificate_data_str:
-            frappe.throw(_(f"No certificate data found for company {source_doc}"))
-
-        certificate_content = certificate_data_str.strip()
-
-        if not certificate_content:
-            frappe.throw(
-                _(f"No valid certificate content found for company {company_name}")
-            )
+        certificate_content = get_signing_certificate(company_abbr, source_doc)
         # Format the certificate string to PEM format if not already in correct PEM format
         formatted_certificate = "-----BEGIN CERTIFICATE-----\n"
         formatted_certificate += "\n".join(
@@ -799,38 +740,7 @@ def extract_certificate_details(company_abbr, source_doc):
 def certificate_hash(company_abbr, source_doc):
     """Find the certificate hash and returning the value"""
     try:
-        company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
-        if not company_name:
-            frappe.throw(_(f"Company with abbreviation {company_abbr} not found."))
-
-        company_doc = frappe.get_doc("Company", company_name)
-        certificate_data_str = None
-        if source_doc:
-            if source_doc.doctype in SUPPORTED_INVOICES:
-                # Use certificate from the company document for Sales Invoice
-                if source_doc.custom_zatca_pos_name:
-                    zatca_settings = frappe.get_doc(
-                        "ZATCA Multiple Setting", source_doc.custom_zatca_pos_name
-                    )
-                    if zatca_settings.custom__use_company_certificate__keys != 1:
-                        certificate_data_str = zatca_settings.get("custom_certficate", "")
-                    else:
-                        linked_doc = frappe.get_doc("Company", zatca_settings.custom_linked_doctype)
-                        certificate_data_str = linked_doc.get("custom_certificate", "")
-                else:
-                    certificate_data_str = company_doc.get("custom_certificate", "")
-            elif source_doc.doctype == "Company":
-                certificate_data_str = company_doc.get("custom_certificate", "")
-            elif source_doc.doctype == "ZATCA Multiple Setting":
-                certificate_data_str = source_doc.get("custom_certficate")
-
-        if not certificate_data_str:
-            frappe.throw(_(f"No certificate data found for company {company_name}"))
-        certificate_data = certificate_data_str.strip()
-        if not certificate_data:
-            frappe.throw(
-                _(f"No valid certificate data found for company {company_name}")
-            )
+        certificate_data = get_signing_certificate(company_abbr, source_doc)
 
         # ZATCA's implementation guide specifies hashing the certificate
         # value as stored (the base64 certificate content), then encoding the
@@ -1044,40 +954,7 @@ def populate_the_ubl_extensions_output(
         # root3 = updated_invoice_xml.getroot()
         root3 = etree.fromstring(modified_xml_string.encode("utf-8"))
         updated_invoice_xml = etree.ElementTree(root3)
-        company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
-        if not company_name:
-            frappe.throw(_(f"Company with abbreviation {company_abbr} not found."))
-
-        company_doc = frappe.get_doc("Company", company_name)
-        certificate_data_str = None
-        if source_doc:
-            if source_doc.doctype in SUPPORTED_INVOICES:
-                # Use certificate from the company document for Sales Invoice
-                if source_doc.custom_zatca_pos_name:
-                    # Fetch Zatca settings and use its certificate
-                    zatca_settings = frappe.get_doc(
-                        "ZATCA Multiple Setting", source_doc.custom_zatca_pos_name
-                    )
-                    if zatca_settings.custom__use_company_certificate__keys != 1:
-                        certificate_data_str = zatca_settings.get("custom_certficate")
-                    else:
-                        linked_doc = frappe.get_doc("Company", zatca_settings.custom_linked_doctype)
-                        certificate_data_str = linked_doc.get("custom_certificate")
-                else:
-                    certificate_data_str = company_doc.get("custom_certificate")
-            elif source_doc.doctype == "Company":
-                certificate_data_str = company_doc.get("custom_certificate")
-            elif source_doc.doctype == "ZATCA Multiple Setting":
-                certificate_data_str = source_doc.get("custom_certficate") 
-
-        if not certificate_data_str:
-            frappe.throw(_(f"No certificate data found for company {company_name}"))
-        content = certificate_data_str.strip()
-
-        if not content:
-            frappe.throw(
-                _(f"No valid certificate content found for company {company_name}")
-            )
+        content = get_signing_certificate(company_abbr, source_doc)
 
         xpath_signvalue = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:SignatureValue"
         xpath_x509certi = "ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:KeyInfo/ds:X509Data/ds:X509Certificate"
@@ -1110,44 +987,9 @@ def populate_the_ubl_extensions_output(
 
 
 def extract_public_key_data(company_abbr, source_doc):
-    """extract public key"""
+    """Return the selected certificate's public key without a cached-field write."""
     try:
-        company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
-        if not company_name:
-            frappe.throw(_(f"Company with abbreviation {company_abbr} not found."))
-
-        company_doc = frappe.get_doc("Company", company_name)
-        public_key_pem = None
-        if source_doc:
-            if source_doc.doctype in SUPPORTED_INVOICES:
-                # Use certificate from the company document for Sales Invoice
-                if source_doc.custom_zatca_pos_name:
-                    # Fetch Zatca settings and use its certificate
-                    zatca_settings = frappe.get_doc(
-                        "ZATCA Multiple Setting", source_doc.custom_zatca_pos_name
-                    )
-                    if zatca_settings.custom__use_company_certificate__keys != 1:
-                        public_key_pem = zatca_settings.get("custom_public_key", "")
-                    else:
-                        linked_doc = frappe.get_doc("Company", zatca_settings.custom_linked_doctype)
-                        public_key_pem = linked_doc.get("custom_public_key", "")
-                else:
-                    public_key_pem = company_doc.get("custom_public_key", "")
-            elif source_doc.doctype == "Company":
-                public_key_pem = company_doc.get("custom_public_key", "")
-            elif source_doc.doctype == "ZATCA Multiple Setting":
-                public_key_pem = source_doc.get("custom_public_key", "")
-        if not public_key_pem:
-            frappe.throw(_(f"No public key found for company {source_doc}"))
-
-        lines = public_key_pem.splitlines()
-        key_data = "".join(lines[1:-1])
-        key_data = key_data.replace("-----BEGIN PUBLIC KEY-----", "").replace(
-            "-----END PUBLIC KEY-----", ""
-        )
-        key_data = key_data.replace(" ", "").replace("\n", "")
-
-        return key_data
+        return base64.b64encode(get_certificate_public_key(company_abbr, source_doc)).decode("ascii")
 
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(_("Error in extracting public key data: " + str(e)))
@@ -1211,7 +1053,6 @@ def _is_simplified_document(source_doc):
 def tag8_publickey(company_abbr, source_doc):
     """tag 8 of qr from public key"""
     try:
-        create_public_key(company_abbr, source_doc)
         base64_encoded = extract_public_key_data(company_abbr, source_doc)
         byte_data = base64.b64decode(base64_encoded)
         hex_data = binascii.hexlify(byte_data).decode("utf-8")
@@ -1227,34 +1068,7 @@ def tag8_publickey(company_abbr, source_doc):
 def tag9_signature_ecdsa(company_abbr, source_doc):
     """tag 9 of signature"""
     try:
-        company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
-        if not company_name:
-            frappe.throw(_(f"Company with abbreviation {company_abbr} not found."))
-
-        company_doc = frappe.get_doc("Company", company_name)
-        certificate_content = None
-        if source_doc:
-            if source_doc.doctype in SUPPORTED_INVOICES:
-                # Use certificate from the company document for Sales Invoice
-                if source_doc.custom_zatca_pos_name:
-                    # Fetch Zatca settings and use its certificate
-                    zatca_settings = frappe.get_doc(
-                        "ZATCA Multiple Setting", source_doc.custom_zatca_pos_name
-                    )
-                    if zatca_settings.custom__use_company_certificate__keys != 1:
-                        certificate_content = zatca_settings.custom_certficate or ""
-                    else:
-                        linked_doc = frappe.get_doc("Company", zatca_settings.custom_linked_doctype)
-                        certificate_content = linked_doc.custom_certificate or ""
-                else:
-                    certificate_content = company_doc.custom_certificate or ""
-            elif source_doc.doctype == "Company":
-                certificate_content = company_doc.custom_certificate or ""
-            elif source_doc.doctype == "ZATCA Multiple Setting":
-                certificate_content = source_doc.custom_certficate
-
-        if not certificate_content:
-            frappe.throw(_(f"No certificate found for company in tag9 {company_abbr}"))
+        certificate_content = get_signing_certificate(company_abbr, source_doc)
 
         formatted_certificate = "-----BEGIN CERTIFICATE-----\n"
         formatted_certificate += "\n".join(
@@ -1473,34 +1287,9 @@ def compliance_api_call(
             }
         )
 
-        auth_source = "company"
-        if (
-            hasattr(source_doc, "custom_zatca_pos_name")
-            and source_doc.custom_zatca_pos_name
-        ):
-            auth_source = "multiple_setting"
-            zatca_settings = frappe.get_doc(
-                "ZATCA Multiple Setting", source_doc.custom_zatca_pos_name
-            )
-            if zatca_settings.custom__use_company_certificate__keys != 1:
-                csid = zatca_settings.custom_basic_auth_from_csid
-            else:
-                auth_source = "linked_company"
-                linked_doc = frappe.get_doc("Company", zatca_settings.custom_linked_doctype)
-                csid = linked_doc.custom_basic_auth_from_csid
-        else:
-            csid = company_doc.custom_basic_auth_from_csid
-        if not csid:
-            frappe.throw(_((f"CSID for company {company_abbr} not foundor not found in multpile setting page")))
-
-        # CSID values are stored as the base64 portion of HTTP Basic Auth.
-        # Normalize legacy values that may contain copied whitespace or the
-        # complete ``Basic ...`` prefix before constructing the header.
-        csid = str(csid).strip()
-        if csid.lower().startswith("basic "):
-            authorization = csid
-        else:
-            authorization = "Basic " + "".join(csid.split())
+        credentials = get_api_authorization(company_abbr, source_doc, purpose="compliance")
+        auth_source = credentials.source_kind
+        authorization = credentials.header
 
         api_url = get_compliance_api_url(company_abbr)
 

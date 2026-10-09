@@ -633,4 +633,15 @@ Missing Sales Taxes and Charges row for tax account {0}. Expected {1} at {2}% (i
 Zero-rate tax account {0} must have zero in every tax amount field.,يجب أن تكون جميع حقول مبلغ الضريبة للحساب ذي المعدل الصفري {0} مساوية للصفر.
 Unexpected Sales Taxes and Charges row for tax account {0}: found {1} after discount. Remove it or include it in the authoritative ZATCA tax source.,صف ضريبي غير متوقع للحساب {0} في جدول Sales Taxes and Charges: الموجود {1} بعد الخصم. احذفه أو أدرجه في مصدر ضريبة ZATCA المعتمد.
 Enforce ZATCA Sales Invoice Tax Table Validation,فرض التحقق من جدول ضرائب فواتير مبيعات ZATCA
+"A saved Company, Sales Invoice, POS Invoice, or ZATCA Multiple Setting is required for credential selection.",يتطلب اختيار بيانات الاعتماد مستندًا محفوظًا من نوع شركة أو فاتورة مبيعات أو فاتورة نقطة بيع أو إعداد جهاز زاتكا.
+The ZATCA credential source does not belong to the selected company.,مصدر بيانات اعتماد زاتكا لا يتبع الشركة المحددة.
+The ZATCA issuing unit requires a valid linked company.,تتطلب وحدة إصدار فواتير زاتكا شركة مرتبطة صالحة.
+Linked ZATCA credentials require matching nonempty company Tax IDs.,يتطلب استخدام بيانات اعتماد زاتكا المرتبطة تطابق الرقم الضريبي للشركتين وألا يكون فارغًا.
+The Use Company Certificate and Keys setting must be enabled or disabled explicitly.,يجب تفعيل إعداد استخدام شهادة الشركة ومفاتيحها أو تعطيله بقيمة واضحة.
+A valid saved ZATCA certificate is required for the selected credential owner.,يلزم وجود شهادة زاتكا صالحة محفوظة لصاحب بيانات الاعتماد المحدد.
+The ZATCA certificate fields contain different values. Review both fields before signing; no certificate was selected automatically.,يحتوي حقلا شهادة زاتكا على قيم مختلفة. راجع الحقلين قبل التوقيع؛ لم يتم اختيار أي شهادة تلقائيًا.
+A valid saved ZATCA private key is required for the selected credential owner.,يلزم وجود مفتاح زاتكا خاص صالح محفوظ لصاحب بيانات الاعتماد المحدد.
+The selected ZATCA private key does not match the selected certificate.,مفتاح زاتكا الخاص المحدد لا يتطابق مع الشهادة المحددة.
+Unsupported ZATCA credential purpose.,الغرض المطلوب لاستخدام بيانات اعتماد زاتكا غير مدعوم.
+The selected ZATCA credential owner has no authorization for the requested purpose. Credentials from another purpose cannot be used.,لا تتوفر لدى صاحب بيانات اعتماد زاتكا المحدد بيانات مصادقة للغرض المطلوب. لا يمكن استخدام بيانات اعتماد مخصصة لغرض آخر.
 "When enabled, tax Account Head rows in Sales Taxes and Charges are checked against the configured ZATCA VAT source before saving Sales Invoices.",عند التفعيل، يتم التحقق من صفوف Account Head الضريبية في جدول Sales Taxes and Charges مقابل مصدر ضريبة ZATCA المحدد قبل حفظ فواتير المبيعات.

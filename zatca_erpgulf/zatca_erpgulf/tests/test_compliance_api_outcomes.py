@@ -17,6 +17,7 @@ import requests
 
 from zatca_erpgulf.zatca_erpgulf import sign_invoice as buttons
 from zatca_erpgulf.zatca_erpgulf import sign_invoice_first as client
+from zatca_erpgulf.zatca_erpgulf import credential_settings
 
 
 class LocalValidationError(Exception):
@@ -58,7 +59,7 @@ def boundary(monkeypatch):
         db=SimpleNamespace(get_value=Mock(return_value=company.name)),
         throw=raise_validation, ValidationError=LocalValidationError, msgprint=Mock(),
     )
-    for module in (client, buttons):
+    for module in (client, buttons, credential_settings):
         monkeypatch.setattr(module, "frappe", frappe)
         monkeypatch.setattr(module, "_", lambda message: message)
     monkeypatch.setattr(client, "get_compliance_api_url", lambda *args: "https://example.invalid/compliance/invoices")

@@ -2,8 +2,9 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and three increments (Compliance outcomes, dedicated
-Compliance/Debug isolation, and shared API routing) are complete in development.
+Safety preparation and four bounded increments (Compliance outcomes, dedicated
+Compliance/Debug isolation, shared API routing, and signing/Compliance credential
+selection) are complete in development.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA.
 
@@ -96,12 +97,32 @@ branches and credential-context differences are recorded in
 - Added translated errors and tests at the CSR, Compliance, and final-CSID request
   boundaries. See [API_ROUTING.md](API_ROUTING.md) for compatibility and release gates.
 
+## Increment 4: signing and Compliance credential ownership
+
+- Added pure credential-field policies and a read-only saved-owner resolver.
+  Caller-provided secret values/flags are not trusted; Company, own-device, and
+  linked-company signing and Compliance authentication share one selection policy.
+- Added key/certificate public-key matching before signing, source-Company and
+  linked Tax-ID consistency guards, and strict purpose-specific authorization.
+- Registered both machine certificate spellings in the existing alias registry.
+  Missing one spelling is supported; conflicting nonempty values stop signing
+  without field repair. Issuance/rotation migration remains a deployment gate.
+- Removed the QR path's public-key cache save/commit. Public-key bytes are derived
+  directly from the selected certificate; the old explicit cache writer remains
+  available only for compatibility.
+- Added English documentation, Arabic errors, generated-certificate tests, and
+  local preparation checks for all six synthetic document types. Signing/digest
+  algorithms are unchanged. See [CREDENTIAL_SELECTION.md](CREDENTIAL_SELECTION.md).
+- Production authorization selection is unit tested but not yet connected to live
+  HTTP adapters. A single immutable end-to-end credential snapshot remains pending.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
 unchanged implementation (after isolating the Frappe HTTP decorator). The first
 fix passed all 31 cases, then 160 with expanded coverage and 206 after increment 2.
-After increment 3, the combined selected suite passes **358 tests**:
+Increment 3 passed 358 cases. After increment 4, the combined selected suite
+passes **467 tests** (104 new credential cases plus five existing field-alias cases):
 
 | Suite | Scope |
 | --- | --- |
@@ -109,6 +130,7 @@ After increment 3, the combined selected suite passes **358 tests**:
 | `test_compliance_api_outcomes.py` | Mocked real API/button functions, failures, previous completion, translations |
 | `test_nonproduction_isolation.py` | Preview identity, live-identity regression, counter boundaries, explicit types, cross-company rejection, debug artifact protection, temporary-file lifetime |
 | `test_api_route_contract.py`, `test_api_routing.py` | Pure routing, six compatibility wrappers, malformed settings, environment overrides, and mocked onboarding request boundaries |
+| `test_credential_selection.py`, `test_field_compat.py` | Saved owner resolution, certificate aliases, key matching, signing/QR parity without writes, auth purposes, Arabic messages, six-type local preparation, existing field compatibility |
 | `test_tax_details_compat.py`, `test_tax_details_regression.py` | Tax adapter regressions |
 | `test_qr_tlv_compliance.py` | Existing QR/TLV regressions |
 | `test_zatca_response.py` | Existing response handling |
@@ -125,6 +147,8 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
   zatca_erpgulf/zatca_erpgulf/tests/test_nonproduction_isolation.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_api_route_contract.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_api_routing.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_credential_selection.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_field_compat.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_tax_details_compat.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_tax_details_regression.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_qr_tlv_compliance.py \
@@ -138,8 +162,9 @@ request, or production invoice submission was performed in this increment.
 
 ## Next gate
 
-Bind the shared route to a validated Company/issuing-unit credential context,
-then consolidate the remaining legacy nonzero-compliance branches
+Bind the shared route and saved-owner policy to one credential/version snapshot;
+resolve certificate issuance/rotation field conflicts before any deployment.
+Migrate live HTTP/ICV ownership together, then consolidate legacy nonzero-compliance branches
 without changing live submission behavior. Prepare a separately
 pinned v16 bench and golden XML fixtures before consolidating cryptography or
 advance-payment calculations. Obtain a suitable off-host backup destination and

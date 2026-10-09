@@ -8,6 +8,7 @@ import pytest
 
 from zatca_erpgulf.zatca_erpgulf import (
     api_settings,
+    credential_settings,
     sales_invoice_with_xmlqr,
     sign_invoice,
     sign_invoice_first,
@@ -57,7 +58,7 @@ def routing(monkeypatch):
         db=SimpleNamespace(get_value=Mock(return_value=company.name)),
         publish_realtime=Mock(), session=SimpleNamespace(user="TEST USER"), msgprint=Mock(),
     )
-    for module in (*MODULES, api_settings):
+    for module in (*MODULES, api_settings, credential_settings):
         monkeypatch.setattr(module, "frappe", frappe)
         monkeypatch.setattr(module, "_", lambda message: message)
     return company, frappe

@@ -9,6 +9,13 @@ APP_MODULE = "Zatca Erpgulf"
 
 
 FIELD_ALIAS_GROUPS = {
+    "multiple_setting_certificate": {
+        "doctype": "ZATCA Multiple Setting",
+        "canonical": "custom_certificate",
+        # Preserve the historical signing field's bytes when both values agree.
+        # Credential readers additionally reject conflicting nonempty values.
+        "aliases": ["custom_certficate", "custom_certificate"],
+    },
     "company_arabic_name": {
         "doctype": "Company",
         "canonical": "custom_company_name_in_arabic",
