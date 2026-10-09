@@ -10,6 +10,9 @@ import json
 import requests
 from frappe import _
 import frappe
+from zatca_erpgulf.zatca_erpgulf.compliance_dispatch import (
+    dispatch_generator_compliance, normalize_generator_compliance_type,
+)
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import PHASE_1_VALUE, PHASE_2_VALUE, resolve_zatca_phase, is_zatca_invoice_enabled
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country
@@ -637,6 +640,11 @@ def zatca_call(
     source_doc=None,
 ):
     """Function for zatca call"""
+    compliance_type = normalize_generator_compliance_type(compliance_type)
+    if compliance_type != "0":
+        return dispatch_generator_compliance(
+            "POS Invoice", invoice_number, compliance_type, company_abbr
+        )
     try:
 
         if not frappe.db.exists("POS Invoice", invoice_number):
@@ -644,6 +652,8 @@ def zatca_call(
 
         invoice = xml_tags()
         invoice, uuid1, pos_invoice_doc = salesinvoice_data(invoice, invoice_number)
+        # Signing and HTTP must follow the same saved invoice issuer.
+        source_doc = pos_invoice_doc
 
         # Get the company abbreviation
         company_abbr = frappe.db.get_value(
@@ -652,14 +662,10 @@ def zatca_call(
 
         customer_doc = frappe.get_doc("Customer", pos_invoice_doc.customer)
 
-        if compliance_type == "0":
-            if get_alias_value("customer_b2c", customer_doc, 0) == 1:
-                invoice = invoice_typecode_simplified(invoice, pos_invoice_doc)
-            else:
-                invoice = invoice_typecode_standard(invoice, pos_invoice_doc)
+        if get_alias_value("customer_b2c", customer_doc, 0) == 1:
+            invoice = invoice_typecode_simplified(invoice, pos_invoice_doc)
         else:
-            invoice = invoice_typecode_compliance(invoice, compliance_type)
-
+            invoice = invoice_typecode_standard(invoice, pos_invoice_doc)
         invoice = doc_reference(invoice, pos_invoice_doc, invoice_number)
         invoice = additional_reference(invoice, company_abbr, pos_invoice_doc)
         invoice = company_data(invoice, pos_invoice_doc)
@@ -731,32 +737,25 @@ def zatca_call(
         updated_xml_string = update_qr_toxml(final_xml_string, qrcodeb64, company_abbr)
         signed_xmlfile_name = structuring_signedxml(invoice_number,updated_xml_string)
 
-        if compliance_type == "0":
-            if get_alias_value("customer_b2c", customer_doc, 0) == 1:
-                attach_qr_image(qrcodeb64, pos_invoice_doc)
-                reporting_api(
-                    uuid1,
-                    encoded_hash,
-                    signed_xmlfile_name,
-                    invoice_number,
-                    pos_invoice_doc,
-                )
+        if get_alias_value("customer_b2c", customer_doc, 0) == 1:
+            attach_qr_image(qrcodeb64, pos_invoice_doc)
+            reporting_api(
+                uuid1,
+                encoded_hash,
+                signed_xmlfile_name,
+                invoice_number,
+                pos_invoice_doc,
+            )
 
-            else:
-                clearance_api(
-                    uuid1,
-                    encoded_hash,
-                    signed_xmlfile_name,
-                    invoice_number,
-                    pos_invoice_doc,
-                )
-                attach_qr_image(qrcodeb64, pos_invoice_doc)
         else:
-            compliance_api_call(
-                uuid1, encoded_hash, signed_xmlfile_name, company_abbr, source_doc
+            clearance_api(
+                uuid1,
+                encoded_hash,
+                signed_xmlfile_name,
+                invoice_number,
+                pos_invoice_doc,
             )
             attach_qr_image(qrcodeb64, pos_invoice_doc)
-
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.log_error(
             title="ZATCA invoice call failed",
@@ -800,6 +799,8 @@ def zatca_call_compliance(
         invoice, uuid1, pos_invoice_doc = salesinvoice_data(
             invoice, invoice_number, purpose="compliance"
         )
+        if source_doc is None:
+            source_doc = pos_invoice_doc
         if pos_invoice_doc.company != company_doc.name:
             frappe.throw(
                 _("Sample Invoice {0} belongs to Company {1}, not selected Company {2}.").format(

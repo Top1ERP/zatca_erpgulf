@@ -2,9 +2,10 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and six bounded increments (Compliance outcomes, dedicated
+Safety preparation and seven bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
-selection, primary live request/PIH ownership, and existing-XML request ownership)
+selection, primary live request/PIH ownership, existing-XML request ownership,
+and generator/background request ownership with early Compliance dispatch)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA.
@@ -145,6 +146,19 @@ branches and credential-context differences are recorded in
   purpose/API-environment mismatch, and key collision edge cases. See
   [LEGACY_XML_AND_ICV.md](LEGACY_XML_AND_ICV.md) for the required continuity plan.
 
+## Increment 7: generation ownership and early Compliance dispatch
+
+- Migrated the last four audited reporting adapters and eight PIH branches to
+  the shared context. Twelve live HTTP request adapters now share owner selection.
+- Redirected nonzero sample codes in all six generators before live metadata/file
+  generation; removed twelve duplicated sample/live branches and propagated
+  confirmed results and failures to callers.
+- Ordinary signing/QR uses the saved invoice issuer, consistent with HTTP. The
+  dedicated check defaults to its invoice source when no explicit source exists.
+- Added 241 request/generation/real-temporary-file bridge cases. The suite also
+  characterizes the old Background deferral behavior, pending worker-policy work.
+  See [GENERATION_AND_COMPLIANCE.md](GENERATION_AND_COMPLIANCE.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -152,8 +166,8 @@ unchanged implementation (after isolating the Frappe HTTP decorator). The first
 fix passed all 31 cases, then 160 with expanded coverage and 206 after increment 2.
 Increment 3 passed 358 cases; increment 4 passed 467 (104 new credential cases
 plus five existing field-alias cases). Increment 5 added 138 cases to reach 605.
-Increment 6 adds 173 cases, bringing the combined selected suite to
-**778 passing tests**:
+Increment 6 added 173 cases to reach 778. Increment 7 adds 241 cases, bringing
+the combined selected suite to **1,019 passing tests**:
 
 | Suite | Scope |
 | --- | --- |
@@ -165,6 +179,7 @@ Increment 6 adds 173 cases, bringing the combined selected suite to
 | `test_submission_context.py` | Four primary request adapters, environments/owners, Production auth, actual PIH helper with mocked records, rejection/timeout, request-pinned owner, batch mode, legacy 409 behavior |
 | `test_legacy_submission_context.py` | Four existing-XML adapters and wrappers, actual temporary file reads, saved machine-link guards, unchanged artifacts, auth and PIH ownership |
 | `test_icv_identity_contract.py` | Read-only characterization of legacy identity/rotation/purpose behavior and collision edge cases; not a counter migration |
+| `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |
 | `test_tax_details_compat.py`, `test_tax_details_regression.py` | Tax adapter regressions |
 | `test_qr_tlv_compliance.py` | Existing QR/TLV regressions |
 | `test_zatca_response.py` | Existing response handling |
@@ -186,6 +201,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
   zatca_erpgulf/zatca_erpgulf/tests/test_submission_context.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_legacy_submission_context.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_icv_identity_contract.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_generation_routes.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_tax_details_compat.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_tax_details_regression.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_qr_tlv_compliance.py \
@@ -201,10 +217,9 @@ request, or production invoice submission was performed in this increment.
 
 Bind the shared route and saved-owner policy to one credential/version snapshot;
 resolve certificate issuance/rotation field conflicts before any deployment.
-Migrate the four remaining without-XML/background HTTP adapters and design an
-explicit ICV continuity mapping using the increment 6 audit,
-then consolidate legacy nonzero-compliance branches
-without changing live submission behavior. Prepare a separately
+Resolve worker-versus-foreground submission and per-Company scheduling eligibility;
+design an explicit ICV continuity mapping using the increment 6 audit.
+Prepare a separately
 pinned v16 bench and golden XML fixtures before consolidating cryptography or
 advance-payment calculations. Obtain a suitable off-host backup destination and
 choose the pilot/rollout window before any production deployment.

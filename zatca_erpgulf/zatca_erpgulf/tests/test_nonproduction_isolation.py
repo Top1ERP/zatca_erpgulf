@@ -269,6 +269,7 @@ def test_dedicated_compliance_uses_disposable_file(isolated, monkeypatch, module
     assert len(paths) == 1
     assert not paths[0].exists()
     assert metadata.call_args.kwargs["purpose"] == "compliance"
+    assert module.digital_signature.call_args.args[2] is invoice
 
 
 @pytest.mark.parametrize("module", [sign_invoice, pos_sign])

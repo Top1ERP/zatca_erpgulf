@@ -1,4 +1,4 @@
-# Settings and route audit — updated through development increment 6
+# Settings and route audit — updated through development increment 7
 
 This inventory describes source behavior, not a new regulatory interpretation or
 a claim that live settings were changed. No credentials or tenant values are
@@ -8,7 +8,9 @@ Signing and dedicated Compliance owner selection now share the read-only policy
 in [CREDENTIAL_SELECTION.md](CREDENTIAL_SELECTION.md). Four primary and four
 existing-XML HTTP adapters now pin request and PIH owner as described in
 [SUBMISSION_CONTEXT.md](SUBMISSION_CONTEXT.md) and
-[LEGACY_XML_AND_ICV.md](LEGACY_XML_AND_ICV.md). Without-XML/background auth,
+[LEGACY_XML_AND_ICV.md](LEGACY_XML_AND_ICV.md). Increment 7 completes the four
+without-XML/background request adapters and early generator Compliance diversion
+in [GENERATION_AND_COMPLIANCE.md](GENERATION_AND_COMPLIANCE.md). Worker scheduling,
 ICV migration, and certificate issuance/rotation remain pending.
 
 ## Entry points and isolation boundaries
@@ -22,14 +24,12 @@ ICV migration, and certificate issuance/rotation remain pending.
 | Sales/POS Debug XML | Disposable/reused preview UUID; read-only ICV; formatted XML attached directly as private `DEBUG_INVOICE_*` | Remove remaining duplicated tax/type logic and review Phase-1 behavior |
 | Live and background submission | Existing default metadata/ICV behavior retained | Stable POS retry identity and scheduler/transaction audit |
 
-The isolated routes are the dedicated compliance methods and the two Debug menu
-actions. Legacy live/background functions still expose optional nonzero
-`compliance_type` branches. Those branches are **not yet consolidated** into the
-dedicated adapter and must not be described as fully isolated. They can still
-reach live reference/attachment code; redirecting them requires characterization
-tests and a common context first. Relevant modules include `sign_invoice`,
-`pos_sign`, `sales_invoice_withoutxml`, `zatca_background_sched`,
-`pos_submit__without_xml`, and `pos_schedule_background`.
+The dedicated compliance methods and two Debug menu actions isolate their sample
+identity/artifacts. Increment 7 also redirects nonzero `compliance_type` calls
+from all six legacy generators to the dedicated Sales/POS adapter before live
+metadata/file generation. Explicit sample type and actual result/error are
+preserved. The separate Compliance counter may still advance; only live invoice
+identity and attachments are protected by this boundary.
 
 ## Field and credential selection observed in source
 
@@ -38,8 +38,8 @@ tests and a common context first. Relevant modules include `sign_invoice`,
 | Environment | Company `custom_select`; shared `api_routing` resolver through legacy wrappers | Blank/unknown selection now blocks; legacy Company settings need preflight before deployment |
 | Base URL | `custom_sandbox_url`, `custom_simulation_url`, `custom_production_url` | Joining/HTTPS/standard-gateway environment checks centralized; custom gateway trust still needs review |
 | Compliance authorization | `custom_basic_auth_from_csid` on the shared saved credential owner | Direct Multiple Setting / serialized identities now resolve consistently; full version/environment binding remains pending |
-| Live authorization | Company `custom_basic_auth_from_production`; machine `custom_final_auth_csid` | Eight adapters share route/auth/PIH owner; four without-XML/background adapters and ICV require migration |
-| Private key | `custom_private_key` from the shared saved owner, matched to its selected certificate | Legacy live HTTP/ICV consumers still need migration; full-pipeline rotation snapshot pending |
+| Live authorization | Company `custom_basic_auth_from_production`; machine `custom_final_auth_csid` | Twelve adapters share route/auth/PIH owner; ICV and certificate epoch/issuance migration remain pending |
+| Private key | `custom_private_key` from the shared saved owner, matched to its selected certificate | Six live generators now use the saved invoice issuer; ICV and full-pipeline rotation snapshot pending |
 | Certificate | Company `custom_certificate`; machine readers support both registered spellings and reject conflicts | Issuance writes different fields at different stages; purpose/version-aware migration must precede deployment |
 | Linked credentials | `custom_zatca_pos_name`, `custom__use_company_certificate__keys`, `custom_linked_doctype` | One credential owner must drive signing, HTTP, and identity; linked-company fallback must be explicit |
 | Compliance type | `custom_validation_type`; legacy numeric `compliance_type`; new explicit batch `validation_type` | Fixed the batch race while preserving the existing single-button precedence |

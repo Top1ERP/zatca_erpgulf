@@ -17,7 +17,9 @@ function uses the same owner policy. Existing call signatures remain compatible.
 Increment 5 also connects the four primary live reporting/clearance adapters as
 described in [SUBMISSION_CONTEXT.md](SUBMISSION_CONTEXT.md); increment 6 connects
 four existing-XML adapters in [LEGACY_XML_AND_ICV.md](LEGACY_XML_AND_ICV.md).
-Without-XML/background auth, CSID issuance, wizard flows, and ICV migration remain pending.
+Increment 7 connects the four without-XML/background reporting adapters in
+[GENERATION_AND_COMPLIANCE.md](GENERATION_AND_COMPLIANCE.md). CSID issuance,
+wizard flows, ICV migration, and an atomic credential-version snapshot remain pending.
 
 ## Saved ownership and fields
 

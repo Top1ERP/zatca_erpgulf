@@ -88,10 +88,11 @@ credential material were inspected for this increment.
 
 ## Next adapters and release gates
 
-Remaining duplicated live-auth paths are `sales_invoice_withoutxml`,
-`zatca_background_sched`, `pos_submit__without_xml`, and `pos_schedule_background`.
-They need the same request ownership contract plus separate scrutiny of their
-nonzero Compliance branches, retry identity, artifact writes, and scheduling.
+Increment 7 migrates `sales_invoice_withoutxml`, `zatca_background_sched`,
+`pos_submit__without_xml`, and `pos_schedule_background`, and redirects the six
+legacy generator sample paths. See
+[GENERATION_AND_COMPLIANCE.md](GENERATION_AND_COMPLIANCE.md). Retry identity,
+worker deferral, per-Company eligibility, and artifact transactions remain pending.
 Final-CSID issuance, wizard auth, purpose-specific certificate storage/renewal,
 and a single signing/request credential-version snapshot also remain pending.
 

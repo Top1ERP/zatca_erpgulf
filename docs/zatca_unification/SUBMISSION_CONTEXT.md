@@ -65,8 +65,9 @@ switch, full-site transaction test, or ERPNext 16 run occurred. See
 ## Remaining release gates
 
 1. Increment 6 migrates the four existing-XML adapters listed in
-   [LEGACY_XML_AND_ICV.md](LEGACY_XML_AND_ICV.md). Without-XML/background request
-   adapters and their nonzero Compliance branches remain pending.
+   [LEGACY_XML_AND_ICV.md](LEGACY_XML_AND_ICV.md). Increment 7 migrates the remaining
+   four reporting adapters and redirects the six legacy generator Compliance paths
+   in [GENERATION_AND_COMPLIANCE.md](GENERATION_AND_COMPLIANCE.md).
 2. Reconcile ICV owner/environment fingerprinting with the selected owner, with
    an explicit continuity/migration policy. Never reset or merge existing chains
    merely because a resolver has changed.
