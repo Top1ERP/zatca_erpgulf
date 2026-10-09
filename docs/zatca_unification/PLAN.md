@@ -6,6 +6,12 @@ to deploy across tenants, upgrade ERPNext, submit production invoices, or delete
 legacy accounting records. The older `docs/zatca_advance_redesign/` records remain
 historical evidence; their deployment claims do not apply to this new branch.
 
+The user explicitly requires prior notice before modifying the live application.
+Before any installed-source edit, deployment, migration, runtime configuration
+change or bench/worker restart, explain the scope and operational impact to the
+user. Development-branch continuation is not live deployment authority; the
+pilot/rollout decision and remaining acceptance gates are still required.
+
 ## Target design
 
 Retain the public button and hook entry points while gradually replacing their

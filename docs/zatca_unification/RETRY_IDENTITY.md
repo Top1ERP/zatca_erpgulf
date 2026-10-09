@@ -106,3 +106,10 @@ key versus content-manifest drift comparison; see
 [ISSUANCE_CANDIDATE.md](ISSUANCE_CANDIDATE.md). It does not create a DocType,
 persist evidence, verify credential/chain provenance or authorize replay. Actual
 ledger/outcome/locking services and restored-site migration remain pending.
+
+Increment 14 adds a pure single-attempt event/receipt journal, including unknown
+outcomes, late responses and idempotence/conflict checks without acceptance or
+retry authority. See [DISPATCH_JOURNAL.md](DISPATCH_JOURNAL.md). Strict endpoint/
+response classification, persisted coordination and verified provenance remain
+gates before any live identity or dispatch migration. Notify the user before any
+live application change; branch work alone is not deployment authority.

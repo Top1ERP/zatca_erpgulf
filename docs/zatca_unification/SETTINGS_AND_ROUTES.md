@@ -1,4 +1,9 @@
-# Settings and route audit — updated through development increment 13
+# Settings and route audit — updated through development increment 14
+
+Increment 14 adds a pure single-attempt journal over the prepared candidate. It
+does not resolve settings, authorize retries or classify receipts as accepted;
+see [DISPATCH_JOURNAL.md](DISPATCH_JOURNAL.md). Live paths remain unchanged, and
+the user requires prior notice before any live application change.
 
 Increment 13 adds a pure immutable prepared-artifact contract. It pins explicit
 route/chain/epoch/snapshot declarations and observes drift without reading current
