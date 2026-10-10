@@ -94,7 +94,10 @@ spoofing, safe errors and Arabic catalog entries. No HTTP or tenant SQL occurs.
 Three additional cases run the service with the real repository on the owned
 private MariaDB fixture: authorized metadata, denied Company and wrong environment.
 Only the document/permission layer is mocked. The combined selection passes
-**2,857 local + 51 private SQL = 2,908 cases**. Use the commands in [STATUS.md](STATUS.md)
+**2,857 local + 51 private SQL = 2,908 cases** at increment 20. Increment 21 adds
+[CSR/version-bound Compliance observations](COMPLIANCE_EVIDENCE.md) through the
+same permissioned service without changing manifest-only inspection. Its current
+combined suite passes 2,993 local + 55 private SQL cases. Use the commands in [STATUS.md](STATUS.md)
 and [CREDENTIAL_BUNDLE_STORAGE.md](CREDENTIAL_BUNDLE_STORAGE.md).
 
 Permissioned metadata still cannot establish transactional saved settings, remote

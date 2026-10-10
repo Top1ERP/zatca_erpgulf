@@ -97,6 +97,17 @@ class StagedCredentialInspectionService:
         return site, user
 
     def inspect(self, company_abbr, source_doc, endpoint, *, version_id):
+        """Permissioned metadata for one exact slot/version, never active material."""
+        return self._inspect(company_abbr, source_doc, endpoint, version_id=version_id)
+
+    def inspect_compliance_checks(self, company_abbr, source_doc, *, version_id, check_set):
+        """Permissioned local observations only, not a final-CSID activation gate."""
+        return self._inspect(
+            company_abbr, source_doc, "compliance/invoices", version_id=version_id,
+            check_set=check_set, include_checks=True,
+        )
+
+    def _inspect(self, company_abbr, source_doc, endpoint, *, version_id, check_set=None, include_checks=False):
         """Inspect an explicit saved slot/version; no latest/default/env override.
 
         Saved links, flags and routing are used, never caller-supplied credential
@@ -113,6 +124,11 @@ class StagedCredentialInspectionService:
 
         try:
             actor = self._check_actor()
+            if include_checks:
+                from zatca_erpgulf.zatca_erpgulf.compliance_evidence import ComplianceCheckSet
+
+                if type(check_set) is not ComplianceCheckSet:
+                    raise CredentialBundleError("bundle_check_set_binding")
             _validate(version_id, "bundle_version", _canonical_uuid)
             if type(endpoint) is not str or endpoint not in (
                 "compliance/invoices", "production/csids",
@@ -143,6 +159,13 @@ class StagedCredentialInspectionService:
                 raise CredentialBundleError("bundle_source_binding")
             if self._check_actor() != actor:
                 frappe.throw(_(DENIED_MESSAGE), frappe.PermissionError)
+            if include_checks:
+                if (check_set.requirements.storage_namespace != self._scope.storage_namespace
+                        or check_set.requirements.manifest.encode() != sealed.manifest_bytes
+                        or check_set.requirements.seller_tax_id != str(company.get("tax_id") or "").strip()
+                        or any(exchange.route != route for exchange in check_set.exchanges)):
+                    raise CredentialBundleError("bundle_check_set_binding")
+                return check_set.diagnostic_projection()
             return sealed.manifest.diagnostic_projection()
         except frappe.PermissionError:
             denied = True

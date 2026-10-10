@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and twenty bounded increments (Compliance outcomes, dedicated
+Safety preparation and twenty-one bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -13,7 +13,8 @@ contract, a single-attempt dispatch-observation journal, endpoint-bound
 response/returned-XML assessment, an isolated durable journal repository,
 an ephemeral signing/authentication material snapshot, legacy credential
 lifecycle separation evidence, encrypted versioned credential staging, and
-permissioned metadata-only staged inspection)
+permissioned metadata-only staged inspection, and version/CSR-bound Compliance
+observations)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -357,6 +358,21 @@ branches and credential-context differences are recorded in
   adoption, key-custody provider installation, activation or live change. See
   [CREDENTIAL_BUNDLE_ACCESS.md](CREDENTIAL_BUNDLE_ACCESS.md) for deployment gates.
 
+## Increment 21: version/CSR-bound Compliance observations
+
+- Derives three/six required types from bounded signature-valid CSR functionality,
+  matching its public key to the staged version and UID to saved Company Tax ID.
+- Binds exact request/response observations to one manifest/flow/request/version,
+  namespace, gateway, embedded certificate, XML type, UUID and declared digest.
+- Distinguishes consistent 200/202 validation, exact type-specific raw 406 previous
+  completion, rejections and unknown transport. No local marker or repeated single
+  result can complete missing types; conflicting attempt/sample identities fail.
+- Composes the increment 20 operator gate with an authenticated staged-row read
+  before returning metadata. No body/credential export, new whitelist or live use.
+- Added 136 local and four actual private SQL cases. These are supplied local
+  observations, not verified remote acceptance or durable receipt capture; all
+  activation/completion flags remain false. See [COMPLIANCE_EVIDENCE.md](COMPLIANCE_EVIDENCE.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -378,8 +394,9 @@ to reach 2,438 passing local tests. Increment 17 adds 100 cases to reach
 2,538 passing local tests. Increment 18 adds 122 cases to reach
 2,660 passing local tests. Increment 19 adds 92 cases to reach
 2,752 passing local tests. Increment 20 adds 105 to reach
-**2,857 passing local tests**, plus **51 passing real private-database cases**
-(25 journal + 26 bundle/service, **2,908 total**). Both private SQL suites were rerun;
+2,857 passing local tests. Increment 21 adds 136 to reach
+**2,993 passing local tests**, plus **55 passing real private-database cases**
+(25 journal + 30 bundle/service, **3,048 total**). Both private SQL suites were rerun;
 they never connect to a tenant:
 
 | Suite | Scope |
@@ -393,6 +410,7 @@ they never connect to a tenant:
 | `test_credential_lifecycle.py` | Independent purpose/token/field observations, same-key renewal, alias reversal, missing/bounded material, frozen privacy, saved-source capture and actual legacy writer/key rotation characterization with mocked side effects |
 | `test_credential_bundle.py` | Explicit slots/versions, AES-GCM integrity and exact secret/text preservation, bounded strict codec, key custody boundary, immutable staged envelopes and SQL transaction/error/privacy contracts |
 | `test_credential_bundle_access.py` | Site/role/document gates before key acquisition, shared secret-free owner projection, exact slot/source/provider binding, actor drift, static unchained localized errors, metadata-only no-write service |
+| `test_compliance_evidence.py` | Signed CSR functionality/key/UID requirements, six-type exact wire/XML/certificate/route bindings, raw 200/202/406 distinctions, observation conflicts/bounds/privacy and staged operator composition; no remote verification |
 | `test_credential_bundle_mariadb.py` (separate opt-in) | Private encrypted InnoDB roundtrip, parent/slot isolation, immutable secret-version conflicts, concurrent stages, corruption, nonce collision, lock timeout and owned-server crash/rollback recovery |
 | `test_submission_context.py` | Four primary request adapters, environments/owners, Production auth, actual PIH helper with mocked records, rejection/timeout, request-pinned owner, batch mode, legacy 409 behavior |
 | `test_legacy_submission_context.py` | Four existing-XML adapters and wrappers, actual temporary file reads, saved machine-link guards, unchanged artifacts, auth and PIH ownership |
@@ -431,6 +449,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
   zatca_erpgulf/zatca_erpgulf/tests/test_credential_lifecycle.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_credential_bundle.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_credential_bundle_access.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_compliance_evidence.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_field_compat.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_submission_context.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_legacy_submission_context.py \
@@ -472,8 +491,10 @@ services. Resolve certificate issuance/rotation field conflicts before deploymen
 Use the increment 18 separation evidence and staged storage proposal to preserve
 active Production material during onboarding/renewal; implement explicit bundle
 provenance and redacted operator boundaries before adding runtime selection.
-The increment 19 encrypted store and increment 20 permissioned metadata service
-are staging only: choose protected key custody, rehearse actual Frappe integration
+The increment 19 encrypted store, increment 20 permissioned metadata service and
+increment 21 CSR-bound observation set are staging/diagnostics only: choose
+protected key custody, implement trusted protected durable receipt capture and
+CSR-to-issuance provenance, rehearse actual Frappe integration
 and verify exact source/remote flow evidence
 before implementing controlled epoch activation or migrating legacy fields.
 Resolve foreground unique-ID/gPOS policy parity and transactional worker/retry

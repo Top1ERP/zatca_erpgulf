@@ -20,6 +20,8 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_journal_repository_mariadb import is
 from zatca_erpgulf.zatca_erpgulf.tests.test_credential_bundle_access import (
     operator, service, PermissionDenied, InspectionFailed,
 )
+from zatca_erpgulf.zatca_erpgulf.tests.test_compliance_evidence import csr, exchange, SELLER
+from zatca_erpgulf.zatca_erpgulf.compliance_evidence import ComplianceRequirements, ComplianceCheckSet
 
 
 pytestmark = pytest.mark.skipif(os.environ.get("ZATCA_RUN_ISOLATED_MARIADB") != "1",
@@ -84,6 +86,31 @@ def test_permissioned_service_on_owned_private_storage(connections, context, ope
         assert report["activation_authorized"] is False
     # The TEST caller releases any read lock. The service never commits or owns
     # this private connection; no Frappe tenant database participates.
+    database.rollback()
+
+
+@pytest.mark.parametrize("case", ["complete", "previous", "incomplete", "wrong_request_id"])
+def test_bound_compliance_observations_use_authenticated_private_version(connections, context, operator, materials, case):
+    namespace, cipher, seal, _ = context
+    envelope = stage(connections(), namespace, cipher, seal())
+    manifest = envelope.manifest
+    if case == "wrong_request_id":
+        manifest = replace(manifest, compliance_request_id="OTHER_REQUEST")
+    requirements = ComplianceRequirements(namespace, manifest, csr(materials[0]))
+    steps = requirements.required_steps[:1] if case == "incomplete" else requirements.required_steps
+    observations = tuple(exchange(requirements, materials[0], step=step,
+                                  status=406 if case == "previous" else 200) for step in steps)
+    check_set = ComplianceCheckSet(requirements, observations)
+    operator.documents["Company", "SOURCE"].values["tax_id"] = SELLER
+    database = connections()
+    inspector, _ = service(operator, database, cipher, namespace=namespace)
+    if case == "wrong_request_id":
+        with pytest.raises(InspectionFailed):
+            inspector.inspect_compliance_checks("TC", None, version_id=manifest.version_id, check_set=check_set)
+    else:
+        report = inspector.inspect_compliance_checks("TC", None, version_id=manifest.version_id, check_set=check_set)
+        assert report["state"] == ("INCOMPLETE_OBSERVATIONS" if case == "incomplete" else "COMPLETE_MATCHED_OBSERVATIONS")
+        assert report["compliance_completion_verified"] is report["activation_authorized"] is False
     database.rollback()
 
 

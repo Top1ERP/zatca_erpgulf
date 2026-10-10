@@ -113,8 +113,9 @@ lock timeout and owned-server crash recovery of committed/uncommitted work.
 
 Increment 19 passed 2,752 local and 48 private SQL cases. The increment 20
 [permissioned metadata service](CREDENTIAL_BUNDLE_ACCESS.md) adds 105 local and
-three private SQL service cases; the current selection passes **2,857 local +
-51 private SQL = 2,908 cases**. Reproduce
+three private SQL service cases. Increment 21 adds [CSR-bound observations](COMPLIANCE_EVIDENCE.md)
+with 136 local and four private SQL service cases; the current selection passes
+**2,993 local + 55 private SQL = 3,048 cases**. Reproduce
 the opt-in SQL test from the development worktree only:
 
 ```sh
