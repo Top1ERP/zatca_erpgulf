@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and twenty-two bounded increments (Compliance outcomes, dedicated
+Safety preparation and twenty-three bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -14,7 +14,8 @@ response/returned-XML assessment, an isolated durable journal repository,
 an ephemeral signing/authentication material snapshot, legacy credential
 lifecycle separation evidence, encrypted versioned credential staging, and
 permissioned metadata-only staged inspection, and version/CSR-bound Compliance
-observations, and an encrypted append-only request/receipt archive)
+observations, an encrypted append-only request/receipt archive, and permissioned
+metadata-only archive selection)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -387,6 +388,19 @@ branches and credential-context differences are recorded in
   activation. Durable supplied observations remain unverified remote evidence. See
   [COMPLIANCE_ARCHIVE.md](COMPLIANCE_ARCHIVE.md).
 
+## Increment 23: permissioned archived Compliance inspection
+
+- Extended the internal staged inspection service, reusing saved source/owner ACLs
+  before resource acquisition and authenticated exact-version/slot loading.
+- Added an optional explicitly supplied independent archive cipher; existing
+  three-argument resource construction and prior inspection modes are unchanged.
+- Accepts only a bounded unique explicit selection; checks stored manifest,
+  taxpayer, route and shared CSR. Whole-selection failure never returns partial
+  success; reports do not claim complete history or verified remote completion.
+- Added 145 local cases and seven owned-private SQL service cases. No whitelist,
+  key discovery, HTTP, credential activation, UI or live writes. See
+  [COMPLIANCE_ARCHIVE_ACCESS.md](COMPLIANCE_ARCHIVE_ACCESS.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -410,8 +424,9 @@ to reach 2,438 passing local tests. Increment 17 adds 100 cases to reach
 2,752 passing local tests. Increment 20 adds 105 to reach
 2,857 passing local tests. Increment 21 adds 136 to reach
 2,993 passing local tests. Increment 22 adds 149 to reach
-**3,142 passing local tests**, plus **82 passing real private-database cases**
-(25 journal + 30 bundle/service + 27 archive, **3,224 total**). All three private SQL suites were rerun;
+3,142 passing local tests. Increment 23 adds 145 to reach
+**3,287 passing local tests**, plus **89 passing real private-database cases**
+(25 journal + 30 bundle/service + 34 archive/service, **3,376 total**). All three private SQL suites were rerun;
 they never connect to a tenant:
 
 | Suite | Scope |
@@ -427,6 +442,7 @@ they never connect to a tenant:
 | `test_credential_bundle_access.py` | Site/role/document gates before key acquisition, shared secret-free owner projection, exact slot/source/provider binding, actor drift, static unchained localized errors, metadata-only no-write service |
 | `test_compliance_evidence.py` | Signed CSR functionality/key/UID requirements, six-type exact wire/XML/certificate/route bindings, raw 200/202/406 distinctions, observation conflicts/bounds/privacy and staged operator composition; no remote verification |
 | `test_compliance_archive.py` | Exact bounded framed codec, independently keyed envelopes, AAD/rehydration integrity, start/receipt binding, static transaction/privacy/no-discovery contracts and empty-body preservation |
+| `test_compliance_archive_access.py` | ACL-first authenticated explicit selection, saved owner/Sales/POS source matching, shared CSR, count/byte limits, no partial result, actor drift, privacy/translation and historical inspection compatibility |
 | `test_compliance_archive_mariadb.py` (separate opt-in) | Real private request/receipt commits, idempotence/conflicts, scope, corruption, rollback/connection loss, nonce guard, two-worker isolation, lock timeout and owned-server crash recovery |
 | `test_credential_bundle_mariadb.py` (separate opt-in) | Private encrypted InnoDB roundtrip, parent/slot isolation, immutable secret-version conflicts, concurrent stages, corruption, nonce collision, lock timeout and owned-server crash/rollback recovery |
 | `test_submission_context.py` | Four primary request adapters, environments/owners, Production auth, actual PIH helper with mocked records, rejection/timeout, request-pinned owner, batch mode, legacy 409 behavior |
@@ -468,6 +484,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
   zatca_erpgulf/zatca_erpgulf/tests/test_credential_bundle_access.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_compliance_evidence.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_compliance_archive.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_compliance_archive_access.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_field_compat.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_submission_context.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_legacy_submission_context.py \
@@ -510,9 +527,10 @@ Use the increment 18 separation evidence and staged storage proposal to preserve
 active Production material during onboarding/renewal; implement explicit bundle
 provenance and redacted operator boundaries before adding runtime selection.
 The increment 19 encrypted store, increment 20 permissioned metadata service,
-increment 21 CSR-bound observation set and increment 22 supplied-observation archive
-are staging/diagnostics only: choose protected key custody, connect permissioned
-archive metadata inspection, implement trusted protected transport capture and
+increment 21 CSR-bound observation set, increment 22 supplied-observation archive
+and increment 23 permissioned archive metadata selection
+are staging/diagnostics only: choose protected key custody and audited resource
+acquisition, implement trusted protected transport capture and
 CSR-to-issuance provenance, rehearse actual Frappe integration
 and verify exact source/remote flow evidence
 before implementing controlled epoch activation or migrating legacy fields.

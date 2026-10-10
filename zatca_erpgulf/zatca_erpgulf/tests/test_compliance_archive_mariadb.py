@@ -10,16 +10,20 @@ from uuid import uuid4
 
 import pymysql
 import pytest
+from unittest.mock import Mock
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from zatca_erpgulf.zatca_erpgulf.compliance_archive import ComplianceArchiveCipher, ComplianceArchiveError, encode_observation
 from zatca_erpgulf.zatca_erpgulf.compliance_archive_repository import MariaDBComplianceArchiveRepository
 from zatca_erpgulf.zatca_erpgulf.compliance_evidence import ComplianceRequirements, ComplianceCheckSet
+from zatca_erpgulf.zatca_erpgulf import credential_bundle_access as access
 from zatca_erpgulf.zatca_erpgulf.tests.test_journal_repository_mariadb import isolated_server, connections
 from zatca_erpgulf.zatca_erpgulf.tests.test_credential_bundle_mariadb import install_private_bundle_schema, context, stage
 from zatca_erpgulf.zatca_erpgulf.tests.test_credential_selection import materials
 from zatca_erpgulf.zatca_erpgulf.tests.test_compliance_evidence import csr, exchange, response
 from zatca_erpgulf.zatca_erpgulf.tests.test_credential_snapshot import basic
+from zatca_erpgulf.zatca_erpgulf.tests.test_credential_bundle_access import operator, PermissionDenied, InspectionFailed
+from zatca_erpgulf.zatca_erpgulf.tests.test_artifact_evidence import SELLER
 
 
 pytestmark = pytest.mark.skipif(os.environ.get("ZATCA_RUN_ISOLATED_MARIADB") != "1",
@@ -73,6 +77,63 @@ def read(database, repository, bundle, exchange_id):
     history = repository(database).load(bundle.manifest.slot, bundle.manifest.version_id, exchange_id)
     database.rollback()  # TEST caller releases read locks explicitly.
     return history
+
+
+@pytest.mark.parametrize("case", ["prepared", "receipt", "six_types", "denied", "wrong_environment", "missing_exchange", "corrupt"])
+def test_permissioned_archive_service_on_owned_private_database(connections, audit, operator, materials, case):
+    namespace, bundle_cipher, archive_cipher, bundle, start, receipt, left, right, repo, _ = audit
+    writer = connections()
+    prepare(writer, repo, left)
+    identities = [start.exchange_id]
+    if case != "prepared":
+        receive(writer, repo, right)
+    if case == "six_types":
+        for step in start.requirements.required_steps:
+            if step == start.step:
+                continue
+            observed = exchange(start.requirements, materials[0], step=step)
+            captured = replace(observed, http_status=None, response_bytes=None, received_at=None)
+            prepare(writer, repo, archive_cipher.seal(captured, sequence=1, key_id="audit-test"))
+            receive(writer, repo, archive_cipher.seal(observed, sequence=2, key_id="audit-test"))
+            identities.append(observed.exchange_id)
+    elif case == "missing_exchange":
+        identities.append(str(uuid4()))
+    elif case == "corrupt":
+        # Deliberate alteration on the owned synthetic test database ONLY.
+        with writer.cursor() as cursor:
+            cursor.execute("UPDATE zatca_compliance_archive_v1 SET ciphertext=%s WHERE storage_namespace=%s AND exchange_id=%s AND sequence=2",
+                           (right.ciphertext[:-1] + bytes([right.ciphertext[-1] ^ 1]), namespace, start.exchange_id))
+        writer.commit()
+    operator.documents["Company", "SOURCE"].values["tax_id"] = SELLER
+    if case == "wrong_environment":
+        operator.documents["Company", "SOURCE"].values["custom_select"] = "Simulation"
+    if case == "denied":
+        operator.denied.add(("Company", "SOURCE"))
+    database = connections()
+    scope = access.CredentialStorageScope("private.test", namespace)
+    provider = Mock(return_value=access.CredentialStorageResources(scope, database, bundle_cipher, archive_cipher))
+    inspector = access.StagedCredentialInspectionService(scope, provider)
+    try:
+        if case in ("denied", "wrong_environment", "missing_exchange", "corrupt"):
+            with pytest.raises(PermissionDenied if case == "denied" else InspectionFailed) as error:
+                inspector.inspect_compliance_archive("TC", None, version_id=bundle.manifest.version_id, exchange_ids=tuple(identities))
+            assert error.value.__context__ is None
+            if case == "denied":
+                provider.assert_not_called()
+        else:
+            report = inspector.inspect_compliance_archive("TC", None, version_id=bundle.manifest.version_id, exchange_ids=tuple(identities))
+            assert len(report["histories"]) == len(identities)
+            assert report["selection_is_complete_history"] is False
+            assert report["checks"]["activation_authorized"] is False
+            assert report["checks"]["state"] == ("COMPLETE_MATCHED_OBSERVATIONS" if case == "six_types" else "INCOMPLETE_OBSERVATIONS")
+            public = json.dumps(report)
+            for private in (materials[0].pem, materials[0].text, basic(materials[0]),
+                            "PRIVATE-CSR-SUBJECT", start.request_bytes.decode(), SELLER):
+                assert private not in public
+    finally:
+        # Explicit TEST caller releases success/failure read locks; service does
+        # not own the connection or touch a Frappe tenant transaction.
+        database.rollback()
 
 
 def test_committed_exact_requests_and_receipts_are_ciphertext_only(connections, audit, materials):

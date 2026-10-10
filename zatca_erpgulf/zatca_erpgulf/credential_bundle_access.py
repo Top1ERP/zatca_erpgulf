@@ -15,6 +15,7 @@ from frappe import _
 from frappe.permissions import has_permission
 
 from zatca_erpgulf.zatca_erpgulf.api_routing import resolve_api_route
+from zatca_erpgulf.zatca_erpgulf.compliance_archive import ComplianceArchiveCipher
 from zatca_erpgulf.zatca_erpgulf.credential_bundle import (
     CredentialBundleCipher, CredentialBundleError, CredentialSlot, _validate,
 )
@@ -44,20 +45,25 @@ class CredentialStorageScope:
 
 @dataclass(frozen=True, repr=False)
 class CredentialStorageResources:
-    """Trusted provider's transaction and storage cipher, never an API payload.
+    """Trusted provider's transaction and storage ciphers, never an API payload.
 
     This contract does not establish secure key custody or prove database origin.
     A deployment must provide and audit those independently of the caller.
+    The dedicated archive cipher is required only for archive inspection; None
+    preserves existing metadata/supplied-observation inspection construction.
     """
 
     scope: CredentialStorageScope
     connection: object = field(repr=False, compare=False)
     cipher: CredentialBundleCipher = field(repr=False, compare=False)
+    archive_cipher: ComplianceArchiveCipher | None = field(default=None, repr=False, compare=False)
 
     def __post_init__(self):
         if type(self.scope) is not CredentialStorageScope or type(self.cipher) is not CredentialBundleCipher:
             raise CredentialBundleError("bundle_resource_binding")
         if not callable(getattr(self.connection, "cursor", None)):
+            raise CredentialBundleError("bundle_resource_binding")
+        if self.archive_cipher is not None and type(self.archive_cipher) is not ComplianceArchiveCipher:
             raise CredentialBundleError("bundle_resource_binding")
 
     def __repr__(self):
@@ -107,7 +113,19 @@ class StagedCredentialInspectionService:
             check_set=check_set, include_checks=True,
         )
 
-    def _inspect(self, company_abbr, source_doc, endpoint, *, version_id, check_set=None, include_checks=False):
+    def inspect_compliance_archive(self, company_abbr, source_doc, *, version_id, exchange_ids):
+        """Read a bounded explicit selection, NOT all attempts or remote completion.
+
+        No supplied wire observations, namespace, keys or endpoint are accepted.
+        Absence/failure aborts the entire report; there is no partial success.
+        """
+        return self._inspect(
+            company_abbr, source_doc, "compliance/invoices", version_id=version_id,
+            exchange_ids=exchange_ids, include_archive=True,
+        )
+
+    def _inspect(self, company_abbr, source_doc, endpoint, *, version_id, check_set=None,
+                 include_checks=False, exchange_ids=None, include_archive=False):
         """Inspect an explicit saved slot/version; no latest/default/env override.
 
         Saved links, flags and routing are used, never caller-supplied credential
@@ -124,6 +142,16 @@ class StagedCredentialInspectionService:
 
         try:
             actor = self._check_actor()
+            if include_archive:
+                from zatca_erpgulf.zatca_erpgulf.compliance_evidence import MAX_EXCHANGES
+
+                if (type(exchange_ids) is not tuple or not 1 <= len(exchange_ids) <= MAX_EXCHANGES
+                        or include_checks):
+                    raise CredentialBundleError("bundle_archive_selection")
+                for identity in exchange_ids:
+                    _validate(identity, "bundle_archive_exchange_id", _canonical_uuid)
+                if len(set(exchange_ids)) != len(exchange_ids):
+                    raise CredentialBundleError("bundle_archive_selection")
             if include_checks:
                 from zatca_erpgulf.zatca_erpgulf.compliance_evidence import ComplianceCheckSet
 
@@ -148,6 +176,8 @@ class StagedCredentialInspectionService:
             resources = self._resource_provider(self._scope)
             if type(resources) is not CredentialStorageResources or resources.scope != self._scope:
                 raise CredentialBundleError("bundle_resource_binding")
+            if include_archive and type(resources.archive_cipher) is not ComplianceArchiveCipher:
+                raise CredentialBundleError("bundle_archive_resource")
             if self._check_actor() != actor:
                 frappe.throw(_(DENIED_MESSAGE), frappe.PermissionError)
             sealed = MariaDBCredentialBundleRepository(
@@ -159,6 +189,8 @@ class StagedCredentialInspectionService:
                 raise CredentialBundleError("bundle_source_binding")
             if self._check_actor() != actor:
                 frappe.throw(_(DENIED_MESSAGE), frappe.PermissionError)
+            if include_archive:
+                return self._archive_report(resources, sealed, company, route, actor, exchange_ids)
             if include_checks:
                 if (check_set.requirements.storage_namespace != self._scope.storage_namespace
                         or check_set.requirements.manifest.encode() != sealed.manifest_bytes
@@ -178,3 +210,51 @@ class StagedCredentialInspectionService:
         if denied:
             frappe.throw(_(DENIED_MESSAGE), frappe.PermissionError)
         frappe.throw(_(FAILED_MESSAGE))
+
+    def _archive_report(self, resources, sealed, company, route, actor, exchange_ids):
+        """Authenticated at-rest evidence only, never trusted network provenance.
+
+        The caller retains responsibility for rollback/closure on success AND
+        failure. Reads acquire locks; there is no atomic Frappe settings/ACL
+        snapshot and this selection does not establish completeness of history.
+        """
+        from zatca_erpgulf.zatca_erpgulf.compliance_archive_repository import MariaDBComplianceArchiveRepository
+        from zatca_erpgulf.zatca_erpgulf.compliance_evidence import (
+            MAX_CHECK_SET_BYTES, ComplianceCheckSet,
+        )
+
+        if type(resources.archive_cipher) is not ComplianceArchiveCipher:
+            raise CredentialBundleError("bundle_archive_resource")
+        repository = MariaDBComplianceArchiveRepository(
+            resources.connection, self._scope.storage_namespace, resources.cipher, resources.archive_cipher,
+        )
+        histories, observations, total_bytes = [], [], 0
+        for identity in exchange_ids:
+            if self._check_actor() != actor:
+                frappe.throw(_(DENIED_MESSAGE), frappe.PermissionError)
+            history = repository.load(sealed.manifest.slot, sealed.manifest.version_id, identity)
+            if self._check_actor() != actor:
+                frappe.throw(_(DENIED_MESSAGE), frappe.PermissionError)
+            current = history.current_observation
+            if (current.exchange_id != identity
+                    or current.requirements.storage_namespace != self._scope.storage_namespace
+                    or current.requirements.manifest.encode() != sealed.manifest_bytes
+                    or current.requirements.seller_tax_id != str(company.get("tax_id") or "").strip()
+                    or current.route != route):
+                raise CredentialBundleError("bundle_archive_source_binding")
+            # Count BOTH protected records, including repeated request/CSR bytes.
+            # Abort before keeping another history; never truncate into success.
+            for observation in (history.start, history.receipt):
+                if observation is not None:
+                    total_bytes += (len(observation.request_bytes) + len(observation.response_bytes or b"")
+                                    + len(observation.requirements.csr_der))
+            if total_bytes > MAX_CHECK_SET_BYTES:
+                raise CredentialBundleError("bundle_archive_selection_size")
+            histories.append(history.diagnostic_projection())
+            observations.append(current)
+        checks = ComplianceCheckSet(observations[0].requirements, tuple(observations))
+        report = {"state": "AUTHENTICATED_ARCHIVED_OBSERVATIONS", "selection_is_complete_history": False,
+                  "checks": checks.diagnostic_projection(), "histories": histories}
+        if self._check_actor() != actor:
+            frappe.throw(_(DENIED_MESSAGE), frappe.PermissionError)
+        return report

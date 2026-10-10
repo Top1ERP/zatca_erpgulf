@@ -101,8 +101,12 @@ Deadlocks/timeouts are not silently retried.
 
 Company/device credentials, invoice UUID/ICV/PIH, legacy response fields, CSIDs and
 active versions remain untouched. The caller must enforce tenant/role/document
-authorization. Increment 20's operator service is not yet connected to this
+authorization. At increment 22, the operator service was not yet connected to this
 archive; no API exposure/access bypass was added.
+
+Increment 23 connects [permissioned explicit metadata selection](COMPLIANCE_ARCHIVE_ACCESS.md)
+through that internal service. It does not whitelist or expose the decrypting
+repository and does not add trusted transport or activation authority.
 
 ## Verification
 
@@ -118,6 +122,9 @@ request/version mismatch, corruption, nonce collision, competing receipt workers
 at both isolation levels, lock timeout, owned-process crash recovery and recovered
 six-type observation sets. The combined selection passes
 **3,142 local + 82 private SQL = 3,224 cases**.
+
+Increment 23 adds 145 local and seven private SQL operator-service cases,
+raising the current totals to **3,287 local + 89 private SQL = 3,376 cases**.
 
 From the development worktree:
 
@@ -136,8 +143,8 @@ tested. Broader release/unification gates remain in [PLAN.md](PLAN.md).
 
 ## Next gate
 
-Connect permissioned metadata-only archive inspection and trusted resource
-acquisition, then implement a coordinator enforcing protected source and actual
+The internal permissioned metadata selection is added in increment 23. Audit and
+provide trusted resource acquisition, then implement a coordinator enforcing protected source and actual
 authentication/transport binding, durable start-before-send and receipt
 commit/reconciliation. Verify exact CSR-to-issuance provenance before proposing
 controlled epoch activation. Rehearse on restored v15/v16 sites. Schema/key/backup

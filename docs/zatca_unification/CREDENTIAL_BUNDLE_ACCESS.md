@@ -99,7 +99,10 @@ Only the document/permission layer is mocked. The combined selection passes
 same permissioned service without changing manifest-only inspection. Its current
 combined suite passed 2,993 local + 55 private SQL cases. Increment 22's
 [encrypted observation archive](COMPLIANCE_ARCHIVE.md) increases the current totals
-to 3,142 local + 82 private SQL; archive operator integration is still a gate.
+to 3,142 local + 82 private SQL. Increment 23 adds
+[permissioned explicit archive selection](COMPLIANCE_ARCHIVE_ACCESS.md), preserving
+prior inspection modes and raising totals to 3,287 local + 89 private SQL.
+There is still no whitelisted operator endpoint or deployed resource provider.
 Use the commands in [STATUS.md](STATUS.md)
 and [CREDENTIAL_BUNDLE_STORAGE.md](CREDENTIAL_BUNDLE_STORAGE.md).
 
