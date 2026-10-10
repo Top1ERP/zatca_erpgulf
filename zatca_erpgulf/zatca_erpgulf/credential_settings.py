@@ -58,8 +58,13 @@ def resolve_credential_owner(company_abbr, source_doc=None) -> CredentialOwner:
         _throw_configuration_error(error)
 
 
-def _resolve_owner_from_saved_company(company, source_doc):
-    """Reuse the existing owner policy after one explicit saved Company read."""
+def _resolve_owner_from_saved_company(company, source_doc, *, load_doc=None, include_secrets=True):
+    """Reuse one owner policy, optionally with a permission-checked loader.
+
+    Existing callers retain their behavior. Internal metadata inspection supplies
+    its own checked loader and omits credential-field projections entirely.
+    """
+    load_doc = frappe.get_doc if load_doc is None else load_doc
     owner, kind = company, "company"
     if source_doc is not None:
         if isinstance(source_doc, str):
@@ -74,7 +79,7 @@ def _resolve_owner_from_saved_company(company, source_doc):
         ):
             raise CredentialConfigurationError("source")
         # Caller data supplies identity only. Saved source/device links are reloaded.
-        source = company if doctype == "Company" and name == company.name else frappe.get_doc(doctype, name)
+        source = company if doctype == "Company" and name == company.name else load_doc(doctype, name)
         setting = None
         if doctype == "Company":
             if source.name != company.name:
@@ -83,14 +88,14 @@ def _resolve_owner_from_saved_company(company, source_doc):
             if source.get("company") != company.name:
                 raise CredentialConfigurationError("company")
             if source.get("custom_zatca_pos_name"):
-                setting = frappe.get_doc("ZATCA Multiple Setting", source.get("custom_zatca_pos_name"))
+                setting = load_doc("ZATCA Multiple Setting", source.get("custom_zatca_pos_name"))
         else:
             setting = source
         if setting is not None:
             linked_name = setting.get("custom_linked_doctype")
             if not linked_name:
                 raise CredentialConfigurationError("linked_company")
-            linked = company if linked_name == company.name else frappe.get_doc("Company", linked_name)
+            linked = company if linked_name == company.name else load_doc("Company", linked_name)
             if linked.name != company.name:
                 company_vat = str(company.get("tax_id") or "").strip()
                 linked_vat = str(linked.get("tax_id") or "").strip()
@@ -102,7 +107,7 @@ def _resolve_owner_from_saved_company(company, source_doc):
                 owner, kind = setting, "multiple_setting"
     return CredentialOwner(
         company.name, owner.doctype, owner.name, kind,
-        MappingProxyType({field: owner.get(field) for field in SECRET_FIELDS}),
+        MappingProxyType({field: owner.get(field) for field in SECRET_FIELDS} if include_secrets else {}),
     )
 
 
@@ -144,14 +149,16 @@ def capture_credential_snapshot(company_abbr, source_doc, endpoint, *, observed_
         ).format(error.code))
 
 
-def _capture_saved_company_projection(company_abbr):
+def _capture_saved_company_projection(company_abbr, *, load_doc=None, include_secrets=True):
     """One frozen Company projection, not atomic source/device/linked-row reads."""
     from zatca_erpgulf.zatca_erpgulf.api_routing import ENVIRONMENT_FIELDS
 
-    saved = frappe.get_doc("Company", {"abbr": company_abbr})
+    load_doc = frappe.get_doc if load_doc is None else load_doc
+    saved = load_doc("Company", {"abbr": company_abbr})
     values = MappingProxyType({
         name: saved.get(name) for name in (
-            "tax_id", "custom_select", *ENVIRONMENT_FIELDS.values(), *SECRET_FIELDS,
+            "tax_id", "custom_select", *ENVIRONMENT_FIELDS.values(),
+            *(SECRET_FIELDS if include_secrets else ()),
         )
     })
     return _CompanyProjection(saved.name, saved.doctype, values)

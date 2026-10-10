@@ -655,3 +655,5 @@ The selected ZATCA private key does not match the selected certificate.,مفتا
 Unsupported ZATCA credential purpose.,الغرض المطلوب لاستخدام بيانات اعتماد زاتكا غير مدعوم.
 The selected ZATCA credential owner has no authorization for the requested purpose. Credentials from another purpose cannot be used.,لا تتوفر لدى صاحب بيانات اعتماد زاتكا المحدد بيانات مصادقة للغرض المطلوب. لا يمكن استخدام بيانات اعتماد مخصصة لغرض آخر.
 "When enabled, tax Account Head rows in Sales Taxes and Charges are checked against the configured ZATCA VAT source before saving Sales Invoices.",عند التفعيل، يتم التحقق من صفوف Account Head الضريبية في جدول Sales Taxes and Charges مقابل مصدر ضريبة ZATCA المحدد قبل حفظ فواتير المبيعات.
+You do not have permission to inspect staged ZATCA credentials.,ليس لديك صلاحية فحص بيانات اعتماد زاتكا المخزنة مرحليًا.
+Staged ZATCA credential inspection failed. No credential was activated.,تعذر فحص بيانات اعتماد زاتكا المخزنة مرحليًا. لم يتم تفعيل أي بيانات اعتماد.

@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and nineteen bounded increments (Compliance outcomes, dedicated
+Safety preparation and twenty bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -12,7 +12,8 @@ opt-in embedded public certificate observations, an immutable prepared-artifact
 contract, a single-attempt dispatch-observation journal, endpoint-bound
 response/returned-XML assessment, an isolated durable journal repository,
 an ephemeral signing/authentication material snapshot, legacy credential
-lifecycle separation evidence, and encrypted versioned credential staging)
+lifecycle separation evidence, encrypted versioned credential staging, and
+permissioned metadata-only staged inspection)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -341,6 +342,21 @@ branches and credential-context differences are recorded in
   permissioned localized service integration remain gates. See
   [CREDENTIAL_BUNDLE_STORAGE.md](CREDENTIAL_BUNDLE_STORAGE.md).
 
+## Increment 20: permissioned staged metadata inspection
+
+- Added an internal non-whitelisted operator service, server-bound site/namespace
+  and protected resource-provider contracts. No key or connection discovery.
+- Requires the operator role and every saved Company/source/device/linked-row
+  read permission before acquiring storage resources. Document ignore-permission
+  and test-mode flags cannot bypass this boundary; actor drift is rejected.
+- Reuses the existing owner/route policy without projecting legacy secret fields.
+  Requires an exact version/slot and matching manifest source Company/kind.
+- Returns only metadata with authority flags false. Localized generic errors do
+  not chain potentially secret-bearing provider/driver exception details.
+- Added 105 local cases and three actual private SQL service cases. No runtime
+  adoption, key-custody provider installation, activation or live change. See
+  [CREDENTIAL_BUNDLE_ACCESS.md](CREDENTIAL_BUNDLE_ACCESS.md) for deployment gates.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -361,8 +377,9 @@ bringing the combined selected suite to 2,326. Increment 16 adds 112 local cases
 to reach 2,438 passing local tests. Increment 17 adds 100 cases to reach
 2,538 passing local tests. Increment 18 adds 122 cases to reach
 2,660 passing local tests. Increment 19 adds 92 cases to reach
-**2,752 passing local tests**, plus **48 passing real private-database cases**
-(25 journal + 23 bundle, **2,800 total**). Both private SQL suites were rerun;
+2,752 passing local tests. Increment 20 adds 105 to reach
+**2,857 passing local tests**, plus **51 passing real private-database cases**
+(25 journal + 26 bundle/service, **2,908 total**). Both private SQL suites were rerun;
 they never connect to a tenant:
 
 | Suite | Scope |
@@ -375,6 +392,7 @@ they never connect to a tenant:
 | `test_credential_snapshot.py` | One copied route/key/certificate/auth material binding, same-key renewal rejection, validity/curve, saved-source capture, frozen Company projection, static privacy/Arabic failures, no writes/HTTP or provenance claim |
 | `test_credential_lifecycle.py` | Independent purpose/token/field observations, same-key renewal, alias reversal, missing/bounded material, frozen privacy, saved-source capture and actual legacy writer/key rotation characterization with mocked side effects |
 | `test_credential_bundle.py` | Explicit slots/versions, AES-GCM integrity and exact secret/text preservation, bounded strict codec, key custody boundary, immutable staged envelopes and SQL transaction/error/privacy contracts |
+| `test_credential_bundle_access.py` | Site/role/document gates before key acquisition, shared secret-free owner projection, exact slot/source/provider binding, actor drift, static unchained localized errors, metadata-only no-write service |
 | `test_credential_bundle_mariadb.py` (separate opt-in) | Private encrypted InnoDB roundtrip, parent/slot isolation, immutable secret-version conflicts, concurrent stages, corruption, nonce collision, lock timeout and owned-server crash/rollback recovery |
 | `test_submission_context.py` | Four primary request adapters, environments/owners, Production auth, actual PIH helper with mocked records, rejection/timeout, request-pinned owner, batch mode, legacy 409 behavior |
 | `test_legacy_submission_context.py` | Four existing-XML adapters and wrappers, actual temporary file reads, saved machine-link guards, unchanged artifacts, auth and PIH ownership |
@@ -412,6 +430,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
   zatca_erpgulf/zatca_erpgulf/tests/test_credential_snapshot.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_credential_lifecycle.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_credential_bundle.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_credential_bundle_access.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_field_compat.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_submission_context.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_legacy_submission_context.py \
@@ -453,8 +472,9 @@ services. Resolve certificate issuance/rotation field conflicts before deploymen
 Use the increment 18 separation evidence and staged storage proposal to preserve
 active Production material during onboarding/renewal; implement explicit bundle
 provenance and redacted operator boundaries before adding runtime selection.
-The increment 19 encrypted store is staging only: choose protected key custody,
-rehearse permissioned Frappe integration and verify exact source/remote flow evidence
+The increment 19 encrypted store and increment 20 permissioned metadata service
+are staging only: choose protected key custody, rehearse actual Frappe integration
+and verify exact source/remote flow evidence
 before implementing controlled epoch activation or migrating legacy fields.
 Resolve foreground unique-ID/gPOS policy parity and transactional worker/retry
 coordination; design an explicit ICV continuity mapping using the increment 6 audit.

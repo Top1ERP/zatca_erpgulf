@@ -111,8 +111,10 @@ conflicts, connection loss/rollback, parent mismatches, slot isolation, corrupti
 nonce collision, concurrent identical/conflicting stages at both isolation levels,
 lock timeout and owned-server crash recovery of committed/uncommitted work.
 
-The full selected local suite passes **2,752** cases. The separate private SQL
-command passes **48** cases (25 journal + 23 bundle), **2,800 total**. Reproduce
+Increment 19 passed 2,752 local and 48 private SQL cases. The increment 20
+[permissioned metadata service](CREDENTIAL_BUNDLE_ACCESS.md) adds 105 local and
+three private SQL service cases; the current selection passes **2,857 local +
+51 private SQL = 2,908 cases**. Reproduce
 the opt-in SQL test from the development worktree only:
 
 ```sh

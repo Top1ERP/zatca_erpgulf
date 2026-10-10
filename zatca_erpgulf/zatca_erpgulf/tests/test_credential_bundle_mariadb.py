@@ -17,6 +17,9 @@ from zatca_erpgulf.zatca_erpgulf.credential_bundle_repository import MariaDBCred
 from zatca_erpgulf.zatca_erpgulf.tests.test_credential_snapshot import capture, owner, basic
 from zatca_erpgulf.zatca_erpgulf.tests.test_credential_selection import materials
 from zatca_erpgulf.zatca_erpgulf.tests.test_journal_repository_mariadb import isolated_server, connections
+from zatca_erpgulf.zatca_erpgulf.tests.test_credential_bundle_access import (
+    operator, service, PermissionDenied, InspectionFailed,
+)
 
 
 pytestmark = pytest.mark.skipif(os.environ.get("ZATCA_RUN_ISOLATED_MARIADB") != "1",
@@ -58,6 +61,30 @@ def stage(database, namespace, cipher, envelope):
     result = MariaDBCredentialBundleRepository(database, namespace, cipher).stage(envelope)
     database.commit()  # Explicit TEST caller, not repository/Frappe hook.
     return result
+
+
+@pytest.mark.parametrize("case", ["metadata", "denied", "wrong_environment"])
+def test_permissioned_service_on_owned_private_storage(connections, context, operator, case):
+    namespace, cipher, seal, _ = context
+    envelope = stage(connections(), namespace, cipher,
+                     seal(environment="Simulation" if case == "wrong_environment" else "Production"))
+    database = connections()
+    inspector, provider = service(operator, database, cipher, namespace=namespace)
+    if case == "denied":
+        operator.denied.add(("Company", "SOURCE"))
+        with pytest.raises(PermissionDenied):
+            inspector.inspect("TC", None, "compliance/invoices", version_id=envelope.manifest.version_id)
+        provider.assert_not_called()
+    elif case == "wrong_environment":
+        with pytest.raises(InspectionFailed):
+            inspector.inspect("TC", None, "compliance/invoices", version_id=envelope.manifest.version_id)
+    else:
+        report = inspector.inspect("TC", None, "compliance/invoices", version_id=envelope.manifest.version_id)
+        assert report == envelope.manifest.diagnostic_projection()
+        assert report["activation_authorized"] is False
+    # The TEST caller releases any read lock. The service never commits or owns
+    # this private connection; no Frappe tenant database participates.
+    database.rollback()
 
 
 def test_actual_commit_roundtrip_contains_only_ciphertext_for_secret_fields(connections, context, materials):
