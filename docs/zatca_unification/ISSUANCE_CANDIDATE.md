@@ -1,5 +1,9 @@
 # Immutable prepared-artifact contract — increment 13
 
+Follow-up: increment 16 adds [storage codecs and an isolated MariaDB repository](JOURNAL_REPOSITORY.md)
+with real private-server recovery tests. It does not install a Frappe ledger,
+verify declarations, allocate counters or authorize live dispatch/replay.
+
 This is an isolated, pure candidate contract and persistence design, **not** an
 installed DocType or a durable ledger. No runtime generator/worker/HTTP adapter
 uses it yet. No customer invoice, identity, counter, PIH, credential, file or

@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and fifteen bounded increments (Compliance outcomes, dedicated
+Safety preparation and sixteen bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -10,10 +10,11 @@ Company-scoped Sales/POS scheduling, opt-in attached-XML evidence inspection,
 opt-in stored response/counter observations, opt-in generated XML evidence,
 opt-in embedded public certificate observations, an immutable prepared-artifact
 contract, a single-attempt dispatch-observation journal, and endpoint-bound
-response/returned-XML assessment)
+response/returned-XML assessment, and an isolated durable journal repository)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
-has been deployed to the running application or sent to ZATCA.
+has been deployed to the running application or sent to ZATCA. Increment 16 uses
+a new private MariaDB test subprocess, never a tenant database or live service.
 The user requires prior notice before any live application change or restart;
 this development continuation does not authorize deployment.
 
@@ -282,6 +283,19 @@ branches and credential-context differences are recorded in
   database writes or runtime adapter adoption. See
   [RESPONSE_ASSESSMENT.md](RESPONSE_ASSESSMENT.md) for policy and official sources.
 
+## Increment 16: durable journal storage and private InnoDB rehearsal
+
+- Added versioned bounded candidate/event codecs. Stored declarations and exact
+  XML/receipt bytes reconstruct existing contracts without current ERP settings.
+- Added an explicit-connection MariaDB repository with row locks, immutable
+  candidate comparison, namespace/identity uniqueness, append history CAS and
+  idempotent event redelivery. No internal commits, schema installation or HTTP.
+- Added 112 local cases and 25 actual private MariaDB cases, including concurrent
+  creation/appending, timeouts, rollback, cross-candidate collisions, corruption,
+  and owned-test-server crash recovery. No tenant connection or migration.
+- This is not yet an installed Frappe service, outbox, chain allocator, network
+  lease or cross-attempt policy. See [JOURNAL_REPOSITORY.md](JOURNAL_REPOSITORY.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -298,7 +312,9 @@ combined selected suite to 1,522. Increment 11 adds 43 cases, bringing the combi
 selected suite to 1,565. Increment 12 adds 85 cases, bringing the combined selected
 suite to 1,650. Increment 13 adds 237 cases, bringing the combined selected suite
 to 1,887. Increment 14 adds 161 cases to reach 2,048. Increment 15 adds 278 cases,
-bringing the combined selected suite to **2,326 passing tests**:
+bringing the combined selected suite to 2,326. Increment 16 adds 112 local cases
+to reach **2,438 passing local tests**, plus **25 passing real private-database
+cases** (**2,463 total**):
 
 | Suite | Scope |
 | --- | --- |
@@ -320,12 +336,15 @@ bringing the combined selected suite to **2,326 passing tests**:
 | `test_issuance_candidate.py` | Pure frozen exact-byte candidate, explicit chain/version/epoch/route declarations, source/type matching, same-key drift, structured scope/privacy and no-I/O |
 | `test_dispatch_journal.py` | Frozen single-attempt receipt history, exact bounded bytes, unknown/late/auth observations, idempotence/conflicts, no second start or acceptance/replay authority |
 | `test_response_assessment.py` | Endpoint/HTTP/validation consistency, warnings, bounded strict wire JSON, returned XML identity/type/digest/PIH, legitimate changed clearance artifact, no provenance/crypto/accounting/retry authority |
+| `test_journal_storage.py`, `test_journal_repository.py` | Versioned exact-byte rehydration, strict schemas, namespace/SQL boundaries, stale history/CAS and static transaction failures; no implicit commits/live adapter |
+| `test_journal_repository_mariadb.py` (separate opt-in) | Actual private InnoDB commits, recovery, rollback, two-worker contention/isolation, identity/event/attempt uniqueness and corrupt-record detection; never a tenant |
 | `test_tax_details_compat.py`, `test_tax_details_regression.py` | Tax adapter regressions |
 | `test_qr_tlv_compliance.py` | Existing QR/TLV regressions |
 | `test_zatca_response.py` | Existing response handling |
 | `test_compatibility_hardening.py` | Existing mocked runtime/advance compatibility regressions |
 
-All HTTP/Frappe I/O in the new boundary tests is mocked. Run them against the
+HTTP/Frappe I/O in the local boundary tests is mocked. The separately opt-in
+repository rehearsal uses real SQL only on its own new private server. Run against the
 development worktree, not the installed production package. From the worktree:
 
 ```sh
@@ -354,6 +373,8 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
   zatca_erpgulf/zatca_erpgulf/tests/test_issuance_candidate.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_dispatch_journal.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_response_assessment.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_journal_storage.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_journal_repository.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_tax_details_compat.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_tax_details_regression.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_qr_tlv_compliance.py \
@@ -361,8 +382,10 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
   zatca_erpgulf/zatca_erpgulf/tests/test_compatibility_hardening.py
 ```
 
-Tested with the existing Python 3.10/Frappe 15 environment. No real v16 runtime,
-full site integration, browser language switch, ZATCA SDK run, remote Compliance
+Tested with the existing Python 3.10/Frappe 15 environment, plus MariaDB 10.11.14
+for the isolated repository rehearsal. See [JOURNAL_REPOSITORY.md](JOURNAL_REPOSITORY.md)
+for the separate opt-in command and recovery limits. No real v16 runtime, full
+site integration, browser language switch, ZATCA SDK run, remote Compliance
 request, or production invoice submission was performed in this increment.
 
 ## Next gate
@@ -374,7 +397,8 @@ coordination; design an explicit ICV continuity mapping using the increment 6 au
 Use the follow-up [retry identity evidence](RETRY_IDENTITY.md) to introduce a
 durable issuance artifact contract before changing UUID or counter allocation.
 Bind the pure endpoint/response/returned-XML assessment to verified receipt capture
-and artifact integrity; implement cross-attempt policy and durable repository/outbox/leases;
+and artifact integrity; bind the isolated repository to an approved Frappe storage
+service and implement cross-attempt policy, chain locking and durable outbox/leases;
 extend observed certificate identity with verified credential provenance and
 wider counter/log history. Rehearse on restored sites before proposing
 tenant reconciliation or changes to issuance/replay.

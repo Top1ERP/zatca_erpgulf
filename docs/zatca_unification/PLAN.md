@@ -130,6 +130,12 @@ be reserialized during cleanup.
 
 ### 5. Orchestration, persistence, and retry safety
 
+- Increment 16 adds exact-byte storage codecs and an explicit-connection MariaDB
+  repository, rehearsed with real commits/concurrency/crash recovery on its own
+  private server. See [JOURNAL_REPOSITORY.md](JOURNAL_REPOSITORY.md). No schema or
+  service is installed in Frappe, and no tenant database is accessed. Production
+  storage permissions/encryption, migration, outbox/leases and chain allocation
+  remain gates; SQL serialization is not authorization to resend an invoice.
 - Increment 15 implements the pure receipt/operation/returned-XML consistency
   assessment, not authoritative receipt capture or live acceptance writes. See
   [RESPONSE_ASSESSMENT.md](RESPONSE_ASSESSMENT.md). Genuine expected 200 is success

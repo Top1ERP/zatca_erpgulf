@@ -120,3 +120,9 @@ Its MATCHED observations are not verified provenance, cryptographic/accounting
 validation or live acceptance. Generic 409, timeout, 303 and rejection never
 authorize a new identity or automatic replay. Durable services, verified capture
 and restored-site reconciliation/concurrency tests still precede live migration.
+
+Increment 16 adds the explicit-connection SQL repository and exact-byte storage
+codecs; see [JOURNAL_REPOSITORY.md](JOURNAL_REPOSITORY.md). Actual private InnoDB
+rehearsal covers commit/rollback, concurrency and owned-test-server crash recovery.
+No live schema/identity migration or retry policy was installed. Single-candidate
+row locking is not a chain allocator, outbox, network lease or cross-attempt grant.

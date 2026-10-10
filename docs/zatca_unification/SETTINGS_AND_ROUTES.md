@@ -1,4 +1,10 @@
-# Settings and route audit — updated through development increment 15
+# Settings and route audit — updated through development increment 16
+
+Increment 16 adds an isolated durable journal repository over stored route/source/
+epoch declarations, not a new settings resolver. Its private MariaDB rehearsal
+never connects to a tenant or changes runtime configuration. See
+[JOURNAL_REPOSITORY.md](JOURNAL_REPOSITORY.md). Frappe storage integration,
+verified settings/credential snapshot and approved schema migration remain gates.
 
 Increment 15 assesses endpoint-bound response/returned-XML consistency without
 reading current settings or changing live status/PIH. It shares bounded JSON
