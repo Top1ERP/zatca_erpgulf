@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and eighteen bounded increments (Compliance outcomes, dedicated
+Safety preparation and nineteen bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -11,8 +11,8 @@ opt-in stored response/counter observations, opt-in generated XML evidence,
 opt-in embedded public certificate observations, an immutable prepared-artifact
 contract, a single-attempt dispatch-observation journal, endpoint-bound
 response/returned-XML assessment, an isolated durable journal repository,
-an ephemeral signing/authentication material snapshot, and legacy credential
-lifecycle separation evidence)
+an ephemeral signing/authentication material snapshot, legacy credential
+lifecycle separation evidence, and encrypted versioned credential staging)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -326,6 +326,21 @@ branches and credential-context differences are recorded in
   provenance, secure bundle storage, UI/return redaction, runtime adoption and
   v15/v16 rehearsal remain gates. See [CREDENTIAL_LIFECYCLE.md](CREDENTIAL_LIFECYCLE.md).
 
+## Increment 19: encrypted versioned credential staging
+
+- Added explicit owner/environment/purpose slots, immutable version/flow/parent
+  declarations and AES-256-GCM envelopes with caller-supplied in-memory keys.
+  Original certificate/key/auth text is encrypted, not repaired or logged.
+- Added a transactional explicit-connection staging repository. Exact envelope
+  redelivery is idempotent; changed secrets or envelopes cannot replace a version.
+  Parent flow/slot/key consistency is checked without claiming remote completion.
+- Added private-only DDL, 92 local cases and 23 real private MariaDB cases for
+  isolation, corruption, rollback, competing stages, lock timeouts and crash recovery.
+- No activation pointer/API, Frappe installer/migration, key discovery or runtime
+  adoption. Protected key management, verified source/remote provenance and
+  permissioned localized service integration remain gates. See
+  [CREDENTIAL_BUNDLE_STORAGE.md](CREDENTIAL_BUNDLE_STORAGE.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -345,9 +360,10 @@ to 1,887. Increment 14 adds 161 cases to reach 2,048. Increment 15 adds 278 case
 bringing the combined selected suite to 2,326. Increment 16 adds 112 local cases
 to reach 2,438 passing local tests. Increment 17 adds 100 cases to reach
 2,538 passing local tests. Increment 18 adds 122 cases to reach
-**2,660 passing local tests**, plus **25 passing real private-database cases**
-(**2,685 total**). The private database suite was rerun after the shared parser
-changes; it never connects to a tenant:
+2,660 passing local tests. Increment 19 adds 92 cases to reach
+**2,752 passing local tests**, plus **48 passing real private-database cases**
+(25 journal + 23 bundle, **2,800 total**). Both private SQL suites were rerun;
+they never connect to a tenant:
 
 | Suite | Scope |
 | --- | --- |
@@ -358,6 +374,8 @@ changes; it never connects to a tenant:
 | `test_credential_selection.py`, `test_field_compat.py` | Saved owner resolution, certificate aliases, key matching, signing/QR parity without writes, auth purposes, Arabic messages, six-type local preparation, existing field compatibility |
 | `test_credential_snapshot.py` | One copied route/key/certificate/auth material binding, same-key renewal rejection, validity/curve, saved-source capture, frozen Company projection, static privacy/Arabic failures, no writes/HTTP or provenance claim |
 | `test_credential_lifecycle.py` | Independent purpose/token/field observations, same-key renewal, alias reversal, missing/bounded material, frozen privacy, saved-source capture and actual legacy writer/key rotation characterization with mocked side effects |
+| `test_credential_bundle.py` | Explicit slots/versions, AES-GCM integrity and exact secret/text preservation, bounded strict codec, key custody boundary, immutable staged envelopes and SQL transaction/error/privacy contracts |
+| `test_credential_bundle_mariadb.py` (separate opt-in) | Private encrypted InnoDB roundtrip, parent/slot isolation, immutable secret-version conflicts, concurrent stages, corruption, nonce collision, lock timeout and owned-server crash/rollback recovery |
 | `test_submission_context.py` | Four primary request adapters, environments/owners, Production auth, actual PIH helper with mocked records, rejection/timeout, request-pinned owner, batch mode, legacy 409 behavior |
 | `test_legacy_submission_context.py` | Four existing-XML adapters and wrappers, actual temporary file reads, saved machine-link guards, unchanged artifacts, auth and PIH ownership |
 | `test_icv_identity_contract.py` | Read-only characterization of legacy identity/rotation/purpose behavior and collision edge cases; not a counter migration |
@@ -393,6 +411,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
   zatca_erpgulf/zatca_erpgulf/tests/test_credential_selection.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_credential_snapshot.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_credential_lifecycle.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_credential_bundle.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_field_compat.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_submission_context.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_legacy_submission_context.py \
@@ -421,7 +440,8 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
 
 Tested with the existing Python 3.10/Frappe 15 environment, plus MariaDB 10.11.14
 for the isolated repository rehearsal. See [JOURNAL_REPOSITORY.md](JOURNAL_REPOSITORY.md)
-for the separate opt-in command and recovery limits. No real v16 runtime, full
+and [CREDENTIAL_BUNDLE_STORAGE.md](CREDENTIAL_BUNDLE_STORAGE.md) for the separate
+opt-in SQL command and recovery/key-management limits. No real v16 runtime, full
 site integration, browser language switch, ZATCA SDK run, remote Compliance
 request, or production invoice submission was performed in this increment.
 
@@ -433,6 +453,9 @@ services. Resolve certificate issuance/rotation field conflicts before deploymen
 Use the increment 18 separation evidence and staged storage proposal to preserve
 active Production material during onboarding/renewal; implement explicit bundle
 provenance and redacted operator boundaries before adding runtime selection.
+The increment 19 encrypted store is staging only: choose protected key custody,
+rehearse permissioned Frappe integration and verify exact source/remote flow evidence
+before implementing controlled epoch activation or migrating legacy fields.
 Resolve foreground unique-ID/gPOS policy parity and transactional worker/retry
 coordination; design an explicit ICV continuity mapping using the increment 6 audit.
 Use the follow-up [retry identity evidence](RETRY_IDENTITY.md) to introduce a

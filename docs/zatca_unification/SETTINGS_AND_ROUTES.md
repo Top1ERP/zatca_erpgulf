@@ -1,4 +1,9 @@
-# Settings and route audit — updated through development increment 18
+# Settings and route audit — updated through development increment 19
+
+Increment 19 adds private encrypted version staging with explicit owner/environment/
+purpose slots; no active pointer, new saved-settings resolver or legacy fallback.
+See [CREDENTIAL_BUNDLE_STORAGE.md](CREDENTIAL_BUNDLE_STORAGE.md). Key custody,
+permissioned Frappe storage, verified flow/epoch activation and migration remain gates.
 
 Increment 18 observes independent purpose-token certificate identity and legacy
 field matches through an internal read-only adapter, not a new selector. Company

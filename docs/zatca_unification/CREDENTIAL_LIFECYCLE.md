@@ -69,6 +69,11 @@ unchanged.
 
 ## Proposed storage and transition design — not installed
 
+Increment 19 implements the encrypted staging envelope and explicit SQL boundary
+in [CREDENTIAL_BUNDLE_STORAGE.md](CREDENTIAL_BUNDLE_STORAGE.md), rehearsed only on
+owned private databases. It does not install Frappe storage, migrate these fields,
+activate versions or verify remote provenance; the transition gates below remain.
+
 Prefer a versioned credential bundle store over more shared Company text fields.
 One slot has `(owner doctype/name, environment, purpose)` plus a controlled version
 UUID; references from Company/device identify the active version. Each bundle

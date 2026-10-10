@@ -82,6 +82,11 @@ be reserialized during cleanup.
 
 ### 2. Settings, fields, and credential context
 
+- Increment 19 implements isolated encrypted version staging, not active selection
+  or field migration. See [CREDENTIAL_BUNDLE_STORAGE.md](CREDENTIAL_BUNDLE_STORAGE.md).
+  Caller-supplied AES-GCM keys and explicit SQL contracts have private rehearsals;
+  production key custody, tenant permissions, transactional source/remote flow
+  evidence and controlled activation must be verified before adoption.
 - Increment 18 adds independent legacy purpose/field observations and a versioned
   bundle migration proposal in [CREDENTIAL_LIFECYCLE.md](CREDENTIAL_LIFECYCLE.md).
   It characterizes shared key/certificate overwrites without changing writers or
@@ -141,6 +146,10 @@ be reserialized during cleanup.
 
 ### 5. Orchestration, persistence, and retry safety
 
+- Keep encrypted credential staging separate from the artifact journal. There is
+  no active-pointer/dispatch API in increment 19, and exact version reads cannot
+  choose latest or fall back across environment/purpose/owner. Approval of staging
+  storage is not authorization to activate credentials, migrate or replay invoices.
 - Pass the ephemeral credential snapshot through a future preparation/request
   service only after transactional provenance and epoch policy are verified.
   Do not serialize its secrets into the journal, a worker job, or diagnostics.
