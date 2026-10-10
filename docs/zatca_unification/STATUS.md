@@ -2,15 +2,16 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and sixteen bounded increments (Compliance outcomes, dedicated
+Safety preparation and seventeen bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
 Company-scoped Sales/POS scheduling, opt-in attached-XML evidence inspection,
 opt-in stored response/counter observations, opt-in generated XML evidence,
 opt-in embedded public certificate observations, an immutable prepared-artifact
-contract, a single-attempt dispatch-observation journal, and endpoint-bound
-response/returned-XML assessment, and an isolated durable journal repository)
+contract, a single-attempt dispatch-observation journal, endpoint-bound
+response/returned-XML assessment, an isolated durable journal repository,
+and an ephemeral signing/authentication material snapshot)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -296,6 +297,21 @@ branches and credential-context differences are recorded in
 - This is not yet an installed Frappe service, outbox, chain allocator, network
   lease or cross-attempt policy. See [JOURNAL_REPOSITORY.md](JOURNAL_REPOSITORY.md).
 
+## Increment 17: ephemeral signing/authentication material binding
+
+- Added a pure frozen snapshot binding route/purpose, private key, signing
+  certificate, Basic authentication certificate and explicit UTC validity time.
+  Exact DER equality rejects renewed certificates even when the key is unchanged.
+- Added an internal read-only capture adapter reusing the existing owner/alias
+  policies. One Company projection is frozen before source/device reads; this
+  is not an atomic cross-row transaction or verified credential epoch.
+- Shared bounded public certificate parsing and authorization field policy.
+  Existing signing/hash/QR algorithms and legacy runtime call paths are unchanged.
+- Added 100 local cases and an Arabic error catalog entry. Secrets are hidden from
+  printable diagnostics; no persistence/HTTP/dispatch/replay authority is granted.
+  No existing generator or request adopts this capture yet. See
+  [CREDENTIAL_SNAPSHOT.md](CREDENTIAL_SNAPSHOT.md) for provenance/adoption gates.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -313,8 +329,10 @@ selected suite to 1,565. Increment 12 adds 85 cases, bringing the combined selec
 suite to 1,650. Increment 13 adds 237 cases, bringing the combined selected suite
 to 1,887. Increment 14 adds 161 cases to reach 2,048. Increment 15 adds 278 cases,
 bringing the combined selected suite to 2,326. Increment 16 adds 112 local cases
-to reach **2,438 passing local tests**, plus **25 passing real private-database
-cases** (**2,463 total**):
+to reach 2,438 passing local tests. Increment 17 adds 100 cases to reach
+**2,538 passing local tests**, plus **25 passing real private-database cases**
+(**2,563 total**). The private database suite was rerun after the shared parser
+refactor; it never connects to a tenant:
 
 | Suite | Scope |
 | --- | --- |
@@ -323,6 +341,7 @@ cases** (**2,463 total**):
 | `test_nonproduction_isolation.py` | Preview identity, live-identity regression, counter boundaries, explicit types, cross-company rejection, debug artifact protection, temporary-file lifetime |
 | `test_api_route_contract.py`, `test_api_routing.py` | Pure routing, six compatibility wrappers, malformed settings, environment overrides, and mocked onboarding request boundaries |
 | `test_credential_selection.py`, `test_field_compat.py` | Saved owner resolution, certificate aliases, key matching, signing/QR parity without writes, auth purposes, Arabic messages, six-type local preparation, existing field compatibility |
+| `test_credential_snapshot.py` | One copied route/key/certificate/auth material binding, same-key renewal rejection, validity/curve, saved-source capture, frozen Company projection, static privacy/Arabic failures, no writes/HTTP or provenance claim |
 | `test_submission_context.py` | Four primary request adapters, environments/owners, Production auth, actual PIH helper with mocked records, rejection/timeout, request-pinned owner, batch mode, legacy 409 behavior |
 | `test_legacy_submission_context.py` | Four existing-XML adapters and wrappers, actual temporary file reads, saved machine-link guards, unchanged artifacts, auth and PIH ownership |
 | `test_icv_identity_contract.py` | Read-only characterization of legacy identity/rotation/purpose behavior and collision edge cases; not a counter migration |
@@ -356,6 +375,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
   zatca_erpgulf/zatca_erpgulf/tests/test_api_route_contract.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_api_routing.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_credential_selection.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_credential_snapshot.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_field_compat.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_submission_context.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_legacy_submission_context.py \
@@ -390,8 +410,9 @@ request, or production invoice submission was performed in this increment.
 
 ## Next gate
 
-Bind the shared route and saved-owner policy to one credential/version snapshot;
-resolve certificate issuance/rotation field conflicts before any deployment.
+Bind the new ephemeral material snapshot to verified transactional source/settings
+provenance and a durable credential epoch, then adopt it in preparation/request
+services. Resolve certificate issuance/rotation field conflicts before deployment.
 Resolve foreground unique-ID/gPOS policy parity and transactional worker/retry
 coordination; design an explicit ICV continuity mapping using the increment 6 audit.
 Use the follow-up [retry identity evidence](RETRY_IDENTITY.md) to introduce a

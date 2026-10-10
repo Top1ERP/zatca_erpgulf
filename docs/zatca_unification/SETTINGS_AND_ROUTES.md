@@ -1,4 +1,10 @@
-# Settings and route audit — updated through development increment 16
+# Settings and route audit — updated through development increment 17
+
+Increment 17 adds internal ephemeral route/key/certificate/authentication capture
+using the existing saved-owner and alias policies. It is not a new precedence
+resolver or cross-row atomic snapshot, and no live generator/adapter adopts it.
+See [CREDENTIAL_SNAPSHOT.md](CREDENTIAL_SNAPSHOT.md). Field lifecycle migration,
+verified epoch/taxpayer/environment provenance and service integration remain gates.
 
 Increment 16 adds an isolated durable journal repository over stored route/source/
 epoch declarations, not a new settings resolver. Its private MariaDB rehearsal

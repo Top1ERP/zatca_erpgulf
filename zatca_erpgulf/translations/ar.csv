@@ -76,6 +76,7 @@ Customer ID Number for ZATCA format is invalid for the selected ZATCA identifica
 1 to 60 characters,من 1 إلى 60 خانة
 Customer ID Type for ZATCA. Select the type that matches the customer identification number.,نوع معرف العميل لZATCA. اختر النوع المطابق لرقم تعريف العميل.
 Discount,خصم
+"ZATCA credential snapshot validation failed ({0}). Review the selected certificate, key, authentication and environment settings.","فشل التحقق من لقطة بيانات اعتماد زاتكا ({0}). راجع الشهادة والمفتاح وبيانات المصادقة وإعدادات البيئة المحددة."
 "Discount reason code. Optional in the invoice, but use the official code when a discount reason is submitted.",رمز سبب الخصم. هو اختياري في الفاتورة، لكن عند إرسال سبب الخصم استخدم الرمز الرسمي.
 Document {0} {1} contains invalid item values:,المستند {0} {1} يحتوي على قيم أصناف غير صحيحة:
 Due to military status,بسبب الوضع العسكري

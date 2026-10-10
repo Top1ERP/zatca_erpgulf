@@ -64,6 +64,11 @@ switch, full-site transaction test, or ERPNext 16 run occurred. See
 
 ## Remaining release gates
 
+Increment 17 provides a local ephemeral material-binding contract, but these
+existing HTTP adapters do not consume it yet. It does not fix their cross-pipeline
+rotation races or establish database/epoch/environment provenance. See
+[CREDENTIAL_SNAPSHOT.md](CREDENTIAL_SNAPSHOT.md) for the staged adoption gates.
+
 1. Increment 6 migrates the four existing-XML adapters listed in
    [LEGACY_XML_AND_ICV.md](LEGACY_XML_AND_ICV.md). Increment 7 migrates the remaining
    four reporting adapters and redirects the six legacy generator Compliance paths

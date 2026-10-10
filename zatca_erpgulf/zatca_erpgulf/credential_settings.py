@@ -6,6 +6,7 @@ repair, certificate migration, key generation, save, or commit occurs here.
 """
 
 import json
+from dataclasses import dataclass, field
 from types import MappingProxyType
 
 import frappe
@@ -52,53 +53,101 @@ def resolve_credential_owner(company_abbr, source_doc=None) -> CredentialOwner:
     """Resolve Company, own-device, or explicitly linked-company credentials."""
     try:
         company = frappe.get_doc("Company", {"abbr": company_abbr})
-        owner, kind = company, "company"
-        if source_doc is not None:
-            if isinstance(source_doc, str):
-                try:
-                    source_doc = json.loads(source_doc)
-                except (TypeError, ValueError):
-                    raise CredentialConfigurationError("source") from None
-            doctype, name = _get_value(source_doc, "doctype"), _get_value(source_doc, "name")
-            if (
-                doctype not in ("Company", "Sales Invoice", "POS Invoice", "ZATCA Multiple Setting")
-                or not isinstance(name, str) or not name.strip()
-            ):
-                raise CredentialConfigurationError("source")
-            # Reload the saved source so a serialized DTO cannot inject an
-            # unrelated issuing unit, linked-company flag, key, or certificate.
-            source = company if doctype == "Company" and name == company.name else frappe.get_doc(doctype, name)
-            setting = None
-            if doctype == "Company":
-                if source.name != company.name:
-                    raise CredentialConfigurationError("company")
-            elif doctype in ("Sales Invoice", "POS Invoice"):
-                if source.get("company") != company.name:
-                    raise CredentialConfigurationError("company")
-                if source.get("custom_zatca_pos_name"):
-                    setting = frappe.get_doc("ZATCA Multiple Setting", source.get("custom_zatca_pos_name"))
-            else:
-                setting = source
-            if setting is not None:
-                linked_name = setting.get("custom_linked_doctype")
-                if not linked_name:
-                    raise CredentialConfigurationError("linked_company")
-                linked = company if linked_name == company.name else frappe.get_doc("Company", linked_name)
-                if linked.name != company.name:
-                    company_vat = str(company.get("tax_id") or "").strip()
-                    linked_vat = str(linked.get("tax_id") or "").strip()
-                    if not company_vat or not linked_vat or company_vat != linked_vat:
-                        raise CredentialConfigurationError("taxpayer")
-                if use_linked_company(setting.get("custom__use_company_certificate__keys")):
-                    owner, kind = linked, "linked_company"
-                else:
-                    owner, kind = setting, "multiple_setting"
-        return CredentialOwner(
-            company.name, owner.doctype, owner.name, kind,
-            MappingProxyType({field: owner.get(field) for field in SECRET_FIELDS}),
-        )
+        return _resolve_owner_from_saved_company(company, source_doc)
     except CredentialConfigurationError as error:
         _throw_configuration_error(error)
+
+
+def _resolve_owner_from_saved_company(company, source_doc):
+    """Reuse the existing owner policy after one explicit saved Company read."""
+    owner, kind = company, "company"
+    if source_doc is not None:
+        if isinstance(source_doc, str):
+            try:
+                source_doc = json.loads(source_doc)
+            except (TypeError, ValueError):
+                raise CredentialConfigurationError("source") from None
+        doctype, name = _get_value(source_doc, "doctype"), _get_value(source_doc, "name")
+        if (
+            doctype not in ("Company", "Sales Invoice", "POS Invoice", "ZATCA Multiple Setting")
+            or not isinstance(name, str) or not name.strip()
+        ):
+            raise CredentialConfigurationError("source")
+        # Caller data supplies identity only. Saved source/device links are reloaded.
+        source = company if doctype == "Company" and name == company.name else frappe.get_doc(doctype, name)
+        setting = None
+        if doctype == "Company":
+            if source.name != company.name:
+                raise CredentialConfigurationError("company")
+        elif doctype in ("Sales Invoice", "POS Invoice"):
+            if source.get("company") != company.name:
+                raise CredentialConfigurationError("company")
+            if source.get("custom_zatca_pos_name"):
+                setting = frappe.get_doc("ZATCA Multiple Setting", source.get("custom_zatca_pos_name"))
+        else:
+            setting = source
+        if setting is not None:
+            linked_name = setting.get("custom_linked_doctype")
+            if not linked_name:
+                raise CredentialConfigurationError("linked_company")
+            linked = company if linked_name == company.name else frappe.get_doc("Company", linked_name)
+            if linked.name != company.name:
+                company_vat = str(company.get("tax_id") or "").strip()
+                linked_vat = str(linked.get("tax_id") or "").strip()
+                if not company_vat or not linked_vat or company_vat != linked_vat:
+                    raise CredentialConfigurationError("taxpayer")
+            if use_linked_company(setting.get("custom__use_company_certificate__keys")):
+                owner, kind = linked, "linked_company"
+            else:
+                owner, kind = setting, "multiple_setting"
+    return CredentialOwner(
+        company.name, owner.doctype, owner.name, kind,
+        MappingProxyType({field: owner.get(field) for field in SECRET_FIELDS}),
+    )
+
+
+@dataclass(frozen=True)
+class _CompanyProjection:
+    """Freeze one saved Company row before reloading the source/device records."""
+
+    name: str
+    doctype: str
+    values: object = field(repr=False)
+
+    def get(self, key):
+        return self.values.get(key)
+
+
+def capture_credential_snapshot(company_abbr, source_doc, endpoint, *, observed_at):
+    """Read-only future pipeline adapter, NOT a cross-row atomic DB transaction.
+
+    No current generator/request uses this capture. A service must supply verified
+    transaction/source/epoch provenance before adopting it or dispatching HTTP.
+    """
+    from zatca_erpgulf.zatca_erpgulf.api_routing import ENVIRONMENT_FIELDS, ApiConfigurationError, resolve_api_route
+    from zatca_erpgulf.zatca_erpgulf.credential_snapshot import (
+        OPERATIONS, CredentialSnapshot, CredentialSnapshotError,
+    )
+
+    try:
+        if type(endpoint) is not str or endpoint not in OPERATIONS:
+            raise CredentialSnapshotError("snapshot_operation")
+        saved = frappe.get_doc("Company", {"abbr": company_abbr})
+        values = MappingProxyType({
+            name: saved.get(name) for name in (
+                "tax_id", "custom_select", *ENVIRONMENT_FIELDS.values(), *SECRET_FIELDS,
+            )
+        })
+        company = _CompanyProjection(saved.name, saved.doctype, values)
+        route = resolve_api_route(values, endpoint)
+        owner = _resolve_owner_from_saved_company(company, source_doc)
+        return CredentialSnapshot(owner, route, _certificate_for_owner(owner), observed_at)
+    except CredentialConfigurationError as error:
+        _throw_configuration_error(error)
+    except (ApiConfigurationError, CredentialSnapshotError) as error:
+        frappe.throw(_(
+            "ZATCA credential snapshot validation failed ({0}). Review the selected certificate, key, authentication and environment settings."
+        ).format(error.code))
 
 
 def _certificate_for_owner(owner: CredentialOwner) -> str:

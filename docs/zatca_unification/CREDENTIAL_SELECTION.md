@@ -28,6 +28,12 @@ epoch or an atomic signing/request snapshot; see
 
 ## Saved ownership and fields
 
+Increment 17 adds a separate internal ephemeral material snapshot using this
+same policy, with exact authentication/signing certificate binding, key/curve and
+explicit UTC validity checks. It is not adopted by existing runtime helpers,
+does not establish an atomic database snapshot or verified epoch, and does not
+repair alias conflicts. See [CREDENTIAL_SNAPSHOT.md](CREDENTIAL_SNAPSHOT.md).
+
 Caller objects, dictionaries, and JSON supply only saved document identity.
 Secrets, issuing-unit links, and flags are reloaded from saved records. Debug
 therefore uses the saved issuer settings, not unsaved form edits. Missing sources

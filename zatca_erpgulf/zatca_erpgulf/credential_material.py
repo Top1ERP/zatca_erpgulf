@@ -69,8 +69,8 @@ def certificate_value(values: Mapping, aliases: Sequence[str]) -> str:
     return candidates[0]
 
 
-def authorization_for_owner(owner: CredentialOwner, purpose: str) -> ApiAuthorization:
-    """Select one purpose-specific field; never fall back across credential types."""
+def authorization_field_for_owner(owner: CredentialOwner, purpose: str) -> str:
+    """Single shared purpose/owner field policy for selection and snapshot capture."""
     if purpose == "compliance":
         fieldname = "custom_basic_auth_from_csid"
     elif purpose == "production":
@@ -80,6 +80,12 @@ def authorization_for_owner(owner: CredentialOwner, purpose: str) -> ApiAuthoriz
         )
     else:
         raise CredentialConfigurationError("purpose")
+    return fieldname
+
+
+def authorization_for_owner(owner: CredentialOwner, purpose: str) -> ApiAuthorization:
+    """Select one purpose-specific field; never fall back across credential types."""
+    fieldname = authorization_field_for_owner(owner, purpose)
     value = owner.values.get(fieldname)
     if not isinstance(value, str) or not value.strip():
         raise CredentialConfigurationError("authorization")

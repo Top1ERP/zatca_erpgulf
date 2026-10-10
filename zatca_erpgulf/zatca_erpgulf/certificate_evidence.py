@@ -51,6 +51,35 @@ def _one(parent, path, code):
     return nodes[0]
 
 
+def parse_public_certificate_text(text):
+    """Share bounded ASCII Base64/DER parsing, without trust or hash-algorithm claims."""
+    if type(text) is not str:
+        raise ArtifactEvidenceError("certificate_base64")
+    if len(text) > MAX_CERTIFICATE_TEXT_BYTES:
+        raise ArtifactEvidenceError("certificate_size")
+    try:
+        raw_text = text.encode("ascii")
+        if len(raw_text) > MAX_CERTIFICATE_TEXT_BYTES:
+            raise ArtifactEvidenceError("certificate_size")
+        compact = re.sub(rb"[ \t\r\n]", b"", raw_text)
+        der = base64.b64decode(compact, validate=True)
+    except ArtifactEvidenceError:
+        raise
+    except (ValueError, binascii.Error):
+        raise ArtifactEvidenceError("certificate_base64") from None
+    if not der or len(der) > MAX_CERTIFICATE_DER_BYTES:
+        raise ArtifactEvidenceError("certificate_size")
+    try:
+        certificate = x509.load_der_x509_certificate(der)
+        if certificate.public_bytes(serialization.Encoding.DER) != der:
+            raise ArtifactEvidenceError("certificate_der_representation")
+    except ArtifactEvidenceError:
+        raise
+    except (ValueError, TypeError, UnsupportedAlgorithm):
+        raise ArtifactEvidenceError("certificate_der") from None
+    return certificate, der
+
+
 def inspect_embedded_certificate(content):
     """Observe one certificate inside the canonical UBL signature location.
 
@@ -91,24 +120,9 @@ def inspect_embedded_certificate(content):
     text = node.text or ""
     if len(node) or not text:
         raise ArtifactEvidenceError("certificate_value")
+    certificate, der = parse_public_certificate_text(text)
+    raw_text = text.encode("ascii")
     try:
-        # Accept XML's four ASCII whitespace characters, not arbitrary Unicode.
-        raw_text = text.encode("ascii")
-        if len(raw_text) > MAX_CERTIFICATE_TEXT_BYTES:
-            raise ArtifactEvidenceError("certificate_size")
-        compact = re.sub(rb"[ \t\r\n]", b"", raw_text)
-        der = base64.b64decode(compact, validate=True)
-    except ArtifactEvidenceError:
-        raise
-    except (ValueError, binascii.Error):
-        raise ArtifactEvidenceError("certificate_base64") from None
-    if not der or len(der) > MAX_CERTIFICATE_DER_BYTES:
-        raise ArtifactEvidenceError("certificate_size")
-    try:
-        certificate = x509.load_der_x509_certificate(der)
-        # Reject a noncanonical/trailing-byte representation, not merely its prefix.
-        if certificate.public_bytes(serialization.Encoding.DER) != der:
-            raise ArtifactEvidenceError("certificate_der_representation")
         public_key = certificate.public_key().public_bytes(
             serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo,
         )

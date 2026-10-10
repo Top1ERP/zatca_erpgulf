@@ -82,6 +82,12 @@ be reserialized during cleanup.
 
 ### 2. Settings, fields, and credential context
 
+- Increment 17 adds a locally bound ephemeral signing/authentication material
+  snapshot and internal read-only adapter, reusing saved-owner and alias policy.
+  See [CREDENTIAL_SNAPSHOT.md](CREDENTIAL_SNAPSHOT.md). Exact certificate/key/token
+  binding and explicit UTC validity are implemented; cross-row atomic provenance,
+  durable epoch, taxpayer/environment/trust verification and runtime adoption
+  remain gates. No existing path uses the new snapshot automatically.
 - Build an effective-settings registry with field, scope, default, precedence,
   legacy alias, consumer, and migration policy. Distinguish missing, blank, and
   explicit zero; do not replace a valid zero with a legacy true value.
@@ -130,6 +136,9 @@ be reserialized during cleanup.
 
 ### 5. Orchestration, persistence, and retry safety
 
+- Pass the ephemeral credential snapshot through a future preparation/request
+  service only after transactional provenance and epoch policy are verified.
+  Do not serialize its secrets into the journal, a worker job, or diagnostics.
 - Increment 16 adds exact-byte storage codecs and an explicit-connection MariaDB
   repository, rehearsed with real commits/concurrency/crash recovery on its own
   private server. See [JOURNAL_REPOSITORY.md](JOURNAL_REPOSITORY.md). No schema or
