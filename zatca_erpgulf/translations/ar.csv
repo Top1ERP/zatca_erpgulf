@@ -657,3 +657,5 @@ The selected ZATCA credential owner has no authorization for the requested purpo
 "When enabled, tax Account Head rows in Sales Taxes and Charges are checked against the configured ZATCA VAT source before saving Sales Invoices.",عند التفعيل، يتم التحقق من صفوف Account Head الضريبية في جدول Sales Taxes and Charges مقابل مصدر ضريبة ZATCA المحدد قبل حفظ فواتير المبيعات.
 You do not have permission to inspect staged ZATCA credentials.,ليس لديك صلاحية فحص بيانات اعتماد زاتكا المخزنة مرحليًا.
 Staged ZATCA credential inspection failed. No credential was activated.,تعذر فحص بيانات اعتماد زاتكا المخزنة مرحليًا. لم يتم تفعيل أي بيانات اعتماد.
+You do not have permission to run staged ZATCA compliance checks.,ليس لديك صلاحية تشغيل فحوص امتثال زاتكا باستخدام بيانات الاعتماد المخزنة مرحليًا.
+Staged ZATCA compliance capture failed. No credential was activated. Do not resend automatically.,تعذر تسجيل فحص امتثال زاتكا المرحلي. لم يتم تفعيل أي بيانات اعتماد. لا تُعد الإرسال تلقائيًا.

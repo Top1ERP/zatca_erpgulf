@@ -150,11 +150,17 @@ Private split: 25 journal, 30 bundle/service, 34 archive/service, 17 capture cas
 Increment 25's [opt-in HTTPS adapter](COMPLIANCE_HTTPS.md) adds 191 local and four
 private SQL cases, reaching **3,615 + 110 = 3,725 cases**, with synthetic HTTP
 pools only. It is not a default/deployed transport or trusted provenance collector.
+Increment 26 adds an [internal permissioned saved-source boundary](COMPLIANCE_CAPTURE_ACCESS.md)
+with optional source guards. Guarded calls use a third, separately closed source
+preflight transaction; default callers still use two. A final saved-ACL wrapper
+precedes the actual sender. Repeated ambient ACL checks are not atomic revocation
+or source/epoch/remote attestation. Current selection: **3,839 + 118 = 3,957 cases**.
 Commands are in [STATUS.md](STATUS.md). No real OTP/CSID/HTTP, SDK/golden signature,
 browser, restored Frappe application, or ERPNext 16 runtime was tested.
 
-Next: reviewed tenant/key/owned-connection providers, permissioned transactional
-source binding, integration of the new opt-in adapter with actual TLS/transport evidence,
+Next: reviewed tenant/key/owned-connection providers, durable source/epoch evidence,
+installed-schema/permission rehearsal of the guarded source service, integration
+of the opt-in adapter with actual TLS/transport evidence,
 CSR issuance provenance and explicit unknown-outcome reconciliation. Then rehearse
 v15/v16 sites before proposing epoch activation or runtime adoption. Key/schema/
 off-host recovery review, pilot approval and prior live-change notice are required.

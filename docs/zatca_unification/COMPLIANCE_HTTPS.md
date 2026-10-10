@@ -153,7 +153,15 @@ Commands are in [STATUS.md](STATUS.md) and [COMPLIANCE_ARCHIVE.md](COMPLIANCE_AR
 No actual TLS/HTTP/OTP/CSID, SDK/golden signing run, full restored Frappe boot,
 browser or ERPNext 16 runtime was tested.
 
-Next: permissioned transactional source/tenant/key/owned-connection acquisition,
+Increment 26 adds an [internal permissioned saved-source service](COMPLIANCE_CAPTURE_ACCESS.md)
+that composes with this adapter in synthetic-pool/private SQL tests. Guarded calls
+check exact saved revisions/ACL before reservation and in a closed preflight
+transaction, then repeat saved ACL before releasing the request to this transport.
+Current selected total: **3,839 + 118 = 3,957 cases**. No runtime adoption or real
+TLS/source/CSR provenance is established by that service.
+
+Next: audited tenant/key/owned-connection acquisition and installed-schema/ACL
+rehearsal of the new guarded source boundary, durable source/epoch evidence,
 trusted transport/CSR issuance attestation and explicit unknown-outcome recovery.
 Rehearse real TLS and the v15/v16 dependency/site matrix in an approved isolated
 harness; do not contact ZATCA or enable a tenant button without the required pilot/

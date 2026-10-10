@@ -183,9 +183,14 @@ class ComplianceCaptureCoordinator:
     this component commits, rolls back and closes successfully acquired resources.
     transport(request) MUST make at most one application-level send; reviewed
     transport/source providers, deployment approval and provenance remain gates.
+    Optional source_guard(connection, start) must return literal True. It runs
+    before bundle access/reservation and in another closed preflight transaction.
+    Guarded capture therefore owns THREE transactions; default callers retain two.
+    No source/ACL lock survives HTTP and no provenance flag changes automatically.
     """
 
-    def __init__(self, storage_namespace, bundle_cipher, archive_cipher, key_id, *, connection_factory, transport, clock):
+    def __init__(self, storage_namespace, bundle_cipher, archive_cipher, key_id, *, connection_factory, transport, clock,
+                 source_guard=None):
         try:
             _validate(storage_namespace, "capture_namespace", _canonical_uuid)
             _key_id(key_id)
@@ -194,10 +199,12 @@ class ComplianceCaptureCoordinator:
         if (type(bundle_cipher) is not CredentialBundleCipher or type(archive_cipher) is not ComplianceArchiveCipher
                 or key_id not in archive_cipher._keys
                 or set(bundle_cipher._keys.values()) & set(archive_cipher._keys.values())
-                or any(not callable(value) for value in (connection_factory, transport, clock))):
+                or any(not callable(value) for value in (connection_factory, transport, clock))
+                or (source_guard is not None and not callable(source_guard))):
             raise ComplianceCaptureError("capture_dependencies")
         self._namespace, self._bundle_cipher, self._archive_cipher, self._key_id = storage_namespace, bundle_cipher, archive_cipher, key_id
         self._factory, self._transport, self._clock = connection_factory, transport, clock
+        self._source_guard = source_guard
 
     def __repr__(self):
         return "ComplianceCaptureCoordinator(<protected explicit dependencies>)"
@@ -259,6 +266,8 @@ class ComplianceCaptureCoordinator:
         try:
             left = self._archive_cipher.seal(start, sequence=1, key_id=self._key_id)
             def reserve(connection):
+                if self._source_guard is not None and self._source_guard(connection, start) is not True:
+                    raise ComplianceCaptureError("capture_source_guard")
                 bundle = MariaDBCredentialBundleRepository(connection, self._namespace, self._bundle_cipher).load(
                     requirements.manifest.slot, requirements.manifest.version_id,
                 )
@@ -273,6 +282,14 @@ class ComplianceCaptureCoordinator:
             return result("PREPARATION_UNCONFIRMED_NO_SEND")
 
         try:
+            if self._source_guard is not None:
+                # Recheck saved revisions/ACL in another owned transaction. It
+                # MUST close before material release/HTTP. This does not lock
+                # settings or permissions across the subsequent network call.
+                def preflight(connection):
+                    if self._source_guard(connection, start) is not True:
+                        raise ComplianceCaptureError("capture_source_guard")
+                self._transaction(preflight)
             # Recheck local certificate validity and bounded age after locks are
             # released, using the SAME exact stored envelope/credential material.
             material = self._bundle_cipher.open(bundle, observed_at=self._now())

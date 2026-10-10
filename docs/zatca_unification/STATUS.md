@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and twenty-five bounded increments (Compliance outcomes, dedicated
+Safety preparation and twenty-six bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -16,7 +16,8 @@ lifecycle separation evidence, encrypted versioned credential staging, and
 permissioned metadata-only staged inspection, and version/CSR-bound Compliance
 observations, an encrypted append-only request/receipt archive, and permissioned
 metadata-only archive selection, a single-use two-transaction capture scaffold,
-and an explicit standard-gateway HTTPS adapter)
+an explicit standard-gateway HTTPS adapter, and permissioned saved-source
+revision-bound capture with shared Frappe permission-signature compatibility)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -432,6 +433,24 @@ branches and credential-context differences are recorded in
   permissioned source provider, runtime adoption or activation. See
   [COMPLIANCE_HTTPS.md](COMPLIANCE_HTTPS.md).
 
+## Increment 26: permissioned saved-source capture and Frappe ACL compatibility
+
+- Added an internal server-bound capture service requiring role/site and direct
+  saved-row read/write ACL before resource-provider access. No legacy secret
+  projection, whitelist, button adoption or shared Frappe transaction changes.
+- Compare exact non-secret Company/source/device/linked-owner fields and modified
+  revisions with bounded parameterized FOR UPDATE reads in the reservation
+  transaction and a separate closed preflight transaction. Recheck saved ACL
+  after closure before releasing the request to the actual transport dependency.
+- Guarded calls own three transactions; unguarded callers retain two. Source/ACL
+  failure stops transport and never permits automatic replay or activation.
+- Shared signature-based quiet permission calls support the inspected Frappe
+  15/16 parameter change without internal-TypeError retries. Added Arabic errors.
+- Added 206 local source-service, 18 permission-signature and eight owned-private
+  SQL cases. Ambient ACL cache/freshness, provider origin, durable source/epoch,
+  CSR and actual TLS/transport provenance remain gates; no ERPNext 16 boot or
+  live adoption. See [COMPLIANCE_CAPTURE_ACCESS.md](COMPLIANCE_CAPTURE_ACCESS.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -458,9 +477,11 @@ to reach 2,438 passing local tests. Increment 17 adds 100 cases to reach
 3,142 passing local tests. Increment 23 adds 145 to reach
 3,287 passing local tests. Increment 24 adds 137 to reach
 3,424 passing local tests. Increment 25 adds 191 to reach
-**3,615 passing local tests**, plus **110 passing real private-database cases**
-(25 journal + 30 bundle/service + 34 archive/service + 17 capture + 4 HTTPS, **3,725 total**).
-All five private SQL suites were rerun;
+3,615 passing local tests. Increment 26 adds 224 to reach
+**3,839 passing local tests**, plus **118 passing real private-database cases**
+(25 journal + 30 bundle/service + 34 archive/service + 17 capture + 4 HTTPS
++ 8 source capture, **3,957 total**).
+All six private SQL suites were rerun;
 they never connect to a tenant:
 
 | Suite | Scope |
@@ -480,6 +501,8 @@ they never connect to a tenant:
 | `test_compliance_capture.py` | Two owned transaction boundaries, exact snapshot-derived header/body, strict spent reservation, unknown commits/transport/clock, validity/age checks, no automatic retry/discovery and protected recovery material |
 | `test_compliance_https.py` | Real preparation/HTTPAdapter with synthetic pools, exact auth/body, standard destination approval, zero retries/no redirects/env auth, TLS configuration, body/framing/encoding/time bounds, safe failures and no real sockets |
 | `test_compliance_https_mariadb.py` (separate opt-in) | Private committed reservation/archive plus real adapter pipeline/synthetic pool; success, redirect, TLS-shaped failure, oversize and no duplicate invocation |
+| `test_compliance_capture_access.py`, `test_permission_compat.py` | Saved read/write ACL before providers, exact owner/route/CSR binding, three closed guarded transactions, revision/ACL drift before/during/after SQL, static privacy, translations and version-shaped quiet permission engine calls |
+| `test_compliance_capture_access_mariadb.py` (separate opt-in) | Owned-private saved-row locking and concurrent writer, source edits/uncertain preflight commit, immutable archive, synthetic HTTPS pool and no duplicate invocation; fake Frappe ACL only |
 | `test_compliance_capture_mariadb.py` (separate opt-in) | Committed visibility/no locks before fake transport, competing collectors, pre-existing reservations, ambiguous commits, exact receipt reconciliation and owned-server crash recovery |
 | `test_compliance_archive_mariadb.py` (separate opt-in) | Real private request/receipt commits, idempotence/conflicts, scope, corruption, rollback/connection loss, nonce guard, two-worker isolation, lock timeout and owned-server crash recovery |
 | `test_credential_bundle_mariadb.py` (separate opt-in) | Private encrypted InnoDB roundtrip, parent/slot isolation, immutable secret-version conflicts, concurrent stages, corruption, nonce collision, lock timeout and owned-server crash/rollback recovery |
@@ -525,6 +548,8 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
   zatca_erpgulf/zatca_erpgulf/tests/test_compliance_archive_access.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_compliance_capture.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_compliance_https.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_compliance_capture_access.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_permission_compat.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_field_compat.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_submission_context.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_legacy_submission_context.py \
@@ -568,10 +593,11 @@ active Production material during onboarding/renewal; implement explicit bundle
 provenance and redacted operator boundaries before adding runtime selection.
 The increment 19 encrypted store, increment 20 permissioned metadata service,
 increment 21 CSR-bound observation set, increment 22 supplied-observation archive,
-increment 23 permissioned archive metadata selection, increment 24 capture scaffold
-and increment 25 opt-in HTTPS adapter are staging/diagnostics only. Choose
-protected key custody, audited resource acquisition and a permissioned
-transactional source boundary. Connect that boundary to the opt-in HTTPS adapter;
+increment 23 permissioned archive metadata selection, increment 24 capture scaffold,
+increment 25 opt-in HTTPS adapter and increment 26 permissioned saved-source
+capture are staging/diagnostics only. Provide protected key custody and audited
+tenant/namespace/owned-connection acquisition. Rehearse the new guarded source
+boundary with installed v15/v16 schemas/permissions and the opt-in HTTPS adapter;
 rehearse actual TLS, supported dependency matrices and restored Frappe integration.
 Implement trusted transport attestation and verify source/remote-flow evidence
 and CSR-to-issuance provenance before controlled epoch activation or migration

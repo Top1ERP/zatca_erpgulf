@@ -24,6 +24,7 @@ from zatca_erpgulf.zatca_erpgulf.credential_settings import (
     _capture_saved_company_projection, _resolve_owner_from_saved_company,
 )
 from zatca_erpgulf.zatca_erpgulf.issuance_candidate import _canonical_uuid
+from zatca_erpgulf.zatca_erpgulf.permission_compat import saved_row_has_permission
 
 
 DENIED_MESSAGE = "You do not have permission to inspect staged ZATCA credentials."
@@ -136,7 +137,7 @@ class StagedCredentialInspectionService:
             saved = frappe.get_doc(doctype, name)
             # Use the permission engine directly: Document.check_permission can
             # honor ignore_permissions; that flag must not bypass this boundary.
-            if has_permission(doctype, "read", doc=saved, user=actor[1], raise_exception=False) is not True:
+            if not saved_row_has_permission(has_permission, doctype, "read", doc=saved, user=actor[1]):
                 frappe.throw(_(DENIED_MESSAGE), frappe.PermissionError)
             return saved
 

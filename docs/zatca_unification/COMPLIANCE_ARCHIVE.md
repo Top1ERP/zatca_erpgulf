@@ -134,6 +134,11 @@ Increment 25 adds an [opt-in standard-gateway HTTPS adapter](COMPLIANCE_HTTPS.md
 tested with synthetic HTTP pools only, reaching **3,615 + 110 = 3,725 cases**.
 It is not installed as a default/deployed transport and does not verify provenance.
 
+Increment 26 adds [permissioned saved-source capture](COMPLIANCE_CAPTURE_ACCESS.md)
+and shared quiet Frappe permission-signature compatibility, reaching
+**3,839 + 118 = 3,957 cases**. Guarded calls compare locked saved revisions before
+reservation and before transport, without asserting atomic ACL or epoch provenance.
+
 From the development worktree:
 
     ZATCA_RUN_ISOLATED_MARIADB=1 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
@@ -142,7 +147,8 @@ From the development worktree:
       zatca_erpgulf/zatca_erpgulf/tests/test_credential_bundle_mariadb.py \
       zatca_erpgulf/zatca_erpgulf/tests/test_compliance_archive_mariadb.py \
       zatca_erpgulf/zatca_erpgulf/tests/test_compliance_capture_mariadb.py \
-      zatca_erpgulf/zatca_erpgulf/tests/test_compliance_https_mariadb.py
+      zatca_erpgulf/zatca_erpgulf/tests/test_compliance_https_mariadb.py \
+      zatca_erpgulf/zatca_erpgulf/tests/test_compliance_capture_access_mariadb.py
 
 The fixture owns its TCP-disabled process/socket/datadir and accepts no site,
 external host/socket/config override. Crash tests stop/restart only that exact
@@ -154,9 +160,10 @@ tested. Broader release/unification gates remain in [PLAN.md](PLAN.md).
 ## Next gate
 
 The internal permissioned metadata selection is added in increment 23, and the
-explicit two-transaction capture scaffold in increment 24. Audit and provide
-trusted resource acquisition, a permissioned transactional source boundary and
-actual bounded HTTPS transport attestation. Complete unknown-outcome receipt
+explicit two-transaction capture scaffold in increment 24. Increment 26 adds a
+guarded saved-source service; it is not deployed or atomic ACL/epoch attestation.
+Audit and provide trusted resource acquisition, installed-schema/permission
+rehearsal and actual bounded HTTPS transport attestation. Complete unknown-outcome receipt
 reconciliation and exact CSR-to-issuance provenance before proposing
 controlled epoch activation. Rehearse on restored v15/v16 sites. Schema/key/backup
 review, pilot approval and prior live-change notice are required before tenant

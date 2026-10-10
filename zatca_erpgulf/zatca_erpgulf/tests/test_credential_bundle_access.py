@@ -3,6 +3,7 @@
 import csv
 import json
 import pickle
+from inspect import signature
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -76,7 +77,9 @@ def operator(monkeypatch):
         db=SimpleNamespace(commit=Mock(), rollback=Mock()),
     )
     monkeypatch.setattr(access, "frappe", runtime)
-    monkeypatch.setattr(access, "has_permission", Mock(side_effect=has_permission))
+    engine = Mock(side_effect=has_permission)
+    engine.__signature__ = signature(has_permission)
+    monkeypatch.setattr(access, "has_permission", engine)
     monkeypatch.setattr(access, "_", lambda value: value)
     return SimpleNamespace(runtime=runtime, documents=documents, events=events, denied=denied)
 
