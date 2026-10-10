@@ -126,13 +126,18 @@ six-type observation sets. The combined selection passes
 Increment 23 adds 145 local and seven private SQL operator-service cases,
 raising the current totals to **3,287 local + 89 private SQL = 3,376 cases**.
 
+Increment 24 adds [strict single-use reservation and a two-transaction collector](COMPLIANCE_CAPTURE.md),
+with 137 local and 17 private SQL cases, reaching **3,424 + 106 = 3,530 cases**.
+It still supplies no real HTTP sender or trusted transport provenance.
+
 From the development worktree:
 
     ZATCA_RUN_ISOLATED_MARIADB=1 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
       ../../env/bin/python -m pytest -q -p no:cacheprovider \
       zatca_erpgulf/zatca_erpgulf/tests/test_journal_repository_mariadb.py \
       zatca_erpgulf/zatca_erpgulf/tests/test_credential_bundle_mariadb.py \
-      zatca_erpgulf/zatca_erpgulf/tests/test_compliance_archive_mariadb.py
+      zatca_erpgulf/zatca_erpgulf/tests/test_compliance_archive_mariadb.py \
+      zatca_erpgulf/zatca_erpgulf/tests/test_compliance_capture_mariadb.py
 
 The fixture owns its TCP-disabled process/socket/datadir and accepts no site,
 external host/socket/config override. Crash tests stop/restart only that exact
@@ -143,10 +148,11 @@ tested. Broader release/unification gates remain in [PLAN.md](PLAN.md).
 
 ## Next gate
 
-The internal permissioned metadata selection is added in increment 23. Audit and
-provide trusted resource acquisition, then implement a coordinator enforcing protected source and actual
-authentication/transport binding, durable start-before-send and receipt
-commit/reconciliation. Verify exact CSR-to-issuance provenance before proposing
+The internal permissioned metadata selection is added in increment 23, and the
+explicit two-transaction capture scaffold in increment 24. Audit and provide
+trusted resource acquisition, a permissioned transactional source boundary and
+actual bounded HTTPS transport attestation. Complete unknown-outcome receipt
+reconciliation and exact CSR-to-issuance provenance before proposing
 controlled epoch activation. Rehearse on restored v15/v16 sites. Schema/key/backup
 review, pilot approval and prior live-change notice are required before tenant
 installation, runtime adoption or restart.

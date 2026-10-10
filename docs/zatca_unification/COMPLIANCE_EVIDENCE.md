@@ -119,7 +119,10 @@ Increment 21 passed **2,993 local + 55 private SQL = 3,048 cases**. Increment 22
 147 archive-local cases, two net empty-body cases and 27 private SQL cases; the
 increment 22 selection passes **3,142 local + 82 private SQL = 3,224 cases**.
 Increment 23's [permissioned archive selection](COMPLIANCE_ARCHIVE_ACCESS.md) adds
-145 local and seven private SQL cases, reaching **3,287 + 89 = 3,376 cases**. Commands
+145 local and seven private SQL cases, reaching **3,287 + 89 = 3,376 cases**.
+Increment 24's [capture scaffold](COMPLIANCE_CAPTURE.md) reaches
+**3,424 local + 106 private SQL = 3,530 cases**, without trusted transport provenance.
+Commands
 are in [STATUS.md](STATUS.md) and [CREDENTIAL_BUNDLE_STORAGE.md](CREDENTIAL_BUNDLE_STORAGE.md).
 No SDK, real CSR/OTP, remote Compliance/Production request, invoice submission,
 browser, restored Frappe application or ERPNext 16 runtime was tested.

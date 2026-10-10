@@ -119,6 +119,9 @@ the Frappe document/permission layer is mocked. The test caller releases locks.
 
 The selected regression suite passes **3,287 local + 89 private SQL = 3,376 cases**.
 The private split is 25 journal, 30 bundle/service and 34 archive/service cases.
+Increment 24's [capture scaffold](COMPLIANCE_CAPTURE.md) adds 137 local and 17
+private SQL cases, reaching **3,424 + 106 = 3,530 cases**. It does not grant capture
+permission through this inspection-only service or install a real HTTP sender.
 Commands are in [STATUS.md](STATUS.md) and [COMPLIANCE_ARCHIVE.md](COMPLIANCE_ARCHIVE.md).
 The fixture accepts only its owned TCP-disabled process/socket/datadir, never
 a tenant or external host configuration. No live ZATCA call, actual OTP/CSID,
@@ -126,8 +129,9 @@ SDK, full restored Frappe boot, browser or ERPNext 16 runtime was tested.
 
 ## Next gate
 
-Build and audit trusted resource acquisition, transactional source binding and
-protected transport capture with actual credential/header/CSR issuance provenance.
+The low-level capture scaffold now exists; build and audit trusted resource
+acquisition, permissioned transactional source binding and actual bounded HTTPS
+transport with credential/header/CSR issuance provenance.
 Require a committed start before networking, no network under DB locks, durable
 receipt reconciliation and no automatic replay after unknown transport/commit.
 Do not activate from this report. Rehearse actual v15/v16 integration and complete

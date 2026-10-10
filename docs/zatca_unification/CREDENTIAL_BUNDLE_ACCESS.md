@@ -102,6 +102,9 @@ combined suite passed 2,993 local + 55 private SQL cases. Increment 22's
 to 3,142 local + 82 private SQL. Increment 23 adds
 [permissioned explicit archive selection](COMPLIANCE_ARCHIVE_ACCESS.md), preserving
 prior inspection modes and raising totals to 3,287 local + 89 private SQL.
+Increment 24's [two-transaction capture scaffold](COMPLIANCE_CAPTURE.md) raises
+totals to 3,424 local + 106 private SQL, without adding a capture endpoint or real
+HTTP sender. The inspection service still grants no dispatch permission.
 There is still no whitelisted operator endpoint or deployed resource provider.
 Use the commands in [STATUS.md](STATUS.md)
 and [CREDENTIAL_BUNDLE_STORAGE.md](CREDENTIAL_BUNDLE_STORAGE.md).

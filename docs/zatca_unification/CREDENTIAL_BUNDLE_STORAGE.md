@@ -120,6 +120,9 @@ with 136 local and four private SQL service cases; the current selection passes
 27 private SQL cases, reaching **3,142 local + 82 private SQL = 3,224 cases**.
 Increment 23 adds [permissioned archive selection](COMPLIANCE_ARCHIVE_ACCESS.md),
 bringing the current selection to **3,287 local + 89 private SQL = 3,376 cases**.
+Increment 24's [capture scaffold](COMPLIANCE_CAPTURE.md) raises totals to
+**3,424 local + 106 private SQL = 3,530 cases**, still without a real HTTP sender
+or runtime adoption. The four-suite private command is in [COMPLIANCE_ARCHIVE.md](COMPLIANCE_ARCHIVE.md).
 For all three private SQL suites use the command in that archive document. Reproduce
 the opt-in SQL test from the development worktree only:
 

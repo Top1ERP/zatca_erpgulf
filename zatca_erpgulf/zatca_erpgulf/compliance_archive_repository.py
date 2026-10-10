@@ -78,6 +78,24 @@ class MariaDBComplianceArchiveRepository:
                     raise ComplianceArchiveError("archive_record_conflict")
                 return stored
 
+    def reserve_request(self, sealed):
+        """Strict single-use reservation; ANY existing identity prevents dispatch.
+
+        Unlike prepare(), this never accepts identical redelivery. Commit/close
+        must succeed before a coordinator invokes its transport dependency. An
+        existing reservation says nothing about whether HTTP actually occurred.
+        This is per exchange identity, not cross-attempt invoice/step policy.
+        """
+        with self._operation():
+            start = self._preflight(sealed, 1)
+            self._bundle(start.requirements.manifest.slot, sealed.version_id, start.requirements.manifest)
+            with self._connection.cursor() as cursor:
+                self._insert(cursor, sealed, allow_duplicate=False)
+                stored = self._load_row(cursor, sealed.exchange_id, 1)
+                if stored != sealed:
+                    raise ComplianceArchiveError("archive_record_conflict")
+                return stored
+
     def append_receipt(self, sealed):
         """Add one immutable response to the exact captured request; never replace."""
         with self._operation():
@@ -105,12 +123,12 @@ class MariaDBComplianceArchiveRepository:
                 receipt = None if sealed is None else self._archive_cipher.open(sealed)
                 return ComplianceArchiveHistory(start, receipt)
 
-    def _insert(self, cursor, sealed):
+    def _insert(self, cursor, sealed, *, allow_duplicate=True):
         cursor.execute(
             "INSERT INTO zatca_compliance_archive_v1 "
             "(storage_namespace,exchange_id,sequence,parent_sequence,version_id,manifest_sha256,"
             "observation_sha256,key_id,nonce,ciphertext) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) "
-            "ON DUPLICATE KEY UPDATE exchange_id=exchange_id",
+            + ("ON DUPLICATE KEY UPDATE exchange_id=exchange_id" if allow_duplicate else ""),
             (self._namespace, sealed.exchange_id, sealed.sequence, None if sealed.sequence == 1 else 1,
              sealed.version_id, sealed.manifest_sha256, sealed.observation_sha256,
              sealed.key_id, sealed.nonce, sealed.ciphertext),
