@@ -130,6 +130,10 @@ Increment 24 adds [strict single-use reservation and a two-transaction collector
 with 137 local and 17 private SQL cases, reaching **3,424 + 106 = 3,530 cases**.
 It still supplies no real HTTP sender or trusted transport provenance.
 
+Increment 25 adds an [opt-in standard-gateway HTTPS adapter](COMPLIANCE_HTTPS.md),
+tested with synthetic HTTP pools only, reaching **3,615 + 110 = 3,725 cases**.
+It is not installed as a default/deployed transport and does not verify provenance.
+
 From the development worktree:
 
     ZATCA_RUN_ISOLATED_MARIADB=1 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
@@ -137,7 +141,8 @@ From the development worktree:
       zatca_erpgulf/zatca_erpgulf/tests/test_journal_repository_mariadb.py \
       zatca_erpgulf/zatca_erpgulf/tests/test_credential_bundle_mariadb.py \
       zatca_erpgulf/zatca_erpgulf/tests/test_compliance_archive_mariadb.py \
-      zatca_erpgulf/zatca_erpgulf/tests/test_compliance_capture_mariadb.py
+      zatca_erpgulf/zatca_erpgulf/tests/test_compliance_capture_mariadb.py \
+      zatca_erpgulf/zatca_erpgulf/tests/test_compliance_https_mariadb.py
 
 The fixture owns its TCP-disabled process/socket/datadir and accepts no site,
 external host/socket/config override. Crash tests stop/restart only that exact

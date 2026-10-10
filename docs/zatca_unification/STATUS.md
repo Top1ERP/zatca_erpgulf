@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and twenty-four bounded increments (Compliance outcomes, dedicated
+Safety preparation and twenty-five bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -15,7 +15,8 @@ an ephemeral signing/authentication material snapshot, legacy credential
 lifecycle separation evidence, encrypted versioned credential staging, and
 permissioned metadata-only staged inspection, and version/CSR-bound Compliance
 observations, an encrypted append-only request/receipt archive, and permissioned
-metadata-only archive selection, and a single-use two-transaction capture scaffold)
+metadata-only archive selection, a single-use two-transaction capture scaffold,
+and an explicit standard-gateway HTTPS adapter)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -417,6 +418,20 @@ branches and credential-context differences are recorded in
   source/transport attestation, operator capture API, live adoption or activation.
   See [COMPLIANCE_CAPTURE.md](COMPLIANCE_CAPTURE.md).
 
+## Increment 25: explicit standard-gateway Compliance HTTPS adapter
+
+- Added an opt-in exact-route policy, original-byte prepared POST and a direct
+  zero-retry streaming HTTPAdapter with TLS verification and explicit empty proxy
+  map. No Session/redirect/environment-auth or URL fallback is used.
+- Added bounded undecoded entity reads, framing/encoding/header checks and
+  finite timeout/monotonic budget checks. Budget checks are not a hard wall deadline.
+- Existing routes/buttons are unchanged; custom gateways are deliberately not
+  supported by this new adapter pending reviewed egress policy.
+- Added 191 local and four owned-private SQL integration cases using synthetic
+  HTTP pools. No real TLS handshake, ZATCA call, native transport attestation,
+  permissioned source provider, runtime adoption or activation. See
+  [COMPLIANCE_HTTPS.md](COMPLIANCE_HTTPS.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -442,9 +457,10 @@ to reach 2,438 passing local tests. Increment 17 adds 100 cases to reach
 2,993 passing local tests. Increment 22 adds 149 to reach
 3,142 passing local tests. Increment 23 adds 145 to reach
 3,287 passing local tests. Increment 24 adds 137 to reach
-**3,424 passing local tests**, plus **106 passing real private-database cases**
-(25 journal + 30 bundle/service + 34 archive/service + 17 capture, **3,530 total**).
-All four private SQL suites were rerun;
+3,424 passing local tests. Increment 25 adds 191 to reach
+**3,615 passing local tests**, plus **110 passing real private-database cases**
+(25 journal + 30 bundle/service + 34 archive/service + 17 capture + 4 HTTPS, **3,725 total**).
+All five private SQL suites were rerun;
 they never connect to a tenant:
 
 | Suite | Scope |
@@ -462,6 +478,8 @@ they never connect to a tenant:
 | `test_compliance_archive.py` | Exact bounded framed codec, independently keyed envelopes, AAD/rehydration integrity, start/receipt binding, static transaction/privacy/no-discovery contracts and empty-body preservation |
 | `test_compliance_archive_access.py` | ACL-first authenticated explicit selection, saved owner/Sales/POS source matching, shared CSR, count/byte limits, no partial result, actor drift, privacy/translation and historical inspection compatibility |
 | `test_compliance_capture.py` | Two owned transaction boundaries, exact snapshot-derived header/body, strict spent reservation, unknown commits/transport/clock, validity/age checks, no automatic retry/discovery and protected recovery material |
+| `test_compliance_https.py` | Real preparation/HTTPAdapter with synthetic pools, exact auth/body, standard destination approval, zero retries/no redirects/env auth, TLS configuration, body/framing/encoding/time bounds, safe failures and no real sockets |
+| `test_compliance_https_mariadb.py` (separate opt-in) | Private committed reservation/archive plus real adapter pipeline/synthetic pool; success, redirect, TLS-shaped failure, oversize and no duplicate invocation |
 | `test_compliance_capture_mariadb.py` (separate opt-in) | Committed visibility/no locks before fake transport, competing collectors, pre-existing reservations, ambiguous commits, exact receipt reconciliation and owned-server crash recovery |
 | `test_compliance_archive_mariadb.py` (separate opt-in) | Real private request/receipt commits, idempotence/conflicts, scope, corruption, rollback/connection loss, nonce guard, two-worker isolation, lock timeout and owned-server crash recovery |
 | `test_credential_bundle_mariadb.py` (separate opt-in) | Private encrypted InnoDB roundtrip, parent/slot isolation, immutable secret-version conflicts, concurrent stages, corruption, nonce collision, lock timeout and owned-server crash/rollback recovery |
@@ -506,6 +524,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
   zatca_erpgulf/zatca_erpgulf/tests/test_compliance_archive.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_compliance_archive_access.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_compliance_capture.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_compliance_https.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_field_compat.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_submission_context.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_legacy_submission_context.py \
@@ -549,13 +568,14 @@ active Production material during onboarding/renewal; implement explicit bundle
 provenance and redacted operator boundaries before adding runtime selection.
 The increment 19 encrypted store, increment 20 permissioned metadata service,
 increment 21 CSR-bound observation set, increment 22 supplied-observation archive,
-increment 23 permissioned archive metadata selection and increment 24 capture scaffold
-are staging/diagnostics only: choose protected key custody and audited resource
-acquisition and a permissioned transactional source boundary; connect a reviewed
-bounded HTTPS adapter and implement actual trusted transport attestation and
-CSR-to-issuance provenance, rehearse actual Frappe integration
-and verify exact source/remote flow evidence
-before implementing controlled epoch activation or migrating legacy fields.
+increment 23 permissioned archive metadata selection, increment 24 capture scaffold
+and increment 25 opt-in HTTPS adapter are staging/diagnostics only. Choose
+protected key custody, audited resource acquisition and a permissioned
+transactional source boundary. Connect that boundary to the opt-in HTTPS adapter;
+rehearse actual TLS, supported dependency matrices and restored Frappe integration.
+Implement trusted transport attestation and verify source/remote-flow evidence
+and CSR-to-issuance provenance before controlled epoch activation or migration
+of legacy fields.
 Resolve foreground unique-ID/gPOS policy parity and transactional worker/retry
 coordination; design an explicit ICV continuity mapping using the increment 6 audit.
 Use the follow-up [retry identity evidence](RETRY_IDENTITY.md) to introduce a

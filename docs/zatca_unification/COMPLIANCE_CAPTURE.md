@@ -147,11 +147,14 @@ tenant socket/host override or real network sender is used by this fixture.
 
 The selected suite passes **3,424 local + 106 private SQL = 3,530 cases**.
 Private split: 25 journal, 30 bundle/service, 34 archive/service, 17 capture cases.
+Increment 25's [opt-in HTTPS adapter](COMPLIANCE_HTTPS.md) adds 191 local and four
+private SQL cases, reaching **3,615 + 110 = 3,725 cases**, with synthetic HTTP
+pools only. It is not a default/deployed transport or trusted provenance collector.
 Commands are in [STATUS.md](STATUS.md). No real OTP/CSID/HTTP, SDK/golden signature,
 browser, restored Frappe application, or ERPNext 16 runtime was tested.
 
 Next: reviewed tenant/key/owned-connection providers, permissioned transactional
-source binding, a bounded approved HTTPS adapter with actual transport evidence,
+source binding, integration of the new opt-in adapter with actual TLS/transport evidence,
 CSR issuance provenance and explicit unknown-outcome reconciliation. Then rehearse
 v15/v16 sites before proposing epoch activation or runtime adoption. Key/schema/
 off-host recovery review, pilot approval and prior live-change notice are required.
