@@ -97,8 +97,10 @@ credential material. Existing manifest-only inspection is unchanged.
 
 `COMPLETE_MATCHED_OBSERVATIONS` describes a complete **local matching set**. It is
 not `compliance_completion_verified`, does not enable a final-CSID button, and does
-not replace the gateway's mandatory validation. The current branch does not store
-this evidence durably or invoke the operator method from a browser/API.
+not replace the gateway's mandatory validation. Increment 21 did not store this
+evidence durably or invoke the operator method from a browser/API. Increment 22 adds
+an isolated [encrypted observation archive](COMPLIANCE_ARCHIVE.md), not live runtime
+capture, an operator endpoint or verified remote provenance.
 
 ## Verification
 
@@ -113,7 +115,9 @@ incomplete and wrong Compliance-request-ID observations against actual authentic
 encrypted version rows. The Frappe documents/ACL layer remains mocked; no tenant
 or external connection is accepted by the private fixture.
 
-The selected suite passes **2,993 local + 55 private SQL = 3,048 cases**. Commands
+Increment 21 passed **2,993 local + 55 private SQL = 3,048 cases**. Increment 22 adds
+147 archive-local cases, two net empty-body cases and 27 private SQL cases; the
+current selection passes **3,142 local + 82 private SQL = 3,224 cases**. Commands
 are in [STATUS.md](STATUS.md) and [CREDENTIAL_BUNDLE_STORAGE.md](CREDENTIAL_BUNDLE_STORAGE.md).
 No SDK, real CSR/OTP, remote Compliance/Production request, invoice submission,
 browser, restored Frappe application or ERPNext 16 runtime was tested.

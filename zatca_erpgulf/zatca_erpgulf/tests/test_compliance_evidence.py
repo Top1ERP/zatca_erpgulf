@@ -307,7 +307,7 @@ def test_csr_signature_key_san_functionality_and_taxpayer_are_bounded(materials,
         replace(req, csr_der=data, manifest=manifest)
 
 
-@pytest.mark.parametrize("change", ["endpoint", "environment", "purpose", "base_field", "url", "version_id", "naive_time", "non_utc", "before_preparation", "response_before_start", "bool_status", "invalid_status", "empty_body", "oversized_body", "unknown_with_receipt"])
+@pytest.mark.parametrize("change", ["endpoint", "environment", "purpose", "base_field", "url", "version_id", "naive_time", "non_utc", "before_preparation", "response_before_start", "bool_status", "invalid_status", "oversized_body", "unknown_with_receipt"])
 def test_exchange_scope_and_receipt_boundaries(materials, cipher, change):
     req, _ = requirements(materials[0], cipher)
     found = exchange(req, materials[0])
@@ -321,11 +321,19 @@ def test_exchange_scope_and_receipt_boundaries(materials, cipher, change):
             "non_utc": {"started_at": NOW.astimezone(timezone(timedelta(hours=3)))},
             "before_preparation": {"started_at": NOW - timedelta(seconds=1)},
             "response_before_start": {"received_at": NOW}, "bool_status": {"http_status": True},
-            "invalid_status": {"http_status": 600}, "empty_body": {"response_bytes": b""},
+            "invalid_status": {"http_status": 600},
             "oversized_body": {"response_bytes": b"x" * (evidence.MAX_RESPONSE_BYTES + 1)},
             "unknown_with_receipt": {"http_status": None}}[change]
     with pytest.raises(evidence.ComplianceEvidenceError):
         replace(found, **changes)
+
+
+@pytest.mark.parametrize("status", [200, 401, 500])
+def test_empty_http_response_is_preserved_but_never_matches_success(materials, cipher, status):
+    req, _ = requirements(materials[0], cipher)
+    found = exchange(req, materials[0], status=status, response_bytes=b"")
+    assert found.response_bytes == b""
+    assert found.outcome not in ("PASS_MATCHED_OBSERVATION", "ALREADY_COMPLETED_MATCHED_OBSERVATION")
 
 
 @pytest.mark.parametrize("change", ["namespace", "manifest", "gateway", "taxpayer", "denied", "none", "type"])

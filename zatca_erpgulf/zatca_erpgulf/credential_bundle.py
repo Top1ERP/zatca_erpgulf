@@ -205,6 +205,20 @@ class SealedCredentialBundle:
         raise CredentialBundleError("bundle_not_pickleable")
 
 
+def copy_storage_keys(keys):
+    """Shared bounded in-memory AES key validation; never discover a key source."""
+    if not isinstance(keys, Mapping) or not 1 <= len(keys) <= 32:
+        raise CredentialBundleError("bundle_keyring")
+    copied = dict(keys)
+    for key_id, key in copied.items():
+        _key_id(key_id)
+        if type(key) is not bytes or len(key) != 32:
+            raise CredentialBundleError("bundle_key_material")
+    if len(set(copied.values())) != len(copied):
+        raise CredentialBundleError("bundle_duplicate_key_material")
+    return MappingProxyType(copied)
+
+
 class CredentialBundleCipher:
     """Caller-owned AES-256-GCM keys; no environment/config/KMS discovery.
 
@@ -214,16 +228,7 @@ class CredentialBundleCipher:
     """
 
     def __init__(self, keys):
-        if not isinstance(keys, Mapping) or not 1 <= len(keys) <= 32:
-            raise CredentialBundleError("bundle_keyring")
-        copied = dict(keys)
-        for key_id, key in copied.items():
-            _key_id(key_id)
-            if type(key) is not bytes or len(key) != 32:
-                raise CredentialBundleError("bundle_key_material")
-        if len(set(copied.values())) != len(copied):
-            raise CredentialBundleError("bundle_duplicate_key_material")
-        self._keys = MappingProxyType(copied)
+        self._keys = copy_storage_keys(keys)
 
     def __repr__(self):
         return "CredentialBundleCipher(<protected caller-supplied keys>)"

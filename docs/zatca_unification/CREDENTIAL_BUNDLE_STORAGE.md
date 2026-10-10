@@ -115,7 +115,10 @@ Increment 19 passed 2,752 local and 48 private SQL cases. The increment 20
 [permissioned metadata service](CREDENTIAL_BUNDLE_ACCESS.md) adds 105 local and
 three private SQL service cases. Increment 21 adds [CSR-bound observations](COMPLIANCE_EVIDENCE.md)
 with 136 local and four private SQL service cases; the current selection passes
-**2,993 local + 55 private SQL = 3,048 cases**. Reproduce
+2,993 local + 55 private SQL cases at increment 21. Increment 22 adds an
+[independently keyed observation archive](COMPLIANCE_ARCHIVE.md), 149 local and
+27 private SQL cases, reaching **3,142 local + 82 private SQL = 3,224 cases**.
+For all three private SQL suites use the command in that archive document. Reproduce
 the opt-in SQL test from the development worktree only:
 
 ```sh

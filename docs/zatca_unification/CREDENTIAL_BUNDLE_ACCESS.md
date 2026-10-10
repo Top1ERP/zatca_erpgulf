@@ -97,7 +97,10 @@ Only the document/permission layer is mocked. The combined selection passes
 **2,857 local + 51 private SQL = 2,908 cases** at increment 20. Increment 21 adds
 [CSR/version-bound Compliance observations](COMPLIANCE_EVIDENCE.md) through the
 same permissioned service without changing manifest-only inspection. Its current
-combined suite passes 2,993 local + 55 private SQL cases. Use the commands in [STATUS.md](STATUS.md)
+combined suite passed 2,993 local + 55 private SQL cases. Increment 22's
+[encrypted observation archive](COMPLIANCE_ARCHIVE.md) increases the current totals
+to 3,142 local + 82 private SQL; archive operator integration is still a gate.
+Use the commands in [STATUS.md](STATUS.md)
 and [CREDENTIAL_BUNDLE_STORAGE.md](CREDENTIAL_BUNDLE_STORAGE.md).
 
 Permissioned metadata still cannot establish transactional saved settings, remote

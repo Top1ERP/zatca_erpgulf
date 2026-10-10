@@ -241,7 +241,7 @@ class ComplianceExchangeObservation:
         else:
             if type(self.http_status) is not int or not 100 <= self.http_status <= 599:
                 raise ComplianceEvidenceError("compliance_http_status")
-            if type(self.response_bytes) is not bytes or not 0 < len(self.response_bytes) <= MAX_RESPONSE_BYTES:
+            if type(self.response_bytes) is not bytes or len(self.response_bytes) > MAX_RESPONSE_BYTES:
                 raise ComplianceEvidenceError("compliance_receipt_size")
             _time(self.received_at)
             if self.received_at < self.started_at:
