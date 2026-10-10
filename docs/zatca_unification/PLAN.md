@@ -82,6 +82,11 @@ be reserialized during cleanup.
 
 ### 2. Settings, fields, and credential context
 
+- Increment 18 adds independent legacy purpose/field observations and a versioned
+  bundle migration proposal in [CREDENTIAL_LIFECYCLE.md](CREDENTIAL_LIFECYCLE.md).
+  It characterizes shared key/certificate overwrites without changing writers or
+  selecting credentials. Secure storage, atomic activation, saved provenance,
+  secret-bearing response redaction and restored-site migration remain gates.
 - Increment 17 adds a locally bound ephemeral signing/authentication material
   snapshot and internal read-only adapter, reusing saved-owner and alias policy.
   See [CREDENTIAL_SNAPSHOT.md](CREDENTIAL_SNAPSHOT.md). Exact certificate/key/token

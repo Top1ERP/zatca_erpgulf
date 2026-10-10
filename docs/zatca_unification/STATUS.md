@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and seventeen bounded increments (Compliance outcomes, dedicated
+Safety preparation and eighteen bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -11,7 +11,8 @@ opt-in stored response/counter observations, opt-in generated XML evidence,
 opt-in embedded public certificate observations, an immutable prepared-artifact
 contract, a single-attempt dispatch-observation journal, endpoint-bound
 response/returned-XML assessment, an isolated durable journal repository,
-and an ephemeral signing/authentication material snapshot)
+an ephemeral signing/authentication material snapshot, and legacy credential
+lifecycle separation evidence)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -312,6 +313,19 @@ branches and credential-context differences are recorded in
   No existing generator or request adopts this capture yet. See
   [CREDENTIAL_SNAPSHOT.md](CREDENTIAL_SNAPSHOT.md) for provenance/adoption gates.
 
+## Increment 18: legacy credential lifecycle separation evidence
+
+- Added independent per-purpose token/certificate/key/time observations and
+  registered certificate-field fingerprints; reports retain no secret material.
+- Added an internal read-only saved-source adapter sharing the alias registry and
+  frozen Company projection. It is not a public endpoint, migration or selector.
+- Reproduced Company shared-certificate overwrite, device alias transition and
+  shared-key replacement with the actual legacy functions and mocked side effects.
+  Existing signing conflicts and CSID writers remain unchanged.
+- Added 122 cases and an English staged migration/storage proposal. Atomic
+  provenance, secure bundle storage, UI/return redaction, runtime adoption and
+  v15/v16 rehearsal remain gates. See [CREDENTIAL_LIFECYCLE.md](CREDENTIAL_LIFECYCLE.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -330,9 +344,10 @@ suite to 1,650. Increment 13 adds 237 cases, bringing the combined selected suit
 to 1,887. Increment 14 adds 161 cases to reach 2,048. Increment 15 adds 278 cases,
 bringing the combined selected suite to 2,326. Increment 16 adds 112 local cases
 to reach 2,438 passing local tests. Increment 17 adds 100 cases to reach
-**2,538 passing local tests**, plus **25 passing real private-database cases**
-(**2,563 total**). The private database suite was rerun after the shared parser
-refactor; it never connects to a tenant:
+2,538 passing local tests. Increment 18 adds 122 cases to reach
+**2,660 passing local tests**, plus **25 passing real private-database cases**
+(**2,685 total**). The private database suite was rerun after the shared parser
+changes; it never connects to a tenant:
 
 | Suite | Scope |
 | --- | --- |
@@ -342,6 +357,7 @@ refactor; it never connects to a tenant:
 | `test_api_route_contract.py`, `test_api_routing.py` | Pure routing, six compatibility wrappers, malformed settings, environment overrides, and mocked onboarding request boundaries |
 | `test_credential_selection.py`, `test_field_compat.py` | Saved owner resolution, certificate aliases, key matching, signing/QR parity without writes, auth purposes, Arabic messages, six-type local preparation, existing field compatibility |
 | `test_credential_snapshot.py` | One copied route/key/certificate/auth material binding, same-key renewal rejection, validity/curve, saved-source capture, frozen Company projection, static privacy/Arabic failures, no writes/HTTP or provenance claim |
+| `test_credential_lifecycle.py` | Independent purpose/token/field observations, same-key renewal, alias reversal, missing/bounded material, frozen privacy, saved-source capture and actual legacy writer/key rotation characterization with mocked side effects |
 | `test_submission_context.py` | Four primary request adapters, environments/owners, Production auth, actual PIH helper with mocked records, rejection/timeout, request-pinned owner, batch mode, legacy 409 behavior |
 | `test_legacy_submission_context.py` | Four existing-XML adapters and wrappers, actual temporary file reads, saved machine-link guards, unchanged artifacts, auth and PIH ownership |
 | `test_icv_identity_contract.py` | Read-only characterization of legacy identity/rotation/purpose behavior and collision edge cases; not a counter migration |
@@ -376,6 +392,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
   zatca_erpgulf/zatca_erpgulf/tests/test_api_routing.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_credential_selection.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_credential_snapshot.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_credential_lifecycle.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_field_compat.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_submission_context.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_legacy_submission_context.py \
@@ -413,6 +430,9 @@ request, or production invoice submission was performed in this increment.
 Bind the new ephemeral material snapshot to verified transactional source/settings
 provenance and a durable credential epoch, then adopt it in preparation/request
 services. Resolve certificate issuance/rotation field conflicts before deployment.
+Use the increment 18 separation evidence and staged storage proposal to preserve
+active Production material during onboarding/renewal; implement explicit bundle
+provenance and redacted operator boundaries before adding runtime selection.
 Resolve foreground unique-ID/gPOS policy parity and transactional worker/retry
 coordination; design an explicit ICV continuity mapping using the increment 6 audit.
 Use the follow-up [retry identity evidence](RETRY_IDENTITY.md) to introduce a

@@ -66,13 +66,15 @@ def _route(route):
         raise CredentialSnapshotError("snapshot_route")
 
 
-def _auth_certificate(header):
+def authentication_certificate_der(header):
     """Decode the Basic username in bounded known certificate formats only.
 
     Support the app's Base64-of-Base64-DER token, direct DER token, and a single
     PEM token as explicit compatibility formats. No recursive format guessing.
     The password remains opaque; local parsing cannot verify it with ZATCA.
     """
+    if type(header) is not str or len(header) > MAX_AUTH_TEXT + 6 or not header.startswith("Basic "):
+        raise CredentialSnapshotError("snapshot_authorization_format")
     try:
         decoded = base64.b64decode(header.removeprefix("Basic "), validate=True)
         username, separator, password = decoded.partition(b":")
@@ -100,6 +102,31 @@ def _auth_certificate(header):
         raise CredentialSnapshotError("snapshot_authorization_format") from None
 
 
+def validate_snapshot_owner(owner):
+    """Validate a declared owner reference, NOT saved or taxpayer provenance."""
+    if type(owner) is not CredentialOwner or owner.doctype not in ("Company", "ZATCA Multiple Setting"):
+        raise CredentialSnapshotError("snapshot_owner")
+    if owner.source_kind not in ("company", "linked_company", "multiple_setting"):
+        raise CredentialSnapshotError("snapshot_owner")
+    if owner.source_kind == "company" and owner.name != owner.company_name:
+        raise CredentialSnapshotError("snapshot_owner")
+    if not isinstance(owner.values, Mapping):
+        raise CredentialSnapshotError("snapshot_owner")
+    try:
+        for value in (owner.company_name, owner.name):
+            _identity_text(value, "snapshot_owner")
+    except IssuanceContractError:
+        raise CredentialSnapshotError("snapshot_material_invalid") from None
+    if (owner.doctype == "ZATCA Multiple Setting") != (owner.source_kind == "multiple_setting"):
+        raise CredentialSnapshotError("snapshot_owner")
+
+
+def validate_snapshot_time(observed_at):
+    """Require explicit UTC without obtaining time from an implicit clock."""
+    if type(observed_at) is not datetime or observed_at.tzinfo is not timezone.utc:
+        raise CredentialSnapshotError("snapshot_utc_timestamp")
+
+
 @dataclass(frozen=True)
 class CredentialSnapshot:
     """Locally bound material copied once, with safe fingerprint-only diagnostics.
@@ -124,21 +151,9 @@ class CredentialSnapshot:
 
     def __post_init__(self):
         _route(self.route)
-        if type(self.observed_at) is not datetime or self.observed_at.tzinfo is not timezone.utc:
-            raise CredentialSnapshotError("snapshot_utc_timestamp")
-        if type(self.owner) is not CredentialOwner or self.owner.doctype not in ("Company", "ZATCA Multiple Setting"):
-            raise CredentialSnapshotError("snapshot_owner")
-        if self.owner.source_kind not in ("company", "linked_company", "multiple_setting"):
-            raise CredentialSnapshotError("snapshot_owner")
-        if self.owner.source_kind == "company" and self.owner.name != self.owner.company_name:
-            raise CredentialSnapshotError("snapshot_owner")
-        if not isinstance(self.owner.values, Mapping):
-            raise CredentialSnapshotError("snapshot_owner")
+        validate_snapshot_time(self.observed_at)
+        validate_snapshot_owner(self.owner)
         try:
-            for value in (self.owner.company_name, self.owner.name):
-                _identity_text(value, "snapshot_owner")
-            if (self.owner.doctype == "ZATCA Multiple Setting") != (self.owner.source_kind == "multiple_setting"):
-                raise CredentialSnapshotError("snapshot_owner")
             # Keep only immutable scalar secret fields consumed by this purpose.
             auth_field = authorization_field_for_owner(self.owner, self.route.required_credential)
             values = {name: self.owner.values.get(name) for name in ("custom_private_key", auth_field)}
@@ -154,7 +169,7 @@ class CredentialSnapshot:
             )
             authorization = authorization_for_owner(owner, self.route.required_credential)
             certificate, der = parse_public_certificate_text(self.certificate_text)
-            if _auth_certificate(authorization.header) != der:
+            if authentication_certificate_der(authorization.header) != der:
                 raise CredentialSnapshotError("snapshot_auth_certificate_mismatch")
             key_text = values["custom_private_key"]
             if not key_text:

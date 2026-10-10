@@ -87,6 +87,11 @@ invoice is involved. See [STATUS.md](STATUS.md) for the reproducible commands.
 
 ## Remaining adoption gates
 
+Increment 18 adds independent legacy purpose/field separation observations and a
+staged storage proposal, not a migration or new signing selector. It reuses this
+snapshot's bounded decoder and material checks; see
+[CREDENTIAL_LIFECYCLE.md](CREDENTIAL_LIFECYCLE.md).
+
 1. Separate Compliance and Production certificate lifecycle storage and reconcile
    the two machine certificate aliases with an approved migration. Do not copy
    or discard conflicting historical certificates blindly.

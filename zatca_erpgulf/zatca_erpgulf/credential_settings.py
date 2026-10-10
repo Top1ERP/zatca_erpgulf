@@ -124,7 +124,7 @@ def capture_credential_snapshot(company_abbr, source_doc, endpoint, *, observed_
     No current generator/request uses this capture. A service must supply verified
     transaction/source/epoch provenance before adopting it or dispatching HTTP.
     """
-    from zatca_erpgulf.zatca_erpgulf.api_routing import ENVIRONMENT_FIELDS, ApiConfigurationError, resolve_api_route
+    from zatca_erpgulf.zatca_erpgulf.api_routing import ApiConfigurationError, resolve_api_route
     from zatca_erpgulf.zatca_erpgulf.credential_snapshot import (
         OPERATIONS, CredentialSnapshot, CredentialSnapshotError,
     )
@@ -132,14 +132,8 @@ def capture_credential_snapshot(company_abbr, source_doc, endpoint, *, observed_
     try:
         if type(endpoint) is not str or endpoint not in OPERATIONS:
             raise CredentialSnapshotError("snapshot_operation")
-        saved = frappe.get_doc("Company", {"abbr": company_abbr})
-        values = MappingProxyType({
-            name: saved.get(name) for name in (
-                "tax_id", "custom_select", *ENVIRONMENT_FIELDS.values(), *SECRET_FIELDS,
-            )
-        })
-        company = _CompanyProjection(saved.name, saved.doctype, values)
-        route = resolve_api_route(values, endpoint)
+        company = _capture_saved_company_projection(company_abbr)
+        route = resolve_api_route(company.values, endpoint)
         owner = _resolve_owner_from_saved_company(company, source_doc)
         return CredentialSnapshot(owner, route, _certificate_for_owner(owner), observed_at)
     except CredentialConfigurationError as error:
@@ -150,12 +144,53 @@ def capture_credential_snapshot(company_abbr, source_doc, endpoint, *, observed_
         ).format(error.code))
 
 
-def _certificate_for_owner(owner: CredentialOwner) -> str:
-    aliases = (
+def _capture_saved_company_projection(company_abbr):
+    """One frozen Company projection, not atomic source/device/linked-row reads."""
+    from zatca_erpgulf.zatca_erpgulf.api_routing import ENVIRONMENT_FIELDS
+
+    saved = frappe.get_doc("Company", {"abbr": company_abbr})
+    values = MappingProxyType({
+        name: saved.get(name) for name in (
+            "tax_id", "custom_select", *ENVIRONMENT_FIELDS.values(), *SECRET_FIELDS,
+        )
+    })
+    return _CompanyProjection(saved.name, saved.doctype, values)
+
+
+def capture_credential_lifecycle_assessment(company_abbr, source_doc, *, observed_at):
+    """Internal read-only legacy inventory; no public endpoint or migration.
+
+    Safe public observations only. A future operator service must enforce its own
+    permissions and transaction/provenance policy before exposing this result.
+    """
+    from zatca_erpgulf.zatca_erpgulf.api_routing import ApiConfigurationError
+    from zatca_erpgulf.zatca_erpgulf.credential_lifecycle import inspect_legacy_credential_lifecycle
+    from zatca_erpgulf.zatca_erpgulf.credential_snapshot import CredentialSnapshotError, validate_snapshot_time
+
+    try:
+        validate_snapshot_time(observed_at)
+        company = _capture_saved_company_projection(company_abbr)
+        owner = _resolve_owner_from_saved_company(company, source_doc)
+        return inspect_legacy_credential_lifecycle(
+            owner, company.values, certificate_fields=_certificate_fields_for_owner(owner), observed_at=observed_at,
+        )
+    except CredentialConfigurationError as error:
+        _throw_configuration_error(error)
+    except (ApiConfigurationError, CredentialSnapshotError) as error:
+        frappe.throw(_(
+            "ZATCA credential snapshot validation failed ({0}). Review the selected certificate, key, authentication and environment settings."
+        ).format(error.code))
+
+
+def _certificate_fields_for_owner(owner: CredentialOwner) -> tuple[str, ...]:
+    return tuple(
         get_alias_group("multiple_setting_certificate")["aliases"]
         if owner.doctype == "ZATCA Multiple Setting" else ("custom_certificate",)
     )
-    return certificate_value(owner.values, aliases)
+
+
+def _certificate_for_owner(owner: CredentialOwner) -> str:
+    return certificate_value(owner.values, _certificate_fields_for_owner(owner))
 
 
 def get_signing_certificate(company_abbr, source_doc=None) -> str:

@@ -1,4 +1,10 @@
-# Settings and route audit — updated through development increment 17
+# Settings and route audit — updated through development increment 18
+
+Increment 18 observes independent purpose-token certificate identity and legacy
+field matches through an internal read-only adapter, not a new selector. Company
+certificate/key overwrite and device alias transitions are characterized, not
+migrated. See [CREDENTIAL_LIFECYCLE.md](CREDENTIAL_LIFECYCLE.md) for the proposed
+versioned storage/activation design and unresolved provenance/security gates.
 
 Increment 17 adds internal ephemeral route/key/certificate/authentication capture
 using the existing saved-owner and alias policies. It is not a new precedence

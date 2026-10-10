@@ -67,6 +67,11 @@ opaque: their embedded certificate/environment is not validated in this incremen
 
 ## Certificate alias conflict is a release gate
 
+Increment 18 independently observes purpose-token identities and field matches
+without relaxing this selector or promoting token-derived text. Actual legacy
+writer/key rotation behavior is characterized with synthetic mocked calls. See
+[CREDENTIAL_LIFECYCLE.md](CREDENTIAL_LIFECYCLE.md) for the staged separation proposal.
+
 Company certificates use `custom_certificate`. Multiple Setting readers now
 consult the existing shared alias registry for `custom_certficate` and
 `custom_certificate`. Either spelling can supply the value. Equal values are
