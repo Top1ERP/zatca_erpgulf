@@ -113,3 +113,10 @@ retry authority. See [DISPATCH_JOURNAL.md](DISPATCH_JOURNAL.md). Strict endpoint
 response classification, persisted coordination and verified provenance remain
 gates before any live identity or dispatch migration. Notify the user before any
 live application change; branch work alone is not deployment authority.
+
+Increment 15 implements pure endpoint/HTTP/validation and returned-XML identity
+assessment over that journal; see [RESPONSE_ASSESSMENT.md](RESPONSE_ASSESSMENT.md).
+Its MATCHED observations are not verified provenance, cryptographic/accounting
+validation or live acceptance. Generic 409, timeout, 303 and rejection never
+authorize a new identity or automatic replay. Durable services, verified capture
+and restored-site reconciliation/concurrency tests still precede live migration.

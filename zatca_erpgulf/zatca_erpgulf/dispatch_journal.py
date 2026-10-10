@@ -9,7 +9,7 @@ import hashlib
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 
-from zatca_erpgulf.zatca_erpgulf.history_evidence import MAX_RESPONSE_BYTES
+from zatca_erpgulf.zatca_erpgulf.response_json import MAX_RESPONSE_BYTES
 from zatca_erpgulf.zatca_erpgulf.issuance_candidate import (
     IssuanceContractError, PreparedIssuanceCandidate,
     _canonical_uuid, _fingerprint, _sha256,

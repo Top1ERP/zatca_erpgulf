@@ -1,4 +1,10 @@
-# Settings and route audit — updated through development increment 14
+# Settings and route audit — updated through development increment 15
+
+Increment 15 assesses endpoint-bound response/returned-XML consistency without
+reading current settings or changing live status/PIH. It shares bounded JSON
+primitives with historical diagnostics, not their legacy-wrapper interpretation.
+See [RESPONSE_ASSESSMENT.md](RESPONSE_ASSESSMENT.md). Verified provenance,
+persistence and runtime adoption remain gates, with prior notice before live edits.
 
 Increment 14 adds a pure single-attempt journal over the prepared candidate. It
 does not resolve settings, authorize retries or classify receipts as accepted;

@@ -1,15 +1,16 @@
-# Implementation status — 2026-10-09
+# Implementation status — 2026-10-10
 
 ## Scope delivered in this increment
 
-Safety preparation and fourteen bounded increments (Compliance outcomes, dedicated
+Safety preparation and fifteen bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
 Company-scoped Sales/POS scheduling, opt-in attached-XML evidence inspection,
 opt-in stored response/counter observations, opt-in generated XML evidence,
 opt-in embedded public certificate observations, an immutable prepared-artifact
-contract, and a single-attempt dispatch-observation journal)
+contract, a single-attempt dispatch-observation journal, and endpoint-bound
+response/returned-XML assessment)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA.
@@ -265,6 +266,22 @@ branches and credential-context differences are recorded in
 - Added 161 local cases; no durable SQL lease, retry permission, acceptance or
   live behavior was implemented. See [DISPATCH_JOURNAL.md](DISPATCH_JOURNAL.md).
 
+## Increment 15: endpoint-bound response and returned-XML assessment
+
+- Added a pure immutable assessment of the candidate-bound receipt. Normal 200
+  success and 202 success with warnings are preserved when operation/validation
+  are consistent. Generic 409 remains unconfirmed, 303 is a separate observation,
+  and HTTP/validation/auth/transport outcomes do not grant retry permission.
+- Reporting requires no returned XML; clearance requires an unambiguous match
+  of returned identity/type/declared digest/PIH. Changed clearance serialization,
+  signature, certificate and QR are allowed without modifying submitted bytes.
+- Shared the existing bounded duplicate-key/numeric decoder with historical
+  diagnostics, preserving legacy-wrapper semantics there. The new wire reader
+  rejects wrappers/HTML/multiple objects instead of repairing them.
+- Added 278 local cases. No cryptographic/business-data/provenance verification,
+  database writes or runtime adapter adoption. See
+  [RESPONSE_ASSESSMENT.md](RESPONSE_ASSESSMENT.md) for policy and official sources.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -280,8 +297,8 @@ combined selected suite to 1,393. Increment 10 adds 129 cases, bringing the
 combined selected suite to 1,522. Increment 11 adds 43 cases, bringing the combined
 selected suite to 1,565. Increment 12 adds 85 cases, bringing the combined selected
 suite to 1,650. Increment 13 adds 237 cases, bringing the combined selected suite
-to 1,887. Increment 14 adds 161 cases, bringing the combined selected suite to
-**2,048 passing tests**:
+to 1,887. Increment 14 adds 161 cases to reach 2,048. Increment 15 adds 278 cases,
+bringing the combined selected suite to **2,326 passing tests**:
 
 | Suite | Scope |
 | --- | --- |
@@ -302,6 +319,7 @@ to 1,887. Increment 14 adds 161 cases, bringing the combined selected suite to
 | `test_certificate_evidence.py`, `test_certificate_inventory.py` | Bounded immutable embedded DER/SPKI/text observations, renewal/key distinction, structural ambiguity, no-current-credential/permission/privacy and three-source composition |
 | `test_issuance_candidate.py` | Pure frozen exact-byte candidate, explicit chain/version/epoch/route declarations, source/type matching, same-key drift, structured scope/privacy and no-I/O |
 | `test_dispatch_journal.py` | Frozen single-attempt receipt history, exact bounded bytes, unknown/late/auth observations, idempotence/conflicts, no second start or acceptance/replay authority |
+| `test_response_assessment.py` | Endpoint/HTTP/validation consistency, warnings, bounded strict wire JSON, returned XML identity/type/digest/PIH, legitimate changed clearance artifact, no provenance/crypto/accounting/retry authority |
 | `test_tax_details_compat.py`, `test_tax_details_regression.py` | Tax adapter regressions |
 | `test_qr_tlv_compliance.py` | Existing QR/TLV regressions |
 | `test_zatca_response.py` | Existing response handling |
@@ -335,6 +353,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
   zatca_erpgulf/zatca_erpgulf/tests/test_certificate_inventory.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_issuance_candidate.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_dispatch_journal.py \
+  zatca_erpgulf/zatca_erpgulf/tests/test_response_assessment.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_tax_details_compat.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_tax_details_regression.py \
   zatca_erpgulf/zatca_erpgulf/tests/test_qr_tlv_compliance.py \
@@ -354,8 +373,8 @@ Resolve foreground unique-ID/gPOS policy parity and transactional worker/retry
 coordination; design an explicit ICV continuity mapping using the increment 6 audit.
 Use the follow-up [retry identity evidence](RETRY_IDENTITY.md) to introduce a
 durable issuance artifact contract before changing UUID or counter allocation.
-Implement the strict endpoint/response/returned-XML classification contract,
-cross-attempt policy and durable repository/outbox/leases;
+Bind the pure endpoint/response/returned-XML assessment to verified receipt capture
+and artifact integrity; implement cross-attempt policy and durable repository/outbox/leases;
 extend observed certificate identity with verified credential provenance and
 wider counter/log history. Rehearse on restored sites before proposing
 tenant reconciliation or changes to issuance/replay.

@@ -8,16 +8,15 @@ import base64
 import binascii
 import hashlib
 import json
-import math
 import re
 from dataclasses import dataclass, field
 
 from zatca_erpgulf.zatca_erpgulf.artifact_evidence import (
     MAX_XML_BYTES, ArtifactEvidenceError, parse_diagnostic_icv,
 )
+from zatca_erpgulf.zatca_erpgulf.response_json import MAX_RESPONSE_BYTES, response_decoder
 
 
-MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 RESPONSE_LABELS = (
     "ZATCA Response:", "استجابة هيئة الزكاة والضريبة والجمارك (ZATCA):",
 )
@@ -35,34 +34,6 @@ class ResponseObservation:
     xml_candidates: tuple = field(default=(), repr=False)
 
 
-def _pairs(pairs):
-    result = {}
-    for key, value in pairs:
-        if key in result:
-            raise ArtifactEvidenceError("response_duplicate_key")
-        result[key] = value
-    return result
-
-
-def _integer(value):
-    if len(value) > 64:
-        raise ArtifactEvidenceError("response_number")
-    return int(value)
-
-
-def _constant(value):
-    raise ArtifactEvidenceError("response_number")
-
-
-def _float(value):
-    if len(value) > 64:
-        raise ArtifactEvidenceError("response_number")
-    parsed = float(value)
-    if not math.isfinite(parsed):
-        raise ArtifactEvidenceError("response_number")
-    return parsed
-
-
 def _response_object(text):
     """Parse one object or a known legacy display wrapper, not arbitrary JSON."""
     value = text.strip()
@@ -77,10 +48,7 @@ def _response_object(text):
             raise ArtifactEvidenceError("response_wrapper")
         value = value[DISPLAY_SPACING.match(value).end():]
         source_format = "LEGACY_DISPLAY"
-    decoder = json.JSONDecoder(
-        object_pairs_hook=_pairs, parse_int=_integer, parse_float=_float,
-        parse_constant=_constant,
-    )
+    decoder = response_decoder()
     try:
         body, end = decoder.raw_decode(value)
     except (json.JSONDecodeError, RecursionError):

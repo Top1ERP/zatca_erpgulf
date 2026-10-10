@@ -130,6 +130,11 @@ be reserialized during cleanup.
 
 ### 5. Orchestration, persistence, and retry safety
 
+- Increment 15 implements the pure receipt/operation/returned-XML consistency
+  assessment, not authoritative receipt capture or live acceptance writes. See
+  [RESPONSE_ASSESSMENT.md](RESPONSE_ASSESSMENT.md). Genuine expected 200 is success
+  and 202 success with warnings; malformed/wrong-invoice observations and generic
+  409 cannot authorize acceptance. Metadata matching is not crypto/accounting proof.
 - Pass compliance type explicitly instead of temporarily mutating Company.
 - Ensure Compliance/Debug do not overwrite a real invoice's UUID or ICV fields.
 - Use durable, auditable artifact state; serialize allocation within each issuing

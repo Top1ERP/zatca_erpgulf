@@ -1,5 +1,9 @@
 # Single-attempt dispatch observations — increment 14
 
+Follow-up: increment 15 adds [response assessment](RESPONSE_ASSESSMENT.md) over
+this unchanged receipt journal. It classifies local operation/validation/XML
+consistency, not verified network provenance, persistence or acceptance authority.
+
 Development branch only. No runtime adapter uses this journal, and no tenant,
 invoice, UUID/ICV, counter, PIH, credential, schema or stored artifact changed.
 No HTTP, deployment, bench/worker restart or live-source edit was executed.
