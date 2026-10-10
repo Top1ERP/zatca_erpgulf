@@ -6,11 +6,16 @@ to deploy across tenants, upgrade ERPNext, submit production invoices, or delete
 legacy accounting records. The older `docs/zatca_advance_redesign/` records remain
 historical evidence; their deployment claims do not apply to this new branch.
 
-The user explicitly requires prior notice before modifying the live application.
-Before any installed-source edit, deployment, migration, runtime configuration
-change or bench/worker restart, explain the scope and operational impact to the
-user. Development-branch continuation is not live deployment authority; the
-pilot/rollout decision and remaining acceptance gates are still required.
+The current user restriction (2026-10-10) forbids applying results to ANY working
+or production environment and forbids agent-initiated tax-authority requests,
+including Sandbox/Simulation Compliance. Continue offline development only.
+No installed-source/configuration/schema write, Company creation on a working
+site, migration or Bench/worker restart is authorized by "continue" or prior notice.
+The mandatory order is completed development, then separately approved isolated
+fictional-Company rehearsal, then explicitly approved gradual active-client
+pilot/rollout. API sending needs separate explicit authority changing the ban.
+See [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md); it supersedes any older
+operational request or less restrictive deployment wording in historical records.
 
 ## Target design
 
@@ -85,7 +90,7 @@ be reserialized during cleanup.
 - Increment 19 implements isolated encrypted version staging, not active selection
   or field migration. See [CREDENTIAL_BUNDLE_STORAGE.md](CREDENTIAL_BUNDLE_STORAGE.md).
   Caller-supplied AES-GCM keys and explicit SQL contracts have private rehearsals;
-  production key custody, tenant permissions, transactional source/remote flow
+  future protected key custody, tenant permissions, transactional source/remote flow
   evidence and controlled activation must be verified before adoption.
 - Increment 18 adds independent legacy purpose/field observations and a versioned
   bundle migration proposal in [CREDENTIAL_LIFECYCLE.md](CREDENTIAL_LIFECYCLE.md).
@@ -179,6 +184,10 @@ be reserialized during cleanup.
 
 - Pin exact Frappe/ERPNext and dependent-app revisions for two isolated benches.
   Do not upgrade the production bench to test compatibility.
+- Use the guarded offline runner during development. A full fictional-Company
+  application rehearsal starts only AFTER development completion and separate
+  approval for an isolated bench. Do not substitute a working client's extra
+  Company or enable real CSID/Compliance calls as a test shortcut.
 - The current official v16 guide requires Python 3.14+ and Node.js 24+ and
   disallows commits in document hooks. Test transaction behavior, ordering,
   permissions, translations, navigation, and DocType extension integration.
@@ -195,8 +204,11 @@ be reserialized during cleanup.
   evidence. Community examples are supplementary, not authority to ignore a
   mandatory rule. Record each source/revision and rule ID with its test.
   [ZATCA XML standard](https://zatca.gov.sa/ar/E-Invoicing/SystemsDevelopers/Documents/20230519_ZATCA_Electronic_Invoice_XML_Implementation_Standard_%20vF.pdf)
-- Roll out first to an explicitly chosen pilot after backup and restore review,
-  then expand with monitoring. A code rollback must preserve issued artifacts
+- After completed development AND isolated fictional-Company acceptance, obtain
+  explicit approval for a named active-client pilot after backup/restore review,
+  then another gradual rollout decision. Current authority sending remains banned
+  unless explicitly changed; deployment cannot activate a prohibited send.
+  A code rollback must preserve issued artifacts
   and reconcile current counters; restoring an old database blindly is unsafe.
 
 ## Minimum acceptance matrix
@@ -213,7 +225,8 @@ be reserialized during cleanup.
 | Failure/retry | 400/401/403/406/500; timeout; invalid body; duplicate and concurrent requests |
 | Invariants | No real invoice/chain mutation in tests; immutable accepted XML; no credential leaks |
 
-No successful mock test substitutes for the v16 bench, SDK checks, or a controlled
-remote Compliance acceptance test. External tests must use the intended
-environment and credential purpose; never send a diagnostic sample to a live
-reporting/clearance endpoint.
+No successful mock test substitutes for v16 application/SDK checks or genuine
+remote acceptance evidence. Remote acceptance remains UNVERIFIED while the user
+prohibits requests. Do not perform it now, label mocks as authority PASS, or use
+pilot/deployment approval as API-send authorization. If the user later explicitly
+changes the ban, a separate reviewed scope/environment/purpose gate is required.

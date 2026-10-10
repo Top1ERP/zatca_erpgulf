@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and twenty-six bounded increments (Compliance outcomes, dedicated
+Safety preparation and twenty-seven bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -17,13 +17,18 @@ permissioned metadata-only staged inspection, and version/CSR-bound Compliance
 observations, an encrypted append-only request/receipt archive, and permissioned
 metadata-only archive selection, a single-use two-transaction capture scaffold,
 an explicit standard-gateway HTTPS adapter, and permissioned saved-source
-revision-bound capture with shared Frappe permission-signature compatibility)
+revision-bound capture with shared Frappe permission-signature compatibility,
+and a fixed-manifest offline rehearsal guard/runner)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
 a new private MariaDB test subprocess, never a tenant database or live service.
-The user requires prior notice before any live application change or restart;
-this development continuation does not authorize deployment.
+The current user mandate forbids ALL working/production environment changes and
+agent-initiated authority requests, including Sandbox/Simulation. Development
+completion must precede a separately approved isolated fictional-Company rehearsal,
+then explicit gradual active-client pilot/rollout decisions. Prior notice alone
+does not authorize a live write or request. See
+[SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md).
 
 ### Recovery evidence
 
@@ -451,6 +456,23 @@ branches and credential-context differences are recorded in
   CSR and actual TLS/transport provenance remain gates; no ERPNext 16 boot or
   live adoption. See [COMPLIANCE_CAPTURE_ACCESS.md](COMPLIANCE_CAPTURE_ACCESS.md).
 
+## Increment 27: guarded offline-only development and phased acceptance policy
+
+- Added a fixed reviewed-test runner with an explicit before-collection I/O guard:
+  no Python TCP/IPv6/DNS/normal Requests send, working Frappe site initialization,
+  unknown Unix SQL socket or arbitrary subprocess/Bench operation.
+- Private SQL now requires the guard before acquisition. Only owned scratch
+  sockets and exact reviewed TCP-disabled native commands are admitted. Existing
+  request/receipt/synthetic HTTPS cases remain offline; no application runtime
+  module, hook, dependency or UI behavior was changed in this increment.
+- Added 80 local guard/runner cases and reran all six private SQL suites under it.
+  This is an accidental-I/O guard, not an OS sandbox or hostile-code guarantee.
+- Recorded the user's absolute no-working-environment/no-authority-send mandate
+  and order: finish development, separate fictional-Company acceptance, then
+  explicitly approved gradual active-client pilot. A generic continuation or
+  deployment approval does not authorize sending. See
+  [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -478,14 +500,16 @@ to reach 2,438 passing local tests. Increment 17 adds 100 cases to reach
 3,287 passing local tests. Increment 24 adds 137 to reach
 3,424 passing local tests. Increment 25 adds 191 to reach
 3,615 passing local tests. Increment 26 adds 224 to reach
-**3,839 passing local tests**, plus **118 passing real private-database cases**
+3,839 passing local tests. Increment 27 adds 80 to reach
+**3,919 passing local tests**, plus **118 passing real private-database cases**
 (25 journal + 30 bundle/service + 34 archive/service + 17 capture + 4 HTTPS
-+ 8 source capture, **3,957 total**).
-All six private SQL suites were rerun;
++ 8 source capture, **4,037 total**).
+All six private SQL suites were rerun under the offline guard;
 they never connect to a tenant:
 
 | Suite | Scope |
 | --- | --- |
+| `test_offline_rehearsal.py` | Guarded ordinary Python network/site/process rejection, private-only socket/command registry, inherited peer/symlink checks, owned cleanup, no unguarded SQL acquisition and fixed offline test runner |
 | `test_compliance_result.py` | Pure result classification and malformed payloads |
 | `test_compliance_api_outcomes.py` | Mocked real API/button functions, failures, previous completion, translations |
 | `test_nonproduction_isolation.py` | Preview identity, live-identity regression, counter boundaries, explicit types, cross-company rejection, debug artifact protection, temporary-file lifetime |
@@ -531,50 +555,18 @@ repository rehearsal uses real SQL only on its own new private server. Run again
 development worktree, not the installed production package. From the worktree:
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
-  ../../env/bin/python -m pytest -q -p no:cacheprovider \
-  zatca_erpgulf/zatca_erpgulf/tests/test_compliance_result.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_compliance_api_outcomes.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_nonproduction_isolation.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_api_route_contract.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_api_routing.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_credential_selection.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_credential_snapshot.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_credential_lifecycle.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_credential_bundle.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_credential_bundle_access.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_compliance_evidence.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_compliance_archive.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_compliance_archive_access.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_compliance_capture.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_compliance_https.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_compliance_capture_access.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_permission_compat.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_field_compat.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_submission_context.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_legacy_submission_context.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_icv_identity_contract.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_generation_routes.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_background_scheduling.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_retry_identity_contract.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_artifact_evidence.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_artifact_inventory.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_history_evidence.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_history_inventory.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_generated_inventory.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_certificate_evidence.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_certificate_inventory.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_issuance_candidate.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_dispatch_journal.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_response_assessment.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_journal_storage.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_journal_repository.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_tax_details_compat.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_tax_details_regression.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_qr_tlv_compliance.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_zatca_response.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_compatibility_hardening.py
+PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py
 ```
+
+For all selected local cases plus six owned-private SQL suites:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py --private-sql
+```
+
+The reviewed manifest is `zatca_erpgulf/zatca_erpgulf/tests/rehearsal_selection.py`.
+Private fixtures refuse acquisition without the explicit guard. The runner keeps
+environment-only private opt-in and broad/unreviewed test targets disabled.
 
 Tested with the existing Python 3.10/Frappe 15 environment, plus MariaDB 10.11.14
 for the isolated repository rehearsal. See [JOURNAL_REPOSITORY.md](JOURNAL_REPOSITORY.md)
@@ -584,6 +576,11 @@ site integration, browser language switch, ZATCA SDK run, remote Compliance
 request, or production invoice submission was performed in this increment.
 
 ## Next gate
+
+All implementation/rehearsal below remains OFFLINE and in development. No live
+provider/site binding, dummy Company on a working bench, authority request or
+installed-source/config/schema change is authorized. Follow the completion-first
+fictional-Company then gradual-pilot order in [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md).
 
 Bind the new ephemeral material snapshot to verified transactional source/settings
 provenance and a durable credential epoch, then adopt it in preparation/request

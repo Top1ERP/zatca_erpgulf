@@ -1,6 +1,8 @@
 """Opt-in real InnoDB rehearsal in a NEW private server, never a site database.
 
-Run with ZATCA_RUN_ISOLATED_MARIADB=1. No socket/host/site credentials are read
+Run through tools/run_unification_rehearsal.py --private-sql and its mandatory
+offline guard. An inherited environment flag alone cannot acquire resources.
+No socket/host/site credentials are read
 from environment or bench configuration. This fixture creates its own data dir,
 disables TCP/default option files, verifies that exact private socket/data dir,
 and terminates only its own subprocess. No schema installer exists in runtime.
@@ -28,6 +30,7 @@ from zatca_erpgulf.zatca_erpgulf.response_assessment import ResponseAssessment
 from zatca_erpgulf.zatca_erpgulf.tests.test_certificate_evidence import certificates
 from zatca_erpgulf.zatca_erpgulf.tests.test_dispatch_journal import event
 from zatca_erpgulf.zatca_erpgulf.tests.test_issuance_candidate import candidate
+from zatca_erpgulf.zatca_erpgulf.tests.offline_rehearsal_plugin import active_guard
 
 
 pytestmark = pytest.mark.skipif(
@@ -38,27 +41,21 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture(scope="module")
 def isolated_server(tmp_path_factory):
+    guard = active_guard()
+    if guard is None:
+        pytest.fail("Private SQL requires tools/run_unification_rehearsal.py --private-sql and its offline guard")
     server_binary, install_binary = shutil.which("mariadbd"), shutil.which("mariadb-install-db")
     if not server_binary or not install_binary:
         pytest.fail("Private MariaDB rehearsal requires local server/install binaries")
-    root = tmp_path_factory.mktemp("zjr")
+    root = guard.new_private_directory()
     root.chmod(0o700)
     data, socket = root / "data", root / "server.sock"
     if len(str(socket).encode()) >= 100:
         pytest.fail("Private rehearsal socket path exceeds the conservative bound")
+    install_arguments, arguments = guard.register_private_server(root, install_binary, server_binary)
     with (root / "install.log").open("wb") as install_log:
-        subprocess.run([
-            install_binary, "--no-defaults", f"--datadir={data}",
-            "--auth-root-authentication-method=normal", "--skip-test-db",
-        ], check=True, stdout=install_log, stderr=subprocess.STDOUT, timeout=30)
+        subprocess.run(install_arguments, check=True, stdout=install_log, stderr=subprocess.STDOUT, timeout=30)
     with (root / "server.log").open("wb") as server_log:
-        arguments = [
-            server_binary, "--no-defaults", f"--datadir={data}", f"--socket={socket}",
-            f"--pid-file={root / 'server.pid'}", "--skip-networking", "--skip-log-bin",
-            "--innodb-buffer-pool-size=32M", "--innodb-log-file-size=8M",
-            "--innodb-flush-log-at-trx-commit=1", "--innodb-use-native-aio=0",
-            "--max-connections=16", "--max-allowed-packet=32M", "--performance-schema=OFF",
-        ]
         process = subprocess.Popen(arguments, stdout=server_log, stderr=subprocess.STDOUT)
 
         def ready():

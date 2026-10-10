@@ -122,15 +122,13 @@ Increment 23 adds [permissioned archive selection](COMPLIANCE_ARCHIVE_ACCESS.md)
 bringing the current selection to **3,287 local + 89 private SQL = 3,376 cases**.
 Increment 24's [capture scaffold](COMPLIANCE_CAPTURE.md) raises totals to
 **3,424 local + 106 private SQL = 3,530 cases**, still without a real HTTP sender
-or runtime adoption. The four-suite private command is in [COMPLIANCE_ARCHIVE.md](COMPLIANCE_ARCHIVE.md).
-For all three private SQL suites use the command in that archive document. Reproduce
-the opt-in SQL test from the development worktree only:
+or runtime adoption. Increment 27 makes the offline guard mandatory before
+private acquisition; environment-only invocation no longer suffices. Reproduce
+the fixed local plus all six private SQL selection from the development worktree
+only. See [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md).
 
 ```sh
-ZATCA_RUN_ISOLATED_MARIADB=1 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
-  ../../env/bin/python -m pytest -q -p no:cacheprovider \
-  zatca_erpgulf/zatca_erpgulf/tests/test_journal_repository_mariadb.py \
-  zatca_erpgulf/zatca_erpgulf/tests/test_credential_bundle_mariadb.py
+PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py --private-sql
 ```
 
 This may need scoped permission to bind its own Unix socket. Only its own test
@@ -140,6 +138,11 @@ Frappe application or ERPNext 16 runtime was tested. No compatibility/deployment
 claim follows from these local SQL/crypto tests.
 
 ## Next adoption gates
+
+Current user authority is offline development only: no working-environment
+provider/site/configuration/schema binding, restart or authority API request.
+Gates below cannot be executed on a working site without a later explicit change
+to that restriction and the required fictional-Company acceptance/pilot approvals.
 
 1. Choose and validate protected key custody/nonce/rotation/backup/recovery policy;
    do not repurpose site encryption settings without an explicit design review.

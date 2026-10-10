@@ -139,16 +139,13 @@ and shared quiet Frappe permission-signature compatibility, reaching
 **3,839 + 118 = 3,957 cases**. Guarded calls compare locked saved revisions before
 reservation and before transport, without asserting atomic ACL or epoch provenance.
 
-From the development worktree:
+Increment 27 adds the [guarded offline runner and current user mandate](SAFETY_AND_REHEARSAL.md),
+reaching **3,919 + 118 = 4,037 cases**. Private SQL now requires the guard BEFORE
+resource acquisition; environment-only/manual unguarded commands fail closed.
 
-    ZATCA_RUN_ISOLATED_MARIADB=1 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
-      ../../env/bin/python -m pytest -q -p no:cacheprovider \
-      zatca_erpgulf/zatca_erpgulf/tests/test_journal_repository_mariadb.py \
-      zatca_erpgulf/zatca_erpgulf/tests/test_credential_bundle_mariadb.py \
-      zatca_erpgulf/zatca_erpgulf/tests/test_compliance_archive_mariadb.py \
-      zatca_erpgulf/zatca_erpgulf/tests/test_compliance_capture_mariadb.py \
-      zatca_erpgulf/zatca_erpgulf/tests/test_compliance_https_mariadb.py \
-      zatca_erpgulf/zatca_erpgulf/tests/test_compliance_capture_access_mariadb.py
+From the development worktree, run the fixed local plus private-SQL selection:
+
+    PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py --private-sql
 
 The fixture owns its TCP-disabled process/socket/datadir and accepts no site,
 external host/socket/config override. Crash tests stop/restart only that exact
@@ -158,6 +155,10 @@ boot. No SDK, live call, browser, full site integration or ERPNext 16 runtime wa
 tested. Broader release/unification gates remain in [PLAN.md](PLAN.md).
 
 ## Next gate
+
+The current user's working-environment and authority-request ban takes precedence
+over any historical deployment wording. Future gates below are not authorization
+to install/bind a live provider, submit an API request or restart Bench.
 
 The internal permissioned metadata selection is added in increment 23, and the
 explicit two-transaction capture scaffold in increment 24. Increment 26 adds a

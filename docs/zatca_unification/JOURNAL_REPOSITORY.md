@@ -107,16 +107,19 @@ Selected local suite: **2,438 passing**. With the separate 25 real-database case
 **2,463 passing cases total**. No actual ERPNext 16, Frappe site/hook integration,
 browser, SDK, customer data migration or ZATCA request was exercised.
 
-Run local cases using the STATUS command. The private database suite is opt-in:
+Run local cases using the STATUS command. Increment 27 replaces manual private
+SQL invocation with the mandatory [offline guard/runner](SAFETY_AND_REHEARSAL.md).
+Current fixed local plus all private SQL selection (historical counts above stay
+increment-specific):
 
 ```sh
-ZATCA_RUN_ISOLATED_MARIADB=1 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
-  ../../env/bin/python -m pytest -q -p no:cacheprovider \
-  zatca_erpgulf/zatca_erpgulf/tests/test_journal_repository_mariadb.py
+PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py --private-sql
 ```
 
 It accepts no externally supplied socket/host/database; missing server binaries
 or blocked local-socket permissions fail rather than fall back to a live server.
+The current user forbids working-environment changes and authority requests;
+release gates below are future requirements, never present operational authority.
 
 ## Release and next implementation gates
 
