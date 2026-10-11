@@ -137,6 +137,11 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 32 adds [exact archived-attempt advance source choice](ADVANCE_SOURCE_SELECTION.md):
+  Reporting request versus Clearance returned bytes, pinned context/revision and
+  original clock consistency. This is a pure observation, not verified source
+  selection. Add a permissioned saved-source/committed-record storage boundary
+  and authenticated capture evidence before adopting it in runtime settlement.
 - Increment 31 adds [read-only original advance reference observations](ADVANCE_REFERENCE.md)
   and characterizes three current assembly paths. Implement permissioned immutable
   original-artifact/acceptance selection and Phase-1/legacy missing-source policy

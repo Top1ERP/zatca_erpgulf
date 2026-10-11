@@ -86,3 +86,7 @@ The new primitive is intentionally **not called by runtime assembly** yet. Thus
 the characterized legacy issues remain until trusted-source adoption is complete.
 No schema/button/translation or runtime dependency change is introduced; static
 internal codes are not new user-facing untranslated messages.
+
+Increment 32 adds [exact archived-attempt source choice](ADVANCE_SOURCE_SELECTION.md)
+on top of this primitive. It is still an observation; permissioned committed-source
+acquisition, authenticated acceptance and legacy/Phase-1 reconciliation remain gates.

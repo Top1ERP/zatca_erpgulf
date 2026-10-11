@@ -116,6 +116,15 @@ references. Current-source metadata must not rewrite historical XML clock fields
 The user mandate and separate development/dummy/pilot gates remain unchanged.
 The guarded runs passed **4,487 local + 143 private SQL = 4,630 cases**.
 
+Increment 32 adds [exact archived-attempt advance source choice](ADVANCE_SOURCE_SELECTION.md).
+The selector has no current-site/file/status lookup or runtime integration. A
+consistent response and exact bytes do not prove authorized origin or durable
+commit; the new ninth private SQL suite explicitly rehearses uncommitted rollback.
+Site/namespace/committed-record provenance and saved-row permission checks remain
+gates before any source disclosure or settlement adoption. No working-source
+change, authority call or fictional Company on a customer bench is authorized.
+The final guarded run passed **4,565 local + 153 private SQL = 4,718 cases**.
+
 ## Mandatory order for subsequent work
 
 1. **Complete development offline.** Finish the shared settings/source/credential

@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and thirty-one bounded increments (Compliance outcomes, dedicated
+Safety preparation and thirty-two bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -22,7 +22,8 @@ and a fixed-manifest offline rehearsal guard/runner, and explicit local
 exact-envelope receipt persistence recovery, and permissioned local recovery
 with shared saved-source access policy, and an explicit shared invoice issue-time
 contract with Sales/POS/XML/QR/synthetic/initial-advance adapters, and read-only
-original-XML advance reference observations with explicit identity binding)
+original-XML advance reference observations with explicit identity binding, and
+exact archived-attempt advance source choice with endpoint/clock consistency)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -565,6 +566,23 @@ branches and credential-context differences are recorded in
   offline manifest. See [ADVANCE_REFERENCE.md](ADVANCE_REFERENCE.md) for the
   source inventory, conservative lexical limits and explicit adoption gates.
 
+## Increment 32: exact archived-attempt advance source choice
+
+- Added a frozen pure selector requiring one explicit journal plus expected full
+  preparation context, UUID/ICV and pinned journal revision. It recomputes the
+  response assessment instead of accepting independent success declarations.
+- Reporting selects original request bytes; clearance requires returned XML.
+  No latest-file/status heuristic, unconfirmed/rejected receipt, changed context
+  or request fallback can supply a source. Returned issue date/time must match
+  original text, covering a gap in the generic metadata response assessment.
+- Added 78 generated-data local cases and 10 cases in a ninth private SQL suite for exact
+  committed reconstruction, namespace isolation, late receipt revision and
+  uncommitted observation rollback. No schema change or tenant connection exists.
+- Selection is still an observation, NOT proof of provenance, permission,
+  persistence, signature, acceptance or accounting. It is not adopted by runtime.
+  A permissioned server-owned storage/source boundary and missing-original policy
+  remain mandatory. See [ADVANCE_SOURCE_SELECTION.md](ADVANCE_SOURCE_SELECTION.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -609,12 +627,20 @@ plus the same **143 private SQL cases**, **4,630 total** (40.30 seconds). Both
 commands ran under the offline guard; the private server was fixture-owned,
 temporary and TCP-disabled. No working site's database was accessed.
 
+Increment 32 adds **78 local + 10 private SQL cases**, reaching **4,565 local +
+153 private SQL = 4,718 passing cases** across nine private suites. The final
+guarded combined run passed in **40.98 seconds** (an earlier combined run passed
+in 47.89 seconds). The first local run exposed two test-helper keyword-collision
+failures for invalid journal inputs; the helper was corrected before both green
+combined runs. No site, tenant data or authority request was involved.
+
 | Suite | Scope |
 | --- | --- |
 | `test_offline_rehearsal.py` | Guarded ordinary Python network/site/process rejection, private-only socket/command registry, inherited peer/symlink checks, owned cleanup, no unguarded SQL acquisition and fixed offline test runner |
 | `test_issue_timestamp.py` | Explicit typed/text issue-time parsing, valid zero duration, single-digit hours, offsets/DST/UTC rollover, bounded/static input errors, frozen whole-second UTC/XML/QR contract and no Frappe/site/clock dependency |
 | `test_issue_timestamp_adapters.py` | Actual mocked Sales/POS metadata and Phase-1/Phase-2/synthetic/initial-advance QR paths, no second invoice read, invalid time before UUID writes, duplicate/blank XML times before keys, Arabic error keys and unchanged legacy amount/Phase-2 advance guards |
 | `test_advance_reference.py` | Synthetic original type-386 identity/seller/clock observations, lexical preservation, bounded secure parsing/static errors, no settings lookup and characterization of unchanged legacy reference defects |
+| `test_advance_source_selection.py`, `test_advance_source_selection_mariadb.py` | Explicit exact journal/context/UUID/ICV source choice, Reporting request/Clearance return distinction, changed-clock rejection and false authority flags; owned-private committed reconstruction, namespace/late-revision separation and uncommitted rollback limits |
 | `test_compliance_result.py` | Pure result classification and malformed payloads |
 | `test_compliance_api_outcomes.py` | Mocked real API/button functions, failures, previous completion, translations |
 | `test_nonproduction_isolation.py` | Preview identity, live-identity regression, counter boundaries, explicit types, cross-company rejection, debug artifact protection, temporary-file lifetime |
@@ -667,7 +693,7 @@ development worktree, not the installed production package. From the worktree:
 PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py
 ```
 
-For all selected local cases plus eight owned-private SQL suites:
+For all selected local cases plus nine owned-private SQL suites:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py --private-sql
@@ -686,12 +712,13 @@ request, or production invoice submission was performed in this increment.
 
 ## Next gate
 
-Increment 31 audits original-issued advance reference risks and adds a read-only
-metadata contract. Next implement a permissioned immutable original-artifact
-selector/acceptance binding and an explicit missing-source policy (including
-Phase-1/retired legacy records) before adopting it in settlement assembly. Verify
+Increment 31 audits original-issued advance reference risks; increment 32 adds
+exact archived-attempt source choice/clock consistency. Next implement the
+permissioned server-owned site/namespace/committed-record source boundary and
+acceptance binding, plus an explicit missing-source policy (including
+Phase-1/retired legacy records), before settlement adoption. Verify
 timezone/settings snapshots for new issuance separately. Neither increment 30
-nor 31 consolidates advance amounts/GL or cryptographic digests.
+nor 31/32 consolidates advance amounts/GL or cryptographic digests.
 
 All implementation/rehearsal below remains OFFLINE and in development. No live
 provider/site binding, dummy Company on a working bench, authority request or
