@@ -96,13 +96,23 @@ class MariaDBComplianceArchiveRepository:
                     raise ComplianceArchiveError("archive_record_conflict")
                 return stored
 
-    def append_receipt(self, sealed):
-        """Add one immutable response to the exact captured request; never replace."""
+    def append_receipt(self, sealed, *, expected_start=None):
+        """Add one immutable response; optionally require the EXACT start envelope.
+
+        Explicit uncertain-commit recovery supplies expected_start, preventing
+        adoption of a resealed/replaced start even when its plaintext matches.
+        No start is inserted, no receipt is overwritten and no HTTP is sent.
+        """
         with self._operation():
             receipt = self._preflight(sealed, 2)
+            if expected_start is not None:
+                ComplianceArchiveHistory(self._preflight(expected_start, 1), receipt)
             self._bundle(receipt.requirements.manifest.slot, sealed.version_id, receipt.requirements.manifest)
             with self._connection.cursor() as cursor:
-                start = self._archive_cipher.open(self._load_row(cursor, sealed.exchange_id, 1))
+                stored_start = self._load_row(cursor, sealed.exchange_id, 1)
+                if expected_start is not None and stored_start != expected_start:
+                    raise ComplianceArchiveError("archive_record_conflict")
+                start = self._archive_cipher.open(stored_start)
                 ComplianceArchiveHistory(start, receipt)
                 self._insert(cursor, sealed)
                 stored = self._load_row(cursor, sealed.exchange_id, 2)

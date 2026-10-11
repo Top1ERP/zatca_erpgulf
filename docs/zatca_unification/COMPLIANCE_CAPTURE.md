@@ -99,6 +99,10 @@ encrypted receipt and response privately for explicit reviewed persistence
 reconciliation, not another HTTP call or resealing. The local SQL tests reconcile
 that same ciphertext both when the original commit happened and when it did not.
 No automatic reconciler, late-response adoption or durable recovery queue exists.
+Increment 28 adds [explicit local receipt persistence recovery](COMPLIANCE_RECEIPT_RECOVERY.md),
+not an automatic reconciler or operator endpoint. It authenticates the exact
+retained envelopes and requires equality with the committed start ciphertext,
+then commits/closes one owned transaction without any transport/clock/resealing.
 Process loss after HTTP but before receipt commit can lose the in-memory receipt,
 leaving only the spent request. Review remote outcome; do not infer acceptance or
 retry from that reservation. Unknown prepare commit cannot cause HTTP in that
@@ -161,6 +165,8 @@ browser, restored Frappe application, or ERPNext 16 runtime was tested.
 Next: reviewed tenant/key/owned-connection providers, durable source/epoch evidence,
 installed-schema/permission rehearsal of the guarded source service, integration
 of the opt-in adapter with actual TLS/transport evidence,
-CSR issuance provenance and explicit unknown-outcome reconciliation. Then rehearse
+CSR issuance provenance and permissioned durable unknown-outcome recovery. The
+increment 28 internal primitive does not supply the operator/resource boundary
+or recover a lost in-memory receipt. Then rehearse
 v15/v16 sites before proposing epoch activation or runtime adoption. Key/schema/
 off-host recovery review, pilot approval and prior live-change notice are required.

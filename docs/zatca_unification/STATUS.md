@@ -1,8 +1,8 @@
-# Implementation status — 2026-10-10
+# Implementation status — 2026-10-11
 
 ## Scope delivered in this increment
 
-Safety preparation and twenty-seven bounded increments (Compliance outcomes, dedicated
+Safety preparation and twenty-eight bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -18,7 +18,8 @@ observations, an encrypted append-only request/receipt archive, and permissioned
 metadata-only archive selection, a single-use two-transaction capture scaffold,
 an explicit standard-gateway HTTPS adapter, and permissioned saved-source
 revision-bound capture with shared Frappe permission-signature compatibility,
-and a fixed-manifest offline rehearsal guard/runner)
+and a fixed-manifest offline rehearsal guard/runner, and explicit local
+exact-envelope receipt persistence recovery)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -56,6 +57,10 @@ does not authorize a live write or request. See
   deleted, no history forced, and no deployed source file changed.
 - Development is in an independent worktree on
   `codex/zatca-unification-v15-v16-20261009`.
+- Increment 27 is committed locally as `9d66b5a`. Its GitHub push was rejected by
+  the approval reviewer on 2026-10-11 pending destination/content authorization;
+  the rejection was not bypassed. The last known remote tip is `50c13bc`.
+  Increment 28 remains local until that explicit publication approval is resolved.
 
 ## Compliance fix
 
@@ -473,6 +478,24 @@ branches and credential-context differences are recorded in
   deployment approval does not authorize sending. See
   [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md).
 
+## Increment 28: explicit local receipt persistence recovery
+
+- Added an internal recovery primitive with explicit archive/bundle keys and an
+  owned connection factory, deliberately without transport/clock dependencies.
+  Only the exact protected uncertain-receipt result is accepted; authenticate
+  both retained envelopes before SQL and compare full observation bindings.
+- Receipt persistence optionally requires the EXACT committed start envelope,
+  not merely matching plaintext. Missing/corrupt/resealed starts or conflicting
+  receipts cannot be adopted, recreated or overwritten. No schema change.
+- One owned transaction appends/confirms identical receipt ciphertext, commits
+  and closes. Uncertainty retains the original result, without automatic retry.
+  Existing captured state/projections grant no remote/Compliance/activation
+  authority. Capture and recovery share the owned-transaction cleanup helper.
+- Added 67 local and 13 private SQL cases; all seven private suites ran under
+  the offline guard. No live API, installed hook/button, permissioned recovery
+  endpoint, durable custody queue, active credential or tenant write was added.
+  See [COMPLIANCE_RECEIPT_RECOVERY.md](COMPLIANCE_RECEIPT_RECOVERY.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -501,10 +524,12 @@ to reach 2,438 passing local tests. Increment 17 adds 100 cases to reach
 3,424 passing local tests. Increment 25 adds 191 to reach
 3,615 passing local tests. Increment 26 adds 224 to reach
 3,839 passing local tests. Increment 27 adds 80 to reach
-**3,919 passing local tests**, plus **118 passing real private-database cases**
+3,919 passing local tests. Increment 28 adds 67 to reach
+**3,986 passing local tests**, plus **131 passing real private-database cases**
 (25 journal + 30 bundle/service + 34 archive/service + 17 capture + 4 HTTPS
-+ 8 source capture, **4,037 total**).
-All six private SQL suites were rerun under the offline guard;
++ 8 source capture + 13 receipt recovery, **4,117 total**).
+The local runner passed in 17.71 seconds; the combined runner passed in
+34.59 seconds. All seven private SQL suites were rerun under the offline guard;
 they never connect to a tenant:
 
 | Suite | Scope |
@@ -523,6 +548,8 @@ they never connect to a tenant:
 | `test_compliance_archive.py` | Exact bounded framed codec, independently keyed envelopes, AAD/rehydration integrity, start/receipt binding, static transaction/privacy/no-discovery contracts and empty-body preservation |
 | `test_compliance_archive_access.py` | ACL-first authenticated explicit selection, saved owner/Sales/POS source matching, shared CSR, count/byte limits, no partial result, actor drift, privacy/translation and historical inspection compatibility |
 | `test_compliance_capture.py` | Two owned transaction boundaries, exact snapshot-derived header/body, strict spent reservation, unknown commits/transport/clock, validity/age checks, no automatic retry/discovery and protected recovery material |
+| `test_compliance_receipt_recovery.py` | Explicit exact-envelope persistence, namespace/stage/authentication rejection before SQL, exact committed start, identical receipt storage, unknown commits/cleanup/privacy and no transport/clock/resealing |
+| `test_compliance_receipt_recovery_mariadb.py` (separate opt-in) | Owned-private initial/recovery commit ambiguity, concurrent recovery at both isolation levels, corrupt/resealed/missing rows, autocommit rejection and owned-process crash; synthetic transport only |
 | `test_compliance_https.py` | Real preparation/HTTPAdapter with synthetic pools, exact auth/body, standard destination approval, zero retries/no redirects/env auth, TLS configuration, body/framing/encoding/time bounds, safe failures and no real sockets |
 | `test_compliance_https_mariadb.py` (separate opt-in) | Private committed reservation/archive plus real adapter pipeline/synthetic pool; success, redirect, TLS-shaped failure, oversize and no duplicate invocation |
 | `test_compliance_capture_access.py`, `test_permission_compat.py` | Saved read/write ACL before providers, exact owner/route/CSR binding, three closed guarded transactions, revision/ACL drift before/during/after SQL, static privacy, translations and version-shaped quiet permission engine calls |
@@ -558,7 +585,7 @@ development worktree, not the installed production package. From the worktree:
 PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py
 ```
 
-For all selected local cases plus six owned-private SQL suites:
+For all selected local cases plus seven owned-private SQL suites:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py --private-sql
@@ -596,6 +623,9 @@ capture are staging/diagnostics only. Provide protected key custody and audited
 tenant/namespace/owned-connection acquisition. Rehearse the new guarded source
 boundary with installed v15/v16 schemas/permissions and the opt-in HTTPS adapter;
 rehearse actual TLS, supported dependency matrices and restored Frappe integration.
+The increment 28 local receipt recovery primitive still needs a permissioned
+operator/resource boundary and durable custody before integration. It cannot
+recover a response lost with process memory; implement lost/late-response policy.
 Implement trusted transport attestation and verify source/remote-flow evidence
 and CSR-to-issuance provenance before controlled epoch activation or migration
 of legacy fields.

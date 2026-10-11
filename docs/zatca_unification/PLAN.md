@@ -151,6 +151,12 @@ be reserialized during cleanup.
 
 ### 5. Orchestration, persistence, and retry safety
 
+- Increment 28 adds explicit local receipt persistence recovery only: authenticate
+  retained start/receipt, require the exact committed start ciphertext, and
+  append the identical receipt in one owned transaction without HTTP or resealing.
+  See [COMPLIANCE_RECEIPT_RECOVERY.md](COMPLIANCE_RECEIPT_RECOVERY.md). Permissioned
+  operator/resource binding, durable retained-receipt custody, lost/late-response
+  policy and cross-attempt coordination remain gates; no runtime adoption exists.
 - Keep encrypted credential staging separate from the artifact journal. There is
   no active-pointer/dispatch API in increment 19, and exact version reads cannot
   choose latest or fall back across environment/purpose/owner. Approval of staging

@@ -87,11 +87,16 @@ TCP/IPv6/loopback, inherited/unknown peers, DNS, Requests/site operations,
 exact process arguments, symlink changes, owned cleanup, no unguarded private
 SQL startup, fixed test selection, option rejection and sanitized runner setup.
 
-The protected runner passes **3,919 local + 118 private SQL = 4,037 cases**.
+At increment 27 the protected runner passed **3,919 local + 118 private SQL = 4,037 cases**.
 All six existing SQL suites, including contention and owned-process crash recovery,
 were rerun under the new guard. No tax-authority send, tenant DB read/write,
 working-site Company, Bench action, full ERPNext 16 boot, browser, SDK or real
 TLS handshake is demonstrated by these results.
+
+Increment 28 adds [explicit local receipt persistence recovery](COMPLIANCE_RECEIPT_RECOVERY.md),
+reaching **3,986 local + 131 private SQL = 4,117 cases** across seven guarded SQL
+suites. This remains synthetic offline storage evidence, not remote acceptance
+or authorization to operate on a working environment.
 
 ## Mandatory order for subsequent work
 

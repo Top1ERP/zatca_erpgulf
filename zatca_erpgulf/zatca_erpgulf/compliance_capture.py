@@ -42,6 +42,33 @@ class ComplianceCaptureError(ValueError):
         super().__init__(code)
 
 
+def _owned_transaction(factory, work):
+    """Own one acquired transaction; uncertainty never establishes success.
+
+    Used by capture and explicit local receipt recovery. Failed acquisition is
+    the factory's responsibility; never supply a borrowed Frappe connection.
+    """
+    connection = factory()
+    try:
+        if any(not callable(getattr(connection, name, None)) for name in ("cursor", "commit", "rollback", "close")):
+            raise ComplianceCaptureError("capture_connection")
+        result = work(connection)
+        connection.commit()
+    except BaseException:
+        with suppress(Exception):
+            connection.rollback()
+        with suppress(Exception):
+            connection.close()
+        raise
+    try:
+        connection.close()
+    except BaseException:
+        with suppress(Exception):
+            connection.rollback()
+        raise
+    return result
+
+
 @dataclass(frozen=True)
 class ComplianceTransportRequest:
     """Ephemeral exact body and snapshot-derived header, NEVER archive/export.
@@ -219,26 +246,7 @@ class ComplianceCaptureCoordinator:
 
     def _transaction(self, work):
         """Own cleanup; a failed/unknown commit or close never permits HTTP."""
-        connection = self._factory()
-        try:
-            if any(not callable(getattr(connection, name, None)) for name in ("cursor", "commit", "rollback", "close")):
-                raise ComplianceCaptureError("capture_connection")
-            result = work(connection)
-            connection.commit()
-        except BaseException:
-            # Best-effort cleanup does not resolve an uncertain commit outcome.
-            with suppress(Exception):
-                connection.rollback()
-            with suppress(Exception):
-                connection.close()
-            raise
-        try:
-            connection.close()
-        except BaseException:
-            with suppress(Exception):
-                connection.rollback()
-            raise
-        return result
+        return _owned_transaction(self._factory, work)
 
     def capture(self, requirements, *, exchange_id, route, request_bytes):
         """Reserve once, close before transport, preserve raw response once.

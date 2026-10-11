@@ -96,7 +96,8 @@ No implicit connection discovery, schema installation, autocommit change,
 commit/rollback/close or retry occurs. Autocommit must be off. Any failure,
 including invalid preflight, poisons the handle: roll back the whole caller
 transaction and discard it. Unknown commit outcomes do not authorize another
-send; reconcile the exact scoped record using a future cross-attempt policy.
+send. Increment 28 adds [explicit exact-envelope local receipt recovery](COMPLIANCE_RECEIPT_RECOVERY.md);
+cross-attempt and lost-response policy still remain gates.
 Deadlocks/timeouts are not silently retried.
 
 Company/device credentials, invoice UUID/ICV/PIH, legacy response fields, CSIDs and
@@ -143,6 +144,10 @@ Increment 27 adds the [guarded offline runner and current user mandate](SAFETY_A
 reaching **3,919 + 118 = 4,037 cases**. Private SQL now requires the guard BEFORE
 resource acquisition; environment-only/manual unguarded commands fail closed.
 
+Increment 28 adds explicit local persistence recovery with 67 local and 13
+owned-private SQL cases. The latest measured totals are in [STATUS.md](STATUS.md).
+An uncertain receipt commit never authorizes another HTTP request.
+
 From the development worktree, run the fixed local plus private-SQL selection:
 
     PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py --private-sql
@@ -164,8 +169,9 @@ The internal permissioned metadata selection is added in increment 23, and the
 explicit two-transaction capture scaffold in increment 24. Increment 26 adds a
 guarded saved-source service; it is not deployed or atomic ACL/epoch attestation.
 Audit and provide trusted resource acquisition, installed-schema/permission
-rehearsal and actual bounded HTTPS transport attestation. Complete unknown-outcome receipt
-reconciliation and exact CSR-to-issuance provenance before proposing
+rehearsal and actual bounded HTTPS transport attestation. The increment 28 local
+recovery primitive still needs permissioned resource acquisition and durable
+receipt custody; complete lost/late-response policy and exact CSR-to-issuance provenance before proposing
 controlled epoch activation. Rehearse on restored v15/v16 sites. Schema/key/backup
 review, pilot approval and prior live-change notice are required before tenant
 installation, runtime adoption or restart.
