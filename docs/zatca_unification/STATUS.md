@@ -59,8 +59,11 @@ does not authorize a live write or request. See
   `codex/zatca-unification-v15-v16-20261009`.
 - Increment 27 is committed locally as `9d66b5a`. Its GitHub push was rejected by
   the approval reviewer on 2026-10-11 pending destination/content authorization;
-  the rejection was not bypassed. The last known remote tip is `50c13bc`.
-  Increment 28 remains local until that explicit publication approval is resolved.
+  the rejection was not bypassed. After the user's explicit approval of the
+  destination, content and development branch, increments 27 and 28 were pushed
+  to `Top1ERP/zatca_erpgulf`, advancing only that branch from `50c13bc` to
+  `36992be`. This publication did not deploy code, change main, restart services
+  or authorize any working-environment change or authority request.
 
 ## Compliance fix
 
