@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and thirty bounded increments (Compliance outcomes, dedicated
+Safety preparation and thirty-one bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -21,7 +21,8 @@ revision-bound capture with shared Frappe permission-signature compatibility,
 and a fixed-manifest offline rehearsal guard/runner, and explicit local
 exact-envelope receipt persistence recovery, and permissioned local recovery
 with shared saved-source access policy, and an explicit shared invoice issue-time
-contract with Sales/POS/XML/QR/synthetic/initial-advance adapters)
+contract with Sales/POS/XML/QR/synthetic/initial-advance adapters, and read-only
+original-XML advance reference observations with explicit identity binding)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -546,6 +547,24 @@ branches and credential-context differences are recorded in
   timezone getter/default; current configuration provenance is NOT attested.
   See [ISSUE_TIMESTAMP.md](ISSUE_TIMESTAMP.md).
 
+## Increment 31: original advance reference observations and legacy gaps
+
+- Audited the shared direct allocation builder and both legacy item-template
+  branches. Characterization reproduces missing/invalid-time midnight fallback,
+  day-duration wrapping, offset removal and valid-zero-duration rejection.
+- Added a pure read-only type-386 XML metadata primitive with explicit expected
+  invoice/UUID/seller identity and bounded no-DTD/no-external-resource parsing.
+  It preserves original date/time text, including offsets/fractions, without
+  reading current timezone settings or silently inventing missing values.
+- Exact-byte fingerprint and frozen metadata are observations, not proof of
+  authentic origin, signature, acceptance, tax/GL correctness or SDK compliance.
+  It intentionally has NO runtime assembly adoption until a permissioned,
+  immutable original-artifact selector and Phase-1/legacy missing-source policy
+  are implemented. No live builder, schema or setting was changed.
+- Added 101 synthetic primitive and legacy-characterization cases to the fixed
+  offline manifest. See [ADVANCE_REFERENCE.md](ADVANCE_REFERENCE.md) for the
+  source inventory, conservative lexical limits and explicit adoption gates.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -583,13 +602,19 @@ to reach 2,438 passing local tests. Increment 17 adds 100 cases to reach
 The local-only runner passed 4,385 cases in 23.58 seconds before the final aware
 default-clock case was added. The final combined runner passed all 4,529 cases in
 39.88 seconds. All eight private SQL suites were rerun under the offline guard;
-they never connect to a tenant:
+they never connect to a tenant.
+
+Increment 31 adds 101 cases, reaching **4,487 passing local tests** (24.34 seconds),
+plus the same **143 private SQL cases**, **4,630 total** (40.30 seconds). Both
+commands ran under the offline guard; the private server was fixture-owned,
+temporary and TCP-disabled. No working site's database was accessed.
 
 | Suite | Scope |
 | --- | --- |
 | `test_offline_rehearsal.py` | Guarded ordinary Python network/site/process rejection, private-only socket/command registry, inherited peer/symlink checks, owned cleanup, no unguarded SQL acquisition and fixed offline test runner |
 | `test_issue_timestamp.py` | Explicit typed/text issue-time parsing, valid zero duration, single-digit hours, offsets/DST/UTC rollover, bounded/static input errors, frozen whole-second UTC/XML/QR contract and no Frappe/site/clock dependency |
 | `test_issue_timestamp_adapters.py` | Actual mocked Sales/POS metadata and Phase-1/Phase-2/synthetic/initial-advance QR paths, no second invoice read, invalid time before UUID writes, duplicate/blank XML times before keys, Arabic error keys and unchanged legacy amount/Phase-2 advance guards |
+| `test_advance_reference.py` | Synthetic original type-386 identity/seller/clock observations, lexical preservation, bounded secure parsing/static errors, no settings lookup and characterization of unchanged legacy reference defects |
 | `test_compliance_result.py` | Pure result classification and malformed payloads |
 | `test_compliance_api_outcomes.py` | Mocked real API/button functions, failures, previous completion, translations |
 | `test_nonproduction_isolation.py` | Preview identity, live-identity regression, counter boundaries, explicit types, cross-company rejection, debug artifact protection, temporary-file lifetime |
@@ -661,9 +686,12 @@ request, or production invoice submission was performed in this increment.
 
 ## Next gate
 
-Audit original-issued advance settlement reference date/time/UUID binding,
-missing-time fallback and verified timezone/settings snapshots before extending
-increment 30. It does not consolidate advance amounts/GL or cryptographic digests.
+Increment 31 audits original-issued advance reference risks and adds a read-only
+metadata contract. Next implement a permissioned immutable original-artifact
+selector/acceptance binding and an explicit missing-source policy (including
+Phase-1/retired legacy records) before adopting it in settlement assembly. Verify
+timezone/settings snapshots for new issuance separately. Neither increment 30
+nor 31 consolidates advance amounts/GL or cryptographic digests.
 
 All implementation/rehearsal below remains OFFLINE and in development. No live
 provider/site binding, dummy Company on a working bench, authority request or

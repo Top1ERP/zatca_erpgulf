@@ -109,6 +109,13 @@ log discovery; translation fixtures stay mocked. This does not add a global
 filesystem/hostile-code sandbox or permit any working-environment operation.
 The final guarded selection reaches **4,386 local + 143 private SQL = 4,529 cases**.
 
+Increment 31 adds [original advance reference observations](ADVANCE_REFERENCE.md)
+and 101 synthetic/legacy-characterization cases. It is not adopted by runtime
+assembly and cannot establish authentic issuance/acceptance or repair customer
+references. Current-source metadata must not rewrite historical XML clock fields.
+The user mandate and separate development/dummy/pilot gates remain unchanged.
+The guarded runs passed **4,487 local + 143 private SQL = 4,630 cases**.
+
 ## Mandatory order for subsequent work
 
 1. **Complete development offline.** Finish the shared settings/source/credential

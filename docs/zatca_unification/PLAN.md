@@ -137,6 +137,12 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 31 adds [read-only original advance reference observations](ADVANCE_REFERENCE.md)
+  and characterizes three current assembly paths. Implement permissioned immutable
+  original-artifact/acceptance selection and Phase-1/legacy missing-source policy
+  before adopting it. Preserve original date/time/UUID; do not apply today's
+  timezone to historical references or silently invent midnight. This is not
+  advance amount/GL consolidation or cryptographic proof.
 - Increment 30 adds the [explicit shared issue-time contract](ISSUE_TIMESTAMP.md)
   for Sales/POS XML, ordinary/advance Phase-1 QR, Phase-2 Tag 3 and synthetic
   samples, without changing signatures or amount formulas. Capture verified

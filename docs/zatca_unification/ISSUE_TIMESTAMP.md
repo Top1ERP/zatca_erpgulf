@@ -109,5 +109,7 @@ This is still an accidental-I/O guard, NOT an OS/hostile-code/global file sandbo
 Measured totals and guarded commands are in [STATUS.md](STATUS.md). No remote
 Compliance/CSID, ZATCA SDK/golden signature, browser/print rendering, actual v16
 boot, restored application acceptance, deployment or historical digest fix is
-demonstrated. Next audit: advance reference/time bindings and verified settings
+demonstrated. Increment 31 adds [original advance reference observations](ADVANCE_REFERENCE.md)
+and characterizes the current reference defects, without runtime adoption.
+Next: trusted original-artifact selection/acceptance binding and verified settings
 snapshots, followed by broader amount/cryptography/QR artifact unification gates.
