@@ -680,6 +680,9 @@ def salesinvoice_data(invoice, invoice_number, *, purpose="production"):
     try:
         sales_invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
 
+        # Freeze time from the SAME loaded record, and validate BEFORE any UUID
+        # persistence. A second get_doc could observe a different revision.
+        issue_timestamp = format_zatca_qr_timestamp(sales_invoice_doc.posting_date, sales_invoice_doc.posting_time)
         cbc_profile_id = ET.SubElement(invoice, "cbc:ProfileID")
         cbc_profile_id.text = "reporting:1.0"
 
@@ -694,7 +697,6 @@ def salesinvoice_data(invoice, invoice_number, *, purpose="production"):
         )
         cbc_uuid.text = uuid1
 
-        issue_timestamp = get_issue_timestamp(invoice_number)
         issue_date, issue_time = issue_timestamp.split("T", 1)
         cbc_issue_date = ET.SubElement(invoice, "cbc:IssueDate")
         cbc_issue_date.text = issue_date

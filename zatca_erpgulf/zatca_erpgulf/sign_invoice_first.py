@@ -1113,6 +1113,11 @@ def generate_tlv_xml(final_xml_string,company_abbr,source_doc):
         issue_time_xpath = "/ubl:Invoice/cbc:IssueTime"
         issue_date_results = root.xpath(issue_date_xpath, namespaces=namespaces)
         issue_time_results = root.xpath(issue_time_xpath, namespaces=namespaces)
+        if (len(issue_date_results) != 1 or len(issue_time_results) != 1
+                or any(len(element) or not str(element.text or "").strip()
+                       for element in (*issue_date_results, *issue_time_results))):
+            # Never silently select the first duplicate or invent a timestamp.
+            frappe.throw(_("The invoice XML must contain exactly one nonempty IssueDate and IssueTime."))
         issue_date = (
             issue_date_results[0].text.strip() if issue_date_results else "Missing Data"
         )

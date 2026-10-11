@@ -137,6 +137,12 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 30 adds the [explicit shared issue-time contract](ISSUE_TIMESTAMP.md)
+  for Sales/POS XML, ordinary/advance Phase-1 QR, Phase-2 Tag 3 and synthetic
+  samples, without changing signatures or amount formulas. Capture verified
+  timezone/settings epochs and audit advance settlement reference time/UUID
+  bindings before extending it. Existing Frappe timezone defaults and offsetless
+  legacy XML are characterized, not authoritative historical timezone evidence.
 - Consolidate XML assembly only after golden comparisons for each invoice type.
 - Canonicalize/hash the exact intended bytes. Test namespace context, encoding
   declarations, signature transforms, certificate digest, SignedProperties

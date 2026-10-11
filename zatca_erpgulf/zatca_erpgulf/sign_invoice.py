@@ -14,7 +14,7 @@ import json
 import hashlib
 import uuid
 import xml.etree.ElementTree as XML_ET
-from datetime import datetime
+from datetime import datetime, timezone
 from lxml import etree
 from frappe import _
 import frappe
@@ -26,6 +26,7 @@ from zatca_erpgulf.zatca_erpgulf.api_settings import get_company_api_route
 from zatca_erpgulf.zatca_erpgulf.compliance_result import compliance_result_status
 from zatca_erpgulf.zatca_erpgulf.compliance_types import COMPLIANCE_TYPES, resolve_compliance_type
 from zatca_erpgulf.zatca_erpgulf.nonproduction import temporary_compliance_xml
+from zatca_erpgulf.zatca_erpgulf.issue_timestamp import issue_timestamp_from_datetime
 from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country, normalize_country_code
 from zatca_erpgulf.zatca_erpgulf.customer_address import resolve_customer_address
 import requests
@@ -2141,7 +2142,7 @@ def _onboarding_party_tax_scheme(parent, vat_number=None):
     _onboarding_element(scheme, "cbc", "ID", "VAT")
 
 
-def _build_onboarding_invoice_xml(company_doc, validation_type):
+def _build_onboarding_invoice_xml(company_doc, validation_type, *, issue_instant=None):
     """Build one signed-input UBL document without creating ERPNext documents."""
     if isinstance(company_doc, (dict, str)):
         company_doc = frappe.get_doc("Company", company_doc.get("name") if isinstance(company_doc, dict) else company_doc)
@@ -2155,7 +2156,11 @@ def _build_onboarding_invoice_xml(company_doc, validation_type):
     }
     type_name, document_code, simplified, is_note = type_map[validation_type]
     address = _onboarding_address(company_doc.name)
-    now = datetime.utcnow()
+    # Explicit aware UTC: never let QR interpret a naive UTC clock as site time.
+    # The optional instant is an internal deterministic preview/test input only.
+    now = datetime.now(timezone.utc) if issue_instant is None else issue_instant
+    issued = issue_timestamp_from_datetime(now)
+    now = issued.utc_instant
     document_uuid = str(uuid.uuid4())
     document_id = "ZATCA-ONBOARDING-%s" % uuid.uuid4().hex[:12].upper()
     supplier_name = (
@@ -2171,8 +2176,8 @@ def _build_onboarding_invoice_xml(company_doc, validation_type):
     _onboarding_element(root, "cbc", "ProfileID", "reporting:1.0")
     _onboarding_element(root, "cbc", "ID", document_id)
     _onboarding_element(root, "cbc", "UUID", document_uuid)
-    _onboarding_element(root, "cbc", "IssueDate", now.strftime("%Y-%m-%d"))
-    _onboarding_element(root, "cbc", "IssueTime", now.strftime("%H:%M:%S"))
+    _onboarding_element(root, "cbc", "IssueDate", issued.xml_date)
+    _onboarding_element(root, "cbc", "IssueTime", issued.xml_time)
     _onboarding_element(root, "cbc", "InvoiceTypeCode", document_code, name=type_name)
     _onboarding_element(root, "cbc", "DocumentCurrencyCode", "SAR")
     # TaxCurrencyCode is unnecessary when invoice and tax currency are both SAR.

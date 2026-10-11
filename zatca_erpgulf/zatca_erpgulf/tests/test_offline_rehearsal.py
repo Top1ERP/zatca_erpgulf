@@ -112,7 +112,7 @@ def test_unregistered_or_inherited_peer_cannot_send_or_receive(family):
         original.assert_not_called()
 
 
-@pytest.mark.parametrize("action", ["http", "http_request", "site_init", "site_connect", "udp", "listen", "bind"])
+@pytest.mark.parametrize("action", ["http", "http_request", "site_init", "site_connect", "site_logger", "udp", "listen", "bind"])
 def test_installed_guards_stop_http_site_init_and_server_paths(action):
     with OfflineRehearsalGuard():
         with pytest.raises(RehearsalBlocked) as raised:
@@ -124,6 +124,8 @@ def test_installed_guards_stop_http_site_init_and_server_paths(action):
                 frappe.init(site="PRIVATE-SECRET")
             elif action == "site_connect":
                 frappe.connect()
+            elif action == "site_logger":
+                frappe.logger("PRIVATE-SECRET")
             else:
                 # Invoke guarded methods on a stub, never create a real UDP/TCP
                 # socket even when the surrounding OS already forbids them.

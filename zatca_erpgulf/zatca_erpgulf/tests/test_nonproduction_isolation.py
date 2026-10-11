@@ -15,6 +15,7 @@ import pytest
 
 from zatca_erpgulf.zatca_erpgulf import (
     createxml, debug_xml, icv, pos_debug_xml, pos_sign, posxml, sign_invoice,
+    qr_timestamp,
 )
 from zatca_erpgulf.zatca_erpgulf.compliance_types import COMPLIANCE_TYPES, resolve_compliance_type
 from zatca_erpgulf.zatca_erpgulf.nonproduction import preview_invoice_uuid, temporary_compliance_xml
@@ -42,6 +43,7 @@ def isolated(monkeypatch, tmp_path):
         custom_zatca_issuing_unit="live-unit", custom_zatca_status="REPORTED",
         custom_zatca_full_response="live-response", custom_zatca_pos_name=None,
         custom_zatca_nominal_invoice=0, custom_xml=None, items=[],
+        posting_date="2026-10-09", posting_time="09:05:42Z",
         db_set=Mock(), save=Mock(),
     )
     company = Document(
@@ -78,8 +80,8 @@ def isolated(monkeypatch, tmp_path):
     for module in (createxml, posxml, debug_xml, pos_debug_xml, icv, sign_invoice, pos_sign):
         monkeypatch.setattr(module, "frappe", frappe)
         monkeypatch.setattr(module, "_", lambda message: message)
-    for module in (createxml, posxml):
-        monkeypatch.setattr(module, "get_issue_timestamp", lambda *args: "2026-10-09T09:05:42Z")
+    monkeypatch.setattr(qr_timestamp, "get_system_timezone", lambda: "UTC")
+    monkeypatch.setattr(qr_timestamp, "_", lambda message: message)
     monkeypatch.setattr(icv, "_issuing_unit", lambda *args: "test-unit")
     monkeypatch.setattr(icv, "_get_or_create_counter", Mock(return_value="test-counter"))
     monkeypatch.setattr(icv, "now_datetime", lambda: "2026-10-09 09:05:42")

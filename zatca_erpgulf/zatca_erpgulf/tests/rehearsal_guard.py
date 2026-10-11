@@ -174,6 +174,9 @@ class OfflineRehearsalGuard:
             stack.enter_context(patch.object(requests.Session, "send", self.block))
             stack.enter_context(patch.object(frappe, "init", self.block))
             stack.enter_context(patch.object(frappe, "connect", self.block))
+            # An unmocked translation/error path can discover a bench log file
+            # without initializing a site. Refuse that before file discovery.
+            stack.enter_context(patch.object(frappe, "logger", self.block))
         except BaseException:
             self.close()
             raise

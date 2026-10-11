@@ -661,3 +661,7 @@ You do not have permission to run staged ZATCA compliance checks.,ليس لدي�
 Staged ZATCA compliance capture failed. No credential was activated. Do not resend automatically.,تعذر تسجيل فحص امتثال زاتكا المرحلي. لم يتم تفعيل أي بيانات اعتماد. لا تُعد الإرسال تلقائيًا.
 You do not have permission to reconcile staged ZATCA compliance receipts.,ليس لديك صلاحية تسوية حفظ ردود امتثال زاتكا المخزنة مرحليًا.
 Staged ZATCA receipt reconciliation failed. No new request was sent and no credential was activated. Keep the original receipt; do not resend automatically.,تعذرت تسوية حفظ رد زاتكا المرحلي. لم يتم إرسال أي طلب جديد أو تفعيل أي بيانات اعتماد. احتفظ بالرد الأصلي ولا تُعد الإرسال تلقائيًا.
+Invalid invoice issue date or time. Use a valid date and a time within the same day.,تاريخ أو وقت إصدار الفاتورة غير صالح. استخدم تاريخًا صالحًا ووقتًا ضمن اليوم نفسه.
+A valid system timezone is required to interpret the invoice issue time.,يلزم ضبط منطقة زمنية صالحة في النظام لتفسير وقت إصدار الفاتورة.
+Invoice issue time is ambiguous or does not exist in the configured timezone. Provide an explicit UTC offset.,وقت إصدار الفاتورة ملتبس أو غير موجود في المنطقة الزمنية المحددة. أدخل وقتًا بإزاحة صريحة عن التوقيت العالمي UTC.
+The invoice XML must contain exactly one nonempty IssueDate and IssueTime.,يجب أن يحتوي XML الفاتورة على تاريخ إصدار واحد ووقت إصدار واحد فقط وأن يكونا غير فارغين.

@@ -103,6 +103,12 @@ reaching **4,173 local + 143 private SQL = 4,316 cases** across eight guarded SQ
 suites. Source/permission/provenance limitations and the mandatory acceptance
 order below remain unchanged; no installed provider or authority call exists.
 
+Increment 30 adds [shared issue-time parsing and adapter checks](ISSUE_TIMESTAMP.md).
+The offline guard also denies the normal `frappe.logger` entry point before
+log discovery; translation fixtures stay mocked. This does not add a global
+filesystem/hostile-code sandbox or permit any working-environment operation.
+The final guarded selection reaches **4,386 local + 143 private SQL = 4,529 cases**.
+
 ## Mandatory order for subsequent work
 
 1. **Complete development offline.** Finish the shared settings/source/credential

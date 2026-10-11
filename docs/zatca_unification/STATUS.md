@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and twenty-nine bounded increments (Compliance outcomes, dedicated
+Safety preparation and thirty bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -20,7 +20,8 @@ an explicit standard-gateway HTTPS adapter, and permissioned saved-source
 revision-bound capture with shared Frappe permission-signature compatibility,
 and a fixed-manifest offline rehearsal guard/runner, and explicit local
 exact-envelope receipt persistence recovery, and permissioned local recovery
-with shared saved-source access policy)
+with shared saved-source access policy, and an explicit shared invoice issue-time
+contract with Sales/POS/XML/QR/synthetic/initial-advance adapters)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -519,6 +520,32 @@ branches and credential-context differences are recorded in
   unverified. No authority request or running-site change was made.
   See [COMPLIANCE_RECEIPT_RECOVERY_ACCESS.md](COMPLIANCE_RECEIPT_RECOVERY_ACCESS.md).
 
+## Increment 30: shared issue-time normalization and adapter consistency
+
+- Added an explicit Frappe/clock-independent time contract with bounded ERP date,
+  time, text and same-day duration parsing, valid midnight, explicit offsets,
+  UTC rollover and deterministic whole-second serialization. Naive fields need
+  an explicit timezone; DST gaps/folds fail rather than guessing an offset.
+- Preserved legacy QR/time wrapper names. Sales/POS XML validates time from its
+  SAME loaded invoice BEFORE UUID persistence, instead of reloading a potentially
+  different revision. Debug/compliance metadata UUID isolation remains tested.
+- Synthetic samples use aware UTC and emit the shared Z-marked issue time;
+  this removes naive-UTC re-interpretation by the QR adapter/site timezone.
+  Phase-2 Tag 3 rejects missing/duplicate/blank/nested XML issue fields before
+  QR key access. Explicit XML offsets need no system timezone lookup.
+- Initial advance Phase-1 QR uses the same helper without inventing midnight.
+  All amount formulas and the guard preserving authoritative Phase-2 QR remain
+  unchanged. Advance settlement references/settings epochs remain separate gates.
+- Added 119 core, 93 adapter and one logger-denial local case (213 total).
+  Negative tests exposed incomplete translation mocks; fixtures now mock them
+  explicitly and the offline guard blocks frappe.logger before log discovery.
+  No log was created by that failed fallback, and no tenant/site was initialized.
+- Added English explanations/Arabic error keys. This is not a signature/digest
+  fix, SDK/legal amount proof, issued-artifact migration, installed integration
+  or actual v16 acceptance. The ERP adapter still delegates Frappe's existing
+  timezone getter/default; current configuration provenance is NOT attested.
+  See [ISSUE_TIMESTAMP.md](ISSUE_TIMESTAMP.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -549,16 +576,20 @@ to reach 2,438 passing local tests. Increment 17 adds 100 cases to reach
 3,839 passing local tests. Increment 27 adds 80 to reach
 3,919 passing local tests. Increment 28 adds 67 to reach
 3,986 passing local tests. Increment 29 adds 187 to reach
-**4,173 passing local tests**, plus **143 passing real private-database cases**
+4,173 passing local tests. Increment 30 adds 213 to reach
+**4,386 passing local tests**, plus **143 passing real private-database cases**
 (25 journal + 30 bundle/service + 34 archive/service + 17 capture + 4 HTTPS
-+ 8 source capture + 13 receipt recovery + 12 permissioned recovery, **4,316 total**).
-The local runner passed in 23.25 seconds; the combined runner passed in
-40.15 seconds. All eight private SQL suites were rerun under the offline guard;
++ 8 source capture + 13 receipt recovery + 12 permissioned recovery, **4,529 total**).
+The local-only runner passed 4,385 cases in 23.58 seconds before the final aware
+default-clock case was added. The final combined runner passed all 4,529 cases in
+39.88 seconds. All eight private SQL suites were rerun under the offline guard;
 they never connect to a tenant:
 
 | Suite | Scope |
 | --- | --- |
 | `test_offline_rehearsal.py` | Guarded ordinary Python network/site/process rejection, private-only socket/command registry, inherited peer/symlink checks, owned cleanup, no unguarded SQL acquisition and fixed offline test runner |
+| `test_issue_timestamp.py` | Explicit typed/text issue-time parsing, valid zero duration, single-digit hours, offsets/DST/UTC rollover, bounded/static input errors, frozen whole-second UTC/XML/QR contract and no Frappe/site/clock dependency |
+| `test_issue_timestamp_adapters.py` | Actual mocked Sales/POS metadata and Phase-1/Phase-2/synthetic/initial-advance QR paths, no second invoice read, invalid time before UUID writes, duplicate/blank XML times before keys, Arabic error keys and unchanged legacy amount/Phase-2 advance guards |
 | `test_compliance_result.py` | Pure result classification and malformed payloads |
 | `test_compliance_api_outcomes.py` | Mocked real API/button functions, failures, previous completion, translations |
 | `test_nonproduction_isolation.py` | Preview identity, live-identity regression, counter boundaries, explicit types, cross-company rejection, debug artifact protection, temporary-file lifetime |
@@ -629,6 +660,10 @@ site integration, browser language switch, ZATCA SDK run, remote Compliance
 request, or production invoice submission was performed in this increment.
 
 ## Next gate
+
+Audit original-issued advance settlement reference date/time/UUID binding,
+missing-time fallback and verified timezone/settings snapshots before extending
+increment 30. It does not consolidate advance amounts/GL or cryptographic digests.
 
 All implementation/rehearsal below remains OFFLINE and in development. No live
 provider/site binding, dummy Company on a working bench, authority request or

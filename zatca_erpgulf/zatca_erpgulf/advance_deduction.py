@@ -10,6 +10,7 @@ from zatca_erpgulf.zatca_erpgulf.advance_lifecycle import (
     ACCEPTED_ZATCA_ADVANCE_STATUSES,
     is_accepted_advance_sales_invoice,
 )
+from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
     PHASE_2_VALUE,
     is_advance_payment_invoice,
@@ -1215,10 +1216,8 @@ def ensure_final_sales_invoice_qr_for_print(doc, event=None, force=False):
 
     import base64
     import io
-    from datetime import datetime
 
     import pyqrcode
-    from frappe.utils import getdate, get_time
     from frappe.utils.file_manager import save_file
 
     company = frappe.get_doc("Company", doc.company)
@@ -1233,11 +1232,10 @@ def ensure_final_sales_invoice_qr_for_print(doc, event=None, force=False):
     if not vat_number:
         frappe.throw("Company Tax ID is required to generate ZATCA QR.")
 
-    posting_date = getdate(doc.posting_date)
-    posting_time = get_time(doc.get("posting_time") or "00:00:00")
-    # Keep the timestamp in AST/local invoice time; do not label it UTC
-    # without first performing an explicit timezone conversion.
-    timestamp = datetime.combine(posting_date, posting_time).strftime("%Y-%m-%dT%H:%M:%S")
+    # Same explicit conversion as ordinary Phase-1 and XML-derived Phase-2.
+    # Do not invent midnight for a missing field. The Phase-2 guard above still
+    # preserves the authoritative stored QR and all amount calculations below.
+    timestamp = format_zatca_qr_timestamp(doc.posting_date, doc.get("posting_time"))
 
     conversion_rate = flt(doc.get("conversion_rate") or 1)
 
