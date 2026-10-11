@@ -137,6 +137,10 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 33 adds [permissioned metadata-only advance archive inspection](ADVANCE_SOURCE_ACCESS.md)
+  with saved source/owner ACL, owned source/journal row locks and cleanup. Audited
+  provider provenance, authenticated capture, missing-original policy and backend
+  source export remain gates; it is not a builder replacement or acceptance grant.
 - Increment 32 adds [exact archived-attempt advance source choice](ADVANCE_SOURCE_SELECTION.md):
   Reporting request versus Clearance returned bytes, pinned context/revision and
   original clock consistency. This is a pure observation, not verified source
@@ -237,6 +241,12 @@ be reserialized during cleanup.
   and reconcile current counters; restoring an old database blindly is unsafe.
 
 ## Minimum acceptance matrix
+
+The user decides whether to adopt ALL changes or cancel them only after finished
+development and separately approved isolated fictional-client rehearsal. Preserve
+the untouched working baseline and tested-commit evidence. Adoption is not an
+implicit deployment, worker restart or authority-send authorization. See
+[DUMMY_REHEARSAL_DECISION.md](DUMMY_REHEARSAL_DECISION.md).
 
 | Dimension | Required cases |
 | --- | --- |

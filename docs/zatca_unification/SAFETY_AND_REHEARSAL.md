@@ -127,6 +127,18 @@ The final guarded run passed **4,565 local + 153 private SQL = 4,718 cases**.
 
 ## Mandatory order for subsequent work
 
+The user reiterated the whole-change decision on 2026-10-11: after finished
+development and isolated fictional-client rehearsal, they choose adoption of
+ALL changes or cancellation. That decision is still pending and does not imply
+deployment or revoke the sending ban. See [DUMMY_REHEARSAL_DECISION.md](DUMMY_REHEARSAL_DECISION.md).
+
+Increment 33 adds [permissioned metadata-only advance source inspection](ADVANCE_SOURCE_ACCESS.md).
+Saved source/owner ACL, owned local locks and cleanup are rehearsed without
+runtime adoption, source XML export, tenant acquisition or authority sending.
+Provider provenance and authentic acceptance remain gates; no authority flag is
+set true just because a local permission/metadata check succeeds.
+The final guarded selection passed **4,642 local + 176 private SQL = 4,818 cases**.
+
 1. **Complete development offline.** Finish the shared settings/source/credential
    contracts, amounts/advance handling, immutable XML/signature/QR pipeline,
    debug/single/all/synthetic Compliance adapters, identity/retry coordination and

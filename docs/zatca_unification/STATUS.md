@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and thirty-two bounded increments (Compliance outcomes, dedicated
+Safety preparation and thirty-three bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -23,7 +23,8 @@ exact-envelope receipt persistence recovery, and permissioned local recovery
 with shared saved-source access policy, and an explicit shared invoice issue-time
 contract with Sales/POS/XML/QR/synthetic/initial-advance adapters, and read-only
 original-XML advance reference observations with explicit identity binding, and
-exact archived-attempt advance source choice with endpoint/clock consistency)
+exact archived-attempt advance source choice with endpoint/clock consistency,
+and permissioned saved-source-bound metadata-only advance archive inspection)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -583,6 +584,28 @@ branches and credential-context differences are recorded in
   A permissioned server-owned storage/source boundary and missing-original policy
   remain mandatory. See [ADVANCE_SOURCE_SELECTION.md](ADVANCE_SOURCE_SELECTION.md).
 
+## Increment 33: permissioned advance archive metadata inspection
+
+- Added an internal metadata-only operator service with current actor/site/role
+  and saved-row read ACL before lookup/owned storage acquisition. It shares
+  Company/device/linked owner resolution and quiet permission signature handling,
+  without selecting/decrypting signing credentials or exporting XML.
+- Binds source identity/UUID/ICV/marker/owner/environment/route to an explicit
+  historical declaration. Locks bounded non-secret saved projections before
+  exact journal reads, including exact SQL names under case-insensitive collation.
+- Clears uncommitted observations on the owned handle first; never commits or
+  touches recognizable shared Frappe handles. Attempts rollback and close on all
+  outcomes, then rechecks access/source before returning metadata. Failures are
+  redacted/Arabic translated. No builder/hook/whitelist/schema adoption exists.
+- Added local boundary tests and a tenth owned-private SQL suite. Source lookup,
+  tenant/connection origin, authenticated receipt, full epoch/amount/crypto/v16
+  acceptance and Phase-1/legacy missing-source policy remain gates. Permission
+  cache/table revocation is not atomically locked; all authority flags stay false.
+  See [ADVANCE_SOURCE_ACCESS.md](ADVANCE_SOURCE_ACCESS.md).
+- Recorded the user's whole-change adoption/cancellation decision AFTER finished
+  development and isolated fictional-client rehearsal, without authorizing any
+  rehearsal creation/deployment now. See [DUMMY_REHEARSAL_DECISION.md](DUMMY_REHEARSAL_DECISION.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -634,6 +657,13 @@ in 47.89 seconds). The first local run exposed two test-helper keyword-collision
 failures for invalid journal inputs; the helper was corrected before both green
 combined runs. No site, tenant data or authority request was involved.
 
+Increment 33 adds **77 local + 23 private SQL cases**, reaching **4,642 local +
+176 private SQL = 4,818 passing cases** across ten private suites. The final
+guarded combined run passed in **43.38 seconds**. An earlier local-only run
+passed 4,641 in 27.55 seconds before the ambient-proxy acquisition failure case
+was added; earlier combined runs passed 4,816/4,817 before the final hardening.
+All source/SQL/ACL data is synthetic; no working-site transaction was acquired.
+
 | Suite | Scope |
 | --- | --- |
 | `test_offline_rehearsal.py` | Guarded ordinary Python network/site/process rejection, private-only socket/command registry, inherited peer/symlink checks, owned cleanup, no unguarded SQL acquisition and fixed offline test runner |
@@ -641,6 +671,7 @@ combined runs. No site, tenant data or authority request was involved.
 | `test_issue_timestamp_adapters.py` | Actual mocked Sales/POS metadata and Phase-1/Phase-2/synthetic/initial-advance QR paths, no second invoice read, invalid time before UUID writes, duplicate/blank XML times before keys, Arabic error keys and unchanged legacy amount/Phase-2 advance guards |
 | `test_advance_reference.py` | Synthetic original type-386 identity/seller/clock observations, lexical preservation, bounded secure parsing/static errors, no settings lookup and characterization of unchanged legacy reference defects |
 | `test_advance_source_selection.py`, `test_advance_source_selection_mariadb.py` | Explicit exact journal/context/UUID/ICV source choice, Reporting request/Clearance return distinction, changed-clock rejection and false authority flags; owned-private committed reconstruction, namespace/late-revision separation and uncommitted rollback limits |
+| `test_advance_source_access.py`, `test_advance_source_access_mariadb.py` | Metadata-only saved ACL/source/owner/marker binding, revocation/redaction/owned cleanup, borrowed-handle rejection and Arabic; real private source/journal locks, stale ambient/SQL identity and uncommitted rollback |
 | `test_compliance_result.py` | Pure result classification and malformed payloads |
 | `test_compliance_api_outcomes.py` | Mocked real API/button functions, failures, previous completion, translations |
 | `test_nonproduction_isolation.py` | Preview identity, live-identity regression, counter boundaries, explicit types, cross-company rejection, debug artifact protection, temporary-file lifetime |
@@ -693,7 +724,7 @@ development worktree, not the installed production package. From the worktree:
 PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py
 ```
 
-For all selected local cases plus nine owned-private SQL suites:
+For all selected local cases plus ten owned-private SQL suites:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py --private-sql
@@ -712,13 +743,13 @@ request, or production invoice submission was performed in this increment.
 
 ## Next gate
 
-Increment 31 audits original-issued advance reference risks; increment 32 adds
-exact archived-attempt source choice/clock consistency. Next implement the
-permissioned server-owned site/namespace/committed-record source boundary and
-acceptance binding, plus an explicit missing-source policy (including
-Phase-1/retired legacy records), before settlement adoption. Verify
+Increments 31/32 provide reference/source consistency; increment 33 adds a
+permissioned metadata-only source boundary. Next define Phase-1/retired-legacy
+missing-original policy and audit server-owned site/namespace/chain/lookup/owned
+connection provenance and authentic capture/acceptance before any source export
+or settlement adoption. Verify
 timezone/settings snapshots for new issuance separately. Neither increment 30
-nor 31/32 consolidates advance amounts/GL or cryptographic digests.
+nor 31/32/33 consolidates advance amounts/GL or cryptographic digests.
 
 All implementation/rehearsal below remains OFFLINE and in development. No live
 provider/site binding, dummy Company on a working bench, authority request or

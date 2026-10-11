@@ -97,3 +97,7 @@ Only a new temporary server with TCP disabled is used through the guarded runner
 no tenant database, authority API, real invoice, schema migration, live source or
 worker was touched. This does not complete the broader unification, genuine
 authority acceptance, installed v16, crypto or advance-accounting work.
+
+Increment 33 adds [permissioned metadata-only saved-source access](ADVANCE_SOURCE_ACCESS.md).
+It does not export selected XML or attest provider/remote origin. Those gates,
+Phase-1/legacy missing-source policy and runtime settlement adoption remain open.

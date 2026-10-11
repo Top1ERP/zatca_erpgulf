@@ -665,3 +665,5 @@ Invalid invoice issue date or time. Use a valid date and a time within the same 
 A valid system timezone is required to interpret the invoice issue time.,يلزم ضبط منطقة زمنية صالحة في النظام لتفسير وقت إصدار الفاتورة.
 Invoice issue time is ambiguous or does not exist in the configured timezone. Provide an explicit UTC offset.,وقت إصدار الفاتورة ملتبس أو غير موجود في المنطقة الزمنية المحددة. أدخل وقتًا بإزاحة صريحة عن التوقيت العالمي UTC.
 The invoice XML must contain exactly one nonempty IssueDate and IssueTime.,يجب أن يحتوي XML الفاتورة على تاريخ إصدار واحد ووقت إصدار واحد فقط وأن يكونا غير فارغين.
+You do not have permission to inspect archived ZATCA advance sources.,ليس لديك صلاحية فحص مصادر فواتير الدفعات المقدمة المؤرشفة في زاتكا.
+Archived ZATCA advance source inspection failed. No invoice was changed and no request was sent.,تعذر فحص مصدر فاتورة الدفعة المقدمة المؤرشف في زاتكا. لم تُعدّل أي فاتورة ولم يُرسل أي طلب.
