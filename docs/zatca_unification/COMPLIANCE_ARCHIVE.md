@@ -148,6 +148,10 @@ Increment 28 adds explicit local persistence recovery with 67 local and 13
 owned-private SQL cases. The latest measured totals are in [STATUS.md](STATUS.md).
 An uncertain receipt commit never authorizes another HTTP request.
 
+Increment 29 adds [permissioned local recovery and shared saved-source policy](COMPLIANCE_RECEIPT_RECOVERY_ACCESS.md),
+with 187 local and 12 owned-private SQL cases. No runtime/provider integration
+or authority request is added; captured observations remain non-authoritative.
+
 From the development worktree, run the fixed local plus private-SQL selection:
 
     PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py --private-sql
@@ -170,7 +174,8 @@ explicit two-transaction capture scaffold in increment 24. Increment 26 adds a
 guarded saved-source service; it is not deployed or atomic ACL/epoch attestation.
 Audit and provide trusted resource acquisition, installed-schema/permission
 rehearsal and actual bounded HTTPS transport attestation. The increment 28 local
-recovery primitive still needs permissioned resource acquisition and durable
+recovery primitive has a permissioned internal source boundary in increment 29,
+but still needs audited tenant/key/owned-connection resource provenance and durable
 receipt custody; complete lost/late-response policy and exact CSR-to-issuance provenance before proposing
 controlled epoch activation. Rehearse on restored v15/v16 sites. Schema/key/backup
 review, pilot approval and prior live-change notice are required before tenant

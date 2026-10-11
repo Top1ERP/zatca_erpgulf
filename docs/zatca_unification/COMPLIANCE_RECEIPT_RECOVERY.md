@@ -15,6 +15,10 @@ provider, schema installer, default connection or credential selector is added.
 The current [no-working-environment/no-authority-send mandate](SAFETY_AND_REHEARSAL.md)
 still applies. Development fixtures contain synthetic data only.
 
+Increment 29 adds a separate [permissioned internal saved-source service](COMPLIANCE_RECEIPT_RECOVERY_ACCESS.md),
+not a public endpoint or installed provider. The low-level primitive alone still
+does not authorize operators or establish provider/source/remote provenance.
+
 ## Input and transaction contract
 
 Only an exact `ComplianceCaptureResult` in state
@@ -31,6 +35,13 @@ and require equality with the EXACT retained start envelope. The repository's
 optional `expected_start` argument enforces this stronger ciphertext check.
 A missing, corrupt or resealed start cannot be recreated/adopted. Lock order
 remains bundle, start, then receipt; no schema change is needed.
+
+Increment 29 adds an optional explicit `source_guard(connection, result)` before
+append and again before commit. Literal True is required. Its saved-source
+service locks current projected source rows BEFORE bundle/archive locks in this
+same transaction, and repeats ambient ACL. Default low-level callers retain their
+existing behavior. A guard failure returns the unchanged uncertain input after
+rollback/close, without any send or retry. ACL is not atomically attested.
 
 Append the EXACT retained receipt. If an identical receipt already exists,
 confirm it without replacement; a different/resealed/corrupt receipt conflicts.

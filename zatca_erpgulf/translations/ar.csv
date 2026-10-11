@@ -659,3 +659,5 @@ You do not have permission to inspect staged ZATCA credentials.,ليس لديك 
 Staged ZATCA credential inspection failed. No credential was activated.,تعذر فحص بيانات اعتماد زاتكا المخزنة مرحليًا. لم يتم تفعيل أي بيانات اعتماد.
 You do not have permission to run staged ZATCA compliance checks.,ليس لديك صلاحية تشغيل فحوص امتثال زاتكا باستخدام بيانات الاعتماد المخزنة مرحليًا.
 Staged ZATCA compliance capture failed. No credential was activated. Do not resend automatically.,تعذر تسجيل فحص امتثال زاتكا المرحلي. لم يتم تفعيل أي بيانات اعتماد. لا تُعد الإرسال تلقائيًا.
+You do not have permission to reconcile staged ZATCA compliance receipts.,ليس لديك صلاحية تسوية حفظ ردود امتثال زاتكا المخزنة مرحليًا.
+Staged ZATCA receipt reconciliation failed. No new request was sent and no credential was activated. Keep the original receipt; do not resend automatically.,تعذرت تسوية حفظ رد زاتكا المرحلي. لم يتم إرسال أي طلب جديد أو تفعيل أي بيانات اعتماد. احتفظ بالرد الأصلي ولا تُعد الإرسال تلقائيًا.

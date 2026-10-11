@@ -194,7 +194,84 @@ class ComplianceCaptureResources:
         raise ComplianceSourceError("source_not_pickleable")
 
 
-class StagedComplianceCaptureService:
+class _SavedComplianceSourceService:
+    """Shared private saved-owner/ACL policy for capture and local recovery.
+
+    Selection returns an ephemeral private closure/row tuple, never a payload.
+    Reads remain ambient Frappe reads, NOT atomic permission/epoch attestation.
+    Subclasses supply server scope and their translated denial message.
+    """
+
+    _denied_message = DENIED_MESSAGE
+
+    def _actor(self):
+        site, user = getattr(frappe.local, "site", None), getattr(frappe.session, "user", None)
+        if (site != self._scope.site or type(user) is not str or not user or user == "Guest"
+                or (user != "Administrator" and "System Manager" not in frappe.get_roles(user))):
+            frappe.throw(_(self._denied_message), frappe.PermissionError)
+        return site, user
+
+    def _saved_source(self, company_abbr, source_doc, requirements):
+        """Authorize saved rows and bind owner/route/CSR before key acquisition."""
+        actor = self._actor()
+        _name(company_abbr)
+        if type(requirements) is not ComplianceRequirements or requirements.storage_namespace != self._scope.storage_namespace:
+            raise ComplianceSourceError("source_requirements")
+        records = {}
+
+        def checked_load(doctype, name):
+            if self._actor() != actor:
+                frappe.throw(_(self._denied_message), frappe.PermissionError)
+            saved = frappe.get_doc(doctype, name)
+            if (saved.doctype != doctype
+                    or (type(name) is str and saved.name != name)
+                    or (type(name) is dict and (name != {"abbr": company_abbr} or saved.get("abbr") != company_abbr))):
+                raise ComplianceSourceError("source_identity")
+            for operation in ("read", "write"):
+                # Bypass neither ACL via ignore_permissions nor in_test.
+                if not saved_row_has_permission(has_permission, doctype, operation, doc=saved, user=actor[1]):
+                    frappe.throw(_(self._denied_message), frappe.PermissionError)
+            row = SavedComplianceSourceRow.from_document(saved)
+            identity = row.doctype, row.name
+            if identity in records and records[identity] != row:
+                raise ComplianceSourceError("source_changed")
+            records[identity] = row
+            if self._actor() != actor:
+                frappe.throw(_(self._denied_message), frappe.PermissionError)
+            return saved
+
+        company = _capture_saved_company_projection(company_abbr, load_doc=checked_load, include_secrets=False)
+        route = resolve_api_route(company.values, "compliance/invoices")
+        owner = _resolve_owner_from_saved_company(company, source_doc, load_doc=checked_load, include_secrets=False)
+        manifest, slot = requirements.manifest, requirements.manifest.slot
+        if (manifest.company_name != owner.company_name or manifest.source_kind != owner.source_kind
+                or slot.owner_doctype != owner.doctype or slot.owner_name != owner.name
+                or slot.environment != route.environment or slot.purpose != "compliance"
+                or requirements.seller_tax_id != str(company.get("tax_id") or "").strip()):
+            raise ComplianceSourceError("source_material_binding")
+        rows = tuple(records[identity] for identity in sorted(records))
+        self._recheck_source(actor, rows, checked_load)
+        return actor, route, rows, checked_load
+
+    def _recheck_source(self, actor, rows, checked_load, *, connection=None):
+        """Repeat saved ACL/revisions; optionally lock exact rows before archive.
+
+        Locks protect only the projected source rows in the owned transaction,
+        not the ambient Frappe permission engine or its cache/revocation state.
+        """
+        if self._actor() != actor:
+            frappe.throw(_(self._denied_message), frappe.PermissionError)
+        for row in rows:
+            if SavedComplianceSourceRow.from_document(checked_load(row.doctype, row.name)) != row:
+                raise ComplianceSourceError("source_changed")
+        if connection is not None:
+            verify_saved_source_rows(connection, rows)
+            # ACL may change during SQL; repeat without claiming its tables lock.
+            for row in rows:
+                checked_load(row.doctype, row.name)
+
+
+class StagedComplianceCaptureService(_SavedComplianceSourceService):
     """Not whitelisted, no default providers or UI/button/worker adoption.
 
     This conservative onboarding operator policy requires System Manager (or
@@ -214,13 +291,6 @@ class StagedComplianceCaptureService:
     def __reduce_ex__(self, protocol):
         raise ComplianceSourceError("source_not_pickleable")
 
-    def _actor(self):
-        site, user = getattr(frappe.local, "site", None), getattr(frappe.session, "user", None)
-        if (site != self._scope.site or type(user) is not str or not user or user == "Guest"
-                or (user != "Administrator" and "System Manager" not in frappe.get_roles(user))):
-            frappe.throw(_(DENIED_MESSAGE), frappe.PermissionError)
-        return site, user
-
     def capture(self, company_abbr, source_doc, requirements, *, exchange_id, request_bytes):
         """Resolve saved routing/owner without projecting legacy secrets.
 
@@ -230,45 +300,12 @@ class StagedComplianceCaptureService:
         """
         try:
             actor = self._actor()
-            _name(company_abbr)
             _validate(exchange_id, "source_exchange", _canonical_uuid)
-            if type(requirements) is not ComplianceRequirements or requirements.storage_namespace != self._scope.storage_namespace:
-                raise ComplianceSourceError("source_requirements")
-            records = {}
-
-            def checked_load(doctype, name):
-                if self._actor() != actor:
-                    frappe.throw(_(DENIED_MESSAGE), frappe.PermissionError)
-                saved = frappe.get_doc(doctype, name)
-                if (saved.doctype != doctype
-                        or (type(name) is str and saved.name != name)
-                        or (type(name) is dict and (name != {"abbr": company_abbr} or saved.get("abbr") != company_abbr))):
-                    raise ComplianceSourceError("source_identity")
-                for operation in ("read", "write"):
-                    # Bypass neither ACL via ignore_permissions nor in_test.
-                    if not saved_row_has_permission(has_permission, doctype, operation, doc=saved, user=actor[1]):
-                        frappe.throw(_(DENIED_MESSAGE), frappe.PermissionError)
-                row = SavedComplianceSourceRow.from_document(saved)
-                identity = row.doctype, row.name
-                if identity in records and records[identity] != row:
-                    raise ComplianceSourceError("source_changed")
-                records[identity] = row
-                if self._actor() != actor:
-                    frappe.throw(_(DENIED_MESSAGE), frappe.PermissionError)
-                return saved
-
-            company = _capture_saved_company_projection(company_abbr, load_doc=checked_load, include_secrets=False)
-            route = resolve_api_route(company.values, "compliance/invoices")
-            owner = _resolve_owner_from_saved_company(company, source_doc, load_doc=checked_load, include_secrets=False)
-            manifest, slot = requirements.manifest, requirements.manifest.slot
-            if (manifest.company_name != owner.company_name or manifest.source_kind != owner.source_kind
-                    or slot.owner_doctype != owner.doctype or slot.owner_name != owner.name
-                    or slot.environment != route.environment or slot.purpose != "compliance"
-                    or requirements.seller_tax_id != str(company.get("tax_id") or "").strip()):
-                raise ComplianceSourceError("source_material_binding")
+            selected_actor, route, rows, checked_load = self._saved_source(company_abbr, source_doc, requirements)
+            if selected_actor != actor:
+                frappe.throw(_(DENIED_MESSAGE), frappe.PermissionError)
             # Pure request validation BEFORE the provider can access storage keys.
-            ComplianceExchangeObservation(requirements, exchange_id, route, manifest.prepared_at, None, request_bytes, None, None)
-            rows = tuple(records[identity] for identity in sorted(records))
+            ComplianceExchangeObservation(requirements, exchange_id, route, requirements.manifest.prepared_at, None, request_bytes, None, None)
             if self._actor() != actor:
                 frappe.throw(_(DENIED_MESSAGE), frappe.PermissionError)
             resources = self._provider(self._scope)
@@ -279,16 +316,7 @@ class StagedComplianceCaptureService:
                 if (start.requirements != requirements or start.route != route or start.exchange_id != exchange_id
                         or start.request_bytes != request_bytes):
                     raise ComplianceSourceError("source_exchange_binding")
-                if self._actor() != actor:
-                    frappe.throw(_(DENIED_MESSAGE), frappe.PermissionError)
-                for row in rows:
-                    if SavedComplianceSourceRow.from_document(checked_load(row.doctype, row.name)) != row:
-                        raise ComplianceSourceError("source_changed")
-                verify_saved_source_rows(connection, rows)
-                # ACL may change during SQL. Repeat it without releasing row
-                # locks; never claim the external permission tables are locked.
-                for row in rows:
-                    checked_load(row.doctype, row.name)
+                self._recheck_source(actor, rows, checked_load, connection=connection)
                 return True
 
             def guarded_transport(request):
@@ -297,10 +325,7 @@ class StagedComplianceCaptureService:
                 # to the actual transport dependency. No owned SQL lock survives.
                 # Failure is conservatively TRANSPORT_UNKNOWN_NO_REPLAY because
                 # the low-level coordinator cannot attest a callback's behavior.
-                if self._actor() != actor:
-                    frappe.throw(_(DENIED_MESSAGE), frappe.PermissionError)
-                for row in rows:
-                    checked_load(row.doctype, row.name)
+                self._recheck_source(actor, rows, checked_load)
                 return resources.transport(request)
 
             if self._actor() != actor:

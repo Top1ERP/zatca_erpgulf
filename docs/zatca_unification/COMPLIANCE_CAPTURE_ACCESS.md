@@ -15,6 +15,12 @@ ZATCA call. The provider and body/CSR/requirements are trusted SERVER inputs,
 not a client API for arbitrary bodies, keys, URLs or namespaces. The provider
 returns protected dependencies/factories, not an already borrowed connection.
 
+Increment 29 extracts the private saved-owner/read-write-ACL/revision policy for
+reuse by [permissioned local receipt recovery](COMPLIANCE_RECEIPT_RECOVERY_ACCESS.md).
+Capture still uses its three owned transactions; recovery uses one with no
+transport/clock dependency. No whitelist, runtime adoption or permission bypass
+is introduced by the extraction.
+
 The source SQL reader and service are optional. Existing low-level coordinator
 callers retain two transactions. Guarded calls use three: source/bundle/reservation,
 source preflight, then immutable receipt persistence. All owned connections must

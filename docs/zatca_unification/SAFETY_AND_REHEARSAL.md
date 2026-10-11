@@ -98,6 +98,11 @@ reaching **3,986 local + 131 private SQL = 4,117 cases** across seven guarded SQ
 suites. This remains synthetic offline storage evidence, not remote acceptance
 or authorization to operate on a working environment.
 
+Increment 29 adds [permissioned local recovery/shared saved-source access](COMPLIANCE_RECEIPT_RECOVERY_ACCESS.md),
+reaching **4,173 local + 143 private SQL = 4,316 cases** across eight guarded SQL
+suites. Source/permission/provenance limitations and the mandatory acceptance
+order below remain unchanged; no installed provider or authority call exists.
+
 ## Mandatory order for subsequent work
 
 1. **Complete development offline.** Finish the shared settings/source/credential

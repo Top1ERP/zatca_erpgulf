@@ -23,6 +23,28 @@ class ComplianceReceiptRecoveryError(ValueError):
         super().__init__(code)
 
 
+def _validate_recovery_input(result, storage_namespace):
+    """Pure protected-envelope binding only, NOT ciphertext authentication.
+
+    Permissioned adapters can reject wrong stage/scope before acquiring keys.
+    Ciphertext authentication is still mandatory before any SQL acquisition.
+    """
+    try:
+        if type(result) is not ComplianceCaptureResult:
+            raise ComplianceReceiptRecoveryError("recovery_input")
+        result.__post_init__()
+        if (result.state != "RECEIPT_COMMIT_UNCONFIRMED_NO_REPLAY"
+                or result.observation.requirements.storage_namespace != storage_namespace):
+            raise ComplianceReceiptRecoveryError("recovery_input")
+    except Exception:
+        invalid = True
+    else:
+        invalid = False
+    if invalid:
+        raise ComplianceReceiptRecoveryError("recovery_input")
+    return result.observation
+
+
 class ComplianceReceiptRecovery:
     """One owned transaction for one exact retained uncertain-commit receipt.
 
@@ -34,12 +56,13 @@ class ComplianceReceiptRecovery:
     No automatic retry or fallback to another exchange/version/key exists.
     """
 
-    def __init__(self, storage_namespace, bundle_cipher, archive_cipher, *, connection_factory):
+    def __init__(self, storage_namespace, bundle_cipher, archive_cipher, *, connection_factory, source_guard=None):
         try:
             _validate(storage_namespace, "recovery_namespace", _canonical_uuid)
             if (type(bundle_cipher) is not CredentialBundleCipher or type(archive_cipher) is not ComplianceArchiveCipher
                     or set(bundle_cipher._keys.values()) & set(archive_cipher._keys.values())
-                    or not callable(connection_factory)):
+                    or not callable(connection_factory)
+                    or (source_guard is not None and not callable(source_guard))):
                 raise ComplianceReceiptRecoveryError("recovery_dependencies")
         except ValueError:
             invalid = True
@@ -49,6 +72,7 @@ class ComplianceReceiptRecovery:
             raise ComplianceReceiptRecoveryError("recovery_dependencies")
         self._namespace, self._bundle_cipher, self._archive_cipher = storage_namespace, bundle_cipher, archive_cipher
         self._factory = connection_factory
+        self._source_guard = source_guard
 
     def __repr__(self):
         return "ComplianceReceiptRecovery(<protected explicit local dependencies>)"
@@ -65,12 +89,7 @@ class ComplianceReceiptRecovery:
         Interruptions propagate after cleanup; callers must retain their input.
         """
         try:
-            if type(result) is not ComplianceCaptureResult:
-                raise ComplianceReceiptRecoveryError("recovery_input")
-            result.__post_init__()
-            if (result.state != "RECEIPT_COMMIT_UNCONFIRMED_NO_REPLAY"
-                    or result.observation.requirements.storage_namespace != self._namespace):
-                raise ComplianceReceiptRecoveryError("recovery_input")
+            _validate_recovery_input(result, self._namespace)
             start = self._archive_cipher.open(result.start_envelope)
             receipt = self._archive_cipher.open(result.receipt_envelope)
             if (receipt != result.observation or start != replace(
@@ -84,8 +103,15 @@ class ComplianceReceiptRecovery:
             raise ComplianceReceiptRecoveryError("recovery_input")
 
         def persist(connection):
-            return MariaDBComplianceArchiveRepository(connection, self._namespace, self._bundle_cipher,
+            # Optional saved-source policy uses this SAME owned transaction;
+            # recheck after storage and before commit without adding any send.
+            if self._source_guard is not None and self._source_guard(connection, result) is not True:
+                raise ComplianceReceiptRecoveryError("recovery_source_guard")
+            stored = MariaDBComplianceArchiveRepository(connection, self._namespace, self._bundle_cipher,
                 self._archive_cipher).append_receipt(result.receipt_envelope, expected_start=result.start_envelope)
+            if self._source_guard is not None and self._source_guard(connection, result) is not True:
+                raise ComplianceReceiptRecoveryError("recovery_source_guard")
+            return stored
         try:
             _owned_transaction(self._factory, persist)
         except Exception:
