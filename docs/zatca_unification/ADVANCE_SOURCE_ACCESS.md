@@ -92,3 +92,7 @@ Development must finish before separately approved isolated fictional-client
 rehearsal. The user then decides to accept ALL changes or reject them; no decision
 has been made now. See [DUMMY_REHEARSAL_DECISION.md](DUMMY_REHEARSAL_DECISION.md).
 No authority sending or working-environment deployment is authorized.
+
+Increment 34 adds [missing-original review and bounded QR observations](ADVANCE_SOURCE_GAP.md).
+It does not bypass this metadata boundary, change eligibility or implement an
+authoritative Phase-1-to-Phase-2 bridge/source recovery.

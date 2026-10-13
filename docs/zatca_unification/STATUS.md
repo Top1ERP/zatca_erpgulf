@@ -1,8 +1,8 @@
-# Implementation status — 2026-10-11
+# Implementation status — 2026-10-13
 
 ## Scope delivered in this increment
 
-Safety preparation and thirty-three bounded increments (Compliance outcomes, dedicated
+Safety preparation and thirty-four bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -24,7 +24,8 @@ with shared saved-source access policy, and an explicit shared invoice issue-tim
 contract with Sales/POS/XML/QR/synthetic/initial-advance adapters, and read-only
 original-XML advance reference observations with explicit identity binding, and
 exact archived-attempt advance source choice with endpoint/clock consistency,
-and permissioned saved-source-bound metadata-only advance archive inspection)
+and permissioned saved-source-bound metadata-only advance archive inspection,
+and bounded five-tag QR observations with explicit missing-source review policy)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -606,6 +607,22 @@ branches and credential-context differences are recorded in
   development and isolated fictional-client rehearsal, without authorizing any
   rehearsal creation/deployment now. See [DUMMY_REHEARSAL_DECISION.md](DUMMY_REHEARSAL_DECISION.md).
 
+## Increment 34: missing-original advance review and five-tag QR observations
+
+- Added a bounded pure five-tag Base64/TLV observer that preserves source clock
+  and amount text without current settings, math, identity generation or I/O.
+  Extra/duplicate/truncated tags and unsupported lexical forms fail statically.
+- Made QR-only/copy-only/missing-archive/ambiguous-original review outcomes explicit.
+  QR tags 1..5 cannot supply invoice ID/UUID/ICV/type/original XML. Their format
+  does not prove Phase-1 origin. Phase-1 eligibility/workflow stays unchanged;
+  no inferred Phase-2 readiness, reconstruction, migration or acceptance follows.
+- Added synthetic pure and actual-mocked-builder tests. Characterization found
+  one existing ordinary Sales/POS QR generation commit, not a new observation side
+  effect. That legacy transaction/attachment lifecycle is a separate migration gate.
+- No runtime reference/amount/eligibility/QR builder or schema/button was changed.
+  Mixed-phase historical references require official SDK/rule/source evidence,
+  not guessed prohibitions or fictional artifacts. See [ADVANCE_SOURCE_GAP.md](ADVANCE_SOURCE_GAP.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -664,6 +681,14 @@ passed 4,641 in 27.55 seconds before the ambient-proxy acquisition failure case
 was added; earlier combined runs passed 4,816/4,817 before the final hardening.
 All source/SQL/ACL data is synthetic; no working-site transaction was acquired.
 
+Increment 34 adds **76 local cases**, reaching **4,718 local + 176 private SQL =
+4,894 passing cases** in **43.16 seconds** under the guarded combined runner.
+The initial local run reported six test-assertion failures: four raw-zero/privacy
+substring checks (zero can occur in a fingerprint) and two incorrect no-commit
+assumptions about unchanged ordinary QR generation. Assertions were corrected to
+check projection keys and characterize the legacy commit without changing it.
+The subsequent full run passed; no tenant, file image or authority was accessed.
+
 | Suite | Scope |
 | --- | --- |
 | `test_offline_rehearsal.py` | Guarded ordinary Python network/site/process rejection, private-only socket/command registry, inherited peer/symlink checks, owned cleanup, no unguarded SQL acquisition and fixed offline test runner |
@@ -672,6 +697,7 @@ All source/SQL/ACL data is synthetic; no working-site transaction was acquired.
 | `test_advance_reference.py` | Synthetic original type-386 identity/seller/clock observations, lexical preservation, bounded secure parsing/static errors, no settings lookup and characterization of unchanged legacy reference defects |
 | `test_advance_source_selection.py`, `test_advance_source_selection_mariadb.py` | Explicit exact journal/context/UUID/ICV source choice, Reporting request/Clearance return distinction, changed-clock rejection and false authority flags; owned-private committed reconstruction, namespace/late-revision separation and uncommitted rollback limits |
 | `test_advance_source_access.py`, `test_advance_source_access_mariadb.py` | Metadata-only saved ACL/source/owner/marker binding, revocation/redaction/owned cleanup, borrowed-handle rejection and Arabic; real private source/journal locks, stale ambient/SQL identity and uncommitted rollback |
+| `test_advance_source_gap.py` | Bounded five-tag QR shape/clock/amount observations, missing identity gaps, explicit non-authorizing gap/phase plans, unchanged accounting eligibility and actual mocked builder/legacy commit characterization |
 | `test_compliance_result.py` | Pure result classification and malformed payloads |
 | `test_compliance_api_outcomes.py` | Mocked real API/button functions, failures, previous completion, translations |
 | `test_nonproduction_isolation.py` | Preview identity, live-identity regression, counter boundaries, explicit types, cross-company rejection, debug artifact protection, temporary-file lifetime |
@@ -743,13 +769,14 @@ request, or production invoice submission was performed in this increment.
 
 ## Next gate
 
-Increments 31/32 provide reference/source consistency; increment 33 adds a
-permissioned metadata-only source boundary. Next define Phase-1/retired-legacy
-missing-original policy and audit server-owned site/namespace/chain/lookup/owned
-connection provenance and authentic capture/acceptance before any source export
-or settlement adoption. Verify
+Increments 31/32 provide reference/source consistency, 33 adds a permissioned
+metadata boundary and 34 defines missing-source review without inferred bridge
+authority. Next audit Phase-1 QR transaction/attachment lifecycle; keep source
+recovery/mixed-phase bridge and server-owned site/namespace/chain/lookup/connection
+provenance and authentic capture/acceptance as gates before raw export or
+settlement adoption. Verify
 timezone/settings snapshots for new issuance separately. Neither increment 30
-nor 31/32/33 consolidates advance amounts/GL or cryptographic digests.
+nor 31/32/33/34 consolidates advance amounts/GL or cryptographic digests.
 
 All implementation/rehearsal below remains OFFLINE and in development. No live
 provider/site binding, dummy Company on a working bench, authority request or

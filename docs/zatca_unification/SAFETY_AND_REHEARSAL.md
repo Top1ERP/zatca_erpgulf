@@ -139,6 +139,13 @@ Provider provenance and authentic acceptance remain gates; no authority flag is
 set true just because a local permission/metadata check succeeds.
 The final guarded selection passed **4,642 local + 176 private SQL = 4,818 cases**.
 
+Increment 34 adds [five-tag QR/missing-source review](ADVANCE_SOURCE_GAP.md).
+It cannot produce missing original identities/XML, change accounting eligibility,
+scan images/files, repair a tenant, make authority requests or activate a bridge.
+All new cases use fabricated payloads or mocked builders. The unchanged legacy
+ordinary QR commit is characterized with a mock, never a working transaction.
+The final guarded selection passed **4,718 local + 176 private SQL = 4,894 cases**.
+
 1. **Complete development offline.** Finish the shared settings/source/credential
    contracts, amounts/advance handling, immutable XML/signature/QR pipeline,
    debug/single/all/synthetic Compliance adapters, identity/retry coordination and

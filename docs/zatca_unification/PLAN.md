@@ -137,6 +137,11 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 34 adds [five-tag QR/missing-original review policy](ADVANCE_SOURCE_GAP.md)
+  without changing accounting eligibility or inventing historical references.
+  Audit ordinary QR attachment cleanup, explicit commit/re-entrant document saves
+  and transaction ownership next. Mixed-phase bridging and actual source recovery
+  still require permissioned provenance, official rule/SDK and accounting evidence.
 - Increment 33 adds [permissioned metadata-only advance archive inspection](ADVANCE_SOURCE_ACCESS.md)
   with saved source/owner ACL, owned source/journal row locks and cleanup. Audited
   provider provenance, authenticated capture, missing-original policy and backend
