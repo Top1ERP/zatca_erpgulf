@@ -199,6 +199,18 @@ persistence. The guarded run passed **5,271 local + 231 private SQL = 5,502 case
 in **48.04 seconds** across the same eleven private suites. Existing Phase-2
 hook deletion/prefix reuse risks were audited, NOT modified or activated.
 
+Increment 41 adds [permissioned QR source metadata/shared archive access](QR_SOURCE_ACCESS.md).
+There is no public endpoint, provider installation, raw XML/QR export or recovery
+mutation. The advance metadata adapter now shares the saved ACL/row-lock/owned
+cleanup engine with unchanged marker/type constraints and regression assertions;
+advance lookup/allocation/remaining/settlement eligibility stay untouched.
+The final guarded run passed **5,463 local + 279 private SQL = 5,742 cases** in
+**48.92 seconds** across twelve private SQL suites. The new suite uses only owned
+synthetic source/archive tables, not a tenant database or installed ERP/ORM.
+Provider/namespace/connection-origin, committed historic epochs and authentic
+receipt/crypto/QR evidence remain gates; verified/authorized flags remain false.
+No working configuration/schema/worker/customer data or authority call changed.
+
 1. **Complete development offline.** Finish the shared settings/source/credential
    contracts, amounts/advance handling, immutable XML/signature/QR pipeline,
    debug/single/all/synthetic Compliance adapters, identity/retry coordination and

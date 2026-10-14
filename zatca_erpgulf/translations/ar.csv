@@ -673,3 +673,5 @@ You do not have permission to inspect or regenerate this invoice QR code.,ليس
 QR recovery requires a verified original artifact. No QR file was changed.,تتطلب استعادة رمز QR ملفًا أصليًا موثوقًا. لم يُغيّر أي ملف QR.
 The existing invoice QR reference was preserved. No file was changed.,تم الاحتفاظ برابط رمز QR الحالي للفاتورة. لم يُغيّر أي ملف.
 Review QR Code,مراجعة رمز QR
+You do not have permission to inspect archived ZATCA QR sources.,ليس لديك صلاحية فحص مصادر رموز QR المؤرشفة في زاتكا.
+Archived ZATCA QR source inspection failed. No invoice was changed and no request was sent.,تعذر فحص مصدر رمز QR المؤرشف في زاتكا. لم تُعدّل أي فاتورة ولم يُرسل أي طلب.

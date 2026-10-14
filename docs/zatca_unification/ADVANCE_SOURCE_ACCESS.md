@@ -2,6 +2,12 @@
 
 ## Internal boundary
 
+Increment 41 extracts common projection/access/lock/owned-cleanup orchestration
+into [the shared archive inspection engine](QR_SOURCE_ACCESS.md). Advance entry
+points/messages, Sales-only/type386/marker checks remain, and the old local/SQL
+regressions run unchanged. This does not adopt the observer in settlement or
+change advance lookup/allocation/age/remaining/accounting eligibility.
+
 `advance_source_access.ArchivedAdvanceInspectionService` inspects one saved Sales
 Invoice through explicit server dependencies. It is NOT whitelisted, registered
 as a hook, called by a builder or deployed. It returns **metadata only**, never
@@ -9,7 +15,9 @@ original/returned XML, copied reference values, keys, certificate text or tokens
 
 The constructor accepts a server `CredentialStorageScope`, historical lookup
 provider and owned connection factory. The inspection method accepts only an
-invoice name: it cannot select a site, namespace, version, context or connection.
+invoice name (Sales Invoice only): it cannot select a site, namespace, version,
+context or connection. The shared engine's explicit Doctype keyword cannot
+enable POS in this advance-only adapter.
 The lookup receives private saved-row projections, not an entire credential DTO.
 Providers must not log those projections or make requests.
 

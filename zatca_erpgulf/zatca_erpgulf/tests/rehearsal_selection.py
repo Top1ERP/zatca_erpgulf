@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "qr_source_access",
     "qr_source_selection",
     "qr_regeneration_access",
     "advance_qr_preservation",
@@ -20,6 +21,7 @@ LOCAL_SUITES = (
     "zatca_response", "compatibility_hardening",
 )
 PRIVATE_SUITES = (
+    "qr_source_access_mariadb",
     "journal_repository_mariadb", "credential_bundle_mariadb",
     "compliance_archive_mariadb", "compliance_capture_mariadb",
     "compliance_https_mariadb", "compliance_capture_access_mariadb",

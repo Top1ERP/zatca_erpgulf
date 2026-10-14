@@ -137,6 +137,11 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 41 adds [permissioned QR source metadata/shared archive access](QR_SOURCE_ACCESS.md).
+  Saved ACL/owner/source/route and exact SQL/journal observations are checked,
+  without raw export or recovery activation. Advance metadata uses the same
+  engine with unchanged marker/type restrictions; settlement selection/amounts
+  remain untouched. Audited provider/epoch/authentic-origin/crypto gates remain.
 - Increment 40 adds [exact archived-attempt QR source observations](QR_SOURCE_SELECTION.md).
   Reporting request versus clearance-returned bytes are bound to the exact
   declared journal/context/identity with lexical clock and strict bounded QR

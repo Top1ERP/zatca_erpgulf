@@ -76,6 +76,10 @@ not an authenticated historical source.
 
 ## Offline evidence and next gate
 
+Increment 41 adds a [permissioned metadata-only adapter](QR_SOURCE_ACCESS.md)
+and shared saved-row/owned-cleanup engine. It does not install a provider,
+authenticate receipt/storage origin, export source XML/QR or activate recovery.
+
 Local cases use generated certificates and fabricated candidates/receipts, NOT
 valid ZATCA signatures/TLV or genuine 200/202 responses. The matrix covers declared
 Sales/POS candidate modes, invoice/credit/debit/advance codes, all three declared
