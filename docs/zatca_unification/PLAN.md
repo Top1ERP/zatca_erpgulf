@@ -137,6 +137,10 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 35 introduces [caller-owned Phase-1 QR metadata staging](PHASE1_QR_TRANSACTION.md):
+  no recursive invoice save, explicit commit or schema creation in the ordinary
+  generator. Next bound attachment selection/deletion and caller commit policy;
+  actual File rollback, hook customizations and installed v15/v16 remain gates.
 - Increment 34 adds [five-tag QR/missing-original review policy](ADVANCE_SOURCE_GAP.md)
   without changing accounting eligibility or inventing historical references.
   Audit ordinary QR attachment cleanup, explicit commit/re-entrant document saves

@@ -1,7 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
-    "offline_rehearsal", "issue_timestamp", "issue_timestamp_adapters", "advance_reference", "advance_source_selection", "advance_source_access", "advance_source_gap", "permission_compat", "compliance_capture_access", "compliance_receipt_recovery_access",
+    "offline_rehearsal", "issue_timestamp", "issue_timestamp_adapters", "phase1_qr_transaction", "advance_reference", "advance_source_selection", "advance_source_access", "advance_source_gap", "permission_compat", "compliance_capture_access", "compliance_receipt_recovery_access",
     "compliance_https", "compliance_capture", "compliance_receipt_recovery", "compliance_archive_access",
     "compliance_archive", "compliance_evidence", "credential_bundle_access",
     "credential_bundle", "credential_lifecycle", "credential_snapshot",
@@ -24,6 +24,7 @@ PRIVATE_SUITES = (
     "compliance_receipt_recovery_access_mariadb",
     "advance_source_selection_mariadb",
     "advance_source_access_mariadb",
+    "phase1_qr_transaction_mariadb",
 )
 TEST_DIRECTORY = "zatca_erpgulf/zatca_erpgulf/tests"
 

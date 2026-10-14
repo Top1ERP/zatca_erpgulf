@@ -143,7 +143,7 @@ def local_qr(monkeypatch):
     monkeypatch.setattr(create_qr, "get_region", lambda name: "Saudi Arabia")
     monkeypatch.setattr(create_qr, "get_company_arabic_name", lambda name: company.company_name_in_arabic)
     monkeypatch.setattr(create_qr, "qr_create", image)
-    monkeypatch.setattr(create_qr, "create_custom_fields", Mock(side_effect=AssertionError("No schema write")))
+    monkeypatch.setattr(create_qr, "_", lambda text: text)
     monkeypatch.setattr(advance_deduction, "frappe", runtime)
     runtime.get_doc.side_effect = lambda *args, **kwargs: company if args and args[0] == "Company" else file
     monkeypatch.setattr(advance_deduction, "is_zatca_invoice_enabled", lambda doc: True)

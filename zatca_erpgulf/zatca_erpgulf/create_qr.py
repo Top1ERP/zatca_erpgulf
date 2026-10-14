@@ -11,7 +11,7 @@ which includes:
 The QR code generation follows these steps:
 - Verify if the document is relevant for Saudi Arabia based on the company region.
 - Check if the required "ksa_einv_qr" field exists in the document.
-If not, it creates the custom field dynamically.
+If not, it fails without changing schema inside the invoice transaction.
 - Ensure no duplicate QR code generation by checking if a QR code already exists.
 - Collect required invoice data, validate it, and encode it into the TLV format.
 - Convert the TLV data into a Base64 string.
@@ -24,13 +24,31 @@ from base64 import b64encode
 
 import frappe
 from frappe import _
-from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from pyqrcode import create as qr_create
 
 from erpnext import get_region
 
 from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country
 from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
+
+MISSING_QR_FIELD = "The KSA E-Invoicing QR field is missing. Complete the approved application setup before generating QR codes."
+
+
+def _persist_phase1_qr_metadata(doc, file_url):
+    """Stage only QR metadata in the CALLER's invoice transaction.
+
+    No recursive invoice save, permission bypass, modified-time update, commit
+    or rollback. One field-dictionary update keeps link/status together without
+    invoking full invoice/accounting hooks. The existing File save remains in
+    that transaction; its filesystem lifecycle is owned by the framework.
+    """
+    values = {"ksa_einv_qr": file_url, "custom_zatca_status": "Phase-1 QR Generated"}
+    frappe.db.set_value(doc.doctype, doc.name, values, update_modified=False)
+    # Mirror only after successful SQL. The parent owns rollback/reload on error.
+    doc.ksa_einv_qr = values["ksa_einv_qr"]
+    doc.custom_zatca_status = values["custom_zatca_status"]
+    # In inspected Frappe 15 this queues realtime after commit; it does not commit.
+    doc.notify_update()
 
 
 def get_company_arabic_name(company_name: str) -> str:
@@ -82,27 +100,14 @@ def _cleanup_qr_attachments(doc):
 
 
 def create_qr_code(doc, method=None):  # pylint: disable=unused-argument
-    """Create ZATCA phase-1 QR code for invoice documents."""
+    """Stage a Phase-1 QR without owning the caller's transaction or schema."""
     region = get_region(doc.company)
     if not is_saudi_country(region):
         return
 
-    # If QR Code field not present, create it. Invoices without QR are invalid as per law.
+    # Schema setup/DDL belongs to an approved install/migration, never a hook.
     if not hasattr(doc, "ksa_einv_qr"):
-        create_custom_fields(
-            {
-                doc.doctype: [
-                    dict(
-                        fieldname="ksa_einv_qr",
-                        label="KSA E-Invoicing QR",
-                        fieldtype="Attach Image",
-                        read_only=1,
-                        no_copy=1,
-                        hidden=1,
-                    )
-                ]
-            }
-        )
+        frappe.throw(_(MISSING_QR_FIELD))
 
     # Reuse one official attachment and remove stale duplicates.
     if _cleanup_qr_attachments(doc):
@@ -194,9 +199,4 @@ def create_qr_code(doc, method=None):  # pylint: disable=unused-argument
 
         _file.save()
 
-        # Assign to document
-        doc.db_set("ksa_einv_qr", _file.file_url)
-        doc.custom_zatca_status = "Phase-1 QR Generated"
-        doc.save(ignore_permissions=True)
-        frappe.db.commit()
-        doc.notify_update()
+        _persist_phase1_qr_metadata(doc, _file.file_url)

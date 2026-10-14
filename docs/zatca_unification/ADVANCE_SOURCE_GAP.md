@@ -79,13 +79,15 @@ It cannot be inferred from these five QR fields alone.
 
 ## Additional lifecycle finding
 
-The ordinary `create_qr.create_qr_code` path still performs `doc.db_set`,
+At the increment 34 baseline (`d08d38f`), ordinary `create_qr.create_qr_code` performed `doc.db_set`,
 `doc.save(ignore_permissions=True)` and an explicit `frappe.db.commit` after QR
 attachment creation. New mocked characterization confirms one legacy commit for
 Sales/POS versus no explicit commit in the tested initial-advance QR path.
 The observation/plan itself performs NONE of these operations. The old behavior
-was not changed here. QR attachment cleanup, re-entrancy and transaction ownership
-need a separate bounded migration before claiming clean v15/v16 lifecycle parity.
+was not changed in increment 34. Increment 35 now removes the ordinary helper's
+recursive save/commit/schema ownership; see [PHASE1_QR_TRANSACTION.md](PHASE1_QR_TRANSACTION.md).
+Attachment cleanup, caller commits and installed integration remain gates before
+claiming clean v15/v16 lifecycle parity.
 
 ## Evidence and remaining gates
 

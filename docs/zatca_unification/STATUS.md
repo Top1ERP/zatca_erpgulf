@@ -1,8 +1,8 @@
-# Implementation status — 2026-10-13
+# Implementation status — 2026-10-14
 
 ## Scope delivered in this increment
 
-Safety preparation and thirty-four bounded increments (Compliance outcomes, dedicated
+Safety preparation and thirty-five bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -25,7 +25,8 @@ contract with Sales/POS/XML/QR/synthetic/initial-advance adapters, and read-only
 original-XML advance reference observations with explicit identity binding, and
 exact archived-attempt advance source choice with endpoint/clock consistency,
 and permissioned saved-source-bound metadata-only advance archive inspection,
-and bounded five-tag QR observations with explicit missing-source review policy)
+and bounded five-tag QR observations with explicit missing-source review policy,
+and caller-owned Phase-1 QR metadata staging without recursive save/commit/DDL)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -623,6 +624,22 @@ branches and credential-context differences are recorded in
   Mixed-phase historical references require official SDK/rule/source evidence,
   not guessed prohibitions or fictional artifacts. See [ADVANCE_SOURCE_GAP.md](ADVANCE_SOURCE_GAP.md).
 
+## Increment 35: caller-owned Phase-1 QR metadata transaction
+
+- Replaced ordinary Sales/POS recursive invoice db_set/save/commit with one
+  explicit two-field metadata update, preserving modified marker and unrelated
+  data. Mirrors fields after SQL and keeps notification; parent owns commit,
+  rollback and document reload on failure. No amount/advance eligibility change.
+- Removed dynamic field creation from the invoice helper. Missing QR schema fails
+  before attachment operations with Arabic translation; existing install fixtures
+  already declare both fields. No schema/fixture installation was performed.
+- Added actual mocked-generator and owned private SQL cases for no incidental
+  save/commit/DDL, parent-controlled visibility/rollback, failures at File/metadata/
+  notify and later parent failure. File/image controllers remain mocked in SQL.
+- Existing attachment selection/deletion, other caller commits, physical-file
+  rollback and installed v15/v16 hook/customization behavior remain open gates.
+  No deployed source or authority call was touched. See [PHASE1_QR_TRANSACTION.md](PHASE1_QR_TRANSACTION.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -689,11 +706,20 @@ assumptions about unchanged ordinary QR generation. Assertions were corrected to
 check projection keys and characterize the legacy commit without changing it.
 The subsequent full run passed; no tenant, file image or authority was accessed.
 
+Increment 35 adds **26 local + 12 private SQL cases**, reaching **4,744 local +
+188 private SQL = 4,932 passing cases** across eleven private SQL suites. The
+final guarded combined run passed in **43.97 seconds**. The earlier local-only
+run passed 4,743 in 24.31 seconds before the static fixture-declaration case.
+Native SQL proves parent-owned visibility/rollback for synthetic rows through
+the real generator with mocked File/image/ERP behavior, NOT physical-file or
+installed Frappe acceptance. No schema migration or working transaction ran.
+
 | Suite | Scope |
 | --- | --- |
 | `test_offline_rehearsal.py` | Guarded ordinary Python network/site/process rejection, private-only socket/command registry, inherited peer/symlink checks, owned cleanup, no unguarded SQL acquisition and fixed offline test runner |
 | `test_issue_timestamp.py` | Explicit typed/text issue-time parsing, valid zero duration, single-digit hours, offsets/DST/UTC rollover, bounded/static input errors, frozen whole-second UTC/XML/QR contract and no Frappe/site/clock dependency |
 | `test_issue_timestamp_adapters.py` | Actual mocked Sales/POS metadata and Phase-1/Phase-2/synthetic/initial-advance QR paths, no second invoice read, invalid time before UUID writes, duplicate/blank XML times before keys, Arabic error keys and unchanged legacy amount/Phase-2 advance guards |
+| `test_phase1_qr_transaction.py`, `test_phase1_qr_transaction_mariadb.py` | Actual generator metadata-only staging, no recursive save/commit/DDL, failures/Arabic/schema fixtures, actual-v15 notification arguments; owned InnoDB parent-controlled visibility/rollback with mocked File/image |
 | `test_advance_reference.py` | Synthetic original type-386 identity/seller/clock observations, lexical preservation, bounded secure parsing/static errors, no settings lookup and characterization of unchanged legacy reference defects |
 | `test_advance_source_selection.py`, `test_advance_source_selection_mariadb.py` | Explicit exact journal/context/UUID/ICV source choice, Reporting request/Clearance return distinction, changed-clock rejection and false authority flags; owned-private committed reconstruction, namespace/late-revision separation and uncommitted rollback limits |
 | `test_advance_source_access.py`, `test_advance_source_access_mariadb.py` | Metadata-only saved ACL/source/owner/marker binding, revocation/redaction/owned cleanup, borrowed-handle rejection and Arabic; real private source/journal locks, stale ambient/SQL identity and uncommitted rollback |
@@ -750,7 +776,7 @@ development worktree, not the installed production package. From the worktree:
 PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py
 ```
 
-For all selected local cases plus ten owned-private SQL suites:
+For all selected local cases plus eleven owned-private SQL suites:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py --private-sql
@@ -770,13 +796,15 @@ request, or production invoice submission was performed in this increment.
 ## Next gate
 
 Increments 31/32 provide reference/source consistency, 33 adds a permissioned
-metadata boundary and 34 defines missing-source review without inferred bridge
-authority. Next audit Phase-1 QR transaction/attachment lifecycle; keep source
+metadata boundary, 34 defines missing-source review and 35 removes the ordinary
+QR helper's recursive save/commit/DDL. Next replace destructive/ambiguous QR
+attachment cleanup with explicit preservation policy, then audit caller commits
+and installed lifecycle/physical-file rollback; keep source
 recovery/mixed-phase bridge and server-owned site/namespace/chain/lookup/connection
 provenance and authentic capture/acceptance as gates before raw export or
 settlement adoption. Verify
 timezone/settings snapshots for new issuance separately. Neither increment 30
-nor 31/32/33/34 consolidates advance amounts/GL or cryptographic digests.
+nor 31/32/33/34/35 consolidates advance amounts/GL or cryptographic digests.
 
 All implementation/rehearsal below remains OFFLINE and in development. No live
 provider/site binding, dummy Company on a working bench, authority request or

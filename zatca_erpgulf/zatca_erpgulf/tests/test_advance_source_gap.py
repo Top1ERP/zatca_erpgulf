@@ -150,9 +150,9 @@ def test_actual_mocked_phase1_builders_produce_no_invoice_identity_in_five_tags(
     assert found.timestamp == "2026-09-27T06:05:42Z"
     assert found.total_text == ("9.50" if route == "advance" else "11.5")
     assert gap.MissingAdvanceSourcePlan("PHASE1_QR_ONLY", "Phase-2", found).diagnostic_projection()["phase2_reference_ready"] is False
-    # Existing ordinary generation commits once; this is a separate runtime
-    # migration gate, NOT a side effect of the new pure observation/plan.
-    assert generation_commit_count == (0 if route == "advance" else 1)
+    # Increment 35 removes the ordinary builder's explicit commit. Neither the
+    # generator nor the pure observation now owns the caller's transaction.
+    assert generation_commit_count == 0
     assert runtime.db.commit.call_count == generation_commit_count
 
 

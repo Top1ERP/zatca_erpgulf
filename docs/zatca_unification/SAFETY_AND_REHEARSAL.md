@@ -146,6 +146,13 @@ All new cases use fabricated payloads or mocked builders. The unchanged legacy
 ordinary QR commit is characterized with a mock, never a working transaction.
 The final guarded selection passed **4,718 local + 176 private SQL = 4,894 cases**.
 
+Increment 35 changes [Phase-1 QR metadata transaction ownership](PHASE1_QR_TRANSACTION.md)
+in DEVELOPMENT only: no ordinary helper recursive invoice save/commit/schema DDL.
+Tests use mocked File/image operations and an eleventh owned-private SQL suite;
+they do not create QR files or update an installed tenant. Attachment deletion,
+caller commits and actual filesystem/installed v15/v16 integration remain gates.
+The final guarded selection passed **4,744 local + 188 private SQL = 4,932 cases**.
+
 1. **Complete development offline.** Finish the shared settings/source/credential
    contracts, amounts/advance handling, immutable XML/signature/QR pipeline,
    debug/single/all/synthetic Compliance adapters, identity/retry coordination and
