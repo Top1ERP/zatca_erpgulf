@@ -668,3 +668,4 @@ The invoice XML must contain exactly one nonempty IssueDate and IssueTime.,يج�
 You do not have permission to inspect archived ZATCA advance sources.,ليس لديك صلاحية فحص مصادر فواتير الدفعات المقدمة المؤرشفة في زاتكا.
 Archived ZATCA advance source inspection failed. No invoice was changed and no request was sent.,تعذر فحص مصدر فاتورة الدفعة المقدمة المؤرشف في زاتكا. لم تُعدّل أي فاتورة ولم يُرسل أي طلب.
 The KSA E-Invoicing QR field is missing. Complete the approved application setup before generating QR codes.,حقل رمز الاستجابة السريعة للفوترة الإلكترونية السعودية غير موجود. أكمل إعداد التطبيق المعتمد قبل توليد رموز QR.
+"Stored QR attachments require review. No file was deleted, relinked or replaced by the QR generator.",مرفقات رمز QR المحفوظة تحتاج إلى مراجعة. لم يحذف مولّد QR أي ملف أو يُعد ربطه أو يستبدله.

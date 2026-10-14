@@ -12,7 +12,7 @@ The QR code generation follows these steps:
 - Verify if the document is relevant for Saudi Arabia based on the company region.
 - Check if the required "ksa_einv_qr" field exists in the document.
 If not, it fails without changing schema inside the invoice transaction.
-- Ensure no duplicate QR code generation by checking if a QR code already exists.
+- Preserve the current owned QR; unresolved stored references require review.
 - Collect required invoice data, validate it, and encode it into the TLV format.
 - Convert the TLV data into a Base64 string.
 - Generate a QR code image using the `pyqrcode` library and attach it to the document.
@@ -30,8 +30,12 @@ from erpnext import get_region
 
 from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country
 from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
+from zatca_erpgulf.zatca_erpgulf.qr_attachment_policy import (
+    FILE_FIELDS, MAX_FILE_OBSERVATIONS, QRAttachmentPolicyError, decide_qr_reuse,
+)
 
 MISSING_QR_FIELD = "The KSA E-Invoicing QR field is missing. Complete the approved application setup before generating QR codes."
+QR_REVIEW_REQUIRED = "Stored QR attachments require review. No file was deleted, relinked or replaced by the QR generator."
 
 
 def _persist_phase1_qr_metadata(doc, file_url):
@@ -74,29 +78,32 @@ def get_company_arabic_name(company_name: str) -> str:
     return ""
 
 
-def _cleanup_qr_attachments(doc):
-    if doc.doctype != "Sales Invoice":
-        return None
-    rows = frappe.get_all("File", filters={"attached_to_doctype": doc.doctype, "attached_to_name": doc.name, "attached_to_field": "ksa_einv_qr"}, fields=["name", "file_name", "file_url"], order_by="creation desc")
-    if not rows:
-        return None
-    current = doc.get("ksa_einv_qr")
-    official = next((r for r in rows if str(r.file_name or "").startswith(("QR-Phase1-", "QR-Phase2-"))), None)
-    keep = next((r for r in rows if r.file_url == current and official and r.name == official.name), None) or official
-    if not keep:
-        for row in rows:
-            frappe.delete_doc("File", row.name, ignore_permissions=True)
-        if current:
-            frappe.db.set_value(doc.doctype, doc.name, "ksa_einv_qr", None, update_modified=False)
-            doc.ksa_einv_qr = None
-        return None
-    for row in rows:
-        if row.name != keep.name:
-            frappe.delete_doc("File", row.name, ignore_permissions=True)
-    if current != keep.file_url:
-        frappe.db.set_value(doc.doctype, doc.name, "ksa_einv_qr", keep.file_url, update_modified=False)
-        doc.ksa_einv_qr = keep.file_url
-    return keep.file_url
+def _existing_qr_reference(doc):
+    """Inspect ordinary Sales/POS links without cleanup, deletion or relinking.
+
+    No relink, first/latest choice, physical existence check or global URL
+    fallback. Parent authorization still applies; this is not a public endpoint.
+    A scoped File row proves a saved link observation, not valid QR contents.
+    """
+    rows = frappe.get_all("File",
+        filters={"attached_to_doctype": doc.doctype, "attached_to_name": doc.name},
+        fields=list(FILE_FIELDS), order_by="name asc", limit_page_length=MAX_FILE_OBSERVATIONS + 1)
+    try:
+        decision = decide_qr_reuse(doctype=doc.doctype, invoice_name=doc.name,
+            current_url=doc.get("ksa_einv_qr"), saved_status=doc.get("custom_zatca_status"), rows=tuple(rows))
+    except (TypeError, QRAttachmentPolicyError):
+        needs_review = True
+    else:
+        needs_review = decision.action == "REVIEW"
+    if needs_review:
+        frappe.throw(_(QR_REVIEW_REQUIRED))
+    if decision.action == "PRESERVE":
+        return doc.get("ksa_einv_qr")
+    return None
+
+
+# Compatibility alias for old internal callers; it no longer performs cleanup.
+_cleanup_qr_attachments = _existing_qr_reference
 
 
 def create_qr_code(doc, method=None):  # pylint: disable=unused-argument
@@ -109,11 +116,8 @@ def create_qr_code(doc, method=None):  # pylint: disable=unused-argument
     if not hasattr(doc, "ksa_einv_qr"):
         frappe.throw(_(MISSING_QR_FIELD))
 
-    # Reuse one official attachment and remove stale duplicates.
-    if _cleanup_qr_attachments(doc):
-        return
-    qr_code = doc.get("ksa_einv_qr")
-    if qr_code and frappe.db.exists({"doctype": "File", "file_url": qr_code}):
+    # Preserve only the current same-invoice reference, never auto-clean/relink.
+    if _existing_qr_reference(doc):
         return
 
     meta = frappe.get_meta(doc.doctype)

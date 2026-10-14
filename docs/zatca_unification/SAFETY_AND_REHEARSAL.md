@@ -153,6 +153,13 @@ they do not create QR files or update an installed tenant. Attachment deletion,
 caller commits and actual filesystem/installed v15/v16 integration remain gates.
 The final guarded selection passed **4,744 local + 188 private SQL = 4,932 cases**.
 
+Increment 36 adds [ordinary QR preservation/review](QR_ATTACHMENT_PRESERVATION.md).
+PRESERVE/REVIEW never delete, relink, clear a saved reference or create an image.
+Only supplied synthetic metadata and owned private SQL projections are exercised;
+no files, tenant/production state or authority API is touched. Other QR writers
+and actual filesystem/concurrency/installed-app behavior remain open gates.
+The final guarded selection passed **4,822 local + 196 private SQL = 5,018 cases**.
+
 1. **Complete development offline.** Finish the shared settings/source/credential
    contracts, amounts/advance handling, immutable XML/signature/QR pipeline,
    debug/single/all/synthetic Compliance adapters, identity/retry coordination and

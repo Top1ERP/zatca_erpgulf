@@ -58,12 +58,13 @@ paths, including the explicit `qr_regeneration.regenerate_qr` endpoint, still
 commit independently. Removing those transaction boundaries requires a separate
 caller-level audit; this change does not claim the whole app is commit-free.
 
-The existing `_cleanup_qr_attachments` policy is unchanged. It still chooses
-official-prefix candidates, deletes others and may relink a selected file.
-Selection/version ambiguity, physical deletion, preservation of an existing
-authoritative Phase-2 QR and cleanup-before-validation require the NEXT bounded
-change. Do not interpret these metadata transaction tests as approval of that
-cleanup policy or as proof all issued QR artifacts are currently preserved.
+At the increment 35 baseline, `_cleanup_qr_attachments` remained unchanged:
+it chose official-prefix candidates, deleted others and could relink a selected
+file. That behavior required a separate bounded change. The metadata transaction
+tests alone did not approve that policy or prove issued artifact preservation.
+Increment 36 now replaces ordinary cleanup with [non-destructive reference
+preservation](QR_ATTACHMENT_PRESERVATION.md). Advance print and explicit
+regeneration policies remain separate unfinished gates.
 
 The actual File controller registers rollback callbacks in the inspected Frappe
 15 source. Native SQL tests below mock File/image behavior and do NOT execute

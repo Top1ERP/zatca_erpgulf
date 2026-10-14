@@ -106,7 +106,9 @@ def test_non_saudi_path_still_skips_missing_schema_without_setup(local_qr, monke
 def test_existing_link_is_retained_without_metadata_status_or_transaction_change(local_qr, doctype):
     doc, runtime, payloads, _ = local_qr
     doc.doctype, doc.ksa_einv_qr, doc.custom_zatca_status = doctype, "/files/EXISTING.png", "REPORTED"
-    runtime.db.exists.return_value = True
+    runtime.get_all.return_value = [{"name": "EXISTING-FILE", "file_name": "QR-Phase2-EXISTING.png",
+        "file_url": doc.ksa_einv_qr, "attached_to_doctype": doctype, "attached_to_name": doc.name,
+        "attached_to_field": "ksa_einv_qr"}]
     create_qr.create_qr_code(doc)
     assert doc.ksa_einv_qr == "/files/EXISTING.png" and doc.custom_zatca_status == "REPORTED"
     assert not payloads
