@@ -10,6 +10,7 @@ from zatca_erpgulf.zatca_erpgulf.advance_lifecycle import (
     ACCEPTED_ZATCA_ADVANCE_STATUSES,
     is_accepted_advance_sales_invoice,
 )
+from zatca_erpgulf.zatca_erpgulf.create_qr import _existing_qr_reference
 from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
     PHASE_2_VALUE,
@@ -1134,10 +1135,11 @@ def get_available_advance_invoice_query(
 
 
 def ensure_final_sales_invoice_qr_for_print(doc, event=None, force=False):
-    from frappe.utils import flt
-    """Generate an advance-aware QR image into Sales Invoice.ksa_einv_qr.
+    """Stage a first advance-aware QR, never repair or replace stored artifacts.
 
     This keeps existing print formats stable because they continue using doc.ksa_einv_qr.
+    ``force`` is retained for call compatibility, not as a preservation bypass.
+    A print hook is not an artifact-repair or historical-data migration boundary.
 
     Applies only when:
     - DocType is Sales Invoice.
@@ -1148,6 +1150,8 @@ def ensure_final_sales_invoice_qr_for_print(doc, event=None, force=False):
     The QR total is aligned with the final printed amount due after deducting
     the advance taxable amount and adding the remaining VAT.
     """
+    from frappe.utils import flt
+
     if getattr(doc, "doctype", None) != "Sales Invoice":
         return
 
@@ -1165,53 +1169,18 @@ def ensure_final_sales_invoice_qr_for_print(doc, event=None, force=False):
     if not doc.meta.has_field("ksa_einv_qr"):
         return
 
-    # Final/subsequent invoices must retain their normal Phase-1/Phase-2 QR.
-    # The advance-aware QR is only valid for an initial advance invoice; older
-    # runs could have attached it to a final invoice with deduction rows.
+    # This hook owns initial advances only. Never delete/relink a final invoice's
+    # historical attachments based on filename hints, even if force was supplied.
     if not is_advance_payment_invoice(doc):
-        stale_rows = frappe.get_all(
-            "File",
-            filters={
-                "attached_to_doctype": "Sales Invoice",
-                "attached_to_name": doc.name,
-                "attached_to_field": "ksa_einv_qr",
-                "file_name": ["like", "QR-ZATCA-Advance-Aware-%"],
-            },
-            fields=["name"],
-        )
-        for row in stale_rows:
-            frappe.delete_doc("File", row.name, ignore_permissions=True)
-
-        current_qr = str(doc.get("ksa_einv_qr") or "")
-        if current_qr and "QR-ZATCA-Advance-Aware-" in current_qr:
-            valid_rows = frappe.get_all(
-                "File",
-                filters={
-                    "attached_to_doctype": "Sales Invoice",
-                    "attached_to_name": doc.name,
-                    "attached_to_field": "ksa_einv_qr",
-                    "file_name": ["like", "QR-%"],
-                },
-                fields=["file_url"],
-                order_by="creation asc",
-                limit=1,
-            )
-            replacement = valid_rows[0].file_url if valid_rows else ""
-            if replacement:
-                frappe.db.set_value(
-                    "Sales Invoice", doc.name, "ksa_einv_qr", replacement, update_modified=False
-                )
-                doc.ksa_einv_qr = replacement
         return
 
     advance_taxable = flt(doc.get("custom_zatca_advance_deducted_taxable_amount") or 0)
     if advance_taxable <= 0:
         return
 
-    current_qr = str(doc.get("ksa_einv_qr") or "")
-    # A submitted advance invoice already receives its authoritative Phase-1
-    # or Phase-2 QR. Never create a second advance-aware QR beside it.
-    if current_qr and not force:
+    # Reuse the bounded same-invoice policy, including missing/orphan review.
+    # Preserving a link is not proof of valid contents or remote acceptance.
+    if _existing_qr_reference(doc):
         return
 
     import base64

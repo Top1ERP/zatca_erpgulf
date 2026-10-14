@@ -137,10 +137,15 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 37 extends [non-destructive QR preservation to the advance print hook](ADVANCE_QR_PRESERVATION.md).
+  No forced replacement or implicit final-invoice attachment cleanup; first
+  generation and accounting selection/amounts remain unchanged. Explicit
+  regeneration authorization/selection/commits and installed lifecycle remain gates.
 - Increment 36 adds [non-destructive ordinary QR attachment preservation](QR_ATTACHMENT_PRESERVATION.md)
   for Sales/POS, replacing newest-file cleanup/global URL fallback with current
-  same-invoice link preservation or explicit review. Advance print cleanup/force,
-  regeneration access/selection/commits and other writers remain separate gates.
+  same-invoice link preservation or explicit review. The advance print cleanup/
+  force gate is addressed separately in increment 37; regeneration access/
+  selection/commits and other writers remain gates.
 - Increment 35 introduces [caller-owned Phase-1 QR metadata staging](PHASE1_QR_TRANSACTION.md):
   no recursive invoice save, explicit commit or schema creation in the ordinary
   generator. Next bound attachment selection/deletion and caller commit policy;

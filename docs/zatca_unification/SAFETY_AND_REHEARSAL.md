@@ -160,6 +160,15 @@ no files, tenant/production state or authority API is touched. Other QR writers
 and actual filesystem/concurrency/installed-app behavior remain open gates.
 The final guarded selection passed **4,822 local + 196 private SQL = 5,018 cases**.
 
+Increment 37 extends [preservation to the advance print hook](ADVANCE_QR_PRESERVATION.md).
+No forced replacement or implicit final-invoice attachment cleanup remains in
+that hook. Existing amount/discount/FX/status gates and advance lookup/allocation/
+eligibility stay unchanged. Explicit regeneration, concurrency and installed
+lifecycle remain unfinished. Only synthetic mock/owned-private SQL data was used;
+no working source/schema/Company/worker or authority request changed.
+The guarded combined selection passed **4,884 local + 200 private SQL = 5,084 cases**
+in **44.50 seconds** across the same eleven private SQL suites.
+
 1. **Complete development offline.** Finish the shared settings/source/credential
    contracts, amounts/advance handling, immutable XML/signature/QR pipeline,
    debug/single/all/synthetic Compliance adapters, identity/retry coordination and

@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and thirty-six bounded increments (Compliance outcomes, dedicated
+Safety preparation and thirty-seven bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -27,7 +27,8 @@ exact archived-attempt advance source choice with endpoint/clock consistency,
 and permissioned saved-source-bound metadata-only advance archive inspection,
 and bounded five-tag QR observations with explicit missing-source review policy,
 and caller-owned Phase-1 QR metadata staging without recursive save/commit/DDL,
-and non-destructive scoped ordinary Sales/POS QR attachment preservation)
+and non-destructive scoped ordinary Sales/POS QR attachment preservation,
+and non-destructive initial-advance QR print-hook preservation)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -658,6 +659,19 @@ branches and credential-context differences are recorded in
   concurrency reservation. No accounting eligibility, deployed code or authority
   request changed. See [QR_ATTACHMENT_PRESERVATION.md](QR_ATTACHMENT_PRESERVATION.md).
 
+## Increment 37: preserve advance QR artifacts in the print hook
+
+- Removed implicit final-invoice attachment deletion/relinking and the initial
+  advance `force` replacement bypass. Final/non-initial invoices are untouched;
+  eligible initial advances share the ordinary bounded preservation/review adapter.
+- Kept the signature and existing phase/schema/submission/amount gates. First
+  generation formulas, discounts/FX/time/File behavior and status handling stay
+  unchanged. No advance lookup/allocation/remaining/eligibility or GL/VAT change.
+- Added synthetic local and owned-private SQL cases. Preservation is not artifact
+  authenticity; legacy repairs, explicit regeneration authorization/selection/
+  commits, concurrency and installed lifecycle remain gates. No deployed code or
+  authority request changed. See [ADVANCE_QR_PRESERVATION.md](ADVANCE_QR_PRESERVATION.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -740,6 +754,13 @@ from an unquoted comma in the new English CSV key; quoting that single row fixed
 both translation lookup and the existing catalog-shape regression. All generated
 and File-query data is synthetic; no actual image, tenant or authority was read.
 
+Increment 37 adds **62 local + 4 private SQL cases**, reaching **4,884 local +
+200 private SQL = 5,084 passing cases** across the same eleven private suites.
+The guarded combined run passed in **44.50 seconds**. An earlier local-only
+run passed 4,879 in 24.87 seconds before five added discount/Arabic cases.
+All invoice/File data is synthetic; the advance SQL scenarios prove metadata
+preservation, not physical File lifecycle, full app or regulatory amount validity.
+
 | Suite | Scope |
 | --- | --- |
 | `test_offline_rehearsal.py` | Guarded ordinary Python network/site/process rejection, private-only socket/command registry, inherited peer/symlink checks, owned cleanup, no unguarded SQL acquisition and fixed offline test runner |
@@ -747,6 +768,7 @@ and File-query data is synthetic; no actual image, tenant or authority was read.
 | `test_issue_timestamp_adapters.py` | Actual mocked Sales/POS metadata and Phase-1/Phase-2/synthetic/initial-advance QR paths, no second invoice read, invalid time before UUID writes, duplicate/blank XML times before keys, Arabic error keys and unchanged legacy amount/Phase-2 advance guards |
 | `test_phase1_qr_transaction.py`, `test_phase1_qr_transaction_mariadb.py` | Actual generator metadata-only staging, no recursive save/commit/DDL, failures/Arabic/schema fixtures, actual-v15 notification arguments; owned InnoDB parent-controlled visibility/rollback with mocked File/image |
 | `test_qr_attachment_policy.py` | Both DocTypes/current references versus newer filenames, orphan/dangling/foreign/bounded metadata, no deletes/relink/global fallback and Arabic; actual generator with mocked ERP/image/File |
+| `test_advance_qr_preservation.py` | Actual mocked advance print hook, no forced replacement/final cleanup, shared review policy/Arabic, early gates, old dates, unchanged discount/FX arithmetic and propagated failures; private SQL suite also covers four advance preservation/review cases |
 | `test_advance_reference.py` | Synthetic original type-386 identity/seller/clock observations, lexical preservation, bounded secure parsing/static errors, no settings lookup and characterization of unchanged legacy reference defects |
 | `test_advance_source_selection.py`, `test_advance_source_selection_mariadb.py` | Explicit exact journal/context/UUID/ICV source choice, Reporting request/Clearance return distinction, changed-clock rejection and false authority flags; owned-private committed reconstruction, namespace/late-revision separation and uncommitted rollback limits |
 | `test_advance_source_access.py`, `test_advance_source_access_mariadb.py` | Metadata-only saved ACL/source/owner/marker binding, revocation/redaction/owned cleanup, borrowed-handle rejection and Arabic; real private source/journal locks, stale ambient/SQL identity and uncommitted rollback |
@@ -825,14 +847,15 @@ request, or production invoice submission was performed in this increment.
 Increments 31/32 provide reference/source consistency, 33 adds a permissioned
 metadata boundary, 34 defines missing-source review and 35 removes the ordinary
 QR helper's recursive save/commit/DDL. Increment 36 adds ordinary-generator
-attachment preservation. Next audit advance print cleanup/force and explicit
-regeneration selection/access/commits, then installed lifecycle/physical-file
+attachment preservation; 37 extends it to the initial-advance print hook and
+removes final-invoice cleanup. Next audit explicit regeneration
+selection/access/commits, then installed lifecycle/physical-file
 rollback and concurrent source changes; keep source
 recovery/mixed-phase bridge and server-owned site/namespace/chain/lookup/connection
 provenance and authentic capture/acceptance as gates before raw export or
 settlement adoption. Verify
 timezone/settings snapshots for new issuance separately. Neither increment 30
-nor 31/32/33/34/35/36 consolidates advance amounts/GL or cryptographic digests.
+nor 31/32/33/34/35/36/37 consolidates advance amounts/GL or cryptographic digests.
 
 All implementation/rehearsal below remains OFFLINE and in development. No live
 provider/site binding, dummy Company on a working bench, authority request or

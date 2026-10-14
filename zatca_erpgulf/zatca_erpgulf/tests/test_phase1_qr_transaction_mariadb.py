@@ -9,7 +9,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from zatca_erpgulf.zatca_erpgulf import create_qr
+from zatca_erpgulf.zatca_erpgulf import advance_deduction, create_qr
 from zatca_erpgulf.zatca_erpgulf.qr_attachment_policy import FILE_FIELDS, MAX_FILE_OBSERVATIONS
 from zatca_erpgulf.zatca_erpgulf.tests.test_issue_timestamp_adapters import local_qr
 from zatca_erpgulf.zatca_erpgulf.tests.test_journal_repository_mariadb import isolated_server, connections, namespace
@@ -144,10 +144,13 @@ def test_propagated_failure_allows_parent_rollback_no_half_saved_qr(qr_schema, l
     case.doc.save.assert_not_called()
 
 
-@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("route,doctype", [("ordinary", "Sales Invoice"),
+    ("ordinary", "POS Invoice"), ("advance", "Sales Invoice")])
 @pytest.mark.parametrize("scenario", ["preserve", "orphan", "dangling", "foreign_url"])
-def test_actual_scoped_file_query_preserves_rows_and_reference_without_cleanup(qr_schema, local_qr, connections, namespace, doctype, scenario):
+def test_actual_scoped_file_query_preserves_rows_and_reference_without_cleanup(qr_schema, local_qr, connections, namespace, doctype, scenario, route):
     case = prepare(local_qr, connections, namespace, doctype)
+    generate = (create_qr.create_qr_code if route == "ordinary" else
+        lambda doc: advance_deduction.ensure_final_sales_invoice_qr_for_print(doc, force=True))
     owned = stored_row(doctype=doctype)
     newer = stored_row("FILE-NEW", "/files/NEW.png", "QR-Phase1-NEW.png", doctype=doctype)
     rows = [owned, newer] if scenario in ("preserve", "orphan") else []
@@ -176,11 +179,11 @@ def test_actual_scoped_file_query_preserves_rows_and_reference_without_cleanup(q
             return [dict(zip(FILE_FIELDS, values)) for values in cursor.fetchall()]
     case.runtime.get_all.side_effect = get_all
     if scenario == "preserve":
-        create_qr.create_qr_code(case.doc)
+        generate(case.doc)
         case.transaction.commit()  # Synthetic parent only; helper wrote nothing.
     else:
         with pytest.raises(ValidationError, match="attachments require review"):
-            create_qr.create_qr_code(case.doc)
+            generate(case.doc)
         case.transaction.rollback()
     case.transaction.close()
     saved, generated = read_saved(connections, namespace, doctype, case.doc.name)

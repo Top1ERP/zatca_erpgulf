@@ -71,11 +71,12 @@ or durable unique generation reservation. Concurrent File/link edits remain a
 caller-level transaction/concurrency gate. This is not a guarantee against all
 duplicate creation or a proven durable snapshot.
 
-Other writers were NOT changed: notably `advance_deduction` legacy print cleanup/
-force behavior, explicit `qr_regeneration` scans/relinking/commits and Phase-2
-artifact helpers. They still require preservation/access/transaction audit before
-claiming whole-app QR safety. Propagate the reviewed policy deliberately rather
-than assuming an ordinary-generator change covers every hook or button.
+Increment 36 did NOT change other writers. Increment 37 separately extends the
+adapter to the [initial-advance print hook](ADVANCE_QR_PRESERVATION.md), removing
+its force replacement and final-invoice cleanup. Explicit `qr_regeneration`
+scans/relinking/commits and Phase-2 artifact helpers still require preservation/
+access/transaction audit before claiming whole-app QR safety. Do not assume
+these bounded changes cover every hook or button.
 
 Actual physical file lifecycle, PNG decoding/validity, framework File deduplication
 and installed ERPNext 15/16/browser/print behavior remain isolated-app gates.

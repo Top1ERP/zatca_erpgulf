@@ -79,7 +79,7 @@ def get_company_arabic_name(company_name: str) -> str:
 
 
 def _existing_qr_reference(doc):
-    """Inspect ordinary Sales/POS links without cleanup, deletion or relinking.
+    """Inspect Sales/POS links without cleanup, deletion or relinking.
 
     No relink, first/latest choice, physical existence check or global URL
     fallback. Parent authorization still applies; this is not a public endpoint.
