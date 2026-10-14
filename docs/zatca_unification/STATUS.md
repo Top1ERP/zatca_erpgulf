@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and forty-three bounded increments (Compliance outcomes, dedicated
+Safety preparation and forty-four bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -34,7 +34,8 @@ and non-destructive QR recovery preservation/review without speculative repair,
 and exact archived-attempt QR source observations,
 and permissioned metadata-only QR source inspection with a shared access engine,
 and non-destructive Phase-2 local completion-hook preservation/review,
-and caller-owned primary Sales/POS QR-link staging without invoice events/DDL)
+and caller-owned primary Sales/POS QR-link staging without invoice events/DDL,
+and scoped primary QR ownership/schema checks before request/error persistence)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -776,6 +777,23 @@ branches and credential-context differences are recorded in
   No advance/accounting/working/authority change.
   See [PRIMARY_QR_TRANSACTION.md](PRIMARY_QR_TRANSACTION.md).
 
+## Increment 44: scoped primary QR ownership and pre-request rejection
+
+- Replaced primary attach helper's global URL existence check with bounded
+  same-invoice metadata preservation/review. Invalid/dangling/foreign/orphaned
+  observations cannot implicitly generate or replace a QR. New unambiguous
+  primary attachment remains; saved status is not an authentication gate.
+- All four primary Sales/POS Reporting/Clearance adapters check schema/link
+  ownership before their error-saving try boundary, HTTP/payload/credential work
+  and POS Reporting XML creation. Valid batches still defer; invalid batch
+  references/schema now stop before local side effects. Static Arabic/English
+  review uses the existing key; no invoice/File/status/transaction write occurs.
+- This is a loaded-document observation, not ACL/authenticity/revision locking
+  or a reservation. Post-response races/local failures and legacy receipt/status
+  downgrades remain blocking work. Other writers/global helpers are not unified.
+  No advance/accounting/working/authority change.
+  See [PRIMARY_QR_OWNERSHIP.md](PRIMARY_QR_OWNERSHIP.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -921,9 +939,22 @@ owned SQL verifies parent-only visibility/commit/rollback and unchanged status,
 business/modified columns under injected failures. File/image/ERP are mocked;
 no physical filesystem, installed-v16 or remote acceptance claim is made.
 
+Increment 44 adds **104 local + 32 private SQL cases**, reaching **5,658 local +
+351 private SQL = 6,009 passing cases** across the same twelve private suites.
+The final guarded combined run passed in **50.10 seconds**. The initial local
+run stopped ten legacy HTTP/retry characterizations at the new ownership gate:
+the fixture's saved URLs had no File rows. Explicit scoped synthetic rows were
+added to that fixture, preserving every original UUID/ICV assertion and adding
+mock HTTP-call assertions. No ownership rule was relaxed. Native SQL covers
+parent-only pending-work visibility/commit/rollback, unchanged current references/
+status/attachment rows, and foreign URL rejection before mock HTTP/error writes.
+This is not post-response concurrency, installed ERPNext 16 or remote acceptance
+evidence; receipt-aware caller error handling remains a blocking next step.
+
 | Suite | Scope |
 | --- | --- |
-| `test_primary_qr_transaction.py` | Actual shared Sales/POS attach helper with mocked File/image/ERP, QR-link-only staging, phase gates, translated missing schema, failures and explicit unchanged legacy reuse; private QR SQL suite adds parent visibility/rollback with unchanged accepted status/business/modified fields |
+| `test_primary_qr_transaction.py` | Actual shared Sales/POS attach helper with mocked File/image/ERP, QR-link-only staging, phase gates, translated missing schema, failures and owned-row preservation; private QR SQL suite adds parent visibility/rollback with unchanged accepted status/business/modified fields |
+| `test_primary_qr_ownership.py` | Actual primary QR scoped preservation/review and all four API pre-request rejection boundaries, shape validation/bounds/Arabic/query faults, no global fallback or writes; private QR SQL suite adds parent-owned pending work, scoped synthetic File rows and unchanged artifacts |
 | `test_offline_rehearsal.py` | Guarded ordinary Python network/site/process rejection, private-only socket/command registry, inherited peer/symlink checks, owned cleanup, no unguarded SQL acquisition and fixed offline test runner |
 | `test_issue_timestamp.py` | Explicit typed/text issue-time parsing, valid zero duration, single-digit hours, offsets/DST/UTC rollover, bounded/static input errors, frozen whole-second UTC/XML/QR contract and no Frappe/site/clock dependency |
 | `test_issue_timestamp_adapters.py` | Actual mocked Sales/POS metadata and Phase-1/Phase-2/synthetic/initial-advance QR paths, no second invoice read, invalid time before UUID writes, duplicate/blank XML times before keys, Arabic error keys and unchanged legacy amount/Phase-2 advance guards |
@@ -1019,9 +1050,11 @@ and helper-owned commits. Increment 40 adds exact journal-bound QR observations;
 41 binds metadata-only saved-row access/source locks through a shared engine,
 not authenticated recovery. Increment 42 removes speculative repair/deletion
 from the automatic Phase-2 completion hook. Increment 43 removes primary QR
-attachment DDL and invoice event/modified-time effects. Next address primary
-global URL reuse/source ownership, pre-request schema validation and receipt-aware
-caller transaction/error boundaries; establish
+attachment DDL and invoice event/modified-time effects. Increment 44 adds bounded
+primary QR ownership/schema preflight before request/error persistence and removes
+global URL reuse from that attachment helper. Next address receipt-aware primary
+caller transaction/error boundaries, concurrent source changes and the remaining
+writers; establish
 audited server-owned site/namespace/
 connection and committed-revision provider provenance with historical epoch and authentic
 receipt/crypto/QR validation and protect the remaining writers before adoption,
@@ -1031,7 +1064,7 @@ recovery/mixed-phase bridge and server-owned site/namespace/chain/lookup/connect
 provenance and authentic capture/acceptance as gates before raw export or
 settlement adoption. Verify
 timezone/settings snapshots for new issuance separately. Neither increment 30
-nor 31/32/33/34/35/36/37/38/39/40/41/42/43 consolidates advance amounts/GL or cryptographic digests.
+nor 31/32/33/34/35/36/37/38/39/40/41/42/43/44 consolidates advance amounts/GL or cryptographic digests.
 
 All implementation/rehearsal below remains OFFLINE and in development. No live
 provider/site binding, dummy Company on a working bench, authority request or

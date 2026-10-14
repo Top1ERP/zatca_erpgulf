@@ -111,6 +111,7 @@ from zatca_erpgulf.zatca_erpgulf.create_xml_final_part import (
     xml_structuring,
 )
 from zatca_erpgulf.zatca_erpgulf.create_qr import MISSING_QR_FIELD, create_qr_code
+from zatca_erpgulf.zatca_erpgulf.primary_qr_attachment import require_primary_qr_attachment
 from zatca_erpgulf.zatca_erpgulf.sign_invoice_first import (
     removetags,
     canonicalize_xml,
@@ -231,7 +232,8 @@ def attach_qr_image(
 
     This compatibility adapter serves Sales and POS. The Phase-2 flag is an
     existing dispatch guard, NOT authenticated evidence of authority acceptance.
-    Legacy URL reuse/source validation and caller commits remain separate work.
+    Scoped link preservation is not source validation; caller commits remain
+    separate work. Ambiguous references are never silently replaced.
     """
     company_doc = frappe.get_cached_doc("Company", sales_invoice_doc.company)
     if (
@@ -240,13 +242,10 @@ def attach_qr_image(
         and not allow_phase2
     ):
         return
-    # Approved setup/migration owns DDL; never create fields while attaching QR.
-    if not hasattr(sales_invoice_doc, "ksa_einv_qr"):
-        frappe.throw(_(MISSING_QR_FIELD))
+    decision = require_primary_qr_attachment(sales_invoice_doc)
+    if decision.action == "PRESERVE":
+        return
     try:
-        qr_code = sales_invoice_doc.get("ksa_einv_qr")
-        if qr_code and frappe.db.exists({"doctype": "File", "file_url": qr_code}):
-            return
         qr_image = io.BytesIO()
         qr = qr_create(qrcodeb64, error="L")
         qr.png(qr_image, scale=4, quiet_zone=4)
@@ -303,6 +302,8 @@ def reporting_api(
     uuid1, encoded_hash, signed_xmlfile_name, invoice_number, sales_invoice_doc
 ):
     """reporting api based on the api data and payload"""
+    # Reject stored-link/schema problems before HTTP AND legacy error writes.
+    require_primary_qr_attachment(sales_invoice_doc, expected_doctype="Sales Invoice")
     try:
         company_abbr = frappe.db.get_value(
             "Company", {"name": sales_invoice_doc.company}, "abbr"
@@ -589,6 +590,7 @@ def clearance_api(
     uuid1, encoded_hash, signed_xmlfile_name, invoice_number, sales_invoice_doc
 ):
     """The clearance api with payload and headeders aand signed xml data"""
+    require_primary_qr_attachment(sales_invoice_doc, expected_doctype="Sales Invoice")
     try:
         company_abbr = frappe.db.get_value(
             "Company", {"name": sales_invoice_doc.company}, "abbr"

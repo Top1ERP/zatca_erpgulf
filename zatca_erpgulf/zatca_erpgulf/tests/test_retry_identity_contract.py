@@ -21,6 +21,7 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_nonproduction_isolation import isola
 from zatca_erpgulf.zatca_erpgulf.tests.test_submission_context import (
     ValidationError, boundary, select_owner,
 )
+from zatca_erpgulf.zatca_erpgulf.tests.test_qr_attachment_policy import row
 
 
 ADAPTERS = (
@@ -44,6 +45,14 @@ def retry_boundary(legacy_boundary, generation_boundary):
         invoice.custom_zatca_icv = 77
         invoice.custom_zatca_issuing_unit = "existing-chain"
         select_owner(b, invoice, "device")
+    # The legacy fixture sets a saved QR URL. Supply its explicit same-invoice
+    # metadata so these HTTP/retry characterizations still reach the HTTP mock.
+    def owned_files(doctype, *, filters, **options):
+        assert doctype == "File"
+        invoice = b.sales if filters["attached_to_doctype"] == "Sales Invoice" else b.pos
+        assert filters["attached_to_name"] == invoice.name
+        return [row(url=invoice.ksa_einv_qr, doctype=invoice.doctype, invoice=invoice.name)]
+    b.frappe.get_all.side_effect = owned_files
     return b
 
 
@@ -61,6 +70,7 @@ def test_http_failure_uuid_policy_is_inconsistent_but_icv_is_retained(retry_boun
     b.response.status_code = status
     with pytest.raises(ValidationError):
         submit(b, adapter)
+    b.post.assert_called_once()
     invoice = getattr(b, adapter[2])
     assert invoice.custom_uuid == (ISSUED_UUID if adapter[3] else "Not Submitted")
     assert invoice.custom_zatca_icv == 77
@@ -77,6 +87,7 @@ def test_transport_unknown_outcome_preserves_saved_fields_at_http_boundary(retry
     b.post.side_effect = requests.Timeout("TEST UNKNOWN REMOTE OUTCOME")
     with pytest.raises(requests.Timeout):
         submit(b, adapter)
+    b.post.assert_called_once()
     invoice = getattr(b, adapter[2])
     assert invoice.custom_uuid == ISSUED_UUID
     assert invoice.custom_zatca_icv == 77

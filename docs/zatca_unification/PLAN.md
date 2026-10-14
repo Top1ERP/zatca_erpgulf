@@ -137,6 +137,12 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 44 adds [scoped primary QR ownership/pre-request rejection](PRIMARY_QR_OWNERSHIP.md).
+  Same-invoice bounded preservation/review replaces the primary attach global
+  URL check. All four primary adapters reject existing schema/link issues before
+  request/error persistence and POS XML writes; valid batch deferral remains.
+  No authenticated source/ACL/reservation claim; receipt-aware post-response
+  error handling, concurrent changes and remaining writers are still gates.
 - Increment 43 removes [primary Sales/POS QR attachment DDL/invoice events](PRIMARY_QR_TRANSACTION.md).
   QR-link-only staging preserves status/UUID/business/modified fields. Legacy
   global URL reuse and caller commits/error downgrades are explicitly unresolved;

@@ -14,7 +14,7 @@ import pytest
 import requests
 
 from zatca_erpgulf.zatca_erpgulf import (
-    api_settings, credential_settings, pih, pos_sign, sign_invoice, submission_context,
+    api_settings, credential_settings, pih, pos_sign, sign_invoice, submission_context, primary_qr_attachment,
 )
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import PHASE_1_VALUE, PHASE_2_VALUE
 
@@ -54,8 +54,8 @@ def boundary(monkeypatch):
                       custom__use_company_certificate__keys="0", custom_final_auth_csid=" DEVICE-\nPRODUCTION ",
                       custom_basic_auth_from_csid="DEVICE-COMPLIANCE-MUST-NOT-BE-USED",
                       custom_send_pos_invoices_to_zatca_on_background=0, custom_pih="previous")
-    sales = document("Sales Invoice", "SI", company="A", custom_zatca_pos_name="", custom_uuid="test-existing-uuid")
-    pos = document("POS Invoice", "PI", company="A", custom_zatca_pos_name="", custom_uuid="test-existing-uuid")
+    sales = document("Sales Invoice", "SI", company="A", ksa_einv_qr=None, custom_zatca_pos_name="", custom_uuid="test-existing-uuid")
+    pos = document("POS Invoice", "PI", company="A", ksa_einv_qr=None, custom_zatca_pos_name="", custom_uuid="test-existing-uuid")
     docs = {(doc.doctype, doc.name): doc for doc in (company, linked, device, sales, pos)}
     files = []
 
@@ -72,11 +72,11 @@ def boundary(monkeypatch):
         return docs[doctype, name]
 
     frappe = SimpleNamespace(
-        get_doc=Mock(side_effect=get_doc), throw=fail, ValidationError=ValidationError,
+        get_doc=Mock(side_effect=get_doc), get_all=Mock(return_value=[]), throw=fail, ValidationError=ValidationError,
         db=SimpleNamespace(get_value=Mock(return_value="TC"), commit=Mock(), set_value=Mock()),
         publish_realtime=Mock(), session=SimpleNamespace(user="TEST USER"), msgprint=Mock(), log_error=Mock(),
     )
-    for module in (api_settings, credential_settings, submission_context, sign_invoice, pos_sign):
+    for module in (api_settings, credential_settings, submission_context, sign_invoice, pos_sign, primary_qr_attachment):
         monkeypatch.setattr(module, "frappe", frappe)
         monkeypatch.setattr(module, "_", lambda message: message)
     monkeypatch.setattr(pih, "frappe", frappe)

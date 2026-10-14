@@ -75,7 +75,9 @@ and callers with independent commits. [Increment 43](PRIMARY_QR_TRANSACTION.md)
 subsequently removes its attachment-time DDL and invoice-event/modified-time
 effects, but global reuse/source validation and caller commit/error handling
 remain integration gates. Neither increment claims all QR writers are safe or
-fully unified.
+fully unified. [Increment 44](PRIMARY_QR_OWNERSHIP.md) subsequently replaces the
+primary attach helper's global URL check and adds pre-request schema/ownership
+guarding; concurrent/post-response failures and other writer paths remain gates.
 
 Advance search/allocation/remaining/age/settlement rules, GL/VAT/amounts, ordinary
 Phase-1 QR, initial-advance QR, Debug XML and Compliance buttons are unchanged.

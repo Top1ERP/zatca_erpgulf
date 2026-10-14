@@ -232,6 +232,19 @@ The guarded run passed **5,554 local + 319 private SQL = 5,873 cases** in
 File/payload data is synthetic; SQL uses only owned temporary tables. No working
 configuration/source/schema/assets/worker/customer data or authority call changed.
 
+Increment 44 adds [scoped primary QR ownership/pre-request guarding](PRIMARY_QR_OWNERSHIP.md).
+Existing ambiguous references or missing schema stop before all four primary
+Sales/POS API error-persistence boundaries, HTTP and legacy POS XML creation;
+the primary attach helper no longer uses global URL existence. No file is
+deleted/relinked and new unambiguous primary attachment is retained. This is
+not ACL/authenticity/revision locking or protection against post-response races/
+local failures; legacy receipt/status downgrades and other writers remain gates.
+Valid batches still defer; invalid batch references/schema also stop before
+local effects. The guarded run passed **5,658 local + 351 private SQL = 6,009
+cases in 50.10 seconds**, across the same twelve private SQL suites. All rows/
+payloads/HTTP responses are synthetic; no working source/config/schema/assets/
+worker/customer data or authority request changed.
+
 1. **Complete development offline.** Finish the shared settings/source/credential
    contracts, amounts/advance handling, immutable XML/signature/QR pipeline,
    debug/single/all/synthetic Compliance adapters, identity/retry coordination and

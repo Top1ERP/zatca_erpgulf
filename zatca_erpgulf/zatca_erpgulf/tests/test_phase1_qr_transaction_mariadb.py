@@ -9,7 +9,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from zatca_erpgulf.zatca_erpgulf import advance_deduction, create_qr, phase2_artifacts, qr_regeneration, sign_invoice
+from zatca_erpgulf.zatca_erpgulf import advance_deduction, create_qr, phase2_artifacts, qr_regeneration, sign_invoice, pos_sign
 from zatca_erpgulf.zatca_erpgulf.qr_attachment_policy import FILE_FIELDS, MAX_FILE_OBSERVATIONS
 from zatca_erpgulf.zatca_erpgulf.tests.test_issue_timestamp_adapters import local_qr
 from zatca_erpgulf.zatca_erpgulf.tests.test_primary_qr_transaction import primary_qr
@@ -165,6 +165,81 @@ def test_primary_qr_failure_rolls_back_with_parent_pending_work(qr_schema, prima
     case.doc.save.assert_not_called()
     case.runtime.db.commit.assert_not_called()
     case.runtime.db.rollback.assert_not_called()
+
+
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("operation", ["reporting", "clearance"])
+@pytest.mark.parametrize("scenario", ["preserve", "dangling", "orphan", "foreign_url"])
+@pytest.mark.parametrize("commit", [False, True])
+def test_primary_scoped_qr_preflight_preserves_pending_parent_transaction(qr_schema, primary_qr, connections, namespace,
+    monkeypatch, doctype, operation, scenario, commit):
+    case = prepare_primary(primary_qr, connections, namespace, doctype, "REPORTED")
+    current = None if scenario == "orphan" else "/files/OLD.png"
+    case.doc.ksa_einv_qr = current
+    rows = [] if scenario == "dangling" else [stored_row(doctype=doctype,
+        invoice="FOREIGN-INVOICE" if scenario == "foreign_url" else case.doc.name)]
+    seed = connections()
+    try:
+        with seed.cursor() as cursor:
+            cursor.execute("UPDATE qr_invoice_test SET qr_url=%s WHERE namespace=%s AND doctype=%s AND name=%s",
+                (current, namespace, doctype, case.doc.name))
+            for row in rows:
+                cursor.execute("INSERT INTO qr_attachment_test VALUES (%s,%s,%s,%s,%s,%s,%s)",
+                    (namespace, *(row[field] for field in FILE_FIELDS)))
+        seed.commit()
+    finally:
+        seed.close()
+    def get_all(dt, *, filters, fields, order_by, limit_page_length):
+        assert dt == "File" and fields == list(FILE_FIELDS)
+        assert filters == {"attached_to_doctype": doctype, "attached_to_name": case.doc.name}
+        assert order_by == "name asc" and limit_page_length == MAX_FILE_OBSERVATIONS + 1
+        with case.transaction.cursor() as cursor:
+            cursor.execute("SELECT name,file_name,file_url,attached_to_doctype,attached_to_name,attached_to_field "
+                "FROM qr_attachment_test WHERE namespace=%s AND attached_to_doctype=%s AND attached_to_name=%s "
+                "ORDER BY name ASC LIMIT %s", (namespace, doctype, case.doc.name, limit_page_length))
+            return [dict(zip(FILE_FIELDS, values)) for values in cursor.fetchall()]
+    case.runtime.get_all.side_effect = get_all
+    # A globally existing foreign URL must not be sufficient for preservation.
+    case.runtime.db.exists.return_value = True
+    module = sign_invoice if doctype == "Sales Invoice" else pos_sign
+    forbidden_post = Mock(side_effect=AssertionError("No request in ownership rehearsal"))
+    monkeypatch.setattr(module.requests, "post", forbidden_post)
+    try:
+        with case.transaction.cursor() as cursor:
+            cursor.execute("UPDATE qr_invoice_test SET business_value=%s WHERE namespace=%s AND doctype=%s AND name=%s",
+                ("PARENT-PENDING", namespace, doctype, case.doc.name))
+        if scenario == "preserve":
+            sign_invoice.attach_qr_image("SYNTHETIC", case.doc, allow_phase2=True)
+        else:
+            with pytest.raises(ValidationError, match="attachments require review"):
+                getattr(module, operation + "_api")("SYNTHETIC-UUID", "SYNTHETIC-HASH", "UNOPENED.xml",
+                    case.doc.name, case.doc)
+        assert read_saved(connections, namespace, doctype, case.doc.name) == (
+            (current, "REPORTED", "ORIGINAL-BUSINESS", "2026-10-01 00:00:00"), 0)
+        (case.transaction.commit if commit else case.transaction.rollback)()
+    finally:
+        case.transaction.close()
+    assert read_saved(connections, namespace, doctype, case.doc.name) == (
+        (current, "REPORTED", "PARENT-PENDING" if commit else "ORIGINAL-BUSINESS", "2026-10-01 00:00:00"), 0)
+    assert not case.payloads and case.doc.ksa_einv_qr == current and case.doc.custom_zatca_status == "REPORTED"
+    case.runtime.get_doc.assert_not_called()
+    case.runtime.db.exists.assert_not_called()
+    case.runtime.db.set_value.assert_not_called()
+    case.runtime.db.commit.assert_not_called()
+    case.runtime.db.rollback.assert_not_called()
+    case.runtime.delete_doc.assert_not_called()
+    case.doc.db_set.assert_not_called()
+    case.doc.save.assert_not_called()
+    forbidden_post.assert_not_called()
+    verify = connections()
+    try:
+        with verify.cursor() as cursor:
+            cursor.execute("SELECT name,file_name,file_url,attached_to_doctype,attached_to_name,attached_to_field "
+                "FROM qr_attachment_test WHERE namespace=%s ORDER BY name ASC", (namespace,))
+            assert cursor.fetchall() == tuple(tuple(row[field] for field in FILE_FIELDS) for row in rows)
+        verify.rollback()
+    finally:
+        verify.close()
 
 
 @pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])

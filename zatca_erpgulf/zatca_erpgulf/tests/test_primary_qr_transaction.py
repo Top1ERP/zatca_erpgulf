@@ -9,7 +9,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from zatca_erpgulf.zatca_erpgulf import pos_sign, sign_invoice
+from zatca_erpgulf.zatca_erpgulf import pos_sign, sign_invoice, primary_qr_attachment
+from zatca_erpgulf.zatca_erpgulf.tests.test_qr_attachment_policy import row as stored_row
 from zatca_erpgulf.zatca_erpgulf.tests.test_issue_timestamp_adapters import local_qr
 from zatca_erpgulf.zatca_erpgulf.tests.test_nonproduction_isolation import ValidationError
 
@@ -21,6 +22,8 @@ def primary_qr(local_qr, monkeypatch):
     runtime.db.rollback = Mock(side_effect=AssertionError("Caller owns rollback"))
     monkeypatch.setattr(sign_invoice, "frappe", runtime)
     monkeypatch.setattr(sign_invoice, "_", lambda text: text)
+    monkeypatch.setattr(primary_qr_attachment, "frappe", runtime)
+    monkeypatch.setattr(primary_qr_attachment, "_", lambda text: text)
     monkeypatch.setattr(sign_invoice, "is_zatca_invoice_enabled", lambda company: True)
     monkeypatch.setattr(sign_invoice, "resolve_zatca_phase", lambda company: sign_invoice.PHASE_2_VALUE)
     def image(payload, **options):
@@ -106,6 +109,7 @@ def test_missing_schema_is_static_translated_and_never_created(primary_qr, monke
     message = sign_invoice.MISSING_QR_FIELD
     if arabic:
         monkeypatch.setattr(sign_invoice, "_", lambda text: translations[text])
+        monkeypatch.setattr(primary_qr_attachment, "_", lambda text: translations[text])
         message = translations[message]
         assert message != sign_invoice.MISSING_QR_FIELD
     with pytest.raises(ValidationError) as error:
@@ -139,12 +143,13 @@ def test_legacy_non_phase2_dispatch_still_generates(primary_qr, monkeypatch, ena
     assert runtime.db.set_value.call_count == 1
 
 
-def test_legacy_url_reuse_is_characterized_not_authenticated(primary_qr):
+def test_owned_url_is_preserved_without_global_lookup_or_authenticity_claim(primary_qr):
     doc, runtime, payloads, _ = primary_qr
     doc.ksa_einv_qr = "/files/LEGACY.png"
     runtime.db.exists.return_value = True
+    runtime.get_all.return_value = [stored_row(url=doc.ksa_einv_qr)]
     sign_invoice.attach_qr_image("SYNTHETIC", doc, allow_phase2=True)
-    runtime.db.exists.assert_called_once_with({"doctype": "File", "file_url": doc.ksa_einv_qr})
+    runtime.db.exists.assert_not_called()
     assert not payloads
     runtime.db.set_value.assert_not_called()
     doc.notify_update.assert_not_called()

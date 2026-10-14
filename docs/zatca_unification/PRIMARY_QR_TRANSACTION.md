@@ -28,6 +28,11 @@ is not evidence of acceptance, and this helper must not relabel acceptance.
 
 ## Explicitly unresolved
 
+This section records the increment 43 baseline. [Increment 44](PRIMARY_QR_OWNERSHIP.md)
+subsequently replaces this helper's global URL check and adds schema/ownership
+preflight before the four primary APIs' error-persistence boundary. Concurrent
+post-response errors and the other limitations below remain unresolved.
+
 - Existing global URL existence reuse remains characterized, NOT safe source or
   ownership validation. Dangling links can still fall through to generation.
   No new source selector is activated, no file is deleted and no auto-relink

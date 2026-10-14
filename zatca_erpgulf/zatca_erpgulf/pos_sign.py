@@ -94,6 +94,7 @@ from zatca_erpgulf.zatca_erpgulf.submission_context import (
 from zatca_erpgulf.zatca_erpgulf.phase2_artifacts import (
     _extract_qr_payload_from_xml,
 )
+from zatca_erpgulf.zatca_erpgulf.primary_qr_attachment import require_primary_qr_attachment
 
 ITEM_TAX_TEMPLATE_WARNING = "If any one item has an Item Tax Template,"
 " all items must have an Item Tax Template."
@@ -104,6 +105,8 @@ def reporting_api(
     uuid1, encoded_hash, signed_xmlfile_name, invoice_number, pos_invoice_doc
 ):
     """Function for reporting api"""
+    # Before legacy POS XML creation and any HTTP/error-persistence side effects.
+    require_primary_qr_attachment(pos_invoice_doc, expected_doctype="POS Invoice")
     try:
         # Retrieve the company abbreviation based on the company in the sales invoice
         company_abbr = frappe.db.get_value(
@@ -387,6 +390,7 @@ def clearance_api(
     uuid1, encoded_hash, signed_xmlfile_name, invoice_number, pos_invoice_doc
 ):
     """Function for clearence api"""
+    require_primary_qr_attachment(pos_invoice_doc, expected_doctype="POS Invoice")
     try:
         # Retrieve the company name based on the abbreviation in the POS Invoice
         company_abbr = frappe.db.get_value(
