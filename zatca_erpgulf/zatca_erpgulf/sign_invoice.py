@@ -80,7 +80,6 @@ def _get_customer_country_code(sales_invoice_doc, customer_doc):
         return "SA"
     return normalize_country_code(country) or "SA"
 from pyqrcode import create as qr_create
-from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from zatca_erpgulf.zatca_erpgulf.createxml import (
     xml_tags,
     salesinvoice_data,
@@ -111,7 +110,7 @@ from zatca_erpgulf.zatca_erpgulf.create_xml_final_part import (
     item_data_with_template,
     xml_structuring,
 )
-from zatca_erpgulf.zatca_erpgulf.create_qr import create_qr_code
+from zatca_erpgulf.zatca_erpgulf.create_qr import MISSING_QR_FIELD, create_qr_code
 from zatca_erpgulf.zatca_erpgulf.sign_invoice_first import (
     removetags,
     canonicalize_xml,
@@ -212,34 +211,39 @@ def error_log():
         return None
 
 
+def _persist_attached_qr_metadata(doc, file_url):
+    """Stage only the QR link; the caller owns transaction and submission status.
+
+    Avoid Document.db_set/save: their invoice hooks can perform unrelated work.
+    Never update accounting data, modified time, UUID or acceptance status here.
+    File persistence is still framework-owned; SQL rollback is not proof of
+    physical-file rollback. The parent must discard/reload the document on error.
+    """
+    frappe.db.set_value(doc.doctype, doc.name, {"ksa_einv_qr": file_url}, update_modified=False)
+    doc.ksa_einv_qr = file_url
+    doc.notify_update()
+
+
 def attach_qr_image(
     qrcodeb64, sales_invoice_doc, allow_phase2=False, phase2_status="REPORTED"
 ):
-    """Persist a Phase-1 QR only; Phase-2 artifacts are saved from ZATCA response XML."""
+    """Attach a caller-supplied payload without owning schema or transaction.
+
+    This compatibility adapter serves Sales and POS. The Phase-2 flag is an
+    existing dispatch guard, NOT authenticated evidence of authority acceptance.
+    Legacy URL reuse/source validation and caller commits remain separate work.
+    """
+    company_doc = frappe.get_cached_doc("Company", sales_invoice_doc.company)
+    if (
+        is_zatca_invoice_enabled(company_doc)
+        and resolve_zatca_phase(company_doc) == PHASE_2_VALUE
+        and not allow_phase2
+    ):
+        return
+    # Approved setup/migration owns DDL; never create fields while attaching QR.
+    if not hasattr(sales_invoice_doc, "ksa_einv_qr"):
+        frappe.throw(_(MISSING_QR_FIELD))
     try:
-        company_doc = frappe.get_cached_doc("Company", sales_invoice_doc.company)
-        if (
-            is_zatca_invoice_enabled(company_doc)
-            and resolve_zatca_phase(company_doc) == PHASE_2_VALUE
-            and not allow_phase2
-        ):
-            return
-        if not hasattr(sales_invoice_doc, "ksa_einv_qr"):
-            create_custom_fields(
-                {
-                    sales_invoice_doc.doctype: [
-                        {
-                            "fieldname": "ksa_einv_qr",
-                            "label": "KSA E-Invoicing QR",
-                            "fieldtype": "Attach Image",
-                            "read_only": 1,
-                            "no_copy": 1,
-                            "hidden": 0,  # Set hidden to 0 for testing
-                        }
-                    ]
-                }
-            )
-            # frappe.log("Custom field 'ksa_einv_qr' created.")
         qr_code = sales_invoice_doc.get("ksa_einv_qr")
         if qr_code and frappe.db.exists({"doctype": "File", "file_url": qr_code}):
             return
@@ -261,8 +265,7 @@ def attach_qr_image(
             }
         )
         file_doc.save(ignore_permissions=True)
-        sales_invoice_doc.db_set("ksa_einv_qr", file_doc.file_url)
-        sales_invoice_doc.notify_update()
+        _persist_attached_qr_metadata(sales_invoice_doc, file_doc.file_url)
 
     except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
         frappe.throw(_(("attach qr images" f"error: {str(e)}")))

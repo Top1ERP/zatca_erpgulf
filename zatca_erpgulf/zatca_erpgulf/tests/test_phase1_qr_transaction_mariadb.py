@@ -9,9 +9,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from zatca_erpgulf.zatca_erpgulf import advance_deduction, create_qr, phase2_artifacts, qr_regeneration
+from zatca_erpgulf.zatca_erpgulf import advance_deduction, create_qr, phase2_artifacts, qr_regeneration, sign_invoice
 from zatca_erpgulf.zatca_erpgulf.qr_attachment_policy import FILE_FIELDS, MAX_FILE_OBSERVATIONS
 from zatca_erpgulf.zatca_erpgulf.tests.test_issue_timestamp_adapters import local_qr
+from zatca_erpgulf.zatca_erpgulf.tests.test_primary_qr_transaction import primary_qr
 from zatca_erpgulf.zatca_erpgulf.tests.test_journal_repository_mariadb import isolated_server, connections, namespace
 from zatca_erpgulf.zatca_erpgulf.tests.test_nonproduction_isolation import ValidationError
 from zatca_erpgulf.zatca_erpgulf.tests.test_qr_attachment_policy import row as stored_row
@@ -55,7 +56,8 @@ def prepare(local_qr, connections, namespace, doctype, *, failure=None):
     runtime.db.rollback = Mock(side_effect=AssertionError("QR generator must not roll back"))
     file = runtime.get_doc({"doctype": "File"})
     runtime.get_doc.reset_mock()
-    def file_save():
+    def file_save(**options):
+        assert options in ({}, {"ignore_permissions": True})
         with transaction.cursor() as cursor:
             cursor.execute("INSERT INTO qr_file_test VALUES (%s,%s,%s,%s)",
                 (namespace, doctype, doc.name, file.file_url))
@@ -91,6 +93,78 @@ def read_saved(connections, namespace, doctype, name):
         return row, count
     finally:
         reader.close()
+
+
+def prepare_primary(primary_qr, connections, namespace, doctype, status, *, failure=None):
+    """Use actual SQL, but synthetic File save and no invoice/accounting hooks."""
+    case = prepare(primary_qr, connections, namespace, doctype, failure=failure)
+    case.doc.custom_zatca_status = status
+    seed = connections()
+    try:
+        with seed.cursor() as cursor:
+            cursor.execute("UPDATE qr_invoice_test SET status=%s WHERE namespace=%s AND doctype=%s AND name=%s",
+                (status, namespace, doctype, case.doc.name))
+        seed.commit()
+    finally:
+        seed.close()
+    def set_value(dt, name, fields, *, update_modified):
+        assert dt == doctype and name == case.doc.name and update_modified is False
+        assert set(fields) == {"ksa_einv_qr"}
+        with case.transaction.cursor() as cursor:
+            cursor.execute("UPDATE qr_invoice_test SET qr_url=%s WHERE namespace=%s AND doctype=%s AND name=%s",
+                (fields["ksa_einv_qr"], namespace, dt, name))
+            assert cursor.rowcount == 1
+        if failure == "metadata":
+            raise RuntimeError("SYNTHETIC metadata failure after update")
+    case.runtime.db.set_value.side_effect = set_value
+    return case
+
+
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("status", ["REPORTED", "CLEARED"])
+@pytest.mark.parametrize("commit", [False, True])
+def test_primary_qr_visibility_and_status_are_owned_by_parent(qr_schema, primary_qr, connections, namespace, doctype, status, commit):
+    case = prepare_primary(primary_qr, connections, namespace, doctype, status)
+    try:
+        sign_invoice.attach_qr_image("SYNTHETIC", case.doc, allow_phase2=True, phase2_status=status)
+        assert read_saved(connections, namespace, doctype, case.doc.name) == (
+            (None, status, "ORIGINAL-BUSINESS", "2026-10-01 00:00:00"), 0)
+        (case.transaction.commit if commit else case.transaction.rollback)()
+    finally:
+        case.transaction.close()
+    saved, files = read_saved(connections, namespace, doctype, case.doc.name)
+    assert saved == (("/files/SYNTHETIC-QR.png" if commit else None), status,
+        "ORIGINAL-BUSINESS", "2026-10-01 00:00:00") and files == int(commit)
+    assert case.doc.custom_zatca_status == status
+    case.doc.db_set.assert_not_called()
+    case.doc.save.assert_not_called()
+    case.runtime.db.commit.assert_not_called()
+    case.runtime.db.rollback.assert_not_called()
+
+
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("status", ["REPORTED", "CLEARED"])
+@pytest.mark.parametrize("failure", ["file", "metadata", "notify", "parent"])
+def test_primary_qr_failure_rolls_back_with_parent_pending_work(qr_schema, primary_qr, connections, namespace, doctype, status, failure):
+    case = prepare_primary(primary_qr, connections, namespace, doctype, status, failure=failure)
+    with pytest.raises(RuntimeError, match="SYNTHETIC"):
+        try:
+            with case.transaction.cursor() as cursor:
+                cursor.execute("UPDATE qr_invoice_test SET business_value=%s WHERE namespace=%s AND doctype=%s AND name=%s",
+                    ("PARENT-PENDING", namespace, doctype, case.doc.name))
+            sign_invoice.attach_qr_image("SYNTHETIC", case.doc, allow_phase2=True, phase2_status=status)
+            if failure == "parent":
+                raise RuntimeError("SYNTHETIC later parent failure")
+        finally:
+            case.transaction.rollback()
+            case.transaction.close()
+    assert read_saved(connections, namespace, doctype, case.doc.name) == (
+        (None, status, "ORIGINAL-BUSINESS", "2026-10-01 00:00:00"), 0)
+    assert case.doc.custom_zatca_status == status
+    case.doc.db_set.assert_not_called()
+    case.doc.save.assert_not_called()
+    case.runtime.db.commit.assert_not_called()
+    case.runtime.db.rollback.assert_not_called()
 
 
 @pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])

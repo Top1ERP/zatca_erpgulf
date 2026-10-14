@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and forty-two bounded increments (Compliance outcomes, dedicated
+Safety preparation and forty-three bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -33,7 +33,8 @@ and saved-row access boundaries for explicit QR recovery endpoints,
 and non-destructive QR recovery preservation/review without speculative repair,
 and exact archived-attempt QR source observations,
 and permissioned metadata-only QR source inspection with a shared access engine,
-and non-destructive Phase-2 local completion-hook preservation/review)
+and non-destructive Phase-2 local completion-hook preservation/review,
+and caller-owned primary Sales/POS QR-link staging without invoice events/DDL)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -760,6 +761,21 @@ branches and credential-context differences are recorded in
   not phase/QR/authenticity proof. No advance/accounting/working/authority change.
   See [PHASE2_ARTIFACT_PRESERVATION.md](PHASE2_ARTIFACT_PRESERVATION.md).
 
+## Increment 43: primary Sales/POS QR schema and metadata boundary
+
+- The shared `attach_qr_image` no longer creates fields during attachment. Missing
+  schema uses the existing static English/Arabic setup error; phase skip remains.
+- One QR-link-only SQL dictionary update replaces invoice `db_set`, avoiding its
+  before_change/on_change hooks and modified-time changes. No status/UUID/amount
+  rewrite, recursive invoice save, helper commit or rollback. Existing payload,
+  File/privacy/image/filename behavior and default dispatch gates remain.
+- Global URL reuse, authenticated source binding, physical-file lifecycle and
+  primary caller commits/error downgrades are NOT resolved. Missing schema or
+  another post-response error can still reach legacy caller status handlers;
+  this is a development slice, not an independently deployable live fix.
+  No advance/accounting/working/authority change.
+  See [PRIMARY_QR_TRANSACTION.md](PRIMARY_QR_TRANSACTION.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -895,8 +911,19 @@ rows prove parent-only pending-work visibility/commit/rollback and unchanged
 QR/status/attachments. Primary adapters/extractor are unchanged; this is not
 complete installed-app, physical-file, cryptographic or remote acceptance proof.
 
+Increment 43 adds **30 local + 24 private SQL cases**, reaching **5,554 local +
+319 private SQL = 5,873 passing cases** across the same twelve private suites.
+The final guarded combined run passed in **49.82 seconds**; local-only passed
+5,554 in 27.12 seconds. The first combined run had 24 new SQL failures because
+the synthetic File save lacked the existing adapter's `ignore_permissions`
+keyword; the double was corrected, not the production save contract. Actual
+owned SQL verifies parent-only visibility/commit/rollback and unchanged status,
+business/modified columns under injected failures. File/image/ERP are mocked;
+no physical filesystem, installed-v16 or remote acceptance claim is made.
+
 | Suite | Scope |
 | --- | --- |
+| `test_primary_qr_transaction.py` | Actual shared Sales/POS attach helper with mocked File/image/ERP, QR-link-only staging, phase gates, translated missing schema, failures and explicit unchanged legacy reuse; private QR SQL suite adds parent visibility/rollback with unchanged accepted status/business/modified fields |
 | `test_offline_rehearsal.py` | Guarded ordinary Python network/site/process rejection, private-only socket/command registry, inherited peer/symlink checks, owned cleanup, no unguarded SQL acquisition and fixed offline test runner |
 | `test_issue_timestamp.py` | Explicit typed/text issue-time parsing, valid zero duration, single-digit hours, offsets/DST/UTC rollover, bounded/static input errors, frozen whole-second UTC/XML/QR contract and no Frappe/site/clock dependency |
 | `test_issue_timestamp_adapters.py` | Actual mocked Sales/POS metadata and Phase-1/Phase-2/synthetic/initial-advance QR paths, no second invoice read, invalid time before UUID writes, duplicate/blank XML times before keys, Arabic error keys and unchanged legacy amount/Phase-2 advance guards |
@@ -991,8 +1018,10 @@ access checks. Increment 39 removes heuristic reconstruction/implicit replacemen
 and helper-owned commits. Increment 40 adds exact journal-bound QR observations;
 41 binds metadata-only saved-row access/source locks through a shared engine,
 not authenticated recovery. Increment 42 removes speculative repair/deletion
-from the automatic Phase-2 completion hook. Next address the primary QR attach
-path/schema/global URL reuse and its caller transaction boundaries; establish
+from the automatic Phase-2 completion hook. Increment 43 removes primary QR
+attachment DDL and invoice event/modified-time effects. Next address primary
+global URL reuse/source ownership, pre-request schema validation and receipt-aware
+caller transaction/error boundaries; establish
 audited server-owned site/namespace/
 connection and committed-revision provider provenance with historical epoch and authentic
 receipt/crypto/QR validation and protect the remaining writers before adoption,
@@ -1002,7 +1031,7 @@ recovery/mixed-phase bridge and server-owned site/namespace/chain/lookup/connect
 provenance and authentic capture/acceptance as gates before raw export or
 settlement adoption. Verify
 timezone/settings snapshots for new issuance separately. Neither increment 30
-nor 31/32/33/34/35/36/37/38/39/40/41/42 consolidates advance amounts/GL or cryptographic digests.
+nor 31/32/33/34/35/36/37/38/39/40/41/42/43 consolidates advance amounts/GL or cryptographic digests.
 
 All implementation/rehearsal below remains OFFLINE and in development. No live
 provider/site binding, dummy Company on a working bench, authority request or

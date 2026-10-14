@@ -137,6 +137,11 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 43 removes [primary Sales/POS QR attachment DDL/invoice events](PRIMARY_QR_TRANSACTION.md).
+  QR-link-only staging preserves status/UUID/business/modified fields. Legacy
+  global URL reuse and caller commits/error downgrades are explicitly unresolved;
+  pre-request setup checks and receipt-aware caller handling remain release gates.
+  No authenticated source/recovery or working-system change is enabled.
 - Increment 42 replaces [the automatic Phase-2 completion hook](PHASE2_ARTIFACT_PRESERVATION.md)
   with non-destructive metadata preservation/review. No response-based repair,
   filename cleanup, link/status change or parent transaction ownership remains

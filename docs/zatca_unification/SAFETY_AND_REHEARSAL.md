@@ -222,6 +222,16 @@ remain integration gates. The guarded run passed **5,524 local + 295 private SQL
 All source/File/response data is synthetic; no working environment, asset build,
 worker restart, schema migration or authority request was performed.
 
+Increment 43 changes only [the shared primary QR schema/metadata boundary](PRIMARY_QR_TRANSACTION.md).
+No attachment-time DDL or invoice db_set/hooks/modified-time write remains in
+that helper; QR-link-only staging never changes submission status or UUID.
+Global URL reuse/source ownership, pre-request setup checks, physical-file
+lifecycle and caller commits/error downgrades remain blocking integration work.
+The guarded run passed **5,554 local + 319 private SQL = 5,873 cases** in
+**49.82 seconds**, across the same twelve private SQL suites. All new source/
+File/payload data is synthetic; SQL uses only owned temporary tables. No working
+configuration/source/schema/assets/worker/customer data or authority call changed.
+
 1. **Complete development offline.** Finish the shared settings/source/credential
    contracts, amounts/advance handling, immutable XML/signature/QR pipeline,
    debug/single/all/synthetic Compliance adapters, identity/retry coordination and

@@ -69,10 +69,13 @@ amounts, timestamp, signature, QR tags or remote acceptance. Preserving a Phase-
 named current reference does NOT certify it correct for a Phase-2 invoice.
 
 `_extract_qr_payload_from_xml` and its local-name helpers remain unchanged because
-Sales/POS clearance also imports them. The normal `attach_qr_image` path still has
-separate global URL reuse/schema/File/link behavior and callers with independent
-commits. These need deliberate source/access/transaction integration; this change
-does not claim all QR writers are safe or fully unified.
+Sales/POS clearance also imports them. At the increment 42 baseline the normal
+`attach_qr_image` path still had separate global URL reuse/schema/File/link behavior
+and callers with independent commits. [Increment 43](PRIMARY_QR_TRANSACTION.md)
+subsequently removes its attachment-time DDL and invoice-event/modified-time
+effects, but global reuse/source validation and caller commit/error handling
+remain integration gates. Neither increment claims all QR writers are safe or
+fully unified.
 
 Advance search/allocation/remaining/age/settlement rules, GL/VAT/amounts, ordinary
 Phase-1 QR, initial-advance QR, Debug XML and Compliance buttons are unchanged.
