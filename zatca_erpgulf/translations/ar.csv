@@ -670,3 +670,6 @@ Archived ZATCA advance source inspection failed. No invoice was changed and no r
 The KSA E-Invoicing QR field is missing. Complete the approved application setup before generating QR codes.,حقل رمز الاستجابة السريعة للفوترة الإلكترونية السعودية غير موجود. أكمل إعداد التطبيق المعتمد قبل توليد رموز QR.
 "Stored QR attachments require review. No file was deleted, relinked or replaced by the QR generator.",مرفقات رمز QR المحفوظة تحتاج إلى مراجعة. لم يحذف مولّد QR أي ملف أو يُعد ربطه أو يستبدله.
 You do not have permission to inspect or regenerate this invoice QR code.,ليس لديك صلاحية فحص رمز QR لهذه الفاتورة أو إعادة توليده.
+QR recovery requires a verified original artifact. No QR file was changed.,تتطلب استعادة رمز QR ملفًا أصليًا موثوقًا. لم يُغيّر أي ملف QR.
+The existing invoice QR reference was preserved. No file was changed.,تم الاحتفاظ برابط رمز QR الحالي للفاتورة. لم يُغيّر أي ملف.
+Review QR Code,مراجعة رمز QR

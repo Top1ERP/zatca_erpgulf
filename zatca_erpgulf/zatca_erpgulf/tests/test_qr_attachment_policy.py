@@ -179,3 +179,18 @@ def test_review_message_translated_to_arabic_without_private_error_context(local
     with pytest.raises(ValidationError) as error:
         create_qr.create_qr_code(doc)
     assert str(error.value) == entries[create_qr.QR_REVIEW_REQUIRED] and error.value.__context__ is None
+
+
+@pytest.mark.parametrize("status", [None, "", "Not Submitted", "Phase-1 QR Generated", "REPORTED", "CLEARED"])
+def test_recovery_absence_never_authorizes_generation_even_when_first_issue_can(status):
+    values = dict(doctype="Sales Invoice", invoice_name="SYNTHETIC-TIME", current_url=None,
+        saved_status=status, rows=())
+    assert policy.decide_qr_recovery(**values).action == "REVIEW"
+    if status not in ("REPORTED", "CLEARED"):
+        assert policy.decide_qr_reuse(**values).action == "GENERATE"
+
+
+def test_recovery_preservation_reuses_exact_current_owned_reference_policy():
+    values = dict(doctype="Sales Invoice", invoice_name="SYNTHETIC-TIME", current_url="/files/OLD.png",
+        saved_status="CLEARED", rows=(row(),))
+    assert policy.decide_qr_recovery(**values) == policy.decide_qr_reuse(**values)

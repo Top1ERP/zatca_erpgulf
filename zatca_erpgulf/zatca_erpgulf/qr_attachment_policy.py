@@ -90,3 +90,17 @@ def decide_qr_reuse(*, doctype, invoice_name, current_url, saved_status, rows):
     if (saved_status or "").upper() in ("REPORTED", "CLEARED"):
         return QRReuseDecision("REVIEW", "qr_phase2_status_without_link")
     return QRReuseDecision("GENERATE", "qr_no_stored_reference")
+
+
+def decide_qr_recovery(*, doctype, invoice_name, current_url, saved_status, rows):
+    """Recovery is not first issuance: absence never authorizes reconstruction.
+
+    No authenticated original-artifact provider is bound to the recovery button
+    yet. Preserve an owned current reference; everything else requires review.
+    Ordinary first-generation callers retain decide_qr_reuse's GENERATE action.
+    """
+    reuse = decide_qr_reuse(doctype=doctype, invoice_name=invoice_name,
+        current_url=current_url, saved_status=saved_status, rows=rows)
+    if reuse.action == "GENERATE":
+        return QRReuseDecision("REVIEW", "qr_recovery_source_required")
+    return reuse

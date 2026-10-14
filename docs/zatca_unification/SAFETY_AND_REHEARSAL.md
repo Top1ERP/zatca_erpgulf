@@ -179,6 +179,16 @@ The guarded run passed **5,063 local + 200 private SQL = 5,263 cases** in
 **47.83 seconds**, with the same eleven private SQL suites. No working site,
 worker, schema, customer data or authority request was touched.
 
+Increment 39 adds [QR recovery preservation/review](QR_RECOVERY_PRESERVATION.md).
+The endpoint no longer guesses QR/XML originals, reads content, reconstructs,
+re-links, clears a saved reference, commits or rolls back. UI review messages
+replace speculative recovery; trusted original-source mutation remains gated.
+Ordinary Phase-1/Phase-2 generation and accounting/advance eligibility are not
+changed. The guarded run passed **5,113 local + 216 private SQL = 5,329 cases**
+across the same eleven suites; parent-work SQL cases use fresh synthetic rows
+and mocked saved documents/ACL, not installed ORM or customer invoices.
+No working environment, build/assets, worker or authority API was changed.
+
 1. **Complete development offline.** Finish the shared settings/source/credential
    contracts, amounts/advance handling, immutable XML/signature/QR pipeline,
    debug/single/all/synthetic Compliance adapters, identity/retry coordination and

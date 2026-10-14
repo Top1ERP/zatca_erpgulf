@@ -1,29 +1,27 @@
-"""Local QR recovery/regeneration for submitted Sales Invoices.
+"""Permissioned QR preservation/review, not speculative artifact reconstruction.
 
-This module never calls ZATCA. It repairs an unlinked existing QR attachment,
-or rebuilds one from the stored Phase-1 invoice values / Phase-2 XML artifact.
-Saved-row access is checked before artifact use, content reads or writes.
-Legacy artifact selection and transaction ownership still need separate review.
+Public names remain compatible. No file content reads, relinking, generation,
+invoice/File writes or transaction ownership. Missing originals require a future
+authenticated artifact provider, never filename/date/status or current settings.
 """
 
 from collections.abc import Mapping
-import io
 
 import frappe
-import pyqrcode
 from frappe import _
 from frappe.permissions import has_permission
-from frappe.utils.file_manager import get_file_path, save_file
 
-from .create_qr import create_qr_code
-from .phase2_artifacts import _extract_qr_payload_from_xml
 from .permission_compat import saved_row_has_permission
-from .qr_attachment_policy import FILE_FIELDS, MAX_FILE_OBSERVATIONS
-from .zatca_runtime import PHASE_2_VALUE, is_zatca_invoice_enabled, resolve_zatca_phase
+from .qr_attachment_policy import (
+    FILE_FIELDS, MAX_FILE_OBSERVATIONS, QRAttachmentPolicyError, decide_qr_recovery,
+)
+from .zatca_runtime import is_zatca_invoice_enabled
 
 
 DENIED_MESSAGE = "You do not have permission to inspect or regenerate this invoice QR code."
-ATTACHMENT_FIELDS = (*FILE_FIELDS, "creation")
+ATTACHMENT_FIELDS = FILE_FIELDS
+REVIEW_MESSAGE = "QR recovery requires a verified original artifact. No QR file was changed."
+PRESERVED_MESSAGE = "The existing invoice QR reference was preserved. No file was changed."
 
 
 def _valid_name(value):
@@ -81,10 +79,10 @@ def _context(name, *, write=False):
     return doc, company, user
 
 
-def _owned_file(doc, row, user, *, write=False):
+def _owned_file(doc, row, user):
     if not isinstance(row, Mapping) or any(field not in row for field in ATTACHMENT_FIELDS):
         _deny()
-    saved = _saved("File", row["name"], user, write=write)
+    saved = _saved("File", row["name"], user)
     if (saved.get("attached_to_doctype") != doc.doctype or saved.get("attached_to_name") != doc.name
             or any(saved.get(field) != row[field] for field in ATTACHMENT_FIELDS)):
         _deny()
@@ -97,7 +95,7 @@ def _attached_qr_files(doc, user):
         "File",
         filters={"attached_to_doctype": "Sales Invoice", "attached_to_name": doc.name},
         fields=list(ATTACHMENT_FIELDS),
-        order_by="creation desc",
+        order_by="name asc",
         limit_page_length=MAX_FILE_OBSERVATIONS + 1,
     )
     if not isinstance(rows, (tuple, list)) or len(rows) > MAX_FILE_OBSERVATIONS:
@@ -110,52 +108,6 @@ def _attached_qr_files(doc, user):
     return rows
 
 
-def _is_qr_name(file_name):
-    name = str(file_name or "").upper()
-    return name.startswith("QR-") or name.startswith("QR_") or "QR" in name
-
-
-def _set_qr_link(doc, file_doc, user):
-    saved = _saved("File", file_doc.name, user, write=True)
-    if (saved.get("attached_to_doctype") != doc.doctype or saved.get("attached_to_name") != doc.name
-            or saved.get("file_url") != file_doc.file_url):
-        _deny()
-    file_doc = saved
-    file_doc.attached_to_field = "ksa_einv_qr"
-    file_doc.save(ignore_permissions=True)
-    _same_actor(user)
-    frappe.db.set_value("Sales Invoice", doc.name, "ksa_einv_qr", file_doc.file_url, update_modified=False)
-    return file_doc.file_url
-
-
-def _phase2_payload(doc, user):
-    rows = _attached_qr_files(doc, user)
-    for row in rows:
-        name = str(row.file_name or "").upper()
-        if "XML" not in name:
-            continue
-        # Keep access denial OUTSIDE the legacy parser's exception fallback.
-        _owned_file(doc, row, user)
-        try:
-            content = get_file_path(row.file_url)
-            with open(content, "rb") as handle:
-                payload = _extract_qr_payload_from_xml(handle.read())
-        except Exception:
-            payload = None
-        _same_actor(user)
-        if payload:
-            return payload, row.file_name
-    return None, None
-
-
-def _attach_payload(doc, payload, prefix, user):
-    image = io.BytesIO()
-    pyqrcode.create(payload, error="L").png(image, scale=4, quiet_zone=4)
-    file_name = f"{prefix}-{doc.name}.png"
-    file_doc = save_file(file_name, image.getvalue(), "Sales Invoice", doc.name, is_private=0)
-    return _set_qr_link(doc, file_doc, user)
-
-
 @frappe.whitelist()
 def get_qr_regeneration_state(invoice_number):
     doc, company, user = _context(invoice_number)
@@ -165,56 +117,35 @@ def get_qr_regeneration_state(invoice_number):
 
 
 def _regeneration_state(doc, company, user):
-    """Internal preview using the already authorized saved context, not a reload."""
+    """No current time/Tax ID/phase can prove a historical artifact's origin."""
     if int(doc.docstatus or 0) != 1:
-        return {"eligible": False, "reason": _("The invoice must be submitted first.")}
+        return {"eligible": False, "action": "UNAVAILABLE", "reason": _("The invoice must be submitted first.")}
     if not is_zatca_invoice_enabled(company):
-        return {"eligible": False, "reason": _("ZATCA E-Invoicing is disabled for this Company.")}
-    if not doc.posting_date or not doc.posting_time or not company.get("tax_id"):
-        return {"eligible": False, "reason": _("Invoice date, time, and Company Tax ID are required.")}
-    # Legacy eligibility remains separate from authorization/provenance. These
-    # filename/link hints do not prove a QR is safe to repair or replace.
-    existing_qr = doc.get("ksa_einv_qr")
+        return {"eligible": False, "action": "UNAVAILABLE", "reason": _("ZATCA E-Invoicing is disabled for this Company.")}
     files = _attached_qr_files(doc, user)
-    attached_qr = any(_is_qr_name(row.file_name) for row in files)
-    # Global URL existence is not a same-invoice access/ownership observation.
-    if (existing_qr and any(row.file_url == existing_qr for row in files)) or attached_qr:
-        return {"eligible": True}
-    phase1_generated = str(doc.get("custom_zatca_status") or "").upper().startswith("PHASE-1")
-    if resolve_zatca_phase(company) == PHASE_2_VALUE and not phase1_generated:
-        payload, _xml_name = _phase2_payload(doc, user)
-        if not payload:
-            return {"eligible": False, "reason": _("A stored signed ZATCA XML/QR payload is required for Phase-2 regeneration.")}
-    return {"eligible": True}
+    try:
+        decision = decide_qr_recovery(doctype=doc.doctype, invoice_name=doc.name,
+            current_url=doc.get("ksa_einv_qr"), saved_status=doc.get("custom_zatca_status"), rows=tuple(files))
+    except QRAttachmentPolicyError:
+        action = "REVIEW"
+    else:
+        action = decision.action
+    # No verified artifact provider is installed at this button. Do not expose
+    # a generation action or treat a preserved link as authenticated QR content.
+    return {"eligible": False, "action": action,
+        "reason": _(PRESERVED_MESSAGE if action == "PRESERVE" else REVIEW_MESSAGE)}
 
 
 @frappe.whitelist(methods=["POST"])
 def regenerate_qr(invoice_number):
-    """Repair or regenerate the invoice QR locally; never submit to ZATCA."""
+    """Idempotently preserve or require review; never reconstruct a missing QR.
+
+    Keep the existing Invoice write boundary on this POST action. No File write
+    is needed because this implementation cannot change any stored attachment.
+    """
     doc, company, user = _context(invoice_number, write=True)
     state = _regeneration_state(doc, company, user)
     _same_actor(user)
-    if not state.get("eligible"):
-        frappe.throw(state.get("reason") or _("This invoice cannot generate a QR code."))
-
-    files = [row for row in _attached_qr_files(doc, user) if _is_qr_name(row.file_name)]
-    if files:
-        file_doc = _owned_file(doc, files[0], user, write=True)
-        url = _set_qr_link(doc, file_doc, user)
-        _same_actor(user)
-        frappe.db.commit()
-        return {"status": "relinked", "file_url": url, "message": _("Existing QR code was linked back to the invoice.")}
-
-    phase1_generated = str(doc.get("custom_zatca_status") or "").upper().startswith("PHASE-1")
-    if resolve_zatca_phase(company) == PHASE_2_VALUE and not phase1_generated:
-        payload, xml_name = _phase2_payload(doc, user)
-        prefix = "QR-Phase2-CLEARED" if "CLEARED" in str(xml_name).upper() else "QR-Phase2-REPORTED"
-        url = _attach_payload(doc, payload, prefix, user)
-    else:
-        frappe.db.set_value("Sales Invoice", doc.name, "ksa_einv_qr", None, update_modified=False)
-        doc.ksa_einv_qr = None
-        create_qr_code(doc)
-        url = doc.get("ksa_einv_qr")
-    _same_actor(user)
-    frappe.db.commit()
-    return {"status": "generated", "file_url": url, "message": _("QR code was regenerated locally.")}
+    if state.get("action") != "PRESERVE":
+        frappe.throw(state.get("reason") or _(REVIEW_MESSAGE))
+    return {"status": "preserved", "file_url": doc.get("ksa_einv_qr"), "message": _(PRESERVED_MESSAGE)}

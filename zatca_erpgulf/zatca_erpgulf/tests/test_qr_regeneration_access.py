@@ -1,12 +1,13 @@
 """Saved-row QR endpoint access with synthetic ERP/File/IO only.
 
-Signature-shaped v15/v16 ACL engines are not installed v16 acceptance. Authorized
-legacy selection/commits are characterized, not endorsed as a repair contract.
+Signature-shaped v15/v16 ACL engines are not installed v16 acceptance. Recovery
+preserves current owned references or requires review, with no content IO/writes.
 """
 
+import ast
 import csv
+from datetime import timedelta
 import inspect
-import io
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -66,16 +67,16 @@ def access(monkeypatch, request):
     monkeypatch.setattr(qr, "has_permission", v15 if request.param == 15 else v16)
     monkeypatch.setattr(qr, "_", lambda text: text)
     monkeypatch.setattr(qr, "is_zatca_invoice_enabled", lambda doc: True)
-    monkeypatch.setattr(qr, "resolve_zatca_phase", lambda doc: "Phase-1")
     reader = Mock(side_effect=AssertionError("No real path or physical file read"))
     parser = Mock(side_effect=AssertionError("No real XML parse"))
     saver = Mock(side_effect=AssertionError("No physical file save"))
     generator = Mock(side_effect=AssertionError("No real QR generation"))
     opener = Mock(side_effect=AssertionError("No physical file open"))
-    monkeypatch.setattr(qr, "get_file_path", reader)
-    monkeypatch.setattr(qr, "_extract_qr_payload_from_xml", parser)
-    monkeypatch.setattr(qr, "save_file", saver)
-    monkeypatch.setattr(qr, "create_qr_code", generator)
+    # Tripwires for the removed legacy paths; none may be called if reintroduced.
+    monkeypatch.setattr(qr, "get_file_path", reader, raising=False)
+    monkeypatch.setattr(qr, "_extract_qr_payload_from_xml", parser, raising=False)
+    monkeypatch.setattr(qr, "save_file", saver, raising=False)
+    monkeypatch.setattr(qr, "create_qr_code", generator, raising=False)
     monkeypatch.setattr(qr, "open", opener, raising=False)
     return SimpleNamespace(doc=invoice, request_name=invoice.name, company=company, file=file, row=projection, runtime=runtime,
         documents=documents, decisions=decisions, acl=acl, events=events, reader=reader, parser=parser,
@@ -198,7 +199,7 @@ def test_unreadable_file_blocks_inspection_without_silent_fallback(access, endpo
 @pytest.mark.parametrize("endpoint", ENDPOINTS)
 @pytest.mark.parametrize("field,value", [("attached_to_doctype", "POS Invoice"), ("attached_to_name", "FOREIGN"),
     ("file_url", "/private/files/FOREIGN.png"), ("file_name", "DIFFERENT.xml"),
-    ("attached_to_field", "different_field"), ("creation", "2020-01-01")])
+    ("attached_to_field", "different_field"), ("name", "FOREIGN")])
 def test_owned_file_and_projection_must_match_exactly(access, endpoint, field, value):
     setattr(access.file, field, value)
     denied(access, endpoint)
@@ -220,7 +221,8 @@ def test_file_projection_is_bounded_and_complete(access, endpoint, shape):
 
 
 def test_preview_uses_read_acl_only_and_quiet_version_keyword(access):
-    assert invoke(access, "get_qr_regeneration_state") == {"eligible": True}
+    assert invoke(access, "get_qr_regeneration_state") == {
+        "eligible": False, "action": "REVIEW", "reason": qr.REVIEW_MESSAGE}
     assert [(dt, op) for dt, op, *_ in access.acl] == [("Sales Invoice", "read"), ("Company", "read"), ("File", "read")]
     assert all(user == access.actor and quiet is False for _, _, _, user, quiet in access.acl)
     query = access.runtime.get_all.call_args.kwargs
@@ -231,30 +233,30 @@ def test_preview_uses_read_acl_only_and_quiet_version_keyword(access):
     no_writes(access)
 
 
-def test_readable_file_without_write_acl_cannot_be_relinked(access):
+def test_readable_file_without_write_acl_can_be_preserved_without_any_write(access):
     access.decisions["File", "write"] = False
-    denied(access, "regenerate_qr")
-    assert access.acl[-1][:2] == ("File", "write")
+    access.doc.ksa_einv_qr = access.file.file_url
+    assert invoke(access, "regenerate_qr")["status"] == "preserved"
+    assert ("File", "write") not in [(dt, op) for dt, op, *_ in access.acl]
+    no_writes(access)
 
 
-def test_selected_file_write_permission_is_rechecked_before_save(access):
-    decisions = iter((True, False))
-    access.decisions["File", "write"] = lambda: next(decisions)
-    denied(access, "regenerate_qr")
-    assert [op for dt, op, *_ in access.acl if dt == "File"].count("write") == 2
+def test_file_write_privilege_does_not_authorize_implicit_relink(access):
+    access.decisions["File", "write"] = True
+    with pytest.raises(Denied, match=qr.REVIEW_MESSAGE):
+        invoke(access, "regenerate_qr")
+    assert ("File", "write") not in [(dt, op) for dt, op, *_ in access.acl]
+    no_writes(access)
 
 
-def test_authorized_legacy_relink_checks_saved_file_write_but_still_commits(access):
-    # Characterize, not endorse, the legacy selector and explicit commit. The
-    # next bounded change must replace those policies; this is NOT adoption.
+def test_owned_current_reference_is_preserved_without_legacy_commit(access):
+    access.doc.ksa_einv_qr = access.file.file_url
     result = invoke(access, "regenerate_qr")
-    assert result["status"] == "relinked" and result["file_url"] == access.file.file_url
+    assert result["status"] == "preserved" and result["file_url"] == access.file.file_url
     assert [(dt, op) for dt, op, *_ in access.acl][:3] == [
         ("Sales Invoice", "read"), ("Sales Invoice", "write"), ("Company", "read")]
-    assert ("File", "write") in [(dt, op) for dt, op, *_ in access.acl]
     assert access.events.count(("load", "Sales Invoice", access.doc.name)) == 1
-    access.file.save.assert_called_once_with(ignore_permissions=True)
-    access.runtime.db.commit.assert_called_once()
+    no_writes(access)
     access.reader.assert_not_called()
 
 
@@ -271,41 +273,34 @@ def test_actor_change_during_acl_stops_before_next_row_or_side_effect(access, en
 
 def configure_xml(case, monkeypatch):
     case.file.file_name = case.row["file_name"] = "SYNTHETIC-REPORTED.xml"
-    monkeypatch.setattr(qr, "resolve_zatca_phase", lambda doc: qr.PHASE_2_VALUE)
+    case.company.custom_zatca_phase = "Phase-2"
 
 
-def test_phase2_recheck_denial_is_not_swallowed_by_parser_fallback(access, monkeypatch):
+def test_phase2_file_denial_stops_without_xml_parser_fallback(access, monkeypatch):
     configure_xml(access, monkeypatch)
-    reads = iter((True, False))
-    access.decisions["File", "read"] = lambda: next(reads)
+    access.decisions["File", "read"] = False
     denied(access, "get_qr_regeneration_state")
 
 
-def test_phase2_preview_reads_synthetic_memory_only_after_saved_file_acl(access, monkeypatch):
+def test_phase2_preview_does_not_read_xml_even_with_saved_file_acl(access, monkeypatch):
     configure_xml(access, monkeypatch)
-    access.reader.side_effect, access.reader.return_value = None, "SYNTHETIC-PATH-NEVER-OPENED"
-    access.opener.side_effect, access.opener.return_value = None, io.BytesIO(b"SYNTHETIC XML")
-    access.parser.side_effect, access.parser.return_value = None, "SYNTHETIC-PAYLOAD"
-    assert invoke(access, "get_qr_regeneration_state") == {"eligible": True}
-    access.opener.assert_called_once_with("SYNTHETIC-PATH-NEVER-OPENED", "rb")
-    assert [op for dt, op, *_ in access.acl if dt == "File"] == ["read", "read", "read"]
+    assert invoke(access, "get_qr_regeneration_state")["action"] == "REVIEW"
+    access.opener.assert_not_called()
+    access.reader.assert_not_called()
+    access.parser.assert_not_called()
+    assert [op for dt, op, *_ in access.acl if dt == "File"] == ["read"]
     no_writes(access)
 
 
-@pytest.mark.parametrize("parser_raises", [False, True])
-def test_phase2_actor_change_during_parser_cannot_be_swallowed(access, monkeypatch, parser_raises):
+@pytest.mark.parametrize("status", ["REPORTED", "Phase-1 QR Generated"])
+def test_status_hint_does_not_authorize_xml_reconstruction(access, monkeypatch, status):
     configure_xml(access, monkeypatch)
-    access.reader.side_effect, access.reader.return_value = None, "SYNTHETIC-MEMORY-PATH"
-    access.opener.side_effect, access.opener.return_value = None, io.BytesIO(b"SYNTHETIC XML")
-    def parse(content):
-        access.runtime.session.user = "OTHER-USER"
-        if parser_raises:
-            raise RuntimeError("PRIVATE parser detail")
-        return "SYNTHETIC-PAYLOAD"
-    access.parser.side_effect = parse
+    access.doc.custom_zatca_status = status
     with pytest.raises(Denied) as error:
-        invoke(access, "get_qr_regeneration_state")
-    assert str(error.value) == qr.DENIED_MESSAGE and error.value.__context__ is None
+        invoke(access, "regenerate_qr")
+    assert str(error.value) == qr.REVIEW_MESSAGE and error.value.__context__ is None
+    access.opener.assert_not_called()
+    access.parser.assert_not_called()
     no_writes(access)
 
 
@@ -319,7 +314,6 @@ def test_mutation_is_registered_for_post_only_and_neither_endpoint_allows_guest(
 def test_global_file_url_presence_does_not_authorize_preview(access, monkeypatch):
     access.doc.ksa_einv_qr = "/files/FOREIGN.png"
     access.runtime.get_all.return_value = []
-    monkeypatch.setattr(qr, "resolve_zatca_phase", lambda doc: qr.PHASE_2_VALUE)
     assert invoke(access, "get_qr_regeneration_state")["eligible"] is False
     access.runtime.db.exists.assert_not_called()
     no_writes(access)
@@ -336,3 +330,81 @@ def test_denial_is_translated_without_private_error_context(access, monkeypatch)
         invoke(access, "get_qr_regeneration_state")
     assert str(error.value) == translation and error.value.__context__ is None
     no_writes(access)
+
+
+@pytest.mark.parametrize("filename", ["DEBUG-NEW.xml", "QR-Phase2-CLEARED-NEW.png", "ordinary.pdf"])
+@pytest.mark.parametrize("status", ["Not Submitted", "REPORTED", "Phase-1 QR Generated"])
+def test_current_owned_qr_wins_without_newest_file_or_status_ranking(access, filename, status):
+    access.doc.ksa_einv_qr, access.doc.custom_zatca_status = access.file.file_url, status
+    newer = Document(**vars(access.file))
+    newer.name, newer.file_name, newer.file_url = "NEWER", filename, "/files/NEWER"
+    access.documents["File", newer.name] = newer
+    projection = Row({field: newer.get(field) for field in qr.ATTACHMENT_FIELDS})
+    for rows in ([projection, access.row], [access.row, projection]):
+        access.runtime.get_all.return_value = rows
+        assert invoke(access, "regenerate_qr")["file_url"] == access.file.file_url
+    no_writes(access)
+    access.reader.assert_not_called()
+
+
+@pytest.mark.parametrize("clock", [None, timedelta(0), "INVALID-PRIVATE-TIME"])
+def test_preservation_does_not_reinterpret_current_time_or_company_tax_id(access, clock):
+    access.doc.ksa_einv_qr, access.doc.posting_time = access.file.file_url, clock
+    access.doc.posting_date, access.company.tax_id = None, None
+    assert invoke(access, "regenerate_qr")["status"] == "preserved"
+    no_writes(access)
+
+
+@pytest.mark.parametrize("filename", [None, "DEBUG.xml", "REPORTED.xml", "CLEARED.xml", "QR-ONLY.png"])
+def test_absent_original_never_falls_back_to_invoice_values_or_xml_filename(access, filename):
+    if filename is None:
+        access.runtime.get_all.return_value = []
+    else:
+        access.file.file_name = access.row["file_name"] = filename
+    current = access.doc.ksa_einv_qr
+    with pytest.raises(Denied) as error:
+        invoke(access, "regenerate_qr")
+    assert str(error.value) == qr.REVIEW_MESSAGE and error.value.__context__ is None
+    assert access.doc.ksa_einv_qr == current
+    no_writes(access)
+    access.reader.assert_not_called()
+    access.parser.assert_not_called()
+    access.opener.assert_not_called()
+
+
+@pytest.mark.parametrize("gate", ["draft", "cancelled", "disabled"])
+def test_unavailable_paths_do_not_inspect_or_change_attachments(access, monkeypatch, gate):
+    if gate == "disabled":
+        monkeypatch.setattr(qr, "is_zatca_invoice_enabled", lambda doc: False)
+    else:
+        access.doc.docstatus = 0 if gate == "draft" else 2
+    assert invoke(access, "get_qr_regeneration_state")["action"] == "UNAVAILABLE"
+    access.runtime.get_all.assert_not_called()
+    no_writes(access)
+
+
+def test_review_and_preservation_messages_are_arabic_when_selected(access, monkeypatch):
+    with (Path(__file__).resolve().parents[2] / "translations/ar.csv").open() as stream:
+        translations = dict(csv.reader(stream))
+    for key in (qr.REVIEW_MESSAGE, qr.PRESERVED_MESSAGE, "Review QR Code"):
+        assert translations[key] != key
+    monkeypatch.setattr(qr, "_", lambda message: translations[message])
+    assert invoke(access, "get_qr_regeneration_state")["reason"] == translations[qr.REVIEW_MESSAGE]
+    access.doc.ksa_einv_qr = access.file.file_url
+    assert invoke(access, "regenerate_qr")["message"] == translations[qr.PRESERVED_MESSAGE]
+    no_writes(access)
+
+
+def test_recovery_module_has_no_content_io_mutation_or_transaction_calls():
+    tree = ast.parse(inspect.getsource(qr))
+    forbidden = {"set_value", "db_set", "save", "commit", "rollback", "delete_doc",
+        "get_file_path", "save_file", "create_qr_code", "open", "_extract_qr_payload_from_xml"}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            name = node.func.attr if isinstance(node.func, ast.Attribute) else (
+                node.func.id if isinstance(node.func, ast.Name) else None)
+            assert name not in forbidden
+    js = (Path(__file__).resolve().parents[2] / "public/js/our_sales_invoice.js").read_text()
+    assert 'state.message.action === "REVIEW"' in js
+    assert '__("Review QR Code")' in js
+    assert "qr_regeneration.regenerate_qr" not in js

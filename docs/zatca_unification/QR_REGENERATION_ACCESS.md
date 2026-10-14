@@ -48,6 +48,11 @@ every third-party hook log or the entire installed HTTP response envelope.
 
 ## Important unchanged risks — do not adopt yet
 
+This section describes the increment 38 baseline. Increment 39 separately
+[removes speculative repair/content IO/commits](QR_RECOVERY_PRESERVATION.md)
+and exposes preservation/review only until a verified source provider exists.
+Its current endpoint no longer re-links files or needs File write permission.
+
 Authorization is NOT provenance. Filename hints, creation order, saved acceptance
 labels and current Company phase do not establish the original artifact/epoch,
 signature validity or authority acceptance. The legacy newest/first QR/XML

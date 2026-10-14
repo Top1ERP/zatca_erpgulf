@@ -9,12 +9,13 @@ from unittest.mock import Mock
 
 import pytest
 
-from zatca_erpgulf.zatca_erpgulf import advance_deduction, create_qr
+from zatca_erpgulf.zatca_erpgulf import advance_deduction, create_qr, qr_regeneration
 from zatca_erpgulf.zatca_erpgulf.qr_attachment_policy import FILE_FIELDS, MAX_FILE_OBSERVATIONS
 from zatca_erpgulf.zatca_erpgulf.tests.test_issue_timestamp_adapters import local_qr
 from zatca_erpgulf.zatca_erpgulf.tests.test_journal_repository_mariadb import isolated_server, connections, namespace
 from zatca_erpgulf.zatca_erpgulf.tests.test_nonproduction_isolation import ValidationError
 from zatca_erpgulf.zatca_erpgulf.tests.test_qr_attachment_policy import row as stored_row
+from zatca_erpgulf.zatca_erpgulf.tests.test_qr_regeneration_access import access, Denied, Row, invoke, no_writes
 
 
 pytestmark = pytest.mark.skipif(os.environ.get("ZATCA_RUN_ISOLATED_MARIADB") != "1",
@@ -201,3 +202,74 @@ def test_actual_scoped_file_query_preserves_rows_and_reference_without_cleanup(q
     assert actual == tuple(tuple(row[field] for field in FILE_FIELDS) for row in sorted(rows, key=lambda row: row["name"]))
     verify.rollback()
     verify.close()
+
+
+@pytest.mark.parametrize("scenario", ["preserve", "orphan", "dangling", "xml"])
+@pytest.mark.parametrize("commit", [False, True])
+def test_recovery_never_commits_or_discards_the_parents_pending_work(qr_schema, access, connections, namespace, scenario, commit):
+    """Real parent visibility, synthetic saved documents/ACL, no ORM/File IO."""
+    doc = access.doc
+    current = access.file.file_url if scenario == "preserve" else (
+        "/files/MISSING.png" if scenario == "dangling" else None)
+    doc.ksa_einv_qr, doc.custom_zatca_status = current, "REPORTED"
+    if scenario == "xml":
+        access.file.file_name = access.row["file_name"] = "DEBUG-NEW.xml"
+    rows = [] if scenario == "dangling" else [access.row]
+    seed = connections()
+    try:
+        with seed.cursor() as cursor:
+            cursor.execute("INSERT INTO qr_invoice_test VALUES (%s,%s,%s,%s,%s,%s,%s)",
+                (namespace, doc.doctype, doc.name, current, doc.custom_zatca_status,
+                 "ORIGINAL-BUSINESS", "2026-10-01 00:00:00"))
+            for row in rows:
+                cursor.execute("INSERT INTO qr_attachment_test VALUES (%s,%s,%s,%s,%s,%s,%s)",
+                    (namespace, *(row[field] for field in FILE_FIELDS)))
+        seed.commit()
+    finally:
+        seed.close()
+    parent = connections()
+    access.runtime.db.commit.side_effect = parent.commit
+    access.runtime.db.rollback.side_effect = parent.rollback
+    access.runtime.db.set_value.side_effect = AssertionError("Recovery must not write invoice metadata")
+    def get_all(dt, *, filters, fields, order_by, limit_page_length):
+        assert dt == "File" and fields == list(FILE_FIELDS) and order_by == "name asc"
+        assert filters == {"attached_to_doctype": doc.doctype, "attached_to_name": doc.name}
+        assert limit_page_length == MAX_FILE_OBSERVATIONS + 1
+        with parent.cursor() as cursor:
+            cursor.execute("SELECT name,file_name,file_url,attached_to_doctype,attached_to_name,attached_to_field "
+                "FROM qr_attachment_test WHERE namespace=%s AND attached_to_doctype=%s AND attached_to_name=%s "
+                "ORDER BY name ASC LIMIT %s", (namespace, doc.doctype, doc.name, limit_page_length))
+            return [Row(zip(FILE_FIELDS, values)) for values in cursor.fetchall()]
+    access.runtime.get_all.side_effect = get_all
+    try:
+        with parent.cursor() as cursor:
+            cursor.execute("UPDATE qr_invoice_test SET business_value=%s WHERE namespace=%s AND doctype=%s AND name=%s",
+                ("PARENT-PENDING", namespace, doc.doctype, doc.name))
+        if scenario == "preserve":
+            assert invoke(access, "regenerate_qr")["status"] == "preserved"
+        else:
+            with pytest.raises(Denied, match=qr_regeneration.REVIEW_MESSAGE):
+                invoke(access, "regenerate_qr")
+        before, generated = read_saved(connections, namespace, doc.doctype, doc.name)
+        assert before == (current, doc.custom_zatca_status, "ORIGINAL-BUSINESS", "2026-10-01 00:00:00")
+        assert generated == 0
+        no_writes(access)
+        access.reader.assert_not_called()
+        access.opener.assert_not_called()
+        (parent.commit if commit else parent.rollback)()
+    finally:
+        parent.rollback()
+        parent.close()
+    saved, generated = read_saved(connections, namespace, doc.doctype, doc.name)
+    assert saved[:2] == (current, doc.custom_zatca_status) and generated == 0
+    assert saved[2] == ("PARENT-PENDING" if commit else "ORIGINAL-BUSINESS")
+    verify = connections()
+    try:
+        with verify.cursor() as cursor:
+            cursor.execute("SELECT name,file_name,file_url,attached_to_doctype,attached_to_name,attached_to_field "
+                "FROM qr_attachment_test WHERE namespace=%s ORDER BY name ASC", (namespace,))
+            actual = cursor.fetchall()
+        assert actual == tuple(tuple(row[field] for field in FILE_FIELDS) for row in rows)
+    finally:
+        verify.rollback()
+        verify.close()

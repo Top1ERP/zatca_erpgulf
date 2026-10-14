@@ -65,7 +65,9 @@ tests alone did not approve that policy or prove issued artifact preservation.
 Increment 36 now replaces ordinary cleanup with [non-destructive reference
 preservation](QR_ATTACHMENT_PRESERVATION.md). Increment 37 separately removes
 [advance print cleanup/forced replacement](ADVANCE_QR_PRESERVATION.md).
-Explicit regeneration policy remains an unfinished gate.
+Increment 39 removes [explicit recovery mutations/commits](QR_RECOVERY_PRESERVATION.md)
+and requires review without an authenticated original source. Trusted mutation
+support and the other caller/installed lifecycle gates remain unfinished.
 
 The actual File controller registers rollback callbacks in the inspected Frappe
 15 source. Native SQL tests below mock File/image behavior and do NOT execute

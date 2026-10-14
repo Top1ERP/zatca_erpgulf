@@ -137,10 +137,15 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 39 adds [non-destructive explicit recovery preservation/review](QR_RECOVERY_PRESERVATION.md).
+  No filename/latest reconstruction, content IO, automatic re-link or commits at
+  the button. Missing originals require review; trusted original-artifact recovery
+  still needs implementation before re-enabling mutations. Ordinary generation
+  and accounting/advance eligibility are unchanged. Audit other writers next.
 - Increment 38 adds [saved-row access for explicit QR recovery](QR_REGENERATION_ACCESS.md):
   Invoice/Company/File ACL and exact ownership, bounded projection and POST-only
-  mutation. Access is not provenance; next replace heuristic selection/implicit
-  replacement and helper commits. Installed source/ACL/File races remain gates.
+  mutation. Access is not provenance; increment 39 separately removes heuristic
+  repair and helper commits. Installed source/ACL/File races remain gates.
 - Increment 37 extends [non-destructive QR preservation to the advance print hook](ADVANCE_QR_PRESERVATION.md).
   No forced replacement or implicit final-invoice attachment cleanup; first
   generation and accounting selection/amounts remain unchanged. Explicit

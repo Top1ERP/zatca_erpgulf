@@ -78,7 +78,9 @@ scans/relinking/commits and Phase-2 artifact helpers still require preservation/
 access/transaction audit before claiming whole-app QR safety. Do not assume
 these bounded changes cover every hook or button. Increment 38 separately adds
 [saved-row access checks for recovery endpoints](QR_REGENERATION_ACCESS.md),
-not a replacement for their legacy selection/re-link/commit policy.
+not a replacement for their legacy selection/re-link/commit policy. Increment 39
+then replaces that button's guesses with [preservation/review only](QR_RECOVERY_PRESERVATION.md),
+removing its content IO, mutations and commits while trusted recovery remains gated.
 
 Actual physical file lifecycle, PNG decoding/validity, framework File deduplication
 and installed ERPNext 15/16/browser/print behavior remain isolated-app gates.
