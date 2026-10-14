@@ -189,6 +189,16 @@ across the same eleven suites; parent-work SQL cases use fresh synthetic rows
 and mocked saved documents/ACL, not installed ORM or customer invoices.
 No working environment, build/assets, worker or authority API was changed.
 
+Increment 40 adds [exact archived-attempt QR source observations](QR_SOURCE_SELECTION.md)
+without runtime adoption, file reads, recovery mutation or authority requests.
+All verified/authorized flags remain false; exact supplied journal consistency
+is not saved-row ACL, source/namespace/committed provenance or authentic remote
+acceptance. Fifteen added private SQL cases use the existing owned synthetic
+archive suite; a same-connection uncommitted receipt is explicitly not proof of
+persistence. The guarded run passed **5,271 local + 231 private SQL = 5,502 cases**
+in **48.04 seconds** across the same eleven private suites. Existing Phase-2
+hook deletion/prefix reuse risks were audited, NOT modified or activated.
+
 1. **Complete development offline.** Finish the shared settings/source/credential
    contracts, amounts/advance handling, immutable XML/signature/QR pipeline,
    debug/single/all/synthetic Compliance adapters, identity/retry coordination and

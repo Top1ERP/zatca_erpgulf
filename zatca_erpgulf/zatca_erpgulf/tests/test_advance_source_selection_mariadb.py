@@ -6,6 +6,8 @@ from uuid import uuid4
 import pytest
 
 from zatca_erpgulf.zatca_erpgulf import advance_source_selection as selection
+from zatca_erpgulf.zatca_erpgulf import qr_source_selection
+from zatca_erpgulf.zatca_erpgulf.tests import test_qr_source_selection as qr_samples
 from zatca_erpgulf.zatca_erpgulf.dispatch_journal import append_dispatch_event
 from zatca_erpgulf.zatca_erpgulf.journal_repository import MariaDBJournalRepository
 from zatca_erpgulf.zatca_erpgulf.journal_storage import JournalStorageError
@@ -127,3 +129,76 @@ def test_committed_rejected_receipt_is_not_an_original_accepted_artifact(connect
         select(loaded)
     reader.rollback()
     reader.close()
+
+
+@pytest.mark.parametrize("environment", ["Sandbox", "Simulation", "Production"])
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("indicator", ["0100000", "0200000"])
+def test_qr_source_from_exact_committed_journal_not_file_prefix(connections, namespace, certificates, environment, doctype, indicator):
+    prepared = qr_samples.prepared_qr(certificates[0], environment=environment, doctype=doctype, indicator=indicator)
+    returned = qr_samples.changed_return(prepared)
+    observed = qr_samples.receipt(prepared, returned=returned)
+    writer = connections()
+    try:
+        store(writer, namespace, observed)
+    finally:
+        writer.close()
+    reader = connections()
+    try:
+        loaded = MariaDBJournalRepository(reader, namespace).load(prepared.key_sha256)
+        result = qr_samples.select(loaded, expected_context=prepared.context,
+            expected_journal_sha256=observed.journal_sha256)
+        assert result.xml_bytes == (returned if indicator.startswith("01") else prepared.xml_bytes)
+        assert result.qr_payload == (qr_samples.RETURNED if indicator.startswith("01") else qr_samples.ORIGINAL)
+        assert result.diagnostic_projection()["persistence_verified"] is False
+        assert result.diagnostic_projection()["recovery_authorized"] is False
+    finally:
+        reader.rollback()
+        reader.close()
+
+
+def test_qr_uncommitted_receipt_is_not_persistence_proof(connections, namespace, certificates):
+    prepared = qr_samples.prepared_qr(certificates[0])
+    started, completed = start(prepared), qr_samples.receipt(prepared)
+    writer = connections()
+    try:
+        store(writer, namespace, started)
+        repository = MariaDBJournalRepository(writer, namespace)
+        repository.append(prepared.key_sha256, completed.events[-1], expected_journal_sha256=started.journal_sha256)
+        visible = repository.load(prepared.key_sha256)
+        assert qr_samples.select(visible).diagnostic_projection()["persistence_verified"] is False
+        writer.rollback()
+    finally:
+        writer.close()
+    reader = connections()
+    try:
+        loaded = MariaDBJournalRepository(reader, namespace).load(prepared.key_sha256)
+        assert loaded.journal_sha256 == started.journal_sha256
+        with pytest.raises(qr_source_selection.QRSourceSelectionError, match="qr_source_response_unconfirmed"):
+            qr_samples.select(loaded)
+    finally:
+        reader.rollback()
+        reader.close()
+
+
+@pytest.mark.parametrize("mismatch", ["namespace", "revision"])
+def test_qr_lookup_never_falls_back_to_wrong_namespace_or_revision(connections, namespace, certificates, mismatch):
+    prepared = qr_samples.prepared_qr(certificates[0])
+    observed = qr_samples.receipt(prepared)
+    writer = connections()
+    try:
+        store(writer, namespace, observed)
+    finally:
+        writer.close()
+    reader = connections()
+    try:
+        if mismatch == "namespace":
+            with pytest.raises(JournalStorageError, match="repository_missing"):
+                MariaDBJournalRepository(reader, str(uuid4())).load(prepared.key_sha256)
+        else:
+            loaded = MariaDBJournalRepository(reader, namespace).load(prepared.key_sha256)
+            with pytest.raises(qr_source_selection.QRSourceSelectionError, match="qr_source_revision_mismatch"):
+                qr_samples.select(loaded, expected_journal_sha256=start(prepared).journal_sha256)
+    finally:
+        reader.rollback()
+        reader.close()

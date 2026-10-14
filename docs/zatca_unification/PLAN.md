@@ -137,6 +137,12 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 40 adds [exact archived-attempt QR source observations](QR_SOURCE_SELECTION.md).
+  Reporting request versus clearance-returned bytes are bound to the exact
+  declared journal/context/identity with lexical clock and strict bounded QR
+  extraction. This is not authenticated provenance or permission to recover.
+  Bind a saved-source/owner/epoch/committed-record provider and crypto validation
+  before mutation; audited Phase-2 prefix deletion/reuse remains unsafe/unmodified.
 - Increment 39 adds [non-destructive explicit recovery preservation/review](QR_RECOVERY_PRESERVATION.md).
   No filename/latest reconstruction, content IO, automatic re-link or commits at
   the button. Missing originals require review; trusted original-artifact recovery

@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "qr_source_selection",
     "qr_regeneration_access",
     "advance_qr_preservation",
     "offline_rehearsal", "issue_timestamp", "issue_timestamp_adapters", "phase1_qr_transaction", "qr_attachment_policy", "advance_reference", "advance_source_selection", "advance_source_access", "advance_source_gap", "permission_compat", "compliance_capture_access", "compliance_receipt_recovery_access",

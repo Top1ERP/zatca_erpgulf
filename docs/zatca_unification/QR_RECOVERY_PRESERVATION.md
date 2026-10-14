@@ -92,7 +92,9 @@ in **45.03 seconds**; an earlier full run passed in 50.91 seconds. No build,
 assets installation, service restart or schema migration was run.
 
 Next implement an explicit authenticated original-artifact source and exact
-generation/attachment plan before re-enabling recovery mutations; review other
+generation/attachment plan before re-enabling recovery mutations. Increment 40
+adds [exact journal-bound QR observations](QR_SOURCE_SELECTION.md), not a verified
+provider or activation; all recovery authorization flags remain false. Review other
 Phase-2 artifact writers separately. Finish development, then separately approved
 isolated fictional-client rehearsal and the user's whole-change adoption or
 cancellation decision. No working environment or authority request is authorized.
