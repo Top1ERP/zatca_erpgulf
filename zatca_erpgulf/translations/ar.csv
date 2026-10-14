@@ -675,3 +675,4 @@ The existing invoice QR reference was preserved. No file was changed.,تم ال�
 Review QR Code,مراجعة رمز QR
 You do not have permission to inspect archived ZATCA QR sources.,ليس لديك صلاحية فحص مصادر رموز QR المؤرشفة في زاتكا.
 Archived ZATCA QR source inspection failed. No invoice was changed and no request was sent.,تعذر فحص مصدر رمز QR المؤرشف في زاتكا. لم تُعدّل أي فاتورة ولم يُرسل أي طلب.
+Stored Phase-2 artifacts require review. No file or invoice status was changed.,مرفقات المرحلة الثانية المحفوظة تحتاج إلى مراجعة. لم يُغيّر أي ملف أو حالة فاتورة.

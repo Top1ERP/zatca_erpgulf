@@ -59,6 +59,10 @@ for logs because private fields intentionally hold caller-supplied bytes.
 
 ## Phase-2 writer audit — unresolved, NOT modified
 
+This section records the increment 40 baseline. Increment 42 separately removes
+[the automatic hook's speculative repair/deletion](PHASE2_ARTIFACT_PRESERVATION.md),
+without modifying the shared extraction helper or primary submission adapters.
+
 The current `phase2_artifacts` hook still:
 
 - accepts a saved status/response field without exact request/identity/epoch

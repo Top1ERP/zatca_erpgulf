@@ -211,6 +211,17 @@ Provider/namespace/connection-origin, committed historic epochs and authentic
 receipt/crypto/QR evidence remain gates; verified/authorized flags remain false.
 No working configuration/schema/worker/customer data or authority call changed.
 
+Increment 42 replaces [the automatic Phase-2 completion hook](PHASE2_ARTIFACT_PRESERVATION.md)
+with bounded metadata preservation/review. No response reconstruction, prefix
+reuse/deletion, QR/XML/status change or transaction ownership remains there.
+Nominal REVIEW does not abort a parent's otherwise accepted workflow, but the
+diagnostic is internal/unpersisted and actual SQL faults still propagate.
+Primary submission/QR adapters and shared legacy extraction are unchanged and
+remain integration gates. The guarded run passed **5,524 local + 295 private SQL =
+5,819 cases** in **48.95 seconds** across the same twelve private SQL suites.
+All source/File/response data is synthetic; no working environment, asset build,
+worker restart, schema migration or authority request was performed.
+
 1. **Complete development offline.** Finish the shared settings/source/credential
    contracts, amounts/advance handling, immutable XML/signature/QR pipeline,
    debug/single/all/synthetic Compliance adapters, identity/retry coordination and

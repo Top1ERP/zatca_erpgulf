@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "phase2_artifact_preservation",
     "qr_source_access",
     "qr_source_selection",
     "qr_regeneration_access",

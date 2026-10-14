@@ -87,6 +87,10 @@ deletion/reuse helpers are NOT changed by this increment and need separate
 preservation/source-policy integration. No metadata diagnostic may be passed
 directly to a file writer as recovery permission.
 
+Increment 42 separately [removes automatic completion-hook repair/deletion](PHASE2_ARTIFACT_PRESERVATION.md).
+It does not activate this metadata service as a trusted writer; primary attach
+paths, shared extraction and authenticated original recovery remain gates.
+
 ## Offline verification
 
 Local cases exercise Sales/POS, all three declared environments, both operation

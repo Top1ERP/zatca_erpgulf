@@ -137,6 +137,11 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 42 replaces [the automatic Phase-2 completion hook](PHASE2_ARTIFACT_PRESERVATION.md)
+  with non-destructive metadata preservation/review. No response-based repair,
+  filename cleanup, link/status change or parent transaction ownership remains
+  there. Missing completion stays gated; primary attach helpers/extractor/schema/
+  global URL and caller commits still need integration. Normal adapters unchanged.
 - Increment 41 adds [permissioned QR source metadata/shared archive access](QR_SOURCE_ACCESS.md).
   Saved ACL/owner/source/route and exact SQL/journal observations are checked,
   without raw export or recovery activation. Advance metadata uses the same

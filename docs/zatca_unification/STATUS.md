@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and forty-one bounded increments (Compliance outcomes, dedicated
+Safety preparation and forty-two bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -32,7 +32,8 @@ and non-destructive initial-advance QR print-hook preservation,
 and saved-row access boundaries for explicit QR recovery endpoints,
 and non-destructive QR recovery preservation/review without speculative repair,
 and exact archived-attempt QR source observations,
-and permissioned metadata-only QR source inspection with a shared access engine)
+and permissioned metadata-only QR source inspection with a shared access engine,
+and non-destructive Phase-2 local completion-hook preservation/review)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -744,6 +745,21 @@ branches and credential-context differences are recorded in
   No advance allocation/remaining/settlement or working/authority change.
   See [QR_SOURCE_ACCESS.md](QR_SOURCE_ACCESS.md).
 
+## Increment 42: non-destructive Phase-2 completion hook
+
+- Removed saved-response reconstruction, filename/creation prefix reuse, stale
+  QR deletion, link replacement and status rewrites from the automatic hook.
+  Existing event name/None return and Sales/submitted/accepted-label scope remain.
+- Added bounded same-invoice metadata preservation/review using the shared pure
+  recovery policy. No contents/images/credentials/global URL fallback or writes.
+  Nominal REVIEW is internal and does not abort the parent; real SQL faults still
+  propagate. No new public endpoint, UI, review persistence or schema installation.
+- Missing local completion remains gated, not falsely successful. Primary Sales/
+  POS submission/QR generation and shared legacy XML extractor are unchanged and
+  remain separate source/access/transaction integration gates. A current URL is
+  not phase/QR/authenticity proof. No advance/accounting/working/authority change.
+  See [PHASE2_ARTIFACT_PRESERVATION.md](PHASE2_ARTIFACT_PRESERVATION.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -870,6 +886,15 @@ SQL regressions pass against the shared engine without assertion changes.
 All source data/permissions/receipts are synthetic; actual source locks and
 owned cleanup are not provider-origin, installed-v16 or crypto acceptance proof.
 
+Increment 42 adds **61 local + 16 private SQL cases**, reaching **5,524 local +
+295 private SQL = 5,819 passing cases** across the same twelve private suites.
+The guarded combined run passed in **48.95 seconds**; the preceding local run
+passed 5,524 in 26.61 seconds. Tests forbid saved-response reads, content/image/
+File/status mutations, notifications and transaction cleanup. Native synthetic
+rows prove parent-only pending-work visibility/commit/rollback and unchanged
+QR/status/attachments. Primary adapters/extractor are unchanged; this is not
+complete installed-app, physical-file, cryptographic or remote acceptance proof.
+
 | Suite | Scope |
 | --- | --- |
 | `test_offline_rehearsal.py` | Guarded ordinary Python network/site/process rejection, private-only socket/command registry, inherited peer/symlink checks, owned cleanup, no unguarded SQL acquisition and fixed offline test runner |
@@ -881,6 +906,7 @@ owned cleanup are not provider-origin, installed-v16 or crypto acceptance proof.
 | `test_qr_regeneration_access.py` | Actual unwrapped endpoint bodies, saved Invoice/Company/File ACL and ownership, malformed/Guest/private failures, bounded File projection, v15/v16-shaped quiet engines, actor drift/Arabic, no XML/content IO, pure preserve/review, no mutations/commits and read-only UI wiring |
 | `test_qr_source_selection.py` | Explicit journal/context/revision and endpoint-bound QR bytes, Sales/POS candidate matrix, clock/identity/response drift, namespace/ambiguity/DTD/bounded Base64, redacted immutable observations and false authority flags; existing archived-source SQL suite adds committed/uncommitted selection cases |
 | `test_qr_source_access.py`, `test_qr_source_access_mariadb.py` | Shared metadata engine with saved Sales/POS/Company/device/linked ACL, exact binding/SQL locks, revocation/source drift/cleanup/borrowed handles, v15/v16-shaped engines/Arabic, no ambient writes; new owned-private SQL suite and unchanged advance access regressions |
+| `test_phase2_artifact_preservation.py` | Actual completion hook/shared preservation policy, no response/content/image/re-link/status/transaction effects, accepted labels versus orphan/ambiguous/bounded metadata, scope/Arabic/error gates; existing QR SQL suite adds 16 parent-ownership cases |
 | `test_advance_reference.py` | Synthetic original type-386 identity/seller/clock observations, lexical preservation, bounded secure parsing/static errors, no settings lookup and characterization of unchanged legacy reference defects |
 | `test_advance_source_selection.py`, `test_advance_source_selection_mariadb.py` | Explicit exact journal/context/UUID/ICV source choice, Reporting request/Clearance return distinction, changed-clock rejection and false authority flags; owned-private committed reconstruction, namespace/late-revision separation and uncommitted rollback limits |
 | `test_advance_source_access.py`, `test_advance_source_access_mariadb.py` | Metadata-only saved ACL/source/owner/marker binding, revocation/redaction/owned cleanup, borrowed-handle rejection and Arabic; real private source/journal locks, stale ambient/SQL identity and uncommitted rollback |
@@ -964,16 +990,19 @@ removes final-invoice cleanup. Increment 38 adds explicit regeneration saved-row
 access checks. Increment 39 removes heuristic reconstruction/implicit replacement
 and helper-owned commits. Increment 40 adds exact journal-bound QR observations;
 41 binds metadata-only saved-row access/source locks through a shared engine,
-not authenticated recovery. Next establish audited server-owned site/namespace/
+not authenticated recovery. Increment 42 removes speculative repair/deletion
+from the automatic Phase-2 completion hook. Next address the primary QR attach
+path/schema/global URL reuse and its caller transaction boundaries; establish
+audited server-owned site/namespace/
 connection and committed-revision provider provenance with historical epoch and authentic
-receipt/crypto/QR validation; protect the audited Phase-2 writers before adoption,
+receipt/crypto/QR validation and protect the remaining writers before adoption,
 then installed lifecycle/physical-file
 rollback and concurrent source changes; keep source
 recovery/mixed-phase bridge and server-owned site/namespace/chain/lookup/connection
 provenance and authentic capture/acceptance as gates before raw export or
 settlement adoption. Verify
 timezone/settings snapshots for new issuance separately. Neither increment 30
-nor 31/32/33/34/35/36/37/38/39/40/41 consolidates advance amounts/GL or cryptographic digests.
+nor 31/32/33/34/35/36/37/38/39/40/41/42 consolidates advance amounts/GL or cryptographic digests.
 
 All implementation/rehearsal below remains OFFLINE and in development. No live
 provider/site binding, dummy Company on a working bench, authority request or
