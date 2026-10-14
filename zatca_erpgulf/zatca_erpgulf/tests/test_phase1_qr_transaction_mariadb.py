@@ -17,6 +17,10 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_journal_repository_mariadb import is
 from zatca_erpgulf.zatca_erpgulf.tests.test_nonproduction_isolation import ValidationError
 from zatca_erpgulf.zatca_erpgulf.tests.test_qr_attachment_policy import row as stored_row
 from zatca_erpgulf.zatca_erpgulf.tests.test_qr_regeneration_access import access, Denied, Row, invoke, no_writes
+from zatca_erpgulf.zatca_erpgulf import response_processing, zatca_response
+from zatca_erpgulf.zatca_erpgulf.tests.test_submission_context import (
+    boundary, run_adapter, ValidationError as BoundaryError,
+)
 
 
 pytestmark = pytest.mark.skipif(os.environ.get("ZATCA_RUN_ISOLATED_MARIADB") != "1",
@@ -38,6 +42,9 @@ def qr_schema(isolated_server):
             cursor.execute("CREATE TABLE qr_attachment_test (namespace VARCHAR(36),name VARCHAR(140),file_name TEXT,"
                 "file_url TEXT,attached_to_doctype VARCHAR(40),attached_to_name VARCHAR(140),attached_to_field VARCHAR(140),"
                 "PRIMARY KEY(namespace,name)) ENGINE=InnoDB")
+            cursor.execute("CREATE TABLE response_processing_test (namespace VARCHAR(36),doctype VARCHAR(40),name VARCHAR(140),"
+                "receipt TEXT,status VARCHAR(64),uuid VARCHAR(140),business_value TEXT,"
+                "PRIMARY KEY(namespace,doctype,name)) ENGINE=InnoDB")
     finally:
         connection.close()
 
@@ -93,6 +100,117 @@ def read_saved(connections, namespace, doctype, name):
         return row, count
     finally:
         reader.close()
+
+
+def response_sql_case(b, connections, namespace, module):
+    """Bridge legacy persistence to owned SQL, including its existing commits."""
+    doc = b.sales if module is sign_invoice else b.pos
+    doc.custom_zatca_full_response, doc.custom_zatca_status = "ORIGINAL-RECEIPT", "ORIGINAL-STATUS"
+    seed = connections()
+    try:
+        with seed.cursor() as cursor:
+            cursor.execute("INSERT INTO response_processing_test VALUES (%s,%s,%s,%s,%s,%s,%s)",
+                (namespace, doc.doctype, doc.name, doc.custom_zatca_full_response,
+                 doc.custom_zatca_status, doc.custom_uuid, "ORIGINAL-BUSINESS"))
+        seed.commit()
+    finally:
+        seed.close()
+    transaction = connections()
+    key = (namespace, doc.doctype, doc.name)
+    def write_current():
+        with transaction.cursor() as cursor:
+            cursor.execute("UPDATE response_processing_test SET receipt=%s,status=%s,uuid=%s "
+                "WHERE namespace=%s AND doctype=%s AND name=%s", (doc.custom_zatca_full_response,
+                doc.custom_zatca_status, doc.custom_uuid, *key))
+    def db_set(field, value, **options):
+        setattr(doc, field, value)
+        if field in ("custom_zatca_full_response", "custom_zatca_status", "custom_uuid"):
+            write_current()
+        if options.get("commit"):
+            b.frappe.db.commit()
+    doc.db_set.side_effect = db_set
+    doc.save.side_effect = lambda **options: write_current()
+    b.frappe.db.commit.side_effect = transaction.commit
+    with transaction.cursor() as cursor:
+        cursor.execute("UPDATE response_processing_test SET business_value=%s "
+            "WHERE namespace=%s AND doctype=%s AND name=%s", ("PARENT-PENDING", *key))
+    return doc, transaction, key
+
+
+def read_response_sql(connections, key):
+    reader = connections("READ COMMITTED")
+    try:
+        with reader.cursor() as cursor:
+            cursor.execute("SELECT receipt,status,uuid,business_value FROM response_processing_test "
+                "WHERE namespace=%s AND doctype=%s AND name=%s", key)
+            result = cursor.fetchone()
+        reader.rollback()
+        return result
+    finally:
+        reader.close()
+
+
+@pytest.mark.parametrize("module", [sign_invoice, pos_sign])
+@pytest.mark.parametrize("operation", ["reporting", "clearance"])
+@pytest.mark.parametrize("status", [200, 202])
+@pytest.mark.parametrize("commit", [False, True])
+def test_early_response_failure_never_commits_or_overwrites_pending_sql(qr_schema, boundary, connections, namespace,
+    monkeypatch, module, operation, status, commit):
+    b = boundary
+    doc, transaction, key = response_sql_case(b, connections, namespace, module)
+    b.response.status_code = status
+    def fail_log(**options):
+        raise BoundaryError("PRIVATE synthetic local log failure")
+    monkeypatch.setattr(module, "log_zatca_event", fail_log)
+    try:
+        with pytest.raises(response_processing.LocalResponseProcessingError) as error:
+            run_adapter(b, module, operation)
+        assert error.value.__context__ is None
+        assert read_response_sql(connections, key) == (
+            "ORIGINAL-RECEIPT", "ORIGINAL-STATUS", "test-existing-uuid", "ORIGINAL-BUSINESS")
+        b.frappe.db.commit.assert_not_called()
+        doc.save.assert_not_called()
+        assert all(call.args[0] == "custom_ksa_einvoicing_xml" for call in doc.db_set.call_args_list)
+        (transaction.commit if commit else transaction.rollback)()
+    finally:
+        transaction.close()
+    assert read_response_sql(connections, key) == (
+        "ORIGINAL-RECEIPT", "ORIGINAL-STATUS", "test-existing-uuid", "PARENT-PENDING" if commit else "ORIGINAL-BUSINESS")
+    b.post.assert_called_once()
+
+
+@pytest.mark.parametrize("module", [sign_invoice, pos_sign])
+@pytest.mark.parametrize("status", [200, 202])
+@pytest.mark.parametrize("failure", ["json", "image"])
+def test_late_clearance_failure_preserves_already_committed_response_columns(qr_schema, boundary, connections, namespace,
+    monkeypatch, module, status, failure):
+    b = boundary
+    doc, transaction, key = response_sql_case(b, connections, namespace, module)
+    b.response.status_code = status
+    monkeypatch.setattr(module, "set_zatca_full_response", zatca_response.set_zatca_full_response)
+    observed = []
+    def fail_local(*args, **options):
+        observed.append((read_response_sql(connections, key), b.frappe.db.commit.call_count, doc.db_set.call_count))
+        raise BoundaryError("PRIVATE synthetic local artifact failure")
+    if failure == "json":
+        b.response.json = fail_local
+    else:
+        monkeypatch.setattr(module, "attach_qr_image", fail_local)
+    try:
+        with pytest.raises(response_processing.LocalResponseProcessingError) as error:
+            run_adapter(b, module, "clearance")
+        assert error.value.__context__ is None
+        # These independent commits are LEGACY behavior, not added/fixed here.
+        assert len(observed) == 1 and observed[0][0] == (
+            b.response.text, "CLEARED", "test-uuid", "PARENT-PENDING")
+        assert b.frappe.db.commit.call_count == observed[0][1] == 3
+        assert doc.db_set.call_count == observed[0][2]
+        assert read_response_sql(connections, key) == observed[0][0]
+        transaction.rollback()  # Parent cleanup, not a helper rollback.
+    finally:
+        transaction.close()
+    assert read_response_sql(connections, key) == (b.response.text, "CLEARED", "test-uuid", "PARENT-PENDING")
+    b.post.assert_called_once()
 
 
 def prepare_primary(primary_qr, connections, namespace, doctype, status, *, failure=None):

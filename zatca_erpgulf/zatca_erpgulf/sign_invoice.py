@@ -112,6 +112,7 @@ from zatca_erpgulf.zatca_erpgulf.create_xml_final_part import (
 )
 from zatca_erpgulf.zatca_erpgulf.create_qr import MISSING_QR_FIELD, create_qr_code
 from zatca_erpgulf.zatca_erpgulf.primary_qr_attachment import require_primary_qr_attachment
+from zatca_erpgulf.zatca_erpgulf.response_processing import raise_local_response_review
 from zatca_erpgulf.zatca_erpgulf.sign_invoice_first import (
     removetags,
     canonicalize_xml,
@@ -304,6 +305,7 @@ def reporting_api(
     """reporting api based on the api data and payload"""
     # Reject stored-link/schema problems before HTTP AND legacy error writes.
     require_primary_qr_attachment(sales_invoice_doc, expected_doctype="Sales Invoice")
+    processing_response = local_response_failure = False
     try:
         company_abbr = frappe.db.get_value(
             "Company", {"name": sales_invoice_doc.company}, "abbr"
@@ -345,6 +347,8 @@ def reporting_api(
                     json=payload,
                     timeout=300,
                 )
+                # Error boundary only: HTTP status is NOT acceptance evidence.
+                processing_response = response.status_code in (200, 202, 409)
                 frappe.publish_realtime("hide_gif", user=frappe.session.user)
                 # Classify and log ZATCA API responses
                 if response.status_code in (200, 202, 409):
@@ -576,14 +580,21 @@ def reporting_api(
                     error_log()
                 
             except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
+                if processing_response:
+                    raise  # Outer boundary suppresses legacy error persistence.
                 frappe.throw(_(f"Error in reporting API-2 original reporting: {str(e)}"))
 
     except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
-        invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
-        invoice_doc.custom_zatca_full_response = f"Error: {str(e)}"
-        invoice_doc.save(ignore_permissions=True)  # or with permissions if needed
-        frappe.db.commit()
-        frappe.throw(_(f"Error in reporting API-1: {str(e)}"))
+        if processing_response:
+            local_response_failure = True
+        else:
+            invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
+            invoice_doc.custom_zatca_full_response = f"Error: {str(e)}"
+            invoice_doc.save(ignore_permissions=True)  # or with permissions if needed
+            frappe.db.commit()
+            frappe.throw(_(f"Error in reporting API-1: {str(e)}"))
+    if local_response_failure:
+        raise_local_response_review()
 
 
 def clearance_api(
@@ -591,6 +602,7 @@ def clearance_api(
 ):
     """The clearance api with payload and headeders aand signed xml data"""
     require_primary_qr_attachment(sales_invoice_doc, expected_doctype="Sales Invoice")
+    processing_response = local_response_failure = False
     try:
         company_abbr = frappe.db.get_value(
             "Company", {"name": sales_invoice_doc.company}, "abbr"
@@ -631,6 +643,8 @@ def clearance_api(
             json=payload,
             timeout=300,
         )
+        # Preserve the legacy branch set without treating status as proof.
+        processing_response = response.status_code in (200, 202, 409)
         
         if response.status_code in (200, 202, 409):
             if response.status_code == 200:
@@ -832,20 +846,25 @@ def clearance_api(
             error_log()
 
     except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
-        invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
-        invoice_doc.db_set(
-            "custom_zatca_full_response",
-            f"Error: {str(e)}",
-            commit=True,
-            update_modified=True,
-        )
-        invoice_doc.db_set(
-            "custom_zatca_status",
-            "503 Service Unavailable",
-            commit=True,
-            update_modified=True,
-        )
-        frappe.throw(_(f"Error in clearance API: {str(e)}"))
+        if processing_response:
+            local_response_failure = True
+        else:
+            invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
+            invoice_doc.db_set(
+                "custom_zatca_full_response",
+                f"Error: {str(e)}",
+                commit=True,
+                update_modified=True,
+            )
+            invoice_doc.db_set(
+                "custom_zatca_status",
+                "503 Service Unavailable",
+                commit=True,
+                update_modified=True,
+            )
+            frappe.throw(_(f"Error in clearance API: {str(e)}"))
+    if local_response_failure:
+        raise_local_response_review()
 
 
 def is_file_attached(file_url):

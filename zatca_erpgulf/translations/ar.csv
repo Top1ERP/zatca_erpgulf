@@ -676,3 +676,4 @@ Review QR Code,مراجعة رمز QR
 You do not have permission to inspect archived ZATCA QR sources.,ليس لديك صلاحية فحص مصادر رموز QR المؤرشفة في زاتكا.
 Archived ZATCA QR source inspection failed. No invoice was changed and no request was sent.,تعذر فحص مصدر رمز QR المؤرشف في زاتكا. لم تُعدّل أي فاتورة ولم يُرسل أي طلب.
 Stored Phase-2 artifacts require review. No file or invoice status was changed.,مرفقات المرحلة الثانية المحفوظة تحتاج إلى مراجعة. لم يُغيّر أي ملف أو حالة فاتورة.
+"A ZATCA response was received, but local processing did not complete. No automatic retry was performed. Review the response and local artifacts before submitting again; acceptance and durable receipt storage are not confirmed by this message.",وصل رد من هيئة الزكاة لكن المعالجة المحلية لم تكتمل. لم تُجرَ إعادة محاولة تلقائية. راجع الرد والمرفقات المحلية قبل أي إرسال آخر؛ هذه الرسالة لا تؤكد القبول أو حفظ الرد بصورة دائمة.

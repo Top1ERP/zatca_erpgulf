@@ -95,6 +95,7 @@ from zatca_erpgulf.zatca_erpgulf.phase2_artifacts import (
     _extract_qr_payload_from_xml,
 )
 from zatca_erpgulf.zatca_erpgulf.primary_qr_attachment import require_primary_qr_attachment
+from zatca_erpgulf.zatca_erpgulf.response_processing import raise_local_response_review
 
 ITEM_TAX_TEMPLATE_WARNING = "If any one item has an Item Tax Template,"
 " all items must have an Item Tax Template."
@@ -107,6 +108,7 @@ def reporting_api(
     """Function for reporting api"""
     # Before legacy POS XML creation and any HTTP/error-persistence side effects.
     require_primary_qr_attachment(pos_invoice_doc, expected_doctype="POS Invoice")
+    processing_response = local_response_failure = False
     try:
         # Retrieve the company abbreviation based on the company in the sales invoice
         company_abbr = frappe.db.get_value(
@@ -178,6 +180,8 @@ def reporting_api(
                     json=payload,
                     timeout=300,
                 )
+                # Error boundary only, not authority acceptance classification.
+                processing_response = response.status_code in (200, 202, 409)
                 frappe.publish_realtime("hide_gif", user=frappe.session.user)
                 if response.status_code in (200, 202, 409):
                     if response.status_code == 200:
@@ -373,17 +377,24 @@ def reporting_api(
                 else:
                     error_log()
             except (ValueError, TypeError, KeyError) as e:
+                if processing_response:
+                    raise
                 frappe.throw(_(("Error in reporting API-2 Normal POS invoice" f"error: {str(e)}")))
 
     except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
-        invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
-        invoice_doc.db_set(
-            "custom_zatca_full_response",
-            f"Error: {str(e)}",
-            commit=True,
-            update_modified=True,
-        )
-        frappe.throw(_(("Error in reporting API-1 " f"error: {str(e)}")))
+        if processing_response:
+            local_response_failure = True
+        else:
+            invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
+            invoice_doc.db_set(
+                "custom_zatca_full_response",
+                f"Error: {str(e)}",
+                commit=True,
+                update_modified=True,
+            )
+            frappe.throw(_(("Error in reporting API-1 " f"error: {str(e)}")))
+    if local_response_failure:
+        raise_local_response_review()
 
 
 def clearance_api(
@@ -391,6 +402,7 @@ def clearance_api(
 ):
     """Function for clearence api"""
     require_primary_qr_attachment(pos_invoice_doc, expected_doctype="POS Invoice")
+    processing_response = local_response_failure = False
     try:
         # Retrieve the company name based on the abbreviation in the POS Invoice
         company_abbr = frappe.db.get_value(
@@ -439,6 +451,8 @@ def clearance_api(
             json=payload,
             timeout=300,
         )
+        # POS clearance's legacy 409 rejection remains a separate outcome gate.
+        processing_response = response.status_code in (200, 202)
         frappe.publish_realtime("hide_gif", user=frappe.session.user)
         if response.status_code in (200, 202, 409):
             if response.status_code == 200:
@@ -618,21 +632,26 @@ def clearance_api(
             return None
 
     except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
-        invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
-        invoice_doc.db_set(
-            "custom_zatca_full_response",
-            f"Error: {str(e)}",
-            commit=True,
-            update_modified=True,
-        )
-        invoice_doc.db_set(
-            "custom_zatca_status",
-            "503 Service Unavailable",
-            commit=True,
-            update_modified=True,
-        )
-        frappe.throw(_(("Error in clearance API " f"error: {str(e)}")))
-        return None
+        if processing_response:
+            local_response_failure = True
+        else:
+            invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
+            invoice_doc.db_set(
+                "custom_zatca_full_response",
+                f"Error: {str(e)}",
+                commit=True,
+                update_modified=True,
+            )
+            invoice_doc.db_set(
+                "custom_zatca_status",
+                "503 Service Unavailable",
+                commit=True,
+                update_modified=True,
+            )
+            frappe.throw(_(("Error in clearance API " f"error: {str(e)}")))
+            return None
+    if local_response_failure:
+        raise_local_response_review()
 
 
 @frappe.whitelist(allow_guest=False)

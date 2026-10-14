@@ -15,6 +15,7 @@ import requests
 
 from zatca_erpgulf.zatca_erpgulf import (
     api_settings, credential_settings, pih, pos_sign, sign_invoice, submission_context, primary_qr_attachment,
+    response_processing,
 )
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import PHASE_1_VALUE, PHASE_2_VALUE
 
@@ -79,6 +80,7 @@ def boundary(monkeypatch):
     for module in (api_settings, credential_settings, submission_context, sign_invoice, pos_sign, primary_qr_attachment):
         monkeypatch.setattr(module, "frappe", frappe)
         monkeypatch.setattr(module, "_", lambda message: message)
+    monkeypatch.setattr(response_processing, "_", lambda message: message)
     monkeypatch.setattr(pih, "frappe", frappe)
     monkeypatch.setattr(pih, "resolve_zatca_phase", lambda company: PHASE_2_VALUE)
     xml = base64.b64encode(b"<Invoice>Test only</Invoice>").decode()

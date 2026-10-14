@@ -137,6 +137,11 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 45 adds [primary post-response local-error review](RESPONSE_PROCESSING.md).
+  Previously caught local failures in existing response branches no longer run
+  generic receipt overwrite/503 writes/commits. Static Arabic/English failure
+  is not acceptance or a success return; no in-call retry. Exact durable receipt/
+  review holds, partial parent commits and other adapters remain release gates.
 - Increment 44 adds [scoped primary QR ownership/pre-request rejection](PRIMARY_QR_OWNERSHIP.md).
   Same-invoice bounded preservation/review replaces the primary attach global
   URL check. All four primary adapters reject existing schema/link issues before

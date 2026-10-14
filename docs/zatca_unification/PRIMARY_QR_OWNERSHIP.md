@@ -44,6 +44,11 @@ valid input is legacy behavior still requiring separate transaction integration.
 
 ## Guarantees not provided
 
+This section records the increment 44 baseline. [Increment 45](RESPONSE_PROCESSING.md)
+subsequently prevents generic failure overwrites/503 writes for previously caught
+local errors in the four primary response-processing paths. It does not solve
+durable receipt storage, existing partial commits, retry holds or other writers.
+
 The guard assumes authorized parent access and a loaded document; it does not
 reload/lock the invoice, establish File read ACL, validate a committed revision,
 authenticate a site/provider, reserve a link, or solve permission/source races.

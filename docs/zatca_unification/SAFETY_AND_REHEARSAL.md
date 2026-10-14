@@ -245,6 +245,20 @@ cases in 50.10 seconds**, across the same twelve private SQL suites. All rows/
 payloads/HTTP responses are synthetic; no working source/config/schema/assets/
 worker/customer data or authority request changed.
 
+Increment 45 adds [primary post-response local-error review](RESPONSE_PROCESSING.md).
+Previously caught local failures in existing response-processing branches no
+longer trigger generic invoice receipt overwrite/503 writes/failure commits.
+The static unchained Arabic/English RuntimeError is a review failure, not a new
+acceptance verdict or success return. No in-call retry/repair/transaction action.
+The final guarded run passed **5,801 local + 375 private SQL = 6,176 cases in
+51.87 seconds**, across the same twelve private SQL suites. Native late cases
+intentionally reproduce legacy independent commits and prove no extra error
+overwrite; these commits can still commit pending parent work. Missing early
+durable receipts, later scheduler/queue retries, other writers and full lifecycle
+remain gates. All HTTP/ERP/File data is synthetic, SQL is owned temporary only;
+no installed source/config/schema/assets/workers/customer data or authority call
+changed.
+
 1. **Complete development offline.** Finish the shared settings/source/credential
    contracts, amounts/advance handling, immutable XML/signature/QR pipeline,
    debug/single/all/synthetic Compliance adapters, identity/retry coordination and
