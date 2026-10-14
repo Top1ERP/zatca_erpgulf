@@ -65,7 +65,10 @@ The explicit `qr_regeneration` endpoint is NOT fixed by this change: its saved-r
 authorization, heuristic/latest XML/QR selection, implicit recovery and commits
 still need a separate bounded audit. Phase-2 helpers, concurrent generation,
 actual File deduplication/rollback, full ERPNext 15/16 installation and browser/
-print acceptance remain gates. Do not use an unreviewed button to bypass REVIEW.
+print acceptance remain gates. Increment 38 separately adds
+[saved-row recovery access checks](QR_REGENERATION_ACCESS.md), without replacing
+the button's legacy selection/implicit repair/commit behavior. Do not use an
+unreviewed button to bypass REVIEW.
 
 Finish offline development first, then seek separate approval for the new
 isolated fictional-client rehearsal. The user still decides whole-change

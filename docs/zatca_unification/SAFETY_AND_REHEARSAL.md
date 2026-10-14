@@ -169,6 +169,16 @@ no working source/schema/Company/worker or authority request changed.
 The guarded combined selection passed **4,884 local + 200 private SQL = 5,084 cases**
 in **44.50 seconds** across the same eleven private SQL suites.
 
+Increment 38 adds [saved-row QR recovery access](QR_REGENERATION_ACCESS.md):
+read/write ACL boundaries, exact File ownership, bounded observations, static
+Arabic denial and POST-only mutation registration. Unit tests unwrap the request
+typing decorator and use mocked ERP/File methods and memory-only XML content;
+they do not establish installed v16/HTTP/File lifecycle acceptance. Legacy
+selection/re-link/commit behavior remains explicitly unapproved and unfinished.
+The guarded run passed **5,063 local + 200 private SQL = 5,263 cases** in
+**47.83 seconds**, with the same eleven private SQL suites. No working site,
+worker, schema, customer data or authority request was touched.
+
 1. **Complete development offline.** Finish the shared settings/source/credential
    contracts, amounts/advance handling, immutable XML/signature/QR pipeline,
    debug/single/all/synthetic Compliance adapters, identity/retry coordination and
