@@ -366,6 +366,20 @@ schema/source/config/assets/workers/customer/authority change is enabled. Exact
 protected inputs survive returned uncertainty; pre-first-receipt-commit process
 loss and reviewed paired reconciliation remain gates. No hold is released.
 
+Increment 53 adds an internal [saved-source local primary capture boundary](PRIMARY_CAPTURE_ACCESS.md),
+not an endpoint or live sender. Invoice WRITE/related READ and exact request/
+start/key binding precede explicit resources and owned SQL. Metadata-only success
+requires literal server custody acknowledgment before final ACL checks. Failed
+or interrupted acknowledgment transfers a protected server recovery result,
+never an ordinary user payload or resend authorization. Retainer ACK is NOT
+durability evidence. Observer custody before a returned result and process-loss/
+paired-reconciliation policy remain required; no durable retainer is installed.
+The real pinned Unix provider/private SQL tests use synthetic sources, permissions,
+keys and responses only. Final guarded selection passed **6,947 local + 731
+private SQL = 7,678 cases in 73.71 seconds**, across the same twelve private suites.
+No working source/config/schema/assets/workers/customer,
+authority, advance/accounting or cryptographic behavior was activated or changed.
+
 These stages are future gates, not actions executed or approved by this increment.
 Full development and real v15/v16/application/crypto/advance acceptance remain
 unfinished. Remote authority acceptance is a separate unverified gate and cannot

@@ -137,6 +137,13 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 53 adds a [saved-source local primary capture access boundary](PRIMARY_CAPTURE_ACCESS.md).
+  Invoice WRITE/related READ and exact request/start/key binding precede resources
+  and guarded owned SQL. EVERY returned core result goes to explicit trusted
+  server custody before final ACL disclosure; output is metadata only. Failed or
+  interrupted handoff transfers protected recovery, not an automatic retry.
+  ACK is not durable proof. Paired reconciliation, pre-result observer custody,
+  authentic source/epoch/provider/transport and runtime activation remain gates.
 - Increment 52 adds an [auth-free exact primary observation coordinator](PRIMARY_CAPTURE.md).
   Three owned transactions bind deterministic request bytes to strict start/hold,
   close preflight before ONE synthetic observer, then store original encrypted

@@ -32,7 +32,8 @@ def observed(request, **changes):
 class Scenario:
     """Owned SQL model only; actual repository/SQL behavior is checked separately."""
 
-    def __init__(self, monkeypatch, prepared, *, fault=None):
+    def __init__(self, monkeypatch, prepared, *, fault=None, namespace=NAMESPACE):
+        self.namespace = namespace
         self.request = capture.PrimaryCaptureRequest(start(prepared))
         self.journal, self.hold, self.binding, self.sealed = DispatchJournal(prepared), None, None, None
         self.connections, self.events, self.fault = [], [], fault
@@ -61,7 +62,7 @@ class Scenario:
             return connection
         self.factory = Mock(side_effect=factory)
         def hold_repository(connection, namespace):
-            assert namespace == NAMESPACE
+            assert namespace == self.namespace
             expected = capture._declaration(namespace, self.request.started)
             def reserve(started):
                 if connection.pending[0] != DispatchJournal(prepared) or connection.pending[1] is not None:
@@ -117,7 +118,7 @@ class Scenario:
             self.events.append(("observer",))
             return observed(request)
         self.observer = Mock(side_effect=observe)
-        self.coordinator = capture.PrimaryCaptureCoordinator(NAMESPACE, self.cipher, "synthetic-capture",
+        self.coordinator = capture.PrimaryCaptureCoordinator(namespace, self.cipher, "synthetic-capture",
             connection_factory=self.factory, observe=self.observer, source_guard=self.guard)
 
     def run(self):

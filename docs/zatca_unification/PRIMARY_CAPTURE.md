@@ -133,7 +133,10 @@ attestation remain separate work. An uncertain result is not permission to call
 The existing live retry paths/partial parent commits are NOT fixed or activated
 by this module. Historical renames/aliases/scopes still need controlled mapping.
 
-Next: a permissioned owned-resource coordinator boundary, audit credential/source/
+Increment 53 adds the internal [permissioned saved-source/resource boundary](PRIMARY_CAPTURE_ACCESS.md)
+with metadata-only output and mandatory protected-result handoff before final
+ACL checks. It does not install a durable retainer, observer or transport.
+Next: paired exact-attempt custody/journal reconciliation and audit credential/source/
 epoch/transport provenance and paired reconciliation before any runtime adoption.
 Complete isolated v15/v16/SDK/accounting/browser acceptance and the fictional-client
 decision first; ALL authority calls remain prohibited without separate approval.

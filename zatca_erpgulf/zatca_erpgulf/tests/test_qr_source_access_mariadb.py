@@ -13,7 +13,7 @@ from zatca_erpgulf.zatca_erpgulf.archive_source_access import SavedSourceRow
 from zatca_erpgulf.zatca_erpgulf.journal_repository import MariaDBJournalRepository
 from zatca_erpgulf.zatca_erpgulf.tests.test_certificate_evidence import certificates
 from zatca_erpgulf.zatca_erpgulf.tests.test_dispatch_journal import start
-from zatca_erpgulf.zatca_erpgulf.tests.test_journal_repository_mariadb import isolated_server, connections, namespace
+from zatca_erpgulf.zatca_erpgulf.tests.test_journal_repository_mariadb import isolated_server, connections, namespace, save
 from zatca_erpgulf.zatca_erpgulf.tests.test_advance_source_selection_mariadb import store
 from zatca_erpgulf.zatca_erpgulf.tests.test_qr_source_access import (
     operator, qr_operator, scenario, inspect, NOW, InspectionFailed,
@@ -28,6 +28,13 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_primary_receipt_custody_access impor
 )
 from zatca_erpgulf.zatca_erpgulf.tests.test_primary_receipt_access import (
     receipt_operator, scenario as receipt_scenario, persist as persist_receipt, PermissionDenied,
+)
+from zatca_erpgulf.zatca_erpgulf import primary_capture_access as capture_access
+from zatca_erpgulf.zatca_erpgulf import primary_capture
+from zatca_erpgulf.zatca_erpgulf.primary_receipt_custody import PrimaryReceiptCustodyCipher
+from zatca_erpgulf.zatca_erpgulf.tests.test_primary_capture import observed as primary_observed
+from zatca_erpgulf.zatca_erpgulf.tests.test_primary_capture_access import (
+    capture_operator, configure as configure_capture, invoke as invoke_capture,
 )
 
 
@@ -125,6 +132,145 @@ def read_primary_receipt_case(case, connections):
     finally:
         reader.rollback()
         reader.close()
+
+
+def native_capture_case(capture_operator, der, monkeypatch, connections, namespace, isolated_server, **options):
+    # Unlike native_receipt_case, capture MUST begin with an EMPTY journal.
+    case = native_case(capture_operator, der, monkeypatch, connections, namespace, **options)
+    pinned_receipt_provider(case, isolated_server, connections)
+    writer = connections()
+    try:
+        case.empty = save(writer, namespace, case.original)
+    finally:
+        writer.close()
+    def observe(request):
+        assert case.pinned_opened and all(owned.closed for owned in case.pinned_opened)
+        return primary_observed(request)  # Synthetic response only, no transport.
+    case.observer = Mock(side_effect=observe)
+    case.cipher = PrimaryReceiptCustodyCipher({"synthetic-capture-sql": b"S" * 32})
+    configure_capture(case, case.cipher, case.observer, key_id="synthetic-capture-sql")
+    return case
+
+
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("indicator", ["0100000", "0200000"])
+@pytest.mark.parametrize("owner", ["company", "device", "linked"])
+def test_permissioned_primary_capture_actual_owned_sql_retains_exact_result_and_only_discloses_metadata(
+    qr_source_schema, capture_operator, certificates, monkeypatch, connections, namespace, isolated_server,
+    doctype, indicator, owner):
+    case = native_capture_case(capture_operator, certificates[0], monkeypatch, connections, namespace, isolated_server,
+        doctype=doctype, indicator=indicator, owner=owner)
+    report = invoke_capture(case)
+    assert report["state"] == "RECEIPT_CAPTURED_OBSERVATION_NO_REPLAY"
+    assert report["server_custody_acknowledged"] is True and report["server_custody_durable_verified"] is False
+    result, = case.retained_results
+    assert read_primary_receipt_case(case, connections) == primary_capture._validate_retained(result.receipt)
+    assert read_custody_row(case, connections) == result.sealed
+    assert case.cipher.open(result.sealed) == result.receipt
+    assert not {"request", "response", "receipt", "sealed", "body", "uuid", "invoice_name"} & report.keys()
+    assert len(case.pinned_opened) == 3 and all(owned.closed for owned in case.pinned_opened)
+    assert case.credentials.call_count == 3
+    case.observer.assert_called_once()
+    capture_operator.runtime.db.commit.assert_not_called()
+    capture_operator.runtime.db.rollback.assert_not_called()
+
+
+@pytest.mark.parametrize("denied", ["source", "company", "device", "linked"])
+def test_permissioned_primary_capture_actual_provider_acl_precedes_resources_and_credentials(qr_source_schema,
+    capture_operator, certificates, monkeypatch, connections, namespace, isolated_server, denied):
+    case = native_capture_case(capture_operator, certificates[0], monkeypatch, connections, namespace, isolated_server,
+        owner="linked")
+    capture_operator.denied_operations.add({"source": ("Sales Invoice", "INV-TEST", "write"),
+        "company": ("Company", "TEST", "read"), "device": ("ZATCA Multiple Setting", "DEVICE", "read"),
+        "linked": ("Company", "LINKED", "read")}[denied])
+    with pytest.raises(PermissionDenied):
+        invoke_capture(case)
+    case.resources.assert_not_called()
+    case.credentials.assert_not_called()
+    case.observer.assert_not_called()
+    case.retainer.assert_not_called()
+    assert read_primary_receipt_case(case, connections) == case.empty
+
+
+@pytest.mark.parametrize("stage", ["pre-observer-close", "observer", "receipt-close"])
+def test_permissioned_primary_capture_actual_revocation_never_discards_result_or_undoes_history(qr_source_schema,
+    capture_operator, certificates, monkeypatch, connections, namespace, isolated_server, stage):
+    case = native_capture_case(capture_operator, certificates[0], monkeypatch, connections, namespace, isolated_server)
+    def revoke():
+        capture_operator.denied_operations.add(("Sales Invoice", "INV-TEST", "write"))
+    if stage == "observer":
+        original = case.observer.side_effect
+        def observe(request):
+            response = original(request)
+            revoke()
+            return response
+        case.observer.side_effect = observe
+    else:
+        original = case.factory.side_effect
+        def connect(scope):
+            owned = original(scope)
+            index = len(case.pinned_opened)
+            def close():
+                owned.close()
+                if index == (2 if stage == "pre-observer-close" else 3):
+                    revoke()
+            return SimpleNamespace(cursor=owned.cursor, rollback=owned.rollback, commit=owned.commit, close=close)
+        case.factory.side_effect = connect
+    with pytest.raises(PermissionDenied) as error:
+        invoke_capture(case)
+    assert error.value.__context__ is None
+    result, = case.retained_results
+    assert all(owned.closed for owned in case.pinned_opened)
+    if stage == "pre-observer-close":
+        case.observer.assert_not_called()
+        assert result.response is result.sealed is None
+        assert read_primary_receipt_case(case, connections) == case.request.started
+    else:
+        case.observer.assert_called_once()
+        assert result.response is not None and result.sealed is not None
+        if stage == "receipt-close":
+            assert read_primary_receipt_case(case, connections) == primary_capture._validate_retained(result.receipt)
+            assert read_custody_row(case, connections) == result.sealed
+        else:
+            assert read_primary_receipt_case(case, connections) == case.request.started
+            with pytest.raises(PrimaryReceiptCustodyError, match="receipt_custody_missing"):
+                read_custody_row(case, connections)
+
+
+@pytest.mark.parametrize("interrupted", [False, True])
+def test_permissioned_primary_capture_actual_handoff_failure_transfers_protected_recovery_not_automatic_replay(
+    qr_source_schema, capture_operator, certificates, monkeypatch, connections, namespace, isolated_server, interrupted):
+    case = native_capture_case(capture_operator, certificates[0], monkeypatch, connections, namespace, isolated_server)
+    case.retainer.side_effect = KeyboardInterrupt("PRIVATE interrupted custody") if interrupted else RuntimeError("PRIVATE custody failure")
+    with pytest.raises(capture_access.PrimaryCaptureHandoffRequired) as error:
+        invoke_capture(case)
+    result = error.value.result
+    assert error.value.interrupted is interrupted and error.value.__context__ is None
+    assert str(error.value) == capture_access.HANDOFF_MESSAGE
+    assert read_primary_receipt_case(case, connections) == primary_capture._validate_retained(result.receipt)
+    assert read_custody_row(case, connections) == result.sealed
+    case.observer.assert_called_once()
+    case.retainer.assert_called_once_with(case.scope, result)
+    assert all(owned.closed for owned in case.pinned_opened)
+
+
+def test_permissioned_primary_capture_actual_saved_sql_drift_blocks_reservation_and_observation(qr_source_schema,
+    capture_operator, certificates, monkeypatch, connections, namespace, isolated_server):
+    case = native_capture_case(capture_operator, certificates[0], monkeypatch, connections, namespace, isolated_server)
+    writer = connections()
+    try:
+        with writer.cursor() as cursor:
+            cursor.execute("UPDATE `tabSales Invoice` SET custom_uuid=%s WHERE name='INV-TEST'", (str(uuid4()),))
+        writer.commit()  # Owned synthetic row only; ambient fake Frappe remains stale.
+    finally:
+        writer.close()
+    report = invoke_capture(case)
+    assert report["state"] == "RESERVATION_UNCONFIRMED_NO_OBSERVER"
+    result, = case.retained_results
+    assert result.response is result.sealed is None
+    case.observer.assert_not_called()
+    assert read_primary_receipt_case(case, connections) == case.empty
+    assert all(owned.closed for owned in case.pinned_opened)
 
 
 def native_custody_case(custody_operator, der, monkeypatch, connections, namespace, isolated_server, **options):

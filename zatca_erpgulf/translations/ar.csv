@@ -681,3 +681,6 @@ You do not have permission to persist staged ZATCA invoice receipts.,ليس لد
 Staged ZATCA invoice receipt persistence failed. Keep the original receipt and do not resend automatically. No new request was sent.,تعذر حفظ رد فاتورة زاتكا في السجل المرحلي. احتفظ بالرد الأصلي ولا تُعد الإرسال تلقائيًا. لم يُرسل أي طلب جديد.
 You do not have permission to store or retrieve staged ZATCA receipt custody.,ليس لديك صلاحية حفظ نسخ ردود زاتكا المشفرة أو استرجاعها من المخزن المرحلي.
 Staged ZATCA receipt custody access failed. Keep the original sealed receipt and do not resend automatically. No new request was sent.,تعذر الوصول إلى مخزن ردود زاتكا المرحلي. احتفظ بالنسخة المشفرة الأصلية للرد ولا تُعد الإرسال تلقائيًا. لم يُرسل أي طلب جديد.
+You do not have permission to run staged ZATCA invoice capture.,ليس لديك صلاحية تشغيل الالتقاط المرحلي لطلبات وردود فواتير زاتكا.
+Staged ZATCA invoice capture access failed. Do not retry automatically. Review server-side custody before any further action.,تعذر الوصول إلى الالتقاط المرحلي لفواتير زاتكا. لا تُعد المحاولة تلقائيًا. راجع الحفظ الداخلي في الخادم قبل أي إجراء آخر.
+Protected ZATCA capture requires server-side custody. Keep the protected recovery result and do not retry automatically.,تتطلب نتيجة التقاط زاتكا المحمية تسليمها إلى الحفظ الداخلي في الخادم. احتفظ بنتيجة التعافي المحمية ولا تُعد المحاولة تلقائيًا.

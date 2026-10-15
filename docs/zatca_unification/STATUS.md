@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and fifty-two bounded increments (Compliance outcomes, dedicated
+Safety preparation and fifty-three bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -43,7 +43,8 @@ and an explicit pinned Unix local primary receipt connection provider,
 and encrypted immutable local retained-receipt custody,
 and permissioned saved-source/key-bound encrypted custody storage/retrieval,
 and an atomic primary start/logical-invoice no-replay hold,
-and an exact auth-free local primary observation coordinator)
+and an exact auth-free local primary observation coordinator,
+and a permissioned metadata-only saved-source primary capture boundary)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -944,6 +945,23 @@ branches and credential-context differences are recorded in
   source/credential/epoch/transport evidence remain release gates.
   See [PRIMARY_CAPTURE.md](PRIMARY_CAPTURE.md).
 
+## Increment 53: permissioned saved-source local primary capture
+
+- Added exact request/target/START/attempt/body/key binding, saved invoice WRITE
+  and related READ before scoped resources/SQL. Shared owned acquisition and
+  source guards repeat checks around three coordinator transactions; no active
+  observer/provider/API/job is registered and no DDL is added.
+- Normal coordinator results go to an explicit trusted server retainer before
+  final disclosure checks. Only diagnostics return. Revocation after response or
+  commit refuses disclosure without discarding retained material or undoing SQL.
+  ACK is not durability proof; failed/interrupted ACK transfers an exact hidden
+  server recovery result, never a browser export or permission to retry.
+- Observer custody before a normal result, process-loss recovery, paired exact
+  reconciliation and authentic source/namespace/key/epoch/provider/transport
+  remain gates. No live/source/config/schema/workers/customer/authority,
+  advance/accounting/QR/signature or legacy retry change is activated.
+  See [PRIMARY_CAPTURE_ACCESS.md](PRIMARY_CAPTURE_ACCESS.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -1204,8 +1222,23 @@ and only one observer between competing same/different-version coordinators.
 No authenticated HTTP, trusted transport/source/epoch, permissioned coordinator,
 installed v16 or genuine authority acceptance is proven or activated.
 
+Increment 53 adds **143 local + 44 private SQL cases**, reaching **6,947 local +
+731 private SQL = 7,678 passing cases** across the same twelve private suites.
+The final guarded combined run passed in **73.71 seconds**. Initial local passed
+6,923 in 39.44 seconds; initial combined passed 7,654 in 72.68 seconds. The final
+addition covers malformed/forged requests and wrong targets before saved lookup,
+non-authorizing current status and observer-owned pre-result interruption custody.
+Actual private SQL proves scoped pinned-provider/source-lock composition,
+atomic encrypted custody/journal append, denial before credentials, pre-observer
+revocation, response retention after denial, post-commit refusal without undoing
+history, and protected handoff after failed/interrupted retention. No guard,
+rollback, namespace, permission or once-only observer assertion was relaxed.
+Typed dependencies/ACK do not establish provenance or durable observer/retainer
+custody. No runtime or real authority/installed-v16/SDK acceptance is activated.
+
 | Suite | Scope |
 | --- | --- |
+| `test_primary_capture_access.py` | Exact request/target/start/resource binding, saved WRITE/related READ and both quiet permission signatures, metadata-only output, mandatory protected handoff before late denial, interruptions/Arabic/borrowed-parent privacy; existing QR SQL suite adds real pinned-provider/atomic custody composition and revocation without undoing history |
 | `test_primary_capture.py` | Exact deterministic auth-free body/supplied response correlation, three owned transactions, literal guards, once-only observer, unknown outcomes/exact protected recovery, no reseal/hold release/acceptance and static errors; existing journal SQL suite adds actual atomic storage/rollback, commit uncertainty, binding drift and competing coordinators |
 | `test_primary_attempt_hold.py` | Exact rebuilt start and logical-source key across changing versions/chain/epoch/route/UUID/classification, strict reserve/no release/no authorization, later UNKNOWN/HTTP inspection, poisoned transactions/privacy; existing journal SQL suite adds atomic start/hold, owned crashes, cross-version races, identity drift and rollback/no-backfill evidence |
 | `test_primary_receipt_custody_access.py` | Saved invoice WRITE/related READ before scoped keys/SQL, exact envelope/retained binding, guarded owned commit and ciphertext-only rollback/close retrieval, late denial/uncertainty/borrowed-parent/Arabic/privacy; existing QR SQL suite adds actual pinned-provider/custody composition, stale SQL, unknown commits and post-close revocation |
@@ -1327,7 +1360,10 @@ live key/provider registration, transport authenticity or a no-replay hold.
 Increment 51 adds an atomic local start/logical-source hold repository, not an
 activated coordinator or a reusable lease. Increment 52 adds an auth-free exact
 local observer coordinator, not real HTTP/authentication or runtime activation.
-Next add the permissioned owned-resource boundary and audit source/namespace/key/
+Increment 53 adds that permissioned metadata-only owned-resource boundary with
+mandatory protected-result handoff before final ACL disclosure, not durable
+retainer installation or real transport. Next review paired exact-attempt
+custody/journal reconciliation and audit source/namespace/key/
 lookup custody and transport-source-epoch/response evidence before
 wiring durable receipt storage/review holds; remove legacy partial/parent commits before artifact
 work; cover concurrent source changes and the remaining writers; establish
@@ -1340,7 +1376,7 @@ recovery/mixed-phase bridge and server-owned site/namespace/chain/lookup/connect
 provenance and authentic capture/acceptance as gates before raw export or
 settlement adoption. Verify
 timezone/settings snapshots for new issuance separately. Neither increment 30
-nor 31/32/33/34/35/36/37/38/39/40/41/42/43/44/45/46/47/48/49/50/51/52 consolidates advance amounts/GL or cryptographic digests.
+nor 31/32/33/34/35/36/37/38/39/40/41/42/43/44/45/46/47/48/49/50/51/52/53 consolidates advance amounts/GL or cryptographic digests.
 
 All implementation/rehearsal below remains OFFLINE and in development. No live
 provider/site binding, dummy Company on a working bench, authority request or
