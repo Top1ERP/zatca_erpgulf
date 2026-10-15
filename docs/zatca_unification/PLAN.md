@@ -137,6 +137,13 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 54 adds [exact local primary receipt pair reconciliation](PRIMARY_RECEIPT_RECONCILIATION.md).
+  Read-only inspection or explicit LOCAL persistence requires the original seal,
+  exact existing hold/request binding and literal source guards. Both absent
+  response parts may be stored atomically; partial/different pairs are REVIEW
+  ONLY. Uncertainty retains original input, never invokes transport/reseal or
+  releases a hold. Permissioned paired access and authentic provenance remain
+  gates; no runtime caller or schema is installed.
 - Increment 53 adds a [saved-source local primary capture access boundary](PRIMARY_CAPTURE_ACCESS.md).
   Invoice WRITE/related READ and exact request/start/key binding precede resources
   and guarded owned SQL. EVERY returned core result goes to explicit trusted

@@ -37,6 +37,7 @@ from zatca_erpgulf.zatca_erpgulf.primary_receipt_persistence import PrimaryRecei
 from zatca_erpgulf.zatca_erpgulf import primary_receipt_custody as custody
 from zatca_erpgulf.zatca_erpgulf import primary_attempt_hold as holds
 from zatca_erpgulf.zatca_erpgulf import primary_capture as primary_capture
+from zatca_erpgulf.zatca_erpgulf import primary_receipt_reconciliation as primary_pair
 from zatca_erpgulf.zatca_erpgulf.tests.test_primary_capture import observed as primary_observed
 from zatca_erpgulf.zatca_erpgulf.tests.test_primary_attempt_hold import variant as hold_variant
 from zatca_erpgulf.zatca_erpgulf.tests.test_primary_receipt_persistence import retained
@@ -660,6 +661,233 @@ def test_competing_primary_coordinators_invoke_only_one_synthetic_observer(conne
     assert sorted(result.state for result in results) == ["RECEIPT_CAPTURED_OBSERVATION_NO_REPLAY", "RESERVATION_UNCONFIRMED_NO_OBSERVER"]
     assert first.observer.call_count + second.observer.call_count == 1
     assert all(not raw.open for case in (first, second) for raw in case.opened)
+
+
+def native_primary_pair_case(connections, namespace, selected):
+    case = native_primary_capture_case(connections, namespace, selected, fault=(2, "commit-before"))
+    case.captured = case.coordinator.capture(case.request)
+    assert case.captured.state == "RECEIPT_COMMIT_UNCONFIRMED_NO_REPLAY"
+    case.fault = None
+    case.pair_guard = Mock(return_value=True)
+    case.pair_service = primary_pair.PrimaryReceiptReconciliation(namespace, case.cipher,
+        connection_factory=case.factory, source_guard=case.pair_guard)
+    return case
+
+
+def read_primary_pair(case, connections, namespace):
+    reader = connections()
+    try:
+        journal = MariaDBJournalRepository(reader, namespace).load(case.request.started.candidate.key_sha256)
+        with reader.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM zatca_primary_receipt_custody_v1 "
+                "WHERE storage_namespace=%s AND candidate_sha256=%s AND attempt_id=%s",
+                (namespace, case.captured.sealed.candidate_sha256, case.captured.sealed.attempt_id))
+            count = cursor.fetchone()[0]
+        sealed = custody.MariaDBPrimaryReceiptCustodyRepository(reader, namespace, case.cipher).load(
+            case.captured.sealed.candidate_sha256, case.captured.sealed.attempt_id) if count else None
+        return journal, sealed
+    finally:
+        reader.rollback()
+        reader.close()
+
+
+@pytest.mark.parametrize("operation", ["inspect", "persist"])
+def test_actual_primary_pair_never_creates_missing_start_hold_or_request_binding(connections, namespace, prepared, operation):
+    writer = connections()
+    try:
+        empty = save(writer, namespace, prepared)
+    finally:
+        writer.close()
+    request = primary_capture.PrimaryCaptureRequest(hold_start(prepared))
+    retained = primary_capture._retained(namespace, request, primary_observed(request))
+    cipher = custody.PrimaryReceiptCustodyCipher({"no-start": b"N" * 32})
+    sealed = cipher.seal(retained, key_id="no-start")
+    service = primary_pair.PrimaryReceiptReconciliation(namespace, cipher,
+        connection_factory=connections, source_guard=lambda connection, pinned: True)
+    result = getattr(service, operation)(request, sealed)
+    assert result.state == ("PAIR_INSPECTION_UNCONFIRMED_NO_REPLAY" if operation == "inspect" else "PAIR_PERSISTENCE_UNCONFIRMED_NO_REPLAY")
+    assert result.sealed is sealed
+    reader = connections()
+    try:
+        assert MariaDBJournalRepository(reader, namespace).load(prepared.key_sha256) == empty
+        with reader.cursor() as cursor:
+            for table in ("zatca_primary_attempt_hold_v1", "zatca_primary_request_binding_v1", "zatca_primary_receipt_custody_v1"):
+                cursor.execute("SELECT COUNT(*) FROM " + table + " WHERE storage_namespace=%s", (namespace,))
+                assert cursor.fetchone() == (0,)
+    finally:
+        reader.rollback()
+        reader.close()
+
+
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("indicator", ["0100000", "0200000"])
+@pytest.mark.parametrize("code", ["388", "381", "383", "386"])
+def test_actual_primary_pair_missing_inspection_atomic_store_and_identical_redelivery(connections, namespace,
+    certificates, doctype, indicator, code):
+    selected = candidate(certificates[0], selected_scope=scope(doctype=doctype), indicator=indicator, code=code)
+    case = native_primary_pair_case(connections, namespace, selected)
+    sealed = case.captured.sealed
+    inspected = case.pair_service.inspect(case.request, sealed)
+    assert inspected.state == "PAIR_MISSING_OBSERVATION_NO_REPLAY" and inspected.sealed is sealed
+    assert read_primary_pair(case, connections, namespace) == (case.request.started, None)
+    stored = case.pair_service.persist(case.request, sealed)
+    assert stored.state == "PAIR_STORED_OBSERVATION_NO_REPLAY" and stored.sealed is sealed
+    assert read_primary_pair(case, connections, namespace) == (primary_pair._validate_retained(case.captured.receipt), sealed)
+    matched = case.pair_service.inspect(case.request, sealed)
+    assert matched.state == "PAIR_MATCHED_OBSERVATION_NO_REPLAY"
+    repeated = case.pair_service.persist(case.request, sealed)
+    assert repeated.state == "PAIR_ALREADY_STORED_OBSERVATION_NO_REPLAY"
+    assert read_primary_pair(case, connections, namespace) == (primary_pair._validate_retained(case.captured.receipt), sealed)
+    assert read_primary_hold(connections, namespace, case.request.started)
+    assert all(not raw.open for raw in case.opened)
+    case.observer.assert_called_once()  # No observer in inspection/local persistence.
+    assert all(value is False for key, value in repeated.diagnostic_projection().items() if key.endswith(("_verified", "_authorized")))
+
+
+@pytest.mark.parametrize("fault", ["commit-before", "commit-after", "close"])
+def test_actual_primary_pair_commit_uncertainty_is_resolved_by_explicit_local_inspection_only(connections,
+    namespace, prepared, fault):
+    case = native_primary_pair_case(connections, namespace, prepared)
+    case.fault = (3, fault)
+    result = case.pair_service.persist(case.request, case.captured.sealed)
+    assert result.state == "PAIR_PERSISTENCE_UNCONFIRMED_NO_REPLAY" and result.sealed is case.captured.sealed
+    case.fault = None
+    inspected = case.pair_service.inspect(case.request, result.sealed)
+    expected = "PAIR_MISSING_OBSERVATION_NO_REPLAY" if fault == "commit-before" else "PAIR_MATCHED_OBSERVATION_NO_REPLAY"
+    assert inspected.state == expected
+    if fault == "commit-before":
+        assert read_primary_pair(case, connections, namespace) == (case.request.started, None)
+    else:
+        assert read_primary_pair(case, connections, namespace) == (primary_pair._validate_retained(case.captured.receipt), result.sealed)
+    case.observer.assert_called_once()
+    assert all(not raw.open for raw in case.opened)
+
+
+@pytest.mark.parametrize("mode", ["custody-only", "journal-only", "different-seal", "different-journal", "unknown"])
+@pytest.mark.parametrize("operation", ["inspect", "persist"])
+def test_actual_primary_partial_or_conflicting_pair_is_review_only_never_repaired(connections, namespace,
+    prepared, mode, operation):
+    case = native_primary_pair_case(connections, namespace, prepared)
+    writer = connections()
+    try:
+        if mode in ("custody-only", "different-seal"):
+            sealed = case.captured.sealed if mode == "custody-only" else case.cipher.seal(
+                case.captured.receipt, key_id=case.captured.sealed.key_id)
+            custody.MariaDBPrimaryReceiptCustodyRepository(writer, namespace, case.cipher).stage(sealed)
+        else:
+            observed = case.captured.receipt.response_event
+            if mode == "different-journal":
+                observed = replace(observed, response_bytes=b"OTHER PRIVATE response")
+            elif mode == "unknown":
+                observed = event(prepared, "TRANSPORT_UNKNOWN", 2)
+                observed = replace(observed, attempt_id=case.request.started.events[0].attempt_id)
+            MariaDBJournalRepository(writer, namespace).append(prepared.key_sha256, observed,
+                expected_journal_sha256=case.request.started.journal_sha256)
+        writer.commit()  # Intentional synthetic legacy separate-writer setup only.
+    finally:
+        writer.close()
+    before = read_primary_pair(case, connections, namespace)
+    result = getattr(case.pair_service, operation)(case.request, case.captured.sealed)
+    assert result.state == {"custody-only": "CUSTODY_ONLY_REVIEW_NO_REPLAY",
+        "journal-only": "JOURNAL_ONLY_REVIEW_NO_REPLAY"}.get(mode, "PAIR_CONFLICT_REVIEW_NO_REPLAY")
+    assert read_primary_pair(case, connections, namespace) == before
+    assert result.sealed is case.captured.sealed
+    assert read_primary_hold(connections, namespace, case.request.started)
+    case.observer.assert_called_once()
+
+
+@pytest.mark.parametrize("operation", ["inspect", "persist"])
+@pytest.mark.parametrize("damage", ["request-binding", "ciphertext"])
+def test_actual_primary_pair_unreadable_or_wrong_binding_is_unconfirmed_never_missing(connections, namespace,
+    prepared, damage, operation):
+    case = native_primary_pair_case(connections, namespace, prepared)
+    writer = connections()
+    try:
+        if damage == "ciphertext":
+            custody.MariaDBPrimaryReceiptCustodyRepository(writer, namespace, case.cipher).stage(case.captured.sealed)
+        with writer.cursor() as cursor:
+            if damage == "request-binding":
+                cursor.execute("UPDATE zatca_primary_request_binding_v1 SET request_sha256=%s WHERE storage_namespace=%s",
+                    ("0" * 64, namespace))
+            else:
+                sealed = case.captured.sealed
+                damaged = sealed.ciphertext[:-1] + bytes([sealed.ciphertext[-1] ^ 1])
+                cursor.execute("UPDATE zatca_primary_receipt_custody_v1 SET ciphertext=%s WHERE storage_namespace=%s "
+                    "AND candidate_sha256=%s AND attempt_id=%s", (damaged, namespace, sealed.candidate_sha256, sealed.attempt_id))
+        writer.commit()  # Deliberately corrupted NEW test data, never a tenant.
+    finally:
+        writer.close()
+    result = getattr(case.pair_service, operation)(case.request, case.captured.sealed)
+    assert result.state == ("PAIR_INSPECTION_UNCONFIRMED_NO_REPLAY" if operation == "inspect" else "PAIR_PERSISTENCE_UNCONFIRMED_NO_REPLAY")
+    assert result.sealed is case.captured.sealed
+    reader = connections()
+    try:
+        assert MariaDBJournalRepository(reader, namespace).load(prepared.key_sha256) == case.request.started
+    finally:
+        reader.rollback()
+        reader.close()
+    case.observer.assert_called_once()
+
+
+def test_actual_primary_pair_failed_append_rolls_back_ciphertext_together_with_journal(connections, namespace,
+    prepared, monkeypatch):
+    case = native_primary_pair_case(connections, namespace, prepared)
+    original = MariaDBJournalRepository.append
+    def failed(*args, **kwargs):
+        original(*args, **kwargs)
+        raise RuntimeError("PRIVATE error after journal append and custody stage")
+    monkeypatch.setattr(MariaDBJournalRepository, "append", failed)
+    result = case.pair_service.persist(case.request, case.captured.sealed)
+    assert result.state == "PAIR_PERSISTENCE_UNCONFIRMED_NO_REPLAY"
+    assert read_primary_pair(case, connections, namespace) == (case.request.started, None)
+    assert read_primary_hold(connections, namespace, case.request.started)
+    case.observer.assert_called_once()
+
+
+@pytest.mark.parametrize("operation", ["inspect", "persist"])
+def test_actual_primary_pair_second_source_guard_denial_rolls_back_all_changes(connections, namespace, prepared, operation):
+    case = native_primary_pair_case(connections, namespace, prepared)
+    case.pair_guard.side_effect = [True, False]
+    result = getattr(case.pair_service, operation)(case.request, case.captured.sealed)
+    assert result.state == ("PAIR_INSPECTION_UNCONFIRMED_NO_REPLAY" if operation == "inspect" else "PAIR_PERSISTENCE_UNCONFIRMED_NO_REPLAY")
+    assert read_primary_pair(case, connections, namespace) == (case.request.started, None)
+    assert read_primary_hold(connections, namespace, case.request.started)
+    assert all(not raw.open for raw in case.opened)
+
+
+@pytest.mark.parametrize("isolation", ["READ COMMITTED", "REPEATABLE READ"])
+def test_actual_competing_local_pair_persistence_never_duplicates_or_reseals(connections, namespace, prepared, isolation):
+    case = native_primary_pair_case(connections, namespace, prepared)
+    barrier, opened = threading.Barrier(2), []
+    def factory():
+        owned = connections(isolation)
+        opened.append(owned)
+        return owned
+    service = primary_pair.PrimaryReceiptReconciliation(namespace, case.cipher,
+        connection_factory=factory, source_guard=lambda connection, request: True)
+    def persist(_index):
+        barrier.wait(timeout=3)
+        return service.persist(case.request, case.captured.sealed)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(persist, range(2)))
+    assert sorted(result.state for result in results) == ["PAIR_ALREADY_STORED_OBSERVATION_NO_REPLAY", "PAIR_STORED_OBSERVATION_NO_REPLAY"]
+    assert all(result.sealed is case.captured.sealed for result in results)
+    assert read_primary_pair(case, connections, namespace) == (primary_pair._validate_retained(case.captured.receipt), case.captured.sealed)
+    assert all(not raw.open for raw in opened)
+    case.observer.assert_called_once()
+
+
+@pytest.mark.parametrize("committed", [False, True])
+def test_actual_primary_pair_owned_database_restart_preserves_hold_and_whole_committed_pair(connections,
+    namespace, prepared, isolated_server, committed):
+    case = native_primary_pair_case(connections, namespace, prepared)
+    if committed:
+        assert case.pair_service.persist(case.request, case.captured.sealed).state == "PAIR_STORED_OBSERVATION_NO_REPLAY"
+    isolated_server[2]()  # ONLY this test-owned subprocess; no service/bench action.
+    result = case.pair_service.inspect(case.request, case.captured.sealed)
+    assert result.state == ("PAIR_MATCHED_OBSERVATION_NO_REPLAY" if committed else "PAIR_MISSING_OBSERVATION_NO_REPLAY")
+    assert read_primary_hold(connections, namespace, case.request.started)
+    case.observer.assert_called_once()
 
 
 def hold_start(selected):
