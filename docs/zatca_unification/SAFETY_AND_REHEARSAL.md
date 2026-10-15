@@ -322,6 +322,16 @@ protected receipt custody and durable review holds remain release gates. No
 runtime provider/hook/scheduler is activated and no advance amounts/eligibility
 or invoice accounting is changed.
 
+Increment 49 adds [encrypted local retained-receipt custody](PRIMARY_RECEIPT_CUSTODY.md)
+on explicit caller-owned transactions. The final guarded run passed **6,252 local +
+547 private SQL = 6,799 cases in 58.24 seconds**, across the same twelve private
+suites. The new DDL exists only in owned temporary SQL servers. Committed encrypted
+envelopes survived actual owned-database crashes; uncommitted data did not. These
+tests do not establish actual worker/authority capture or close the pre-first-
+commit loss window. No automatic capture, permissioned retrieval, durable review
+hold or live installation is enabled. Keys/data remain synthetic; no working
+schema/source/config/assets/workers/customer or authority change occurred.
+
 These stages are future gates, not actions executed or approved by this increment.
 Full development and real v15/v16/application/crypto/advance acceptance remain
 unfinished. Remote authority acceptance is a separate unverified gate and cannot

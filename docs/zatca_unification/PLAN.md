@@ -137,6 +137,12 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 49 adds [encrypted local retained-receipt custody](PRIMARY_RECEIPT_CUSTODY.md).
+  Exact bounded codec/dedicated AES-GCM and immutable caller-transaction SQL keep
+  one envelope for an existing attempt; identical LOCAL redelivery only. No
+  journal append, HTTP, owned coordinator or permissioned retrieval is activated.
+  Committed ciphertext survives owned-database crash tests; responses lost before
+  the first durable commit still need a no-replay review/lost-response policy.
 - Increment 48 adds an [explicit pinned Unix receipt connection provider](PRIMARY_RECEIPT_PROVIDER.md).
   Scope/socket checks precede typed local credentials; fresh direct SQL checks
   kernel peer, target/session and locked site/namespace marker before handoff,

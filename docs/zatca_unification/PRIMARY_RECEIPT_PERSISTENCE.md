@@ -118,3 +118,11 @@ in 51.17 seconds**, across the same twelve private SQL suites. See
 source/config/schema/assets/workers/customer data or authority request changed.
 Complete offline development before separately approved NEW isolated fictional-
 client v15/v16 rehearsals and the whole-change adoption/cancellation decision.
+
+## Increment 49 custody follow-up
+
+An optional [encrypted local custody repository](PRIMARY_RECEIPT_CUSTODY.md) can
+retain/reconstruct the exact input for this primitive on explicit caller-owned
+transactions. It is not installed or permissioned and does not authorize HTTP,
+relax predecessor matching or recover a response lost before its first durable
+commit. All existing persistence/ownership/source/permission gates still apply.

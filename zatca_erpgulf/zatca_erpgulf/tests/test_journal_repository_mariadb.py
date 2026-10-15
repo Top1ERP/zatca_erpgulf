@@ -32,6 +32,7 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_dispatch_journal import event
 from zatca_erpgulf.zatca_erpgulf.tests.test_issuance_candidate import candidate
 from zatca_erpgulf.zatca_erpgulf.tests.offline_rehearsal_plugin import active_guard
 from zatca_erpgulf.zatca_erpgulf.primary_receipt_persistence import PrimaryReceiptPersistence
+from zatca_erpgulf.zatca_erpgulf import primary_receipt_custody as custody
 from zatca_erpgulf.zatca_erpgulf.tests.test_primary_receipt_persistence import retained
 from zatca_erpgulf.zatca_erpgulf.tests.test_issuance_candidate import scope
 
@@ -422,6 +423,270 @@ def test_private_server_crash_recovery_preserves_commit_and_rolls_back_incomplet
     assert recovered.candidate.xml_bytes == prepared.xml_bytes
     assert len(recovered.events) == 1
     assert recovered.diagnostic_projection()["replay_authorized"] is False
+
+
+def custody_cipher():
+    """Dedicated synthetic key ONLY; no site key/credential lookup."""
+    return custody.PrimaryReceiptCustodyCipher({"private-custody": b"S" * 32})
+
+
+def read_custody(connections, sealed, *, namespace=None):
+    connection = connections()
+    try:
+        return custody.MariaDBPrimaryReceiptCustodyRepository(connection,
+            namespace or sealed.storage_namespace, custody_cipher()).load(sealed.candidate_sha256, sealed.attempt_id)
+    finally:
+        connection.rollback()
+        connection.close()
+
+
+@pytest.mark.parametrize("unknown", [False, True])
+@pytest.mark.parametrize("status", [200, 401, 409])
+@pytest.mark.parametrize("body", [b"", b"\x00\xffPRIVATE SYNTHETIC RECEIPT\r\n"])
+def test_encrypted_custody_roundtrip_retains_exact_local_recovery_input(connections, namespace, prepared, unknown, status, body):
+    receipt = retained(prepared, namespace=namespace, unknown=unknown, status=status, body=body)
+    store_receipt_predecessor(connections, receipt)
+    selected = custody_cipher()
+    sealed = selected.seal(receipt, key_id="private-custody")
+    writer = connections()
+    try:
+        repo = custody.MariaDBPrimaryReceiptCustodyRepository(writer, namespace, selected)
+        assert repo.stage(sealed) == sealed
+        writer.commit()
+    finally:
+        writer.close()
+    assert read_custody(connections, sealed) == sealed
+    assert selected.open(read_custody(connections, sealed)) == receipt
+    # Custody does NOT append a receipt to the journal or imply remote acceptance.
+    assert read_receipt_journal(connections, receipt) == receipt.before
+    result = PrimaryReceiptPersistence(namespace, connection_factory=connections).persist(selected.open(sealed))
+    assert result.state == "RECEIPT_STORED_OBSERVATION_NO_REPLAY"
+    assert read_custody(connections, sealed) == sealed  # No deletion after use.
+
+
+@pytest.mark.parametrize("committed", [False, True])
+def test_custody_owned_database_crash_recovers_only_actually_committed_envelope(connections, namespace, prepared,
+    isolated_server, committed):
+    receipt = retained(prepared, namespace=namespace, unknown=True)
+    store_receipt_predecessor(connections, receipt)
+    sealed = custody_cipher().seal(receipt, key_id="private-custody")
+    writer = connections()
+    custody.MariaDBPrimaryReceiptCustodyRepository(writer, namespace, custody_cipher()).stage(sealed)
+    if committed:
+        writer.commit()
+    isolated_server[2]()  # Kill/restart ONLY the fixture-owned TCP-disabled server.
+    writer.close()
+    if committed:
+        assert read_custody(connections, sealed) == sealed
+        reconstructed = custody_cipher().open(read_custody(connections, sealed))
+        assert reconstructed == receipt and reconstructed is not receipt
+    else:
+        with pytest.raises(custody.PrimaryReceiptCustodyError, match="receipt_custody_missing"):
+            read_custody(connections, sealed)
+    assert read_receipt_journal(connections, receipt) == receipt.before
+
+
+@pytest.mark.parametrize("actually_committed", [False, True])
+def test_unknown_commit_requires_identical_envelope_and_never_reseals(connections, namespace, prepared, actually_committed):
+    receipt = retained(prepared, namespace=namespace)
+    store_receipt_predecessor(connections, receipt)
+    selected = custody_cipher()
+    sealed = selected.seal(receipt, key_id="private-custody")
+    writer = connections()
+    try:
+        custody.MariaDBPrimaryReceiptCustodyRepository(writer, namespace, selected).stage(sealed)
+        if actually_committed:
+            writer.commit()  # Simulate a commit whose acknowledgment was lost to the caller.
+        else:
+            writer.rollback()  # Simulate no persisted commit, not an inference after HTTP.
+    finally:
+        writer.close()
+    recovered_writer = connections()
+    try:
+        recovered = custody.MariaDBPrimaryReceiptCustodyRepository(recovered_writer, namespace, selected).stage(sealed)
+        assert recovered == sealed
+        recovered_writer.commit()
+    finally:
+        recovered_writer.close()
+    assert read_custody(connections, sealed) == sealed
+    assert read_receipt_journal(connections, receipt) == receipt.before
+
+
+@pytest.mark.parametrize("isolation", ["REPEATABLE READ", "READ COMMITTED"])
+@pytest.mark.parametrize("reseal", [False, True])
+def test_competing_custody_writers_store_one_exact_envelope(connections, namespace, prepared, isolation, reseal):
+    receipt = retained(prepared, namespace=namespace)
+    store_receipt_predecessor(connections, receipt)
+    selected = custody_cipher()
+    sealed = selected.seal(receipt, key_id="private-custody")
+    competitor = selected.seal(receipt, key_id="private-custody") if reseal else sealed
+    barrier = threading.Barrier(2)
+    def stage(envelope):
+        connection = connections(isolation)
+        try:
+            barrier.wait(timeout=3)
+            result = custody.MariaDBPrimaryReceiptCustodyRepository(connection, namespace, selected).stage(envelope)
+            connection.commit()
+            return result
+        except custody.PrimaryReceiptCustodyError:
+            connection.rollback()
+            return None
+        finally:
+            connection.close()
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(stage, (sealed, competitor)))
+    assert sum(item is not None for item in results) == (1 if reseal else 2)
+    assert read_custody(connections, sealed) in (sealed, competitor)
+    assert read_receipt_journal(connections, receipt) == receipt.before
+
+
+@pytest.mark.parametrize("wrong", ["namespace", "attempt", "candidate"])
+def test_custody_selection_has_no_cross_scope_or_latest_fallback(connections, namespace, prepared, wrong):
+    receipt = retained(prepared, namespace=namespace)
+    store_receipt_predecessor(connections, receipt)
+    sealed = custody_cipher().seal(receipt, key_id="private-custody")
+    writer = connections()
+    try:
+        custody.MariaDBPrimaryReceiptCustodyRepository(writer, namespace, custody_cipher()).stage(sealed)
+        writer.commit()
+    finally:
+        writer.close()
+    reader = connections()
+    try:
+        scope = str(uuid4()) if wrong == "namespace" else namespace
+        key = "0" * 64 if wrong == "candidate" else sealed.candidate_sha256
+        attempt = str(uuid4()) if wrong == "attempt" else sealed.attempt_id
+        with pytest.raises(custody.PrimaryReceiptCustodyError, match="receipt_custody_missing"):
+            custody.MariaDBPrimaryReceiptCustodyRepository(reader, scope, custody_cipher()).load(key, attempt)
+    finally:
+        reader.rollback()
+        reader.close()
+
+
+@pytest.mark.parametrize("fault", ["nonce", "ciphertext", "receipt_sha256", "predecessor_sha256", "key_id"])
+def test_custody_corruption_is_not_adopted_or_disclosed(connections, namespace, prepared, fault):
+    receipt = retained(prepared, namespace=namespace)
+    store_receipt_predecessor(connections, receipt)
+    sealed = custody_cipher().seal(receipt, key_id="private-custody")
+    writer = connections()
+    try:
+        custody.MariaDBPrimaryReceiptCustodyRepository(writer, namespace, custody_cipher()).stage(sealed)
+        writer.commit()
+        replacement = {"nonce": b"X" * 12, "ciphertext": b"PRIVATE altered bytes", "receipt_sha256": "0" * 64,
+            "predecessor_sha256": "0" * 64, "key_id": "unavailable"}[fault]
+        with writer.cursor() as cursor:
+            # Fixed test-only column allowlist, deliberate corruption of owned synthetic data.
+            cursor.execute("UPDATE zatca_primary_receipt_custody_v1 SET " + fault + "=%s WHERE storage_namespace=%s",
+                (replacement, namespace))
+        writer.commit()
+    finally:
+        writer.close()
+    with pytest.raises(custody.PrimaryReceiptCustodyError) as error:
+        read_custody(connections, sealed)
+    assert error.value.__context__ is None and "PRIVATE" not in str(error.value)
+
+
+def test_custody_nonce_collision_across_namespaces_cannot_silently_drop_new_receipt(connections, namespace, prepared, monkeypatch):
+    monkeypatch.setattr(custody.secrets, "token_bytes", lambda size: b"N" * size)
+    receipts = [retained(prepared, namespace=selected) for selected in (namespace, str(uuid4()))]
+    envelopes = []
+    for receipt in receipts:
+        store_receipt_predecessor(connections, receipt)
+        envelopes.append(custody_cipher().seal(receipt, key_id="private-custody"))
+    writer = connections()
+    try:
+        custody.MariaDBPrimaryReceiptCustodyRepository(writer, namespace, custody_cipher()).stage(envelopes[0])
+        writer.commit()
+        with pytest.raises(custody.PrimaryReceiptCustodyError):
+            custody.MariaDBPrimaryReceiptCustodyRepository(writer, receipts[1].storage_namespace, custody_cipher()).stage(envelopes[1])
+        writer.rollback()
+    finally:
+        writer.close()
+    assert read_custody(connections, envelopes[0]) == envelopes[0]
+    with pytest.raises(custody.PrimaryReceiptCustodyError, match="receipt_custody_missing"):
+        read_custody(connections, envelopes[1])
+
+
+def test_custody_rejects_autocommit_before_immutable_insert(connections, namespace, prepared):
+    receipt = retained(prepared, namespace=namespace)
+    store_receipt_predecessor(connections, receipt)
+    sealed = custody_cipher().seal(receipt, key_id="private-custody")
+    writer = connections(autocommit=True)
+    try:
+        with pytest.raises(custody.PrimaryReceiptCustodyError, match="receipt_custody_autocommit"):
+            custody.MariaDBPrimaryReceiptCustodyRepository(writer, namespace, custody_cipher()).stage(sealed)
+    finally:
+        writer.close()
+    with pytest.raises(custody.PrimaryReceiptCustodyError, match="receipt_custody_missing"):
+        read_custody(connections, sealed)
+
+
+@pytest.mark.parametrize("wrong", ["resealed", "body", "event"])
+def test_custody_never_overwrites_original_with_a_valid_but_different_envelope(connections, namespace, prepared, wrong):
+    receipt = retained(prepared, namespace=namespace)
+    store_receipt_predecessor(connections, receipt)
+    selected = custody_cipher()
+    sealed = selected.seal(receipt, key_id="private-custody")
+    writer = connections()
+    try:
+        custody.MariaDBPrimaryReceiptCustodyRepository(writer, namespace, selected).stage(sealed)
+        writer.commit()
+        alternative = receipt
+        if wrong == "body":
+            alternative = replace(receipt, response_event=replace(receipt.response_event, response_bytes=b"OTHER SYNTHETIC BODY"))
+        elif wrong == "event":
+            alternative = replace(receipt, response_event=replace(receipt.response_event, event_id=str(uuid4())))
+        other = selected.seal(alternative, key_id="private-custody")
+        with pytest.raises(custody.PrimaryReceiptCustodyError, match="receipt_custody_conflict"):
+            custody.MariaDBPrimaryReceiptCustodyRepository(writer, namespace, selected).stage(other)
+        writer.rollback()
+    finally:
+        writer.close()
+    assert read_custody(connections, sealed) == sealed
+
+
+@pytest.mark.parametrize("wrong", ["missing", "empty", "attempt"])
+def test_custody_cannot_create_or_substitute_a_started_journal(connections, namespace, prepared, wrong):
+    receipt = retained(prepared, namespace=namespace)
+    writer = connections()
+    try:
+        if wrong != "missing":
+            empty = save(writer, namespace, prepared)
+            if wrong == "attempt":
+                MariaDBJournalRepository(writer, namespace).append(prepared.key_sha256,
+                    replace(receipt.before.events[0], attempt_id=str(uuid4())), expected_journal_sha256=empty.journal_sha256)
+                writer.commit()
+        sealed = custody_cipher().seal(receipt, key_id="private-custody")
+        with pytest.raises(custody.PrimaryReceiptCustodyError):
+            custody.MariaDBPrimaryReceiptCustodyRepository(writer, namespace, custody_cipher()).stage(sealed)
+        writer.rollback()
+        with writer.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM zatca_primary_receipt_custody_v1 WHERE storage_namespace=%s", (namespace,))
+            assert cursor.fetchone() == (0,)
+    finally:
+        writer.close()
+
+
+def test_custody_remains_available_after_journal_drift_without_authorizing_adoption(connections, namespace, prepared):
+    receipt = retained(prepared, namespace=namespace)
+    store_receipt_predecessor(connections, receipt)
+    selected = custody_cipher()
+    sealed = selected.seal(receipt, key_id="private-custody")
+    writer = connections()
+    try:
+        custody.MariaDBPrimaryReceiptCustodyRepository(writer, namespace, selected).stage(sealed)
+        writer.commit()
+        MariaDBJournalRepository(writer, namespace).append(prepared.key_sha256,
+            event(prepared, "TRANSPORT_UNKNOWN", 2), expected_journal_sha256=receipt.before.journal_sha256)
+        writer.commit()
+    finally:
+        writer.close()
+    recovered = selected.open(read_custody(connections, sealed))
+    assert recovered == receipt
+    result = PrimaryReceiptPersistence(namespace, connection_factory=connections).persist(recovered)
+    assert result.state == "RECEIPT_COMMIT_UNCONFIRMED_NO_REPLAY"
+    assert read_receipt_journal(connections, receipt).state == "OUTCOME_UNKNOWN"
+    assert read_custody(connections, sealed) == sealed
 
 
 def store_receipt_predecessor(connections, receipt):

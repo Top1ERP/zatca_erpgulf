@@ -9,6 +9,20 @@ CREATE TABLE zatca_receipt_storage_binding_v1 (
     registration_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL
 ) ENGINE=InnoDB;
 
+-- Protected custody ONLY in the owned isolated rehearsal, never installed live.
+CREATE TABLE zatca_primary_receipt_custody_v1 (
+    storage_namespace CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    candidate_sha256 CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    attempt_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    predecessor_sha256 CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    receipt_sha256 CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    key_id VARCHAR(80) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    nonce BINARY(12) NOT NULL,
+    ciphertext MEDIUMBLOB NOT NULL,
+    PRIMARY KEY (storage_namespace,candidate_sha256,attempt_id),
+    UNIQUE KEY receipt_custody_nonce (key_id,nonce)
+) ENGINE=InnoDB;
+
 CREATE TABLE zatca_issuance_candidate_v1 (
     storage_namespace CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     key_sha256 CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
