@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and fifty-seven bounded increments (Compliance outcomes, dedicated
+Safety preparation and fifty-eight bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -48,7 +48,8 @@ and a permissioned metadata-only saved-source primary capture boundary,
 and exact local primary custody/journal pair inspection and persistence,
 and permissioned metadata-only saved-source paired reconciliation access,
 and bounded pure primary outcome review with writer/late-response evidence,
-and received local presentation/logging-step isolation for all primary statuses)
+and received local presentation/logging-step isolation for all primary statuses,
+and selected primary rejection-persistence local-failure isolation)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -1048,6 +1049,29 @@ branches and credential-context differences are recorded in
   crypto/advance accounting or scheduler/replay change. See
   [RESPONSE_PROCESSING.md](RESPONSE_PROCESSING.md).
 
+## Increment 58: selected primary rejection-persistence isolation
+
+- Guarded local: **8,487 passed in 54.37 seconds**. Guarded combined: **8,487
+  local + 1,084 private SQL = 9,571 passed in 102.12 seconds**, across the same
+  twelve private suites (438 local + 112 private additions). All HTTP/documents
+  are synthetic; SQL uses newly owned temporary servers, never customer sites.
+- Three named English-documented helpers replace twelve repeated rejection
+  persistence blocks in the four DEVELOPMENT primary APIs. Known local failures
+  during invoice load, save/db_set, response text/setter or commit use the same
+  static translated review signal, without subsequent generic writes/503/commit/
+  retry. The wrapper neither rolls back nor guarantees original-response custody.
+- Normal intentional rejection throws, placeholders/valid UUID policy, commit
+  ordering, existing generic wrapping/503 mapping, success/303/409 behavior and
+  POS pre-HTTP XML linking remain unchanged. Prior commits and parent-work
+  effects remain visible; pending state still belongs to the caller.
+- The real event logger still swallows errors, returns None and owns an ambient
+  commit. That is audited, not rewritten. Immediate generator handlers remain
+  narrow; whole-program worker/parent integration and honest caller-owned logger
+  transaction/result semantics remain gates alongside exact custody.
+- No installed source/config/schema/assets/Bench/customer/authority action;
+  no advance/discount/GL/VAT, credentials/routing or signature/QR change.
+  See [REJECTION_PERSISTENCE.md](REJECTION_PERSISTENCE.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -1531,9 +1555,10 @@ not independent provenance or runtime adoption. Increment 56 adds actual
 single-writer/late-response characterization and pure non-authorizing review,
 not an activated receiver or partial-state repair. Increment57 isolates known
 local formatting/event-log/hide failures for all primary statuses without changing
-normal rejection classification or legacy persistence. Next audit rejection-write
-and caller exception boundaries plus event logger swallowed errors/own commits,
-plan intentional rejection/custody/parent lifecycle
+normal rejection classification or legacy persistence. Increment58 extends that
+boundary to selected rejection-persistence faults without extra post-fault writes,
+not atomicity or rollback of prior commits. Next design honest caller-owned event
+logging plus caller exception boundaries, intentional rejection/custody/parent lifecycle
 together, continue lost/late/unbound and partial-write policy, and audit source/namespace/key/
 lookup custody and transport-source-epoch/response evidence before
 wiring durable receipt storage/review holds; remove legacy partial/parent commits before artifact

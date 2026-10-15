@@ -26,7 +26,7 @@ def raise_local_response_review():
 
 
 def run_received_response_step(step, *args, validation_error_type, **kwargs):
-    """Guard ONE local presentation/logging step AFTER a response was received.
+    """Guard ONE local processing step AFTER a response was received.
 
     The caller supplies its framework ValidationError class (also in v15/v16
     shaped tests). Deliberate HTTP-rejection throws MUST NOT use this wrapper.
@@ -34,6 +34,9 @@ def run_received_response_step(step, *args, validation_error_type, **kwargs):
     their handler, not a generic authority failure. Unhandled RuntimeError and
     interruptions keep their old propagation. There is no retry, commit/rollback,
     raw exception retention or guarantee that the callback itself did not write.
+    This includes explicitly selected rejection-persistence callbacks, but never
+    the caller's deliberate remote-rejection throw. Prior callback commits and
+    partially mutated in-memory documents are not undone; reload/review is needed.
     """
     try:
         return step(*args, **kwargs)

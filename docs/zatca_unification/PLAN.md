@@ -137,6 +137,13 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 58 adds [selected rejection-persistence isolation](REJECTION_PERSISTENCE.md)
+  in the four primary Sales/POS APIs. Three named adapters replace twelve
+  repeated blocks, preserving normal rejection/UUID/commit policy. Known local
+  loading/writing/text/commit faults cannot add generic failure writes or retry;
+  previous partial commits are not undone. Next design the event logger's honest
+  caller-owned result/transaction contract together with exact durable custody,
+  intentional rejection and parent lifecycle, not blanket commit deletion.
 - Increment 57 adds [received presentation/logging-step isolation](RESPONSE_PROCESSING.md)
   to the four primary Sales/POS APIs for ALL statuses. Formatting (including lazy
   text), event log and hide callbacks use the existing static translated local

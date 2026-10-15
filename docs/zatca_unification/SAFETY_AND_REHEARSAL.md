@@ -447,6 +447,22 @@ full source/caller transaction integration remain unfinished before rehearsal.
 The actual event logger's swallowed exceptions/None returns and own commits are
 unchanged; fallback-failure protection is not an event-log durability guarantee.
 
+Increment58 adds [selected rejection-persistence isolation](REJECTION_PERSISTENCE.md)
+in the DEVELOPMENT primary Sales/POS APIs only. Three named helpers replace
+twelve repeated blocks, without changing successful legacy persistence or
+intentional remote-rejection behavior. Known local load/text/save/db_set/commit
+failures cannot add generic error writes/503/commit/retry after the fault; this
+does not undo a callback's prior effects or guarantee response custody. The actual
+logger's own commits, swallowed exceptions and None return remain unchanged.
+The guarded combined run passed **8,487 local + 1,084 private SQL = 9,571 cases
+in 102.12 seconds**, across the same twelve private suites. The 112 new SQL cases
+assert exact pending-versus-committed state with independent readers and explicit
+parent commit/rollback. No installed app/config/schema/assets/Bench/workers,
+customer or authority action, including Sandbox/Simulation, occurred. No advance
+allocation/age/settlement or GL/VAT change; no installed v16/crypto/QR/authority
+acceptance claim. Honest logger result/transaction semantics, exact custody and
+whole-parent lifecycle remain blocking development gates before rehearsal.
+
 These stages are future gates, not actions executed or approved by this increment.
 Full development and real v15/v16/application/crypto/advance acceptance remain
 unfinished. Remote authority acceptance is a separate unverified gate and cannot

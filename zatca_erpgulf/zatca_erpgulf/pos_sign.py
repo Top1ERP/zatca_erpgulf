@@ -105,6 +105,19 @@ ITEM_TAX_TEMPLATE_WARNING = "If any one item has an Item Tax Template,"
 CONTENT_TYPE_JSON = "application/json"
 
 
+def _persist_pos_rejection(invoice_number):
+    """Preserve the legacy POS rejection writes inside a received-step guard.
+
+    Both POS APIs use placeholders, unlike Sales; do not silently change that
+    policy during local-error isolation. The three existing commits can leave
+    partial state and can commit parent work. This is not durable receipt custody
+    or rollback protection. Deliberate remote rejection throws stay at the caller.
+    """
+    invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
+    for field in ("custom_uuid", "custom_zatca_status", "custom_zatca_full_response"):
+        invoice_doc.db_set(field, "Not Submitted", commit=True, update_modified=True)
+
+
 def reporting_api(
     uuid1, encoded_hash, signed_xmlfile_name, invoice_number, pos_invoice_doc
 ):
@@ -234,25 +247,7 @@ def reporting_api(
                         title=title
                     )
                 if response.status_code in (400, 405, 406):
-                    invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
-                    invoice_doc.db_set(
-                        "custom_uuid",
-                        "Not Submitted",
-                        commit=True,
-                        update_modified=True,
-                    )
-                    invoice_doc.db_set(
-                        "custom_zatca_status",
-                        "Not Submitted",
-                        commit=True,
-                        update_modified=True,
-                    )
-                    invoice_doc.db_set(
-                        "custom_zatca_full_response",
-                        "Not Submitted",
-                        commit=True,
-                        update_modified=True,
-                    )
+                    response_step(_persist_pos_rejection, invoice_number)
                     frappe.throw(
                         _(
                             (
@@ -265,25 +260,7 @@ def reporting_api(
                     )
 
                 if response.status_code in (401, 403, 407, 451):
-                    invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
-                    invoice_doc.db_set(
-                        "custom_uuid",
-                        "Not Submitted",
-                        commit=True,
-                        update_modified=True,
-                    )
-                    invoice_doc.db_set(
-                        "custom_zatca_status",
-                        "Not Submitted",
-                        commit=True,
-                        update_modified=True,
-                    )
-                    invoice_doc.db_set(
-                        "custom_zatca_full_response",
-                        "Not Submitted",
-                        commit=True,
-                        update_modified=True,
-                    )
+                    response_step(_persist_pos_rejection, invoice_number)
                     frappe.throw(
                         _(
                             (
@@ -318,25 +295,7 @@ def reporting_api(
                     success_log(response.text, uuid1, invoice_number)
                 
                 if response.status_code not in (200, 202, 409):
-                    invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
-                    invoice_doc.db_set(
-                        "custom_uuid",
-                        "Not Submitted",
-                        commit=True,
-                        update_modified=True,
-                    )
-                    invoice_doc.db_set(
-                        "custom_zatca_status",
-                        "Not Submitted",
-                        commit=True,
-                        update_modified=True,
-                    )
-                    invoice_doc.db_set(
-                        "custom_zatca_full_response",
-                        "Not Submitted",
-                        commit=True,
-                        update_modified=True,
-                    )
+                    response_step(_persist_pos_rejection, invoice_number)
                     frappe.throw(
                         _(
                             (
@@ -512,22 +471,7 @@ def clearance_api(
                 title=title
             )
         if response.status_code in (400, 405, 406, 409):
-            invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
-            invoice_doc.db_set(
-                "custom_uuid", "Not Submitted", commit=True, update_modified=True
-            )
-            invoice_doc.db_set(
-                "custom_zatca_status",
-                "Not Submitted",
-                commit=True,
-                update_modified=True,
-            )
-            invoice_doc.db_set(
-                "custom_zatca_full_response",
-                "Not Submitted",
-                commit=True,
-                update_modified=True,
-            )
+            response_step(_persist_pos_rejection, invoice_number)
             frappe.throw(
                 _(
                     (
@@ -539,22 +483,7 @@ def clearance_api(
             )
 
         if response.status_code in (401, 403, 407, 451):
-            invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
-            invoice_doc.db_set(
-                "custom_uuid", "Not Submitted", commit=True, update_modified=True
-            )
-            invoice_doc.db_set(
-                "custom_zatca_status",
-                "Not Submitted",
-                commit=True,
-                update_modified=True,
-            )
-            invoice_doc.db_set(
-                "custom_zatca_full_response",
-                "Not Submitted",
-                commit=True,
-                update_modified=True,
-            )
+            response_step(_persist_pos_rejection, invoice_number)
             frappe.throw(
                 _(
                     (
@@ -566,22 +495,7 @@ def clearance_api(
             )
 
         if response.status_code not in (200, 202):
-            invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
-            invoice_doc.db_set(
-                "custom_uuid", "Not Submitted", commit=True, update_modified=True
-            )
-            invoice_doc.db_set(
-                "custom_zatca_status",
-                "Not Submitted",
-                commit=True,
-                update_modified=True,
-            )
-            invoice_doc.db_set(
-                "custom_zatca_full_response",
-                "Not Submitted",
-                commit=True,
-                update_modified=True,
-            )
+            response_step(_persist_pos_rejection, invoice_number)
             frappe.throw(
                 _(
                     f"Error: ZATCA server busy or not responding. Status code: {response.status_code}"

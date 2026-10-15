@@ -21,7 +21,9 @@ from zatca_erpgulf.zatca_erpgulf import response_processing, zatca_response
 from zatca_erpgulf.zatca_erpgulf.tests.test_submission_context import (
     boundary, run_adapter, ValidationError as BoundaryError,
 )
-from zatca_erpgulf.zatca_erpgulf.tests.test_received_response_steps import fail_step
+from zatca_erpgulf.zatca_erpgulf.tests.test_received_response_steps import (
+    fail_step, fail_rejection_step, REJECTION_STAGES,
+)
 from zatca_erpgulf.zatca_erpgulf.tests.test_response_processing import snapshot as response_snapshot
 
 
@@ -286,6 +288,65 @@ def test_late_rejection_format_failure_adds_no_generic_write_commit_or_503_to_re
         expected_receipt = b.response.text  # Pending raw response committed ONLY by explicit test owner.
     assert read_response_sql(connections, key) == (expected_receipt, "Not Submitted", expected_uuid, "PARENT-PENDING")
     b.post.assert_called_once()
+
+
+def rejection_sql_expectations(module, operation, stage, parent_commit):
+    """Exact independent visibility, not inference from a mocked commit count."""
+    original = ("ORIGINAL-RECEIPT", "ORIGINAL-STATUS", None, "ORIGINAL-BUSINESS")
+    if module is sign_invoice and operation == "reporting":
+        updated = ("TEST RESPONSE", "Not Submitted", "Not Submitted", "PARENT-PENDING")
+        visible = updated if stage == "commit_after" else original
+        pending_write = stage in ("save_after", "commit_before", "commit_after")
+        final = updated if stage == "commit_after" or (pending_write and parent_commit) else (
+            *original[:3], "PARENT-PENDING" if parent_commit else "ORIGINAL-BUSINESS")
+        return visible, final
+    # Sales Clearance retains a valid UUID; this case deliberately seeded None
+    # to cover its reset branch. POS always resets. These commits remain legacy.
+    receipt, status, uuid, business = original
+    if stage not in ("get_doc", "custom_uuid_before"):
+        uuid, business = "Not Submitted", "PARENT-PENDING"
+    if stage in ("custom_zatca_status_after", "custom_zatca_full_response_before",
+                 "custom_zatca_full_response_after", "text"):
+        status = "Not Submitted"
+    if stage == "custom_zatca_full_response_after" and module is pos_sign:
+        receipt = "Not Submitted"  # POS third db_set commits immediately.
+    visible = (receipt, status, uuid, business)
+    if parent_commit:
+        business = "PARENT-PENDING"
+        if stage == "custom_zatca_full_response_after" and module is sign_invoice:
+            receipt = "TEST RESPONSE"  # Sales setter left this pending, not committed.
+    return visible, (receipt, status, uuid, business)
+
+
+@pytest.mark.parametrize("module,operation,stage", REJECTION_STAGES)
+@pytest.mark.parametrize("status", [400, 401])
+@pytest.mark.parametrize("parent_commit", [False, True])
+def test_rejection_persistence_fault_preserves_exact_partial_sql_and_parent_decision(qr_schema,
+    boundary, connections, namespace, monkeypatch, module, operation, stage, status, parent_commit):
+    b = boundary
+    (b.sales if module is sign_invoice else b.pos).custom_uuid = None
+    doc, transaction, key = response_sql_case(b, connections, namespace, module)
+    b.response.status_code = status
+    selected, observed = fail_rejection_step(b, module, operation, monkeypatch, stage, BoundaryError,
+        observe=lambda: read_response_sql(connections, key))
+    assert selected is doc
+    expected_visible, expected_final = rejection_sql_expectations(module, operation, stage, parent_commit)
+    try:
+        with pytest.raises(response_processing.LocalResponseProcessingError) as error:
+            run_adapter(b, module, operation)
+        assert len(observed) == 1 and response_snapshot(b, doc) == observed[0][0]
+        assert observed[0][1] == read_response_sql(connections, key) == expected_visible
+        assert error.value.__context__ is error.value.__cause__ is None and not vars(error.value)
+        assert str(error.value) == response_processing.LOCAL_RESPONSE_REVIEW
+        # The API adds neither error persistence nor rollback. Only the synthetic
+        # transaction owner decides pending work; prior legacy commits survive.
+        (transaction.commit if parent_commit else transaction.rollback)()
+    finally:
+        transaction.rollback()
+        transaction.close()
+    assert read_response_sql(connections, key) == expected_final
+    b.post.assert_called_once()
+    b.frappe.log_error.assert_not_called()
 
 
 def prepare_primary(primary_qr, connections, namespace, doctype, status, *, failure=None):

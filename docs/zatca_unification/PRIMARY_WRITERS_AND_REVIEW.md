@@ -140,7 +140,9 @@ protected identities and strengthened to require only the two closed state field
 No storage/source/permission guard was waived. History is in [STATUS.md](STATUS.md).
 The subsequently added increment57 guard stops escaped formatting/log/hide
 errors, not the logger's swallowed errors/own commits or intentional rejection
-persistence. Those remain explicit gates. Full installed v15/v16,
+persistence. Increment58 subsequently [isolates selected local rejection-persistence
+failures](REJECTION_PERSISTENCE.md), preserving normal intentional rejection and
+prior commits. Logger transaction/result and whole-parent lifecycle remain gates. Full installed v15/v16,
 SDK/crypto/QR/advance GL/VAT, independent source/key/provider/epoch/transport
 provenance, actual late receiver and pre-first-durable-response loss remain
 unverified. Finish development before separately approved isolated fictional-

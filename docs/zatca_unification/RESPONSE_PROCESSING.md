@@ -1,4 +1,4 @@
-# Primary post-response error boundaries — increments 45 and 57
+# Primary post-response error boundaries — increments 45, 57 and 58
 
 ## Original bounded change — increment 45
 
@@ -102,6 +102,13 @@ scheduler/replay mechanism is added. This is development source ONLY: no working
 application update or authority call, including Sandbox/Simulation, occurred.
 
 ## What these changes do NOT guarantee
+
+Increment58 subsequently adds [selected rejection-persistence steps](REJECTION_PERSISTENCE.md)
+to the same guard. Known local load/write/text/commit failures no longer trigger
+additional generic error writes. Deliberate rejection throws and successful
+legacy persistence ordering/commit policy remain unchanged. The exclusion of
+persistence in the increment57 section above describes that historical increment,
+not the subsequently extended boundary. Event logger ownership is NOT changed.
 
 [Increment 46](PRIMARY_RECEIPT_PERSISTENCE.md) subsequently adds an internal local
 exact-retained-receipt persistence/redelivery primitive. It is not wired to these

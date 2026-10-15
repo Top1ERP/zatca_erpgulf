@@ -1,4 +1,4 @@
-"""Actual primary presentation/log steps, entirely mocked HTTP/ERP/File."""
+"""Primary presentation/log/rejection steps with entirely mocked HTTP/ERP/File."""
 
 import ast
 import csv
@@ -96,11 +96,13 @@ def test_lazy_response_text_failure_is_inside_the_presentation_guard(boundary, m
 
 
 @pytest.mark.parametrize("module,operation", ROUTES)
-@pytest.mark.parametrize("status", [400, 401, 503])
-def test_normal_rejection_keeps_the_existing_legacy_writes_and_exception_family(boundary, module, operation, status):
+@pytest.mark.parametrize("status", [400, 405, 406, 401, 403, 407, 451, 503])
+@pytest.mark.parametrize("uuid", ["test-existing-uuid", None, "Not Submitted"])
+def test_normal_rejection_keeps_the_existing_legacy_writes_and_exception_family(boundary, module, operation, status, uuid):
     b = boundary
     b.response.status_code = status
     doc = b.sales if module is sign_invoice else b.pos
+    doc.custom_uuid = uuid
     with pytest.raises(ValidationError) as error:
         run_adapter(b, module, operation)
     assert not isinstance(error.value, policy.LocalResponseProcessingError)
@@ -108,10 +110,12 @@ def test_normal_rejection_keeps_the_existing_legacy_writes_and_exception_family(
     if module is sign_invoice and operation == "reporting":
         assert doc.save.call_count == b.frappe.db.commit.call_count == 2
         doc.db_set.assert_not_called()
-        assert doc.custom_zatca_status == "Not Submitted" and doc.custom_uuid == "test-existing-uuid"
+        assert doc.custom_zatca_status == "Not Submitted"
+        assert doc.custom_uuid == (uuid if uuid == "test-existing-uuid" else "Not Submitted")
     elif module is sign_invoice:
-        assert doc.db_set.call_count == 3 and doc.custom_zatca_status == "503 Service Unavailable"
-        assert doc.custom_uuid == "test-existing-uuid"
+        assert doc.db_set.call_count == (3 if uuid == "test-existing-uuid" else 4)
+        assert doc.custom_zatca_status == "503 Service Unavailable"
+        assert doc.custom_uuid == (uuid if uuid == "test-existing-uuid" else "Not Submitted")
         doc.save.assert_not_called()
         b.frappe.db.commit.assert_not_called()
     else:
@@ -272,15 +276,135 @@ def test_response_message_forwards_exact_text_and_status_and_helper_has_no_io(mo
 
 
 @pytest.mark.parametrize("module,operation", ROUTES)
-def test_only_presentation_log_and_hide_are_wrapped_after_transport_not_deliberate_throws(module, operation):
+def test_selected_local_steps_are_wrapped_after_transport_not_deliberate_throws(module, operation):
     tree = ast.parse(inspect.getsource(getattr(module, operation + "_api")))
     calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
     post = [node for node in calls if isinstance(node.func, ast.Attribute) and node.func.attr == "post"]
     wrappers = [node for node in calls if isinstance(node.func, ast.Name) and node.func.id == "response_step"]
     renders = [node for node in calls if isinstance(node.func, ast.Name) and node.func.id == "render_response"]
-    assert len(post) == 1 and len(wrappers) == 3 and renders
+    assert len(post) == 1 and len(wrappers) == 6 and renders
     assert all(node.lineno > post[0].lineno for node in (*wrappers, *renders))
     assert sum(isinstance(node.args[0], ast.Name) and node.args[0].id == "log_zatca_event" for node in wrappers) == 2
     hide = [node for node in wrappers if isinstance(node.args[0], ast.Attribute)]
     assert len(hide) == 1 and hide[0].args[0].attr == "publish_realtime" and hide[0].args[1].value == "hide_gif"
+    persistence = [node for node in wrappers if isinstance(node.args[0], ast.Name) and node.args[0].id.startswith("_persist_")]
+    expected = ("_persist_" + operation + "_rejection") if module is sign_invoice else "_persist_pos_rejection"
+    assert len(persistence) == 3 and all(node.args[0].id == expected for node in persistence)
+    assert not any(isinstance(node.args[0], ast.Attribute) and node.args[0].attr == "throw" for node in wrappers)
     assert not any(isinstance(node.func, ast.Name) and node.func.id == "format_zatca_response" for node in calls)
+
+
+# Distinct failure points, not generic "all exceptions" or post-hoc snapshots.
+REJECTION_STAGES = tuple((module, operation, "get_doc") for module, operation in ROUTES) + tuple(
+    (sign_invoice, "reporting", stage) for stage in (
+        "save_before", "save_after", "commit_before", "commit_after", "text")) + tuple(
+    (module, operation, field + timing)
+    for module, operation in ROUTES if operation == "clearance" or module is pos_sign
+    for field in ("custom_uuid", "custom_zatca_status", "custom_zatca_full_response")
+    for timing in ("_before", "_after")) + ((sign_invoice, "clearance", "text"),)
+
+
+def fail_rejection_step(b, module, operation, monkeypatch, stage, error_type, *, observe=None):
+    """Inject before/after the actual legacy write, optionally observing real SQL.
+
+    Mock call counts are captured INSIDE the fault, so any extra caller write or
+    commit after it is detectable. In SQL tests the original callbacks execute.
+    """
+    doc = b.sales if module is sign_invoice else b.pos
+    observed = []
+    def fail():
+        observed.append((snapshot(b, doc), observe() if observe else None))
+        raise error_type("PRIVATE rejection persistence error credential/path")
+    if stage == "get_doc":
+        original = b.frappe.get_doc.side_effect
+        def get_doc(doctype, name=None):
+            if b.post.call_count and doctype == doc.doctype and name == doc.name:
+                fail()
+            return original(doctype, name)
+        b.frappe.get_doc.side_effect = get_doc
+    elif stage == "text":
+        response = b.response
+        class LazyResponse:
+            status_code = response.status_code
+            reads = 0
+            @property
+            def text(self):
+                self.reads += 1
+                if self.reads == 2:  # Initial event presentation succeeded.
+                    fail()
+                return response.text
+        b.post.return_value = LazyResponse()
+    else:
+        target, timing = stage.rsplit("_", 1)
+        callback = doc.save if target == "save" else b.frappe.db.commit if target == "commit" else doc.db_set
+        original = callback.side_effect
+        def write(*args, **kwargs):
+            selected = target in ("save", "commit") or args[0] == target
+            if selected and timing == "before":
+                fail()
+            result = original(*args, **kwargs) if callable(original) else callback.return_value
+            if selected and timing == "after":
+                fail()
+            return result
+        callback.side_effect = write
+        if target == "custom_zatca_full_response" and module is sign_invoice:
+            # Exercise the real response setter instead of the fixture's stub.
+            from zatca_erpgulf.zatca_erpgulf.zatca_response import set_zatca_full_response
+            monkeypatch.setattr(module, "set_zatca_full_response", set_zatca_full_response)
+    return doc, observed
+
+
+@pytest.mark.parametrize("module,operation,stage", REJECTION_STAGES)
+@pytest.mark.parametrize("status", [400, 401, 503])
+@pytest.mark.parametrize("error_type", LOCAL_ERRORS)
+def test_rejection_persistence_failure_adds_no_generic_write_commit_or_retry(boundary, monkeypatch,
+    module, operation, stage, status, error_type):
+    b = boundary
+    b.response.status_code = status
+    # Force the UUID-reset branch for Sales Clearance; test both UUID policies
+    # separately in the unchanged normal-rejection goldens above.
+    doc = b.sales if module is sign_invoice else b.pos
+    doc.custom_uuid = None
+    doc, observed = fail_rejection_step(b, module, operation, monkeypatch, stage, error_type)
+    with pytest.raises(policy.LocalResponseProcessingError) as error:
+        run_adapter(b, module, operation)
+    assert len(observed) == 1 and snapshot(b, doc) == observed[0][0]
+    assert str(error.value) == policy.LOCAL_RESPONSE_REVIEW
+    assert error.value.__context__ is error.value.__cause__ is None and not vars(error.value)
+    b.frappe.log_error.assert_not_called()
+    b.post.assert_called_once()
+    for owner in (b.company, b.device, b.linked):
+        owner.save.assert_not_called()
+        assert owner.custom_pih == "previous"
+
+
+@pytest.mark.parametrize("operation", ["reporting", "clearance"])
+@pytest.mark.parametrize("stage", ["custom_uuid_before", "custom_zatca_status_after", "custom_zatca_full_response_after"])
+def test_pos_409_persistence_fault_is_local_review_not_a_duplicate_acceptance(boundary, monkeypatch, operation, stage):
+    b = boundary
+    b.response.status_code = 409
+    if operation == "reporting":
+        # POS Reporting's legacy 409 branch remains distinct from Clearance;
+        # it must not call a rejection helper or acquire a new rejection verdict.
+        monkeypatch.setattr(pos_sign, "_persist_pos_rejection", Mock(side_effect=AssertionError("No rejection expected")))
+        run_adapter(b, pos_sign, operation)
+        pos_sign._persist_pos_rejection.assert_not_called()
+    else:
+        doc, observed = fail_rejection_step(b, pos_sign, operation, monkeypatch, stage, ValidationError)
+        with pytest.raises(policy.LocalResponseProcessingError):
+            run_adapter(b, pos_sign, operation)
+        assert len(observed) == 1 and snapshot(b, doc) == observed[0][0]
+    b.post.assert_called_once()
+
+
+@pytest.mark.parametrize("module,operation", ROUTES)
+@pytest.mark.parametrize("error_type", [RuntimeError, KeyboardInterrupt, SystemExit])
+def test_rejection_persistence_unhandled_errors_are_not_relabelled(boundary, monkeypatch, module, operation, error_type):
+    b = boundary
+    b.response.status_code = 401
+    doc, observed = fail_rejection_step(b, module, operation, monkeypatch, "get_doc", error_type)
+    with pytest.raises(error_type) as error:
+        run_adapter(b, module, operation)
+    assert not isinstance(error.value, policy.LocalResponseProcessingError)
+    assert "PRIVATE" in str(error.value) and snapshot(b, doc) == observed[0][0]
+    b.post.assert_called_once()
