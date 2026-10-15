@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and forty-five bounded increments (Compliance outcomes, dedicated
+Safety preparation and forty-six bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -36,7 +36,8 @@ and permissioned metadata-only QR source inspection with a shared access engine,
 and non-destructive Phase-2 local completion-hook preservation/review,
 and caller-owned primary Sales/POS QR-link staging without invoice events/DDL,
 and scoped primary QR ownership/schema checks before request/error persistence,
-and non-overwriting primary post-response local-error review boundaries)
+and non-overwriting primary post-response local-error review boundaries,
+and explicit exact-attempt local primary receipt persistence/redelivery)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -812,6 +813,24 @@ branches and credential-context differences are recorded in
   No advance/accounting/working/authority change.
   See [RESPONSE_PROCESSING.md](RESPONSE_PROCESSING.md).
 
+## Increment 46: exact local primary receipt persistence/redelivery
+
+- Added an internal non-activated service reusing existing journal/codecs/owned
+  transaction/storage primitives. Exact candidate/predecessor/HTTP-event input
+  is rebuilt before SQL; only the exact stored predecessor or identical result
+  is eligible. No candidate/start creation, byte replacement or resequencing.
+- One owned transaction commits/closes before reporting local completion. Any
+  acquire/SQL/guard/commit/close uncertainty retains the exact original receipt
+  for explicit LOCAL idempotent storage redelivery, never another HTTP attempt.
+  Protected objects are redacted/nonpickleable; all remote/provenance/replay/
+  dispatch flags remain false. No invoice/File/status/PIH/schema writes.
+- No primary API, scheduler or permissioned provider is wired. This does NOT yet
+  fix runtime missing receipts, durable retry holds or legacy partial commits.
+  Saved-source/attempt/epoch/provider binding and owned acquisition remain gates;
+  a caller-supplied scope is not authority to store/send against a tenant.
+  No advance/accounting/working/authority change.
+  See [PRIMARY_RECEIPT_PERSISTENCE.md](PRIMARY_RECEIPT_PERSISTENCE.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -982,8 +1001,21 @@ committed receipt/status/UUID without a fourth failure commit. The late cases
 deliberately reproduce existing premature parent commits, not their resolution.
 No durable receipt/review hold, installed-v16 or authority acceptance is proven.
 
+Increment 46 adds **82 local + 41 private SQL cases**, reaching **5,883 local +
+416 private SQL = 6,299 passing cases** across the same twelve private suites.
+The final guarded combined run passed in **51.17 seconds**; the first local-only
+run passed 5,883 in 28.04 seconds. Initial SQL negatives corrected test-only
+expectations for close-failure cleanup and an unrelated pending value rejected
+by the existing revision CHECK; no cleanup/runtime guard/schema constraint was
+relaxed. Native tests cover exact bytes, late/identical/conflicting delivery,
+concurrent serialization, lost commit/close acknowledgements, missing starts,
+source guards/autocommit rejection and unrelated parent transaction ownership.
+All authority/provenance/replay flags remain false; primary APIs/schedulers are
+NOT wired to this primitive, so runtime durable receipt/retry holds remain open.
+
 | Suite | Scope |
 | --- | --- |
+| `test_primary_receipt_persistence.py` | Explicit protected exact-attempt local receipt persistence/redelivery, unknown commit/close and source guards, codecs/tampering/namespace/stage checks before SQL, no replay/start/transport/clock; existing journal SQL suite adds actual idempotence/concurrency/uncertainty/parent-ownership tests |
 | `test_response_processing.py` | Actual four primary APIs with mocked HTTP/ERP/File, failure-stage snapshots, no generic post-response failure writes/retry, static unchained Arabic review and unchanged runtime-error propagation; private QR SQL suite adds early parent-controlled work and late existing-commit receipt/status preservation |
 | `test_primary_qr_transaction.py` | Actual shared Sales/POS attach helper with mocked File/image/ERP, QR-link-only staging, phase gates, translated missing schema, failures and owned-row preservation; private QR SQL suite adds parent visibility/rollback with unchanged accepted status/business/modified fields |
 | `test_primary_qr_ownership.py` | Actual primary QR scoped preservation/review and all four API pre-request rejection boundaries, shape validation/bounds/Arabic/query faults, no global fallback or writes; private QR SQL suite adds parent-owned pending work, scoped synthetic File rows and unchanged artifacts |
@@ -1086,8 +1118,10 @@ attachment DDL and invoice event/modified-time effects. Increment 44 adds bounde
 primary QR ownership/schema preflight before request/error persistence and removes
 global URL reuse from that attachment helper. Increment 45 prevents generic
 error/503 persistence for previously caught local failures during primary response
-processing, without asserting acceptance. Next bind exact-attempt durable receipt
-storage/review holds and remove legacy partial/parent commits before artifact
+processing, without asserting acceptance. Increment 46 adds an internal exact
+retained primary receipt storage/redelivery primitive, not runtime activation.
+Next establish permissioned saved-source/attempt/epoch/provider binding and owned
+acquisition before wiring durable receipt storage/review holds; remove legacy partial/parent commits before artifact
 work; cover concurrent source changes and the remaining writers; establish
 audited server-owned site/namespace/
 connection and committed-revision provider provenance with historical epoch and authentic
@@ -1098,7 +1132,7 @@ recovery/mixed-phase bridge and server-owned site/namespace/chain/lookup/connect
 provenance and authentic capture/acceptance as gates before raw export or
 settlement adoption. Verify
 timezone/settings snapshots for new issuance separately. Neither increment 30
-nor 31/32/33/34/35/36/37/38/39/40/41/42/43/44/45 consolidates advance amounts/GL or cryptographic digests.
+nor 31/32/33/34/35/36/37/38/39/40/41/42/43/44/45/46 consolidates advance amounts/GL or cryptographic digests.
 
 All implementation/rehearsal below remains OFFLINE and in development. No live
 provider/site binding, dummy Company on a working bench, authority request or

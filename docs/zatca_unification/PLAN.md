@@ -137,6 +137,11 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 46 adds [exact local primary receipt persistence/redelivery](PRIMARY_RECEIPT_PERSISTENCE.md).
+  Existing journal/codecs/owned transactions preserve one exact retained response,
+  including uncertain commits, without start creation, new HTTP or replay rights.
+  It is not wired to primary APIs/scheduler; permissioned saved-source/attempt/
+  epoch/provider binding, owned acquisition and durable review holds remain gates.
 - Increment 45 adds [primary post-response local-error review](RESPONSE_PROCESSING.md).
   Previously caught local failures in existing response branches no longer run
   generic receipt overwrite/503 writes/commits. Static Arabic/English failure

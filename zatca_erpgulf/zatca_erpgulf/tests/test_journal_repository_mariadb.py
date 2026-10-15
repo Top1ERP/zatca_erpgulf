@@ -31,6 +31,9 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_certificate_evidence import certific
 from zatca_erpgulf.zatca_erpgulf.tests.test_dispatch_journal import event
 from zatca_erpgulf.zatca_erpgulf.tests.test_issuance_candidate import candidate
 from zatca_erpgulf.zatca_erpgulf.tests.offline_rehearsal_plugin import active_guard
+from zatca_erpgulf.zatca_erpgulf.primary_receipt_persistence import PrimaryReceiptPersistence
+from zatca_erpgulf.zatca_erpgulf.tests.test_primary_receipt_persistence import retained
+from zatca_erpgulf.zatca_erpgulf.tests.test_issuance_candidate import scope
 
 
 pytestmark = pytest.mark.skipif(
@@ -419,3 +422,208 @@ def test_private_server_crash_recovery_preserves_commit_and_rolls_back_incomplet
     assert recovered.candidate.xml_bytes == prepared.xml_bytes
     assert len(recovered.events) == 1
     assert recovered.diagnostic_projection()["replay_authorized"] is False
+
+
+def store_receipt_predecessor(connections, receipt):
+    connection = connections()
+    try:
+        repository = MariaDBJournalRepository(connection, receipt.storage_namespace)
+        journal = repository.put(receipt.before.candidate)
+        for observed in receipt.before.events:
+            journal = repository.append(journal.candidate.key_sha256, observed,
+                expected_journal_sha256=journal.journal_sha256)
+        connection.commit()
+        assert journal == receipt.before
+    finally:
+        connection.close()
+
+
+def read_receipt_journal(connections, receipt):
+    connection = connections()
+    try:
+        return MariaDBJournalRepository(connection, receipt.storage_namespace).load(receipt.before.candidate.key_sha256)
+    finally:
+        connection.rollback()
+        connection.close()
+
+
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("indicator", ["0100000", "0200000"])
+@pytest.mark.parametrize("unknown", [False, True])
+@pytest.mark.parametrize("status", [200, 401, 409])
+def test_primary_receipt_owned_sql_preserves_exact_response_and_local_redelivery(connections, namespace, certificates,
+    doctype, indicator, unknown, status):
+    selected = candidate(certificates[0], selected_scope=scope(doctype=doctype), indicator=indicator)
+    receipt = retained(selected, namespace=namespace, unknown=unknown, status=status,
+        body=b'  {"synthetic": "not authority acceptance"}\r\n')
+    store_receipt_predecessor(connections, receipt)
+    service = PrimaryReceiptPersistence(namespace, connection_factory=connections)
+    first = service.persist(receipt)
+    assert first.state == "RECEIPT_STORED_OBSERVATION_NO_REPLAY" and first.receipt is receipt
+    stored = read_receipt_journal(connections, receipt)
+    assert stored.events == (*receipt.before.events, receipt.response_event)
+    assert stored.candidate == selected and stored.events[-1].response_bytes == receipt.response_event.response_bytes
+    assert service.persist(receipt).state == first.state
+    assert read_receipt_journal(connections, receipt) == stored
+    assert all(value is False for key, value in first.diagnostic_projection().items()
+        if key.endswith(("_verified", "_authorized")))
+
+
+class ReceiptFaultConnection:
+    """Own only the supplied private fixture connection; inject lost SQL ACKs."""
+
+    def __init__(self, connection, fault):
+        self.connection, self.fault, self.events = connection, fault, []
+
+    def cursor(self):
+        return self.connection.cursor()
+
+    def commit(self):
+        self.events.append("commit")
+        if self.fault == "commit_before":
+            raise RuntimeError("PRIVATE failed commit")
+        self.connection.commit()
+        if self.fault == "commit_after":
+            raise RuntimeError("PRIVATE lost commit acknowledgement")
+
+    def rollback(self):
+        self.events.append("rollback")
+        self.connection.rollback()
+
+    def close(self):
+        self.events.append("close")
+        self.connection.close()
+        if self.fault == "close":
+            raise RuntimeError("PRIVATE lost close acknowledgement")
+
+
+@pytest.mark.parametrize("unknown", [False, True])
+@pytest.mark.parametrize("fault", ["commit_before", "commit_after", "close"])
+def test_primary_receipt_uncertain_commit_keeps_exact_input_and_never_replays(connections, namespace, prepared, unknown, fault):
+    receipt = retained(prepared, namespace=namespace, unknown=unknown)
+    store_receipt_predecessor(connections, receipt)
+    acquired = []
+    def factory():
+        wrapper = ReceiptFaultConnection(connections(), fault)
+        acquired.append(wrapper)
+        return wrapper
+    uncertain = PrimaryReceiptPersistence(namespace, connection_factory=factory).persist(receipt)
+    assert uncertain.state == "RECEIPT_COMMIT_UNCONFIRMED_NO_REPLAY" and uncertain.receipt is receipt
+    expected_cleanup = ["commit", "close", "rollback"] if fault == "close" else ["commit", "rollback", "close"]
+    assert len(acquired) == 1 and acquired[0].events == expected_cleanup
+    assert not acquired[0].connection.open
+    stored = read_receipt_journal(connections, receipt)
+    assert stored.events == (receipt.before.events if fault == "commit_before" else (*receipt.before.events, receipt.response_event))
+    completed = PrimaryReceiptPersistence(namespace, connection_factory=connections).persist(uncertain.receipt)
+    assert completed.state == "RECEIPT_STORED_OBSERVATION_NO_REPLAY" and completed.receipt is receipt
+    assert read_receipt_journal(connections, receipt).events == (*receipt.before.events, receipt.response_event)
+
+
+@pytest.mark.parametrize("absent", ["candidate", "start"])
+def test_primary_receipt_never_creates_candidate_or_start_to_repair_missing_history(connections, namespace, prepared, absent):
+    receipt = retained(prepared, namespace=namespace)
+    if absent == "start":
+        connection = connections()
+        save(connection, namespace, prepared)
+        connection.close()
+    result = PrimaryReceiptPersistence(namespace, connection_factory=connections).persist(receipt)
+    assert result.state == "RECEIPT_COMMIT_UNCONFIRMED_NO_REPLAY" and result.receipt is receipt
+    connection = connections()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM zatca_issuance_candidate_v1 WHERE storage_namespace=%s", (namespace,))
+            assert cursor.fetchone() == (int(absent == "start"),)
+            cursor.execute("SELECT COUNT(*) FROM zatca_dispatch_event_v1 WHERE storage_namespace=%s", (namespace,))
+            assert cursor.fetchone() == (0,)
+    finally:
+        connection.rollback()
+        connection.close()
+
+
+@pytest.mark.parametrize("changed", ["unknown_revision", "other_response"])
+def test_primary_receipt_rejects_newer_or_conflicting_history_without_overwrite(connections, namespace, prepared, changed):
+    receipt = retained(prepared, namespace=namespace)
+    store_receipt_predecessor(connections, receipt)
+    connection = connections()
+    repository = MariaDBJournalRepository(connection, namespace)
+    other = event(prepared, "TRANSPORT_UNKNOWN", 2) if changed == "unknown_revision" else replace(
+        receipt.response_event, response_bytes=b"OTHER synthetic observation")
+    expected = repository.append(prepared.key_sha256, other, expected_journal_sha256=receipt.before.journal_sha256)
+    connection.commit()
+    connection.close()
+    result = PrimaryReceiptPersistence(namespace, connection_factory=connections).persist(receipt)
+    assert result.state == "RECEIPT_COMMIT_UNCONFIRMED_NO_REPLAY"
+    assert read_receipt_journal(connections, receipt) == expected
+
+
+@pytest.mark.parametrize("isolation", ["READ COMMITTED", "REPEATABLE READ"])
+def test_primary_receipt_concurrent_identical_redelivery_keeps_one_response(connections, namespace, prepared, isolation):
+    receipt = retained(prepared, namespace=namespace)
+    store_receipt_predecessor(connections, receipt)
+    barrier = threading.Barrier(2)
+    def persist():
+        barrier.wait(timeout=3)
+        return PrimaryReceiptPersistence(namespace, connection_factory=lambda: connections(isolation)).persist(receipt)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda index: persist(), range(2)))
+    assert all(result.state == "RECEIPT_STORED_OBSERVATION_NO_REPLAY" and result.receipt is receipt for result in results)
+    assert read_receipt_journal(connections, receipt).events == (*receipt.before.events, receipt.response_event)
+
+
+def test_primary_receipt_rejects_autocommit_without_changing_session(connections, namespace, prepared):
+    receipt = retained(prepared, namespace=namespace)
+    store_receipt_predecessor(connections, receipt)
+    acquired = []
+    def factory():
+        connection = connections(autocommit=True)
+        acquired.append(connection)
+        return connection
+    result = PrimaryReceiptPersistence(namespace, connection_factory=factory).persist(receipt)
+    assert result.state == "RECEIPT_COMMIT_UNCONFIRMED_NO_REPLAY" and len(acquired) == 1 and not acquired[0].open
+    assert read_receipt_journal(connections, receipt) == receipt.before
+
+
+@pytest.mark.parametrize("stage", [1, 2])
+def test_primary_receipt_saved_source_guard_rejection_rolls_back_append(connections, namespace, prepared, stage):
+    receipt = retained(prepared, namespace=namespace)
+    store_receipt_predecessor(connections, receipt)
+    seen = []
+    def guard(connection, supplied):
+        assert supplied is receipt
+        seen.append(connection)
+        return len(seen) != stage
+    result = PrimaryReceiptPersistence(namespace, connection_factory=connections, source_guard=guard).persist(receipt)
+    assert result.state == "RECEIPT_COMMIT_UNCONFIRMED_NO_REPLAY" and len(seen) == stage
+    assert all(item is seen[0] for item in seen) and not seen[0].open
+    assert read_receipt_journal(connections, receipt) == receipt.before
+
+
+@pytest.mark.parametrize("commit_parent", [False, True])
+def test_primary_receipt_owned_commit_does_not_touch_other_parent_transaction(connections, namespace, prepared, commit_parent):
+    receipt = retained(prepared, namespace=namespace)
+    store_receipt_predecessor(connections, receipt)
+    parent_namespace = str(uuid4())
+    parent = connections()
+    save(parent, parent_namespace, prepared)
+    # Deliberately synthetic pending header change, not an event/revision model.
+    # Avoid unrelated empty-child-range locks obscuring transaction ownership.
+    with parent.cursor() as cursor:
+        cursor.execute("UPDATE zatca_issuance_candidate_v1 SET revision=1 WHERE storage_namespace=%s AND key_sha256=%s",
+            (parent_namespace, prepared.key_sha256))
+    try:
+        result = PrimaryReceiptPersistence(namespace, connection_factory=connections).persist(receipt)
+        assert result.state == "RECEIPT_STORED_OBSERVATION_NO_REPLAY"
+        reader = connections("READ COMMITTED")
+        try:
+            with reader.cursor() as cursor:
+                cursor.execute("SELECT revision FROM zatca_issuance_candidate_v1 WHERE storage_namespace=%s", (parent_namespace,))
+                assert cursor.fetchone() == (0,)
+            (parent.commit if commit_parent else parent.rollback)()
+            with reader.cursor() as cursor:
+                cursor.execute("SELECT revision FROM zatca_issuance_candidate_v1 WHERE storage_namespace=%s", (parent_namespace,))
+                assert cursor.fetchone() == (1 if commit_parent else 0,)
+        finally:
+            reader.rollback()
+            reader.close()
+    finally:
+        parent.close()

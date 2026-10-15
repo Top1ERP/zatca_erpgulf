@@ -259,6 +259,18 @@ remain gates. All HTTP/ERP/File data is synthetic, SQL is owned temporary only;
 no installed source/config/schema/assets/workers/customer data or authority call
 changed.
 
+Increment 46 adds [exact local primary receipt persistence/redelivery](PRIMARY_RECEIPT_PERSISTENCE.md).
+One explicit owned transaction appends only an exact retained response to an
+existing started journal, or confirms identical prior storage. Unknown commit/
+close retains the same input; no start creation, new HTTP or replay authority.
+The final guarded selection passed **5,883 local + 416 private SQL = 6,299 cases
+in 51.17 seconds**, across the same twelve private SQL suites. Input/data/keys
+are synthetic and SQL is owned temporary only. This primitive is NOT wired to
+primary APIs/schedulers or an active provider. Saved-source/attempt/epoch/provider
+provenance, owned acquisition, durable review holds and legacy parent commits
+remain gates. No working source/config/schema/assets/workers/customer data or
+authority request changed.
+
 1. **Complete development offline.** Finish the shared settings/source/credential
    contracts, amounts/advance handling, immutable XML/signature/QR pipeline,
    debug/single/all/synthetic Compliance adapters, identity/retry coordination and

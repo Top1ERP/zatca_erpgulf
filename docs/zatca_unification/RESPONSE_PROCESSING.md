@@ -36,6 +36,10 @@ framework/database exception.
 
 ## What this does NOT guarantee
 
+[Increment 46](PRIMARY_RECEIPT_PERSISTENCE.md) subsequently adds an internal local
+exact-retained-receipt persistence/redelivery primitive. It is not wired to these
+APIs or a scheduler; runtime durable receipt/retry limitations below remain.
+
 HTTP status alone is NOT acceptance evidence, a validated invoice or authentic
 receipt. No new success verdict is introduced. Existing business branches still
 need adoption of the endpoint-bound response assessment and exact identity/epoch/
