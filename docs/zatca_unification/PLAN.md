@@ -137,6 +137,11 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 47 adds [saved-source access to local primary receipt persistence](PRIMARY_RECEIPT_ACCESS.md).
+  Shared archive selection retains existing metadata behavior; private receipt
+  access requires invoice WRITE/related READ and exact attempt/event/predecessor
+  binding, with same-transaction source locks and post-close rechecks. No runtime
+  provider/scheduler activation, authentic epoch/origin claim or durable retry hold.
 - Increment 46 adds [exact local primary receipt persistence/redelivery](PRIMARY_RECEIPT_PERSISTENCE.md).
   Existing journal/codecs/owned transactions preserve one exact retained response,
   including uncertain commits, without start creation, new HTTP or replay rights.

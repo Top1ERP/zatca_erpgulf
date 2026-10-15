@@ -271,6 +271,19 @@ provenance, owned acquisition, durable review holds and legacy parent commits
 remain gates. No working source/config/schema/assets/workers/customer data or
 authority request changed.
 
+Increment 47 adds [saved-source access to local primary receipt storage](PRIMARY_RECEIPT_ACCESS.md).
+Invoice WRITE and related READ are checked directly before server lookup/owned
+acquisition; exact predecessor/attempt/response and current source/owner/route
+are bound and source rows locked in the same owned append transaction. No invoice
+write, secret load, authority request or raw export. Source/permission rechecks
+after close can refuse disclosure without undoing an already completed commit;
+the caller must retain the original receipt. The final guarded selection passed
+**6,071 local + 470 private SQL = 6,541 cases in 54.22 seconds**, across the same
+twelve private SQL suites. Actors/ACL/data/certificates are synthetic, not installed
+v16 or authentic provider/receipt evidence. No API/scheduler/provider installation
+or durable retry hold is enabled; no working configuration/schema/assets/workers/
+customer data or authority call changed.
+
 1. **Complete development offline.** Finish the shared settings/source/credential
    contracts, amounts/advance handling, immutable XML/signature/QR pipeline,
    debug/single/all/synthetic Compliance adapters, identity/retry coordination and

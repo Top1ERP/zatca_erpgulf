@@ -55,6 +55,11 @@ are still protected Python objects, not safe arbitrary serialization/export APIs
 
 ## Limits and blocking adoption work
 
+[Increment 47](PRIMARY_RECEIPT_ACCESS.md) subsequently adds an internal saved-row/
+WRITE-access wrapper with exact attempt/event binding and same-transaction source
+guards. It is NOT installed or wired to primary APIs/schedulers; provider origin,
+historical/custody evidence and the remaining runtime limitations below stay open.
+
 - This is LOCAL receipt storage, not a transport/acceptance validator or a durable
   scheduler/queue/manual retry hold. A stored receipt does not authorize a send,
   Production CSID, PIH/accounting update, QR recovery or settlement.

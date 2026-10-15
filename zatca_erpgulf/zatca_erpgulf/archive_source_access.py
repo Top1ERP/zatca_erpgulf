@@ -4,6 +4,8 @@ Server providers supply a site/namespace binding, exact historical lookup and a
 NEW OWNED connection. No whitelist, hook, file scan, active credential, XML
 export, shared Frappe transaction writes/cleanup, commit, schema installation or authority I/O.
 Provider/database origin remains a deployment audit gate, not proven here.
+Saved-row selection is also reused by the explicit local receipt-access wrapper;
+inspection itself remains read-only and does not gain a persistence capability.
 """
 
 from dataclasses import dataclass, field
@@ -174,6 +176,7 @@ class ArchiveInspectionEngine:
     ERROR_PREFIX = "archive_access"
     DENIED_MESSAGE = ""
     FAILED_MESSAGE = ""
+    SOURCE_PERMISSION = "read"
 
     def _dependencies(self):
         """Concrete server adapters supply runtime/translator/ACL/repository."""
@@ -181,6 +184,11 @@ class ArchiveInspectionEngine:
 
     def _check_domain(self, binding, invoice, records):
         """Optional domain constraint; never infer it from supplied statuses."""
+
+    def _check_saved_status(self, binding, invoice):
+        required = "CLEARED" if binding.context.route.endpoint == "invoices/clearance/single" else "REPORTED"
+        if invoice.get("custom_zatca_status") != required:
+            raise self.ERROR(self.ERROR_PREFIX + "_saved_status")
 
     def __init__(self, scope, lookup_provider, connection_factory):
         if (type(scope) is not CredentialStorageScope or not callable(lookup_provider)
@@ -202,67 +210,78 @@ class ArchiveInspectionEngine:
             frappe.throw(translate(self.DENIED_MESSAGE), frappe.PermissionError)
         return site, user
 
+    def _saved_binding(self, invoice_name, doctype, actor):
+        """Shared saved-row policy only, not storage/dispatch authorization.
+
+        Concrete server adapters select the fixed invoice permission/status
+        policy. Other owner/Company rows always require read. Existing metadata
+        inspection keeps its read/accepted-status behavior unchanged.
+        """
+        frappe, _, has_permission, _repository_type = self._dependencies()
+        if type(doctype) is not str or doctype not in self.BINDING_TYPE.ALLOWED_DOCTYPES:
+            raise self.ERROR(self.ERROR_PREFIX + "_doctype")
+        _name(invoice_name)
+        records = {}
+
+        def load(doctype, name):
+            if self._actor() != actor:
+                frappe.throw(_(self.DENIED_MESSAGE), frappe.PermissionError)
+            doc = frappe.get_doc(doctype, _name(name))
+            if doc.doctype != doctype or doc.name != name:
+                raise self.ERROR(self.ERROR_PREFIX + "_identity")
+            permission = self.SOURCE_PERMISSION if doctype in self.BINDING_TYPE.ALLOWED_DOCTYPES else "read"
+            if not saved_row_has_permission(has_permission, doctype, permission, doc=doc, user=actor[1]):
+                frappe.throw(_(self.DENIED_MESSAGE), frappe.PermissionError)
+            row = self.ROW_TYPE.from_document(doc)
+            identity = row.doctype, row.name
+            if identity in records and records[identity] != row:
+                raise self.ERROR(self.ERROR_PREFIX + "_source_changed")
+            records[identity] = row
+            if self._actor() != actor:
+                frappe.throw(_(self.DENIED_MESSAGE), frappe.PermissionError)
+            return doc
+
+        invoice = load(doctype, invoice_name)
+        company = load("Company", invoice.get("company"))
+        owner = _resolve_owner_from_saved_company(company, invoice, load_doc=load, include_secrets=False)
+        rows = tuple(records[identity] for identity in sorted(records))
+
+        def recheck():
+            if self._actor() != actor:
+                frappe.throw(_(self.DENIED_MESSAGE), frappe.PermissionError)
+            for row in rows:
+                if self.ROW_TYPE.from_document(load(row.doctype, row.name)) != row:
+                    raise self.ERROR(self.ERROR_PREFIX + "_source_changed")
+
+        recheck()
+        binding = self._lookup(self._scope, rows)
+        if type(binding) is not self.BINDING_TYPE or binding.scope != self._scope:
+            raise self.ERROR(self.ERROR_PREFIX + "_binding")
+        expected = binding.context.scope
+        if (expected.doctype != doctype or expected.invoice_name != invoice.name or expected.company_name != company.name
+                or expected.seller_tax_id != company.get("tax_id")
+                or expected.environment != company.get("custom_select")
+                or expected.legacy_issuing_unit != invoice.get("custom_zatca_issuing_unit")
+                or binding.uuid != invoice.get("custom_uuid")
+                or binding.icv != _value("custom_zatca_icv", invoice.get("custom_zatca_icv"))
+                or _value("docstatus", invoice.get("docstatus")) != 1
+                or (owner.doctype, owner.name) != (binding.context.credential_epoch.owner_doctype,
+                                                 binding.context.credential_epoch.owner_name)
+                or resolve_api_route(company, binding.context.route.endpoint) != binding.context.route):
+            raise self.ERROR(self.ERROR_PREFIX + "_saved_binding")
+        self._check_domain(binding, invoice, records)
+        self._check_saved_status(binding, invoice)
+        recheck()
+        return binding, rows, recheck
+
     def inspect(self, invoice_name, *, doctype="Sales Invoice"):
         """Authorize before lookup/SQL and after closure; return metadata only."""
         connection, failure, report, cleanup_failure = None, None, None, None
-        frappe, _, has_permission, repository_type = self._dependencies()
+        frappe, _, _permission_engine, repository_type = self._dependencies()
         try:
             actor = self._actor()
-            if type(doctype) is not str or doctype not in self.BINDING_TYPE.ALLOWED_DOCTYPES:
-                raise self.ERROR(self.ERROR_PREFIX + "_doctype")
-            _name(invoice_name)
-            records = {}
-
-            def load(doctype, name):
-                if self._actor() != actor:
-                    frappe.throw(_(self.DENIED_MESSAGE), frappe.PermissionError)
-                doc = frappe.get_doc(doctype, _name(name))
-                if doc.doctype != doctype or doc.name != name:
-                    raise self.ERROR(self.ERROR_PREFIX + "_identity")
-                if not saved_row_has_permission(has_permission, doctype, "read", doc=doc, user=actor[1]):
-                    frappe.throw(_(self.DENIED_MESSAGE), frappe.PermissionError)
-                row = self.ROW_TYPE.from_document(doc)
-                identity = row.doctype, row.name
-                if identity in records and records[identity] != row:
-                    raise self.ERROR(self.ERROR_PREFIX + "_source_changed")
-                records[identity] = row
-                if self._actor() != actor:
-                    frappe.throw(_(self.DENIED_MESSAGE), frappe.PermissionError)
-                return doc
-
-            invoice = load(doctype, invoice_name)
-            company = load("Company", invoice.get("company"))
-            owner = _resolve_owner_from_saved_company(company, invoice, load_doc=load, include_secrets=False)
-            rows = tuple(records[identity] for identity in sorted(records))
-
-            def recheck():
-                if self._actor() != actor:
-                    frappe.throw(_(self.DENIED_MESSAGE), frappe.PermissionError)
-                for row in rows:
-                    if self.ROW_TYPE.from_document(load(row.doctype, row.name)) != row:
-                        raise self.ERROR(self.ERROR_PREFIX + "_source_changed")
-
-            recheck()
-            binding = self._lookup(self._scope, rows)
-            if type(binding) is not self.BINDING_TYPE or binding.scope != self._scope:
-                raise self.ERROR(self.ERROR_PREFIX + "_binding")
+            binding, rows, recheck = self._saved_binding(invoice_name, doctype, actor)
             expected = binding.context.scope
-            if (expected.doctype != doctype or expected.invoice_name != invoice.name or expected.company_name != company.name
-                    or expected.seller_tax_id != company.get("tax_id")
-                    or expected.environment != company.get("custom_select")
-                    or expected.legacy_issuing_unit != invoice.get("custom_zatca_issuing_unit")
-                    or binding.uuid != invoice.get("custom_uuid")
-                    or binding.icv != _value("custom_zatca_icv", invoice.get("custom_zatca_icv"))
-                    or _value("docstatus", invoice.get("docstatus")) != 1
-                    or (owner.doctype, owner.name) != (binding.context.credential_epoch.owner_doctype,
-                                                     binding.context.credential_epoch.owner_name)
-                    or resolve_api_route(company, binding.context.route.endpoint) != binding.context.route):
-                raise self.ERROR(self.ERROR_PREFIX + "_saved_binding")
-            self._check_domain(binding, invoice, records)
-            required_status = "CLEARED" if binding.context.route.endpoint == "invoices/clearance/single" else "REPORTED"
-            if invoice.get("custom_zatca_status") != required_status:
-                raise self.ERROR(self.ERROR_PREFIX + "_saved_status")
-            recheck()
             # Inspect recognizable ambient identities BEFORE acquisition. If a
             # framework proxy lookup fails, no owned handle has been allocated.
             ambient = frappe.db

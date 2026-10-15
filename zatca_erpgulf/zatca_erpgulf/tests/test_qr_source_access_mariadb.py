@@ -2,6 +2,7 @@
 
 from dataclasses import replace
 import os
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -15,6 +16,11 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_journal_repository_mariadb import is
 from zatca_erpgulf.zatca_erpgulf.tests.test_advance_source_selection_mariadb import store
 from zatca_erpgulf.zatca_erpgulf.tests.test_qr_source_access import (
     operator, qr_operator, scenario, inspect, NOW, InspectionFailed,
+)
+from zatca_erpgulf.zatca_erpgulf import primary_receipt_access as receipt_access
+from zatca_erpgulf.zatca_erpgulf import primary_receipt_persistence as receipt_persistence
+from zatca_erpgulf.zatca_erpgulf.tests.test_primary_receipt_access import (
+    receipt_operator, scenario as receipt_scenario, persist as persist_receipt, PermissionDenied,
 )
 
 
@@ -69,6 +75,170 @@ def native_case(qr_operator, der, monkeypatch, connections, namespace, **options
     finally:
         writer.close()
     return case
+
+
+def native_receipt_case(receipt_operator, der, monkeypatch, connections, namespace, **options):
+    case = receipt_scenario(receipt_operator, der, monkeypatch, **options)
+    case.scope = access.CredentialStorageScope("private.test", namespace)
+    case.retained = replace(case.retained, storage_namespace=namespace)
+    case.binding = replace(case.binding, scope=case.scope)
+    case.lookup.return_value = case.binding
+    case.invoice.custom_zatca_status = "Not Submitted"  # Storage must not require a false accepted label.
+    case.opened = []
+    def factory(scope):
+        assert scope == case.scope
+        connection = connections()
+        case.opened.append(connection)
+        return connection
+    case.factory = Mock(side_effect=factory)
+    case.service = receipt_access.SavedPrimaryReceiptService(case.scope, case.lookup, case.factory)
+    monkeypatch.setattr(receipt_persistence, "MariaDBJournalRepository", MariaDBJournalRepository)
+    writer = connections()
+    try:
+        with writer.cursor() as cursor:
+            for doc in receipt_operator.documents.values():
+                row = SavedSourceRow.from_document(doc)
+                fields = ("name", "modified", *row.fields)
+                cursor.execute("INSERT INTO `tab" + row.doctype + "` ("
+                    + ",".join("`" + name + "`" for name in fields) + ") VALUES ("
+                    + ",".join("%s" for _ in fields) + ") ON DUPLICATE KEY UPDATE "
+                    + ",".join("`" + name + "`=VALUES(`" + name + "`)" for name in fields),
+                    (row.name, NOW, *row.values))
+        writer.commit()
+        store(writer, namespace, case.before)
+    finally:
+        writer.close()
+    return case
+
+
+def read_primary_receipt_case(case, connections):
+    reader = connections()
+    try:
+        return MariaDBJournalRepository(reader, case.scope.storage_namespace).load(case.original.key_sha256)
+    finally:
+        reader.rollback()
+        reader.close()
+
+
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("indicator", ["0100000", "0200000"])
+@pytest.mark.parametrize("owner", ["company", "device", "linked"])
+def test_permissioned_primary_receipt_source_locks_and_append_share_owned_transaction(qr_source_schema, receipt_operator,
+    certificates, monkeypatch, connections, namespace, doctype, indicator, owner):
+    case = native_receipt_case(receipt_operator, certificates[0], monkeypatch, connections, namespace,
+        doctype=doctype, indicator=indicator, owner=owner)
+    result = persist_receipt(case)
+    assert result.state == "RECEIPT_STORED_OBSERVATION_NO_REPLAY" and result.receipt is case.retained
+    assert read_primary_receipt_case(case, connections) == case.after
+    assert len(case.opened) == 1 and not case.opened[0].open
+    assert all(value is False for key, value in result.diagnostic_projection().items() if key.endswith(("_verified", "_authorized")))
+    receipt_operator.runtime.db.commit.assert_not_called()
+    receipt_operator.runtime.db.rollback.assert_not_called()
+    assert case.invoice.custom_zatca_status == "Not Submitted"
+    for doc in receipt_operator.documents.values():
+        doc.save.assert_not_called()
+        doc.db_set.assert_not_called()
+
+
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("change", ["revision", "uuid", "tax", "route"])
+def test_stale_ambient_primary_source_blocks_sql_receipt_append(qr_source_schema, receipt_operator, certificates,
+    monkeypatch, connections, namespace, doctype, change):
+    case = native_receipt_case(receipt_operator, certificates[0], monkeypatch, connections, namespace, doctype=doctype)
+    writer = connections()
+    try:
+        with writer.cursor() as cursor:
+            if change == "revision":
+                cursor.execute("UPDATE `tab" + doctype + "` SET modified=DATE_ADD(modified,INTERVAL 1 SECOND) WHERE name=%s", (case.invoice.name,))
+            elif change == "uuid":
+                cursor.execute("UPDATE `tab" + doctype + "` SET custom_uuid=%s WHERE name=%s",
+                    ("50000000-0000-4000-8000-000000000001", case.invoice.name))
+            elif change == "tax":
+                cursor.execute("UPDATE `tabCompany` SET tax_id=%s WHERE name=%s", ("OTHER-TAX", "TEST"))
+            else:
+                cursor.execute("UPDATE `tabCompany` SET custom_production_url=%s WHERE name=%s", ("https://other.invalid/phase2", "TEST"))
+        writer.commit()
+    finally:
+        writer.close()
+    constructor = Mock(wraps=MariaDBJournalRepository)
+    monkeypatch.setattr(receipt_persistence, "MariaDBJournalRepository", constructor)
+    result = persist_receipt(case)
+    assert result.state == "RECEIPT_COMMIT_UNCONFIRMED_NO_REPLAY" and result.receipt is case.retained
+    constructor.assert_not_called()
+    assert read_primary_receipt_case(case, connections) == case.before
+    assert not case.opened[0].open
+
+
+@pytest.mark.parametrize("identity", [("Sales Invoice", "INV-TEST", "write"), ("Company", "TEST", "read"),
+    ("ZATCA Multiple Setting", "DEVICE", "read"), ("Company", "LINKED", "read")])
+def test_native_receipt_write_or_related_read_denial_acquires_no_connection(qr_source_schema, receipt_operator,
+    certificates, monkeypatch, connections, namespace, identity):
+    case = native_receipt_case(receipt_operator, certificates[0], monkeypatch, connections, namespace, owner="linked")
+    receipt_operator.denied_operations.add(identity)
+    with pytest.raises(PermissionDenied):
+        persist_receipt(case)
+    case.factory.assert_not_called()
+    assert read_primary_receipt_case(case, connections) == case.before
+
+
+@pytest.mark.parametrize("stage", ["after_append", "after_close"])
+def test_native_primary_receipt_revocation_before_commit_or_after_close(qr_source_schema, receipt_operator,
+    certificates, monkeypatch, connections, namespace, stage):
+    case = native_receipt_case(receipt_operator, certificates[0], monkeypatch, connections, namespace)
+    def revoke():
+        receipt_operator.denied_operations.add(("Sales Invoice", "INV-TEST", "write"))
+    if stage == "after_append":
+        original = receipt_access._verify_rows
+        calls = []
+        def verify(connection, rows):
+            original(connection, rows)
+            calls.append(connection)
+            if len(calls) == 2:
+                revoke()
+        monkeypatch.setattr(receipt_access, "_verify_rows", verify)
+    else:
+        original = case.factory.side_effect
+        def factory(scope):
+            connection = original(scope)
+            def close():
+                connection.close()
+                revoke()
+            return SimpleNamespace(cursor=connection.cursor, commit=connection.commit,
+                rollback=connection.rollback, close=close)
+        case.factory.side_effect = factory
+    with pytest.raises(PermissionDenied) as error:
+        persist_receipt(case)
+    assert error.value.__context__ is None
+    assert read_primary_receipt_case(case, connections) == (case.before if stage == "after_append" else case.after)
+    assert len(case.opened) == 1 and not case.opened[0].open
+
+
+def test_native_borrowed_parent_is_not_cleaned_or_committed(qr_source_schema, receipt_operator, certificates,
+    monkeypatch, connections, namespace):
+    case = native_receipt_case(receipt_operator, certificates[0], monkeypatch, connections, namespace)
+    parent = connections()
+    receipt_operator.runtime.db._conn = parent
+    case.factory.side_effect, case.factory.return_value = None, parent
+    try:
+        with parent.cursor() as cursor:
+            cursor.execute("UPDATE `tabCompany` SET tax_id=%s WHERE name=%s", ("PARENT-PENDING", "TEST"))
+        result = persist_receipt(case)
+        assert result.state == "RECEIPT_COMMIT_UNCONFIRMED_NO_REPLAY" and parent.open
+        with parent.cursor() as cursor:
+            cursor.execute("SELECT tax_id FROM `tabCompany` WHERE name=%s", ("TEST",))
+            assert cursor.fetchone() == ("PARENT-PENDING",)
+        reader = connections("READ COMMITTED")
+        try:
+            with reader.cursor() as cursor:
+                cursor.execute("SELECT tax_id FROM `tabCompany` WHERE name=%s", ("TEST",))
+                assert cursor.fetchone() == (case.company.tax_id,)
+        finally:
+            reader.rollback()
+            reader.close()
+        assert read_primary_receipt_case(case, connections) == case.before
+    finally:
+        parent.rollback()
+        parent.close()
 
 
 @pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
