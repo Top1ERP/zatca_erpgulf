@@ -684,3 +684,5 @@ Staged ZATCA receipt custody access failed. Keep the original sealed receipt and
 You do not have permission to run staged ZATCA invoice capture.,ليس لديك صلاحية تشغيل الالتقاط المرحلي لطلبات وردود فواتير زاتكا.
 Staged ZATCA invoice capture access failed. Do not retry automatically. Review server-side custody before any further action.,تعذر الوصول إلى الالتقاط المرحلي لفواتير زاتكا. لا تُعد المحاولة تلقائيًا. راجع الحفظ الداخلي في الخادم قبل أي إجراء آخر.
 Protected ZATCA capture requires server-side custody. Keep the protected recovery result and do not retry automatically.,تتطلب نتيجة التقاط زاتكا المحمية تسليمها إلى الحفظ الداخلي في الخادم. احتفظ بنتيجة التعافي المحمية ولا تُعد المحاولة تلقائيًا.
+You do not have permission to inspect or persist staged ZATCA receipt pairs.,ليس لديك صلاحية فحص أو حفظ أزواج سجل رد زاتكا ونسخته المشفرة في المخزن المرحلي.
+Staged ZATCA receipt pair access failed. Keep the original request and sealed receipt. Do not resend automatically. No new request was sent.,تعذر الوصول إلى أزواج سجل رد زاتكا ونسخته المشفرة في المخزن المرحلي. احتفظ بالطلب الأصلي ونسخة الرد المشفرة الأصلية. لا تُعد الإرسال تلقائيًا. لم يُرسل أي طلب جديد.

@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and fifty-four bounded increments (Compliance outcomes, dedicated
+Safety preparation and fifty-five bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -45,7 +45,8 @@ and permissioned saved-source/key-bound encrypted custody storage/retrieval,
 and an atomic primary start/logical-invoice no-replay hold,
 and an exact auth-free local primary observation coordinator,
 and a permissioned metadata-only saved-source primary capture boundary,
-and exact local primary custody/journal pair inspection and persistence)
+and exact local primary custody/journal pair inspection and persistence,
+and permissioned metadata-only saved-source paired reconciliation access)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -982,6 +983,24 @@ branches and credential-context differences are recorded in
   signature or existing runtime retry change. See
   [PRIMARY_RECEIPT_RECONCILIATION.md](PRIMARY_RECEIPT_RECONCILIATION.md).
 
+## Increment 55: permissioned local primary pair access
+
+- Added shared saved invoice WRITE/related READ and exact request/target/START/
+  attempt/key/payload/original-envelope declarations before scoped keys/SQL.
+  Full bounded envelope fingerprint distinguishes independently sealed equal
+  plaintext without changing signing/AAD/certificate/XML hashes.
+- One owned transaction uses source/ACL checks around exact saved-row locks and
+  local pair work. Final checks refuse even diagnostics after source/actor/ACL
+  drift; completed commits are not undone. Only metadata returns, with all
+  origin/epoch/transport/acceptance/dispatch/replay flags false. Original inputs
+  remain caller-owned on denial, interruption and uncertain commit.
+- Core partial/different/UNKNOWN review policy is unchanged. This is not a
+  whitelist/UI/job/runtime caller, provider/key installer or authority sender.
+  Historical/independent lookup/key/custody/provider provenance and legacy
+  separate-writer/lost-response policy remain gates. No working source/config/
+  schema/assets/workers/customer, advance/accounting/QR/signature or runtime retry
+  change. See [PRIMARY_RECONCILIATION_ACCESS.md](PRIMARY_RECONCILIATION_ACCESS.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -1272,8 +1291,25 @@ primary sender/retry, live schema/source/config/customer and authority behavior
 remain untouched. No permissioned paired API, installed-v16/SDK/remote acceptance
 or end-to-end durable response capture is established.
 
+Increment 55 adds **322 local + 98 private SQL cases**, reaching **7,392 local +
+871 private SQL = 8,263 passing cases** across the same twelve private suites.
+The final guarded combined run passed in **96.44 seconds**. Initial local passed
+7,364 in 49.63 seconds; first combined passed 8,235 in 95.97 seconds before added
+current-status and interruption cases. The reused pair model now accepts an
+explicit namespace, preserving its previous default and exact namespace
+assertions. No source/guard/ownership/rollback assertion was relaxed. Real private
+SQL proves source locks and scoped pinned-provider composition, denial before
+key/DB credentials, stale SQL refusal, original paired store/partial review,
+acquisition/precommit/post-close revocation and actual uncertain commit outcomes.
+Complete original-envelope declarations distinguish equal-plaintext reseals
+before keys; both permission signatures and English/Arabic static failures are
+synthetic boundary evidence, not actual installed-v16/browser/SDK/authority or
+historically independent custody/provenance proof. No runtime caller or working
+environment/authority action is activated.
+
 | Suite | Scope |
 | --- | --- |
+| `test_primary_reconciliation_access.py` | Saved WRITE/related READ and both quiet permission signatures, exact request/START/full original seal binding before scoped keys/SQL, metadata-only pair outcomes, actor/source/ACL drift before/after commit, borrowed parents/interruption/Arabic/privacy; existing QR SQL suite adds actual pinned-provider/source-lock composition, rollback/uncertainty and no partial repair |
 | `test_primary_receipt_reconciliation.py` | Exact request/original-envelope authentication before SQL, mandatory existing hold/request binding, paired inspection/atomic local persistence, identical/partial/conflict/UNKNOWN policy, guard/commit/cleanup/interruption privacy and no resealing/transport; existing journal SQL suite adds actual rollback/uncertainty/corruption/concurrent redelivery/owned-server restart |
 | `test_primary_capture_access.py` | Exact request/target/start/resource binding, saved WRITE/related READ and both quiet permission signatures, metadata-only output, mandatory protected handoff before late denial, interruptions/Arabic/borrowed-parent privacy; existing QR SQL suite adds real pinned-provider/atomic custody composition and revocation without undoing history |
 | `test_primary_capture.py` | Exact deterministic auth-free body/supplied response correlation, three owned transactions, literal guards, once-only observer, unknown outcomes/exact protected recovery, no reseal/hold release/acceptance and static errors; existing journal SQL suite adds actual atomic storage/rollback, commit uncertainty, binding drift and competing coordinators |
@@ -1401,8 +1437,9 @@ Increment 53 adds that permissioned metadata-only owned-resource boundary with
 mandatory protected-result handoff before final ACL disclosure, not durable
 retainer installation or real transport. Increment 54 adds exact paired
 inspection/local persistence, not a permissioned paired facade or runtime repair.
-Next add saved-source/owned-resource metadata access for paired operations,
-review lost/late/unbound and partial-write policy, and audit source/namespace/key/
+Increment 55 adds saved-source/owned-resource metadata access for paired operations,
+not independent provenance or runtime adoption. Next review legacy separate writers,
+lost/late/unbound and partial-write policy, and audit source/namespace/key/
 lookup custody and transport-source-epoch/response evidence before
 wiring durable receipt storage/review holds; remove legacy partial/parent commits before artifact
 work; cover concurrent source changes and the remaining writers; establish
@@ -1415,7 +1452,7 @@ recovery/mixed-phase bridge and server-owned site/namespace/chain/lookup/connect
 provenance and authentic capture/acceptance as gates before raw export or
 settlement adoption. Verify
 timezone/settings snapshots for new issuance separately. Neither increment 30
-nor 31/32/33/34/35/36/37/38/39/40/41/42/43/44/45/46/47/48/49/50/51/52/53/54 consolidates advance amounts/GL or cryptographic digests.
+nor 31/32/33/34/35/36/37/38/39/40/41/42/43/44/45/46/47/48/49/50/51/52/53/54/55 consolidates advance amounts/GL or cryptographic digests.
 
 All implementation/rehearsal below remains OFFLINE and in development. No live
 provider/site binding, dummy Company on a working bench, authority request or

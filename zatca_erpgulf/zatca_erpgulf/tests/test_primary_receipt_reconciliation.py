@@ -31,6 +31,7 @@ MODES = {
 
 
 def configure(case, monkeypatch, mode):
+    namespace = case.core.namespace
     sealed, receipt = case.captured.sealed, case.captured.receipt
     after = pair._validate_retained(receipt)
     case.core.journal = after if mode in ("matched", "journal-only") else receipt.before
@@ -53,14 +54,14 @@ def configure(case, monkeypatch, mode):
                 pass
             def execute(self, statement, parameters):
                 assert statement.startswith("SELECT candidate_sha256 FROM zatca_primary_receipt_custody_v1 ")
-                assert parameters == (NAMESPACE, sealed.candidate_sha256, sealed.attempt_id)
+                assert parameters == (namespace, sealed.candidate_sha256, sealed.attempt_id)
             def fetchone(self):
                 return None if owned.pending[3] is None else (sealed.candidate_sha256,)
         owned.cursor.side_effect = Cursor
         return owned
     case.factory = Mock(side_effect=factory)
     case.guard = Mock(return_value=True)
-    case.service = pair.PrimaryReceiptReconciliation(NAMESPACE, case.core.cipher,
+    case.service = pair.PrimaryReceiptReconciliation(namespace, case.core.cipher,
         connection_factory=case.factory, source_guard=case.guard)
     for name in ("_RequestBinding", "MariaDBJournalRepository"):
         monkeypatch.setattr(pair, name, getattr(capture, name))
@@ -78,8 +79,8 @@ def configure(case, monkeypatch, mode):
     return case
 
 
-def scenario(monkeypatch, selected, mode="missing", *, response=None):
-    core = Scenario(monkeypatch, selected, fault=(2, "commit-before"))
+def scenario(monkeypatch, selected, mode="missing", *, response=None, namespace=NAMESPACE):
+    core = Scenario(monkeypatch, selected, fault=(2, "commit-before"), namespace=namespace)
     if response is not None:
         original = core.observer.side_effect
         core.observer.side_effect = lambda request: replace(original(request), **response)

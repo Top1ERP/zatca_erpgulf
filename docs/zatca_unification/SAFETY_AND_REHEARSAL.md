@@ -398,6 +398,24 @@ and no working source/config/assets/workers/customer/advance/accounting/QR/
 signature/authority change occurred. Pre-first-durable-response loss, authentic
 provenance and saved-source paired access remain integration gates.
 
+Increment 55 adds [permissioned local primary pair access](PRIMARY_RECONCILIATION_ACCESS.md),
+not a runtime endpoint or sender. Shared saved invoice WRITE/related READ and
+exact original request/START/payload/full-envelope declarations precede scoped
+keys/SQL. Full-envelope fingerprinting is lookup metadata, NOT a signature/AAD
+change or proof that lookup/key custody is historically independent. One owned
+transaction guards source rows and local pair policy; final source/actor/ACL
+checks refuse even metadata after drift, without undoing an already completed
+commit. Both original inputs remain caller-owned on uncertainty/interruption.
+Only diagnostics return; no plaintext/ciphertext or acceptance/replay authority.
+No provider/key/retainer installation, API/job/UI, schema or working source/
+config/assets/workers/customer/authority action occurred. Actual pinned Unix/SQL
+composition uses new temporary databases and synthetic data/keys/permissions/
+responses, not installed v16 or genuine authority/SDK evidence. Legacy partial
+writers/lost-response policy and independent provenance remain review gates.
+Final guarded selection passed **7,392 local + 871 private SQL = 8,263 cases in
+96.44 seconds**, across the same twelve private suites. No actual live provider
+binding, working-site Company, Bench/worker action or authority call occurred.
+
 These stages are future gates, not actions executed or approved by this increment.
 Full development and real v15/v16/application/crypto/advance acceptance remain
 unfinished. Remote authority acceptance is a separate unverified gate and cannot

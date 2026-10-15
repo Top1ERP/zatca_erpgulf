@@ -36,6 +36,10 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_primary_capture import observed as p
 from zatca_erpgulf.zatca_erpgulf.tests.test_primary_capture_access import (
     capture_operator, configure as configure_capture, invoke as invoke_capture,
 )
+from zatca_erpgulf.zatca_erpgulf import primary_reconciliation_access as pair_access
+from zatca_erpgulf.zatca_erpgulf.tests.test_primary_reconciliation_access import (
+    pair_operator, configure as configure_pair_access, invoke as invoke_pair_access,
+)
 
 
 pytestmark = pytest.mark.skipif(os.environ.get("ZATCA_RUN_ISOLATED_MARIADB") != "1",
@@ -271,6 +275,198 @@ def test_permissioned_primary_capture_actual_saved_sql_drift_blocks_reservation_
     case.observer.assert_not_called()
     assert read_primary_receipt_case(case, connections) == case.empty
     assert all(owned.closed for owned in case.pinned_opened)
+
+
+@pytest.fixture
+def reconciliation_operator(capture_operator, pair_operator):
+    # Both saved-source facades share the SAME synthetic permission operator.
+    return pair_operator
+
+
+def native_pair_access_case(reconciliation_operator, der, monkeypatch, connections, namespace, isolated_server, **options):
+    case = native_capture_case(reconciliation_operator, der, monkeypatch, connections, namespace, isolated_server, **options)
+    original = case.factory.side_effect
+    def acquire(scope):
+        owned = original(scope)
+        if len(case.pinned_opened) == 3:
+            def uncommitted():
+                raise RuntimeError("PRIVATE synthetic receipt commit unavailable")
+            return SimpleNamespace(cursor=owned.cursor, rollback=owned.rollback, close=owned.close, commit=uncommitted)
+        return owned
+    case.factory.side_effect = acquire
+    assert invoke_capture(case)["state"] == "RECEIPT_COMMIT_UNCONFIRMED_NO_REPLAY"
+    case.captured, = case.retained_results
+    case.factory.side_effect = original
+    case.factory.reset_mock()
+    case.credentials.reset_mock()
+    configure_pair_access(case, case.captured.request, case.captured.sealed, case.cipher)
+    return case
+
+
+def assert_pair_access_missing(case, connections):
+    assert read_primary_receipt_case(case, connections) == case.request.started
+    with pytest.raises(PrimaryReceiptCustodyError, match="receipt_custody_missing"):
+        read_custody_row(case, connections)
+
+
+@pytest.mark.parametrize("operation", ["inspect", "persist"])
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("indicator", ["0100000", "0200000"])
+@pytest.mark.parametrize("owner", ["company", "device", "linked"])
+def test_permissioned_pair_actual_pinned_provider_source_locks_and_metadata_only(qr_source_schema,
+    reconciliation_operator, certificates, monkeypatch, connections, namespace, isolated_server, operation, doctype, indicator, owner):
+    case = native_pair_access_case(reconciliation_operator, certificates[0], monkeypatch, connections, namespace, isolated_server,
+        doctype=doctype, indicator=indicator, owner=owner)
+    report = invoke_pair_access(case, operation)
+    assert report["state"] == ("PAIR_MISSING_OBSERVATION_NO_REPLAY" if operation == "inspect" else "PAIR_STORED_OBSERVATION_NO_REPLAY")
+    if operation == "inspect":
+        assert_pair_access_missing(case, connections)
+    else:
+        assert read_primary_receipt_case(case, connections) == primary_capture._validate_retained(case.captured.receipt)
+        assert read_custody_row(case, connections) == case.sealed
+    assert not {"request", "receipt", "response", "sealed", "body", "invoice_name", "uuid", "key_id"} & report.keys()
+    assert all(value is False for key, value in report.items() if key.endswith(("_verified", "_authorized")))
+    case.keys.assert_called_once_with(case.scope)
+    case.credentials.assert_called_once_with(case.scope)
+    case.factory.assert_called_once_with(case.scope)
+    assert len(case.pinned_opened) == 4 and all(owned.closed for owned in case.pinned_opened)
+    case.observer.assert_called_once()  # Initial SYNTHETIC capture only.
+    reconciliation_operator.runtime.db.commit.assert_not_called()
+    reconciliation_operator.runtime.db.rollback.assert_not_called()
+
+
+@pytest.mark.parametrize("operation", ["inspect", "persist"])
+@pytest.mark.parametrize("identity", ["source", "company", "device", "linked"])
+def test_permissioned_pair_actual_acl_precedes_keys_and_concrete_provider_credentials(qr_source_schema,
+    reconciliation_operator, certificates, monkeypatch, connections, namespace, isolated_server, operation, identity):
+    case = native_pair_access_case(reconciliation_operator, certificates[0], monkeypatch, connections, namespace, isolated_server, owner="linked")
+    reconciliation_operator.denied_operations.add({"source": ("Sales Invoice", "INV-TEST", "write"),
+        "company": ("Company", "TEST", "read"), "device": ("ZATCA Multiple Setting", "DEVICE", "read"),
+        "linked": ("Company", "LINKED", "read")}[identity])
+    with pytest.raises(PermissionDenied):
+        invoke_pair_access(case, operation)
+    case.keys.assert_not_called()
+    case.credentials.assert_not_called()
+    case.factory.assert_not_called()
+    assert_pair_access_missing(case, connections)
+
+
+@pytest.mark.parametrize("operation", ["inspect", "persist"])
+def test_permissioned_pair_actual_sql_drift_never_becomes_safe_absence_or_local_store(qr_source_schema,
+    reconciliation_operator, certificates, monkeypatch, connections, namespace, isolated_server, operation):
+    case = native_pair_access_case(reconciliation_operator, certificates[0], monkeypatch, connections, namespace, isolated_server)
+    writer = connections()
+    try:
+        with writer.cursor() as cursor:
+            cursor.execute("UPDATE `tabSales Invoice` SET custom_uuid=%s WHERE name='INV-TEST'", (str(uuid4()),))
+        writer.commit()  # This test's new synthetic row only; fake Frappe remains stale.
+    finally:
+        writer.close()
+    report = invoke_pair_access(case, operation)
+    assert report["state"] == ("PAIR_INSPECTION_UNCONFIRMED_NO_REPLAY" if operation == "inspect" else "PAIR_PERSISTENCE_UNCONFIRMED_NO_REPLAY")
+    assert_pair_access_missing(case, connections)
+    assert all(owned.closed for owned in case.pinned_opened)
+
+
+@pytest.mark.parametrize("operation", ["inspect", "persist"])
+@pytest.mark.parametrize("stage", ["acquire", "last-guard", "close"])
+def test_permissioned_pair_actual_late_acl_denial_preserves_originals_and_committed_history(qr_source_schema,
+    reconciliation_operator, certificates, monkeypatch, connections, namespace, isolated_server, operation, stage):
+    case = native_pair_access_case(reconciliation_operator, certificates[0], monkeypatch, connections, namespace, isolated_server)
+    def revoke():
+        reconciliation_operator.denied_operations.add(("Sales Invoice", "INV-TEST", "write"))
+    if stage == "last-guard":
+        original = pair_access._verify_rows
+        calls = []
+        def verify(connection, rows):
+            original(connection, rows)
+            calls.append(connection)
+            if len(calls) == 2:
+                revoke()
+        monkeypatch.setattr(pair_access, "_verify_rows", verify)
+    else:
+        original = case.factory.side_effect
+        def acquire(scope):
+            owned = original(scope)
+            if stage == "acquire":
+                revoke()
+                return owned
+            def close():
+                owned.close()
+                revoke()
+            return SimpleNamespace(cursor=owned.cursor, rollback=owned.rollback, commit=owned.commit, close=close)
+        case.factory.side_effect = acquire
+    with pytest.raises(PermissionDenied) as error:
+        invoke_pair_access(case, operation)
+    assert error.value.__context__ is None
+    assert case.cipher.open(case.sealed) == case.captured.receipt
+    if stage == "close" and operation == "persist":
+        assert read_primary_receipt_case(case, connections) == primary_capture._validate_retained(case.captured.receipt)
+        assert read_custody_row(case, connections) == case.sealed
+    else:
+        assert_pair_access_missing(case, connections)
+    case.observer.assert_called_once()
+    assert all(owned.closed for owned in case.pinned_opened)
+
+
+@pytest.mark.parametrize("fault", ["commit-before", "commit-after", "close"])
+def test_permissioned_pair_actual_uncertain_commit_returns_only_unconfirmed_metadata(qr_source_schema,
+    reconciliation_operator, certificates, monkeypatch, connections, namespace, isolated_server, fault):
+    case = native_pair_access_case(reconciliation_operator, certificates[0], monkeypatch, connections, namespace, isolated_server)
+    original = case.factory.side_effect
+    def acquire(scope):
+        owned = original(scope)
+        def commit():
+            if fault == "commit-before":
+                raise RuntimeError("PRIVATE before pair commit")
+            owned.commit()
+            if fault == "commit-after":
+                raise RuntimeError("PRIVATE pair commit acknowledgment")
+        def close():
+            owned.close()
+            if fault == "close":
+                raise RuntimeError("PRIVATE close acknowledgment")
+        return SimpleNamespace(cursor=owned.cursor, rollback=owned.rollback, commit=commit, close=close)
+    case.factory.side_effect = acquire
+    report = invoke_pair_access(case, "persist")
+    assert report["state"] == "PAIR_PERSISTENCE_UNCONFIRMED_NO_REPLAY"
+    assert "sealed" not in report and "request" not in report
+    if fault == "commit-before":
+        assert_pair_access_missing(case, connections)
+    else:
+        assert read_primary_receipt_case(case, connections) == primary_capture._validate_retained(case.captured.receipt)
+        assert read_custody_row(case, connections) == case.sealed
+    assert all(owned.closed for owned in case.pinned_opened)
+    case.observer.assert_called_once()
+
+
+@pytest.mark.parametrize("operation", ["inspect", "persist"])
+@pytest.mark.parametrize("mode", ["custody-only", "journal-only", "different-seal"])
+def test_permissioned_pair_actual_partial_or_changed_envelope_stays_review_only(qr_source_schema,
+    reconciliation_operator, certificates, monkeypatch, connections, namespace, isolated_server, operation, mode):
+    case = native_pair_access_case(reconciliation_operator, certificates[0], monkeypatch, connections, namespace, isolated_server)
+    writer = connections()
+    try:
+        if mode == "journal-only":
+            MariaDBJournalRepository(writer, namespace).append(case.original.key_sha256, case.captured.receipt.response_event,
+                expected_journal_sha256=case.request.started.journal_sha256)
+        else:
+            selected = case.sealed if mode == "custody-only" else case.cipher.seal(case.captured.receipt, key_id=case.sealed.key_id)
+            MariaDBPrimaryReceiptCustodyRepository(writer, namespace, case.cipher).stage(selected)
+        writer.commit()  # Intentional separate synthetic legacy writer only.
+    finally:
+        writer.close()
+    before = read_primary_receipt_case(case, connections)
+    report = invoke_pair_access(case, operation)
+    assert report["state"] == {"custody-only": "CUSTODY_ONLY_REVIEW_NO_REPLAY", "journal-only": "JOURNAL_ONLY_REVIEW_NO_REPLAY",
+        "different-seal": "PAIR_CONFLICT_REVIEW_NO_REPLAY"}[mode]
+    assert read_primary_receipt_case(case, connections) == before
+    if mode == "journal-only":
+        with pytest.raises(PrimaryReceiptCustodyError, match="receipt_custody_missing"):
+            read_custody_row(case, connections)
+    else:
+        assert read_custody_row(case, connections) == selected
+    case.observer.assert_called_once()
 
 
 def native_custody_case(custody_operator, der, monkeypatch, connections, namespace, isolated_server, **options):

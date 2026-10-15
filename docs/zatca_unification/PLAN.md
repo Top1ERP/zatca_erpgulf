@@ -137,6 +137,13 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 55 adds [permissioned local primary pair access](PRIMARY_RECONCILIATION_ACCESS.md).
+  Shared saved invoice WRITE/related READ and exact original request/envelope
+  declarations precede scoped keys/owned SQL. Source locks and final ACL checks
+  bound metadata-only inspection/LOCAL persistence; partial/conflict policy stays
+  review-only. Full seal fingerprinting does not change XML signatures. No
+  runtime caller or provider/key installation; independent provenance and legacy
+  separate-writer/lost-response review remain gates before integration.
 - Increment 54 adds [exact local primary receipt pair reconciliation](PRIMARY_RECEIPT_RECONCILIATION.md).
   Read-only inspection or explicit LOCAL persistence requires the original seal,
   exact existing hold/request binding and literal source guards. Both absent

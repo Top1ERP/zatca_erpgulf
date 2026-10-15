@@ -107,8 +107,11 @@ history is in [STATUS.md](STATUS.md).
 PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py --private-sql
 ```
 
-Next add a permissioned saved-source/owned-resource metadata boundary for this
-explicit paired operation. Audit actual retention/key/provider/namespace/lookup/
+Increment 55 adds an internal [saved-source/owned-resource metadata boundary](PRIMARY_RECONCILIATION_ACCESS.md)
+for these exact operations, with full original-seal declaration before keys and
+final ACL before diagnostics. It does not install a runtime caller or providers.
+Next review legacy independent writers/lost-response/partial-state policy and
+audit actual retention/key/provider/namespace/lookup/
 credential-epoch provenance, lost/late/unbound response review and legacy partial
 writers before runtime integration. Pre-first-durable-response process loss is
 not solved. Legacy retries, ICV continuity, signature/QR SDK and advance/GL/VAT
