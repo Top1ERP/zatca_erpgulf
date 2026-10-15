@@ -62,3 +62,19 @@ CREATE TABLE zatca_dispatch_event_v1 (
         response_bytes IS NULL OR OCTET_LENGTH(response_bytes) <= 8388608
     )
 ) ENGINE=InnoDB;
+
+-- Synthetic atomic-start/no-replay reservation, NOT a runtime installer.
+CREATE TABLE zatca_primary_attempt_hold_v1 (
+    storage_namespace CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    source_sha256 CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    candidate_sha256 CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    manifest_sha256 CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    attempt_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    started_journal_sha256 CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    PRIMARY KEY (storage_namespace,source_sha256),
+    UNIQUE KEY primary_hold_candidate (storage_namespace,candidate_sha256),
+    UNIQUE KEY primary_hold_attempt (storage_namespace,attempt_id),
+    CONSTRAINT primary_hold_candidate_fk FOREIGN KEY (storage_namespace,candidate_sha256)
+        REFERENCES zatca_issuance_candidate_v1 (storage_namespace,key_sha256)
+        ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE=InnoDB;

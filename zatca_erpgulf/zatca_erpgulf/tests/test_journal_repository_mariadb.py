@@ -33,6 +33,8 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_issuance_candidate import candidate
 from zatca_erpgulf.zatca_erpgulf.tests.offline_rehearsal_plugin import active_guard
 from zatca_erpgulf.zatca_erpgulf.primary_receipt_persistence import PrimaryReceiptPersistence
 from zatca_erpgulf.zatca_erpgulf import primary_receipt_custody as custody
+from zatca_erpgulf.zatca_erpgulf import primary_attempt_hold as holds
+from zatca_erpgulf.zatca_erpgulf.tests.test_primary_attempt_hold import variant as hold_variant
 from zatca_erpgulf.zatca_erpgulf.tests.test_primary_receipt_persistence import retained
 from zatca_erpgulf.zatca_erpgulf.tests.test_issuance_candidate import scope
 
@@ -423,6 +425,246 @@ def test_private_server_crash_recovery_preserves_commit_and_rolls_back_incomplet
     assert recovered.candidate.xml_bytes == prepared.xml_bytes
     assert len(recovered.events) == 1
     assert recovered.diagnostic_projection()["replay_authorized"] is False
+
+
+def hold_start(selected):
+    return DispatchJournal(selected, (event(selected, event_id=str(uuid4()), attempt_id=str(uuid4())),))
+
+
+def distinct_hold_candidate(prepared, certificates, change="version"):
+    selected = hold_variant(prepared, certificates, change)
+    # New candidate/UUID/ICV/event/attempt identities deliberately bypass existing
+    # candidate identity uniqueness; ONLY the logical-source hold must stop it.
+    selected = replace(selected, context=replace(selected.context,
+        scope=replace(selected.context.scope, issuance_version=selected.context.scope.issuance_version + 1)))
+    root = etree.fromstring(selected.xml_bytes)
+    root.find("cbc:UUID", namespaces=NS).text = str(uuid4())
+    root.xpath("./cac:AdditionalDocumentReference[cbc:ID='ICV']/cbc:UUID", namespaces=NS)[0].text = "78"
+    return replace(selected, xml_bytes=etree.tostring(root, encoding="UTF-8", xml_declaration=True))
+
+
+def read_primary_hold(connections, namespace, started):
+    reader = connections()
+    try:
+        return holds.MariaDBPrimaryAttemptHoldRepository(reader, namespace).load(started)
+    finally:
+        reader.rollback()
+        reader.close()
+
+
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("indicator", ["0100000", "0200000"])
+@pytest.mark.parametrize("code", ["388", "381", "383", "386"])
+def test_primary_start_and_logical_hold_commit_together_without_dispatch(connections, namespace, certificates, doctype, indicator, code):
+    selected = candidate(certificates[0], selected_scope=scope(doctype=doctype), indicator=indicator, code=code)
+    started = hold_start(selected)
+    writer = connections()
+    try:
+        save(writer, namespace, selected)
+        result = holds.MariaDBPrimaryAttemptHoldRepository(writer, namespace).reserve(started)
+        writer.commit()
+        assert read_primary_hold(connections, namespace, started) == result
+        assert MariaDBJournalRepository(writer, namespace).load(selected.key_sha256) == started
+        writer.rollback()
+        with pytest.raises(holds.PrimaryAttemptHoldError, match="primary_hold_journal_not_empty"):
+            holds.MariaDBPrimaryAttemptHoldRepository(writer, namespace).reserve(started)
+        writer.rollback()
+        assert result.diagnostic_projection()["dispatch_authorized"] is False
+    finally:
+        writer.close()
+
+
+def test_uncommitted_primary_start_and_hold_are_both_invisible_and_rolled_back(connections, namespace, prepared):
+    writer, reader = connections(), connections("READ COMMITTED")
+    started = hold_start(prepared)
+    try:
+        empty = save(writer, namespace, prepared)
+        holds.MariaDBPrimaryAttemptHoldRepository(writer, namespace).reserve(started)
+        with reader.cursor() as cursor:
+            for table in ("zatca_primary_attempt_hold_v1", "zatca_dispatch_event_v1"):
+                cursor.execute("SELECT COUNT(*) FROM " + table + " WHERE storage_namespace=%s", (namespace,))
+                assert cursor.fetchone() == (0,)
+        writer.rollback()
+        assert MariaDBJournalRepository(reader, namespace).load(prepared.key_sha256) == empty
+        reader.rollback()
+        with pytest.raises(holds.PrimaryAttemptHoldError):
+            holds.MariaDBPrimaryAttemptHoldRepository(reader, namespace).load(started)
+    finally:
+        writer.rollback()
+        writer.close()
+        reader.rollback()
+        reader.close()
+
+
+@pytest.mark.parametrize("committed", [False, True])
+def test_owned_database_crash_preserves_primary_hold_and_start_atomically(connections, namespace, prepared,
+    isolated_server, committed):
+    started = hold_start(prepared)
+    writer = connections()
+    empty = save(writer, namespace, prepared)
+    expected = holds.MariaDBPrimaryAttemptHoldRepository(writer, namespace).reserve(started)
+    if committed:
+        writer.commit()
+    isolated_server[2]()  # Exact owned temporary subprocess only, never Bench/workers.
+    writer.close()
+    reader = connections()
+    try:
+        current = MariaDBJournalRepository(reader, namespace).load(prepared.key_sha256)
+        assert current == (started if committed else empty)
+        if committed:
+            assert holds.MariaDBPrimaryAttemptHoldRepository(reader, namespace).load(started) == expected
+        else:
+            with reader.cursor() as cursor:
+                cursor.execute("SELECT COUNT(*) FROM zatca_primary_attempt_hold_v1 WHERE storage_namespace=%s", (namespace,))
+                assert cursor.fetchone() == (0,)
+        assert expected.diagnostic_projection()["local_commit_verified"] is False
+    finally:
+        reader.rollback()
+        reader.close()
+
+
+@pytest.mark.parametrize("change", ["version", "chain", "unit", "epoch", "owner", "source", "route", "uuid", "icv",
+    "certificate", "environment", "indicator"])
+def test_new_identity_or_settings_cannot_bypass_existing_logical_invoice_hold(connections, namespace, prepared, certificates, change):
+    first, second = hold_start(prepared), hold_start(distinct_hold_candidate(prepared, certificates, change))
+    assert first.candidate.key_sha256 != second.candidate.key_sha256
+    assert first.candidate.artifact.uuid != second.candidate.artifact.uuid
+    assert first.candidate.artifact.icv != second.candidate.artifact.icv
+    writer = connections()
+    try:
+        save(writer, namespace, first.candidate)
+        original = holds.MariaDBPrimaryAttemptHoldRepository(writer, namespace).reserve(first)
+        writer.commit()
+        empty_second = save(writer, namespace, second.candidate)
+        with pytest.raises(holds.PrimaryAttemptHoldError):
+            holds.MariaDBPrimaryAttemptHoldRepository(writer, namespace).reserve(second)
+        writer.rollback()  # Also undo the loser's appended start in this SAME tx.
+        assert MariaDBJournalRepository(writer, namespace).load(second.candidate.key_sha256) == empty_second
+        writer.rollback()
+        assert read_primary_hold(connections, namespace, first) == original
+    finally:
+        writer.rollback()
+        writer.close()
+
+
+@pytest.mark.parametrize("isolation", ["REPEATABLE READ", "READ COMMITTED"])
+@pytest.mark.parametrize("different_candidate", [False, True])
+def test_competing_workers_can_commit_only_one_logical_invoice_hold(connections, namespace, prepared, certificates,
+    isolation, different_candidate):
+    first = hold_start(prepared)
+    second = hold_start(distinct_hold_candidate(prepared, certificates)) if different_candidate else hold_start(prepared)
+    setup = connections()
+    try:
+        save(setup, namespace, first.candidate)
+        if different_candidate:
+            save(setup, namespace, second.candidate)
+    finally:
+        setup.close()
+    barrier = threading.Barrier(2)
+    def reserve(started):
+        writer = connections(isolation)
+        try:
+            barrier.wait(timeout=3)
+            result = holds.MariaDBPrimaryAttemptHoldRepository(writer, namespace).reserve(started)
+            writer.commit()
+            return result
+        except holds.PrimaryAttemptHoldError:
+            writer.rollback()
+            return None
+        finally:
+            writer.close()
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(reserve, (first, second)))
+    assert sum(result is not None for result in results) == 1
+    winner = first if results[0] is not None else second
+    assert read_primary_hold(connections, namespace, winner) == next(result for result in results if result is not None)
+    if different_candidate:
+        loser = second if winner is first else first
+        reader = connections()
+        try:
+            assert MariaDBJournalRepository(reader, namespace).load(loser.candidate.key_sha256).events == ()
+        finally:
+            reader.rollback()
+            reader.close()
+
+
+@pytest.mark.parametrize("status", [200, 202, 400, 401, 403, 406, 409, 500])
+@pytest.mark.parametrize("unknown", [False, True])
+def test_http_or_unknown_outcome_never_releases_primary_hold(connections, namespace, prepared, status, unknown):
+    started = hold_start(prepared)
+    writer = connections()
+    try:
+        save(writer, namespace, prepared)
+        expected = holds.MariaDBPrimaryAttemptHoldRepository(writer, namespace).reserve(started)
+        writer.commit()
+        current = started
+        repository = MariaDBJournalRepository(writer, namespace)
+        if unknown:
+            current = repository.append(prepared.key_sha256, event(prepared, "TRANSPORT_UNKNOWN", 2,
+                attempt_id=started.events[0].attempt_id), expected_journal_sha256=current.journal_sha256)
+        repository.append(prepared.key_sha256, event(prepared, "HTTP_RESPONSE", len(current.events) + 1,
+            attempt_id=started.events[0].attempt_id, http_status=status), expected_journal_sha256=current.journal_sha256)
+        writer.commit()
+        assert read_primary_hold(connections, namespace, started) == expected
+        with pytest.raises(holds.PrimaryAttemptHoldError, match="primary_hold_journal_not_empty"):
+            holds.MariaDBPrimaryAttemptHoldRepository(writer, namespace).reserve(started)
+        writer.rollback()
+    finally:
+        writer.close()
+
+
+@pytest.mark.parametrize("target", ["manifest_sha256", "attempt_id", "started_journal_sha256", "source_sha256"])
+def test_corrupt_hold_is_not_repaired_adopted_or_disclosed(connections, namespace, prepared, target):
+    started = hold_start(prepared)
+    writer = connections()
+    try:
+        save(writer, namespace, prepared)
+        holds.MariaDBPrimaryAttemptHoldRepository(writer, namespace).reserve(started)
+        writer.commit()
+        with writer.cursor() as cursor:
+            value = str(uuid4()) if target == "attempt_id" else "0" * 64
+            cursor.execute("UPDATE zatca_primary_attempt_hold_v1 SET " + target + "=%s WHERE storage_namespace=%s", (value, namespace))
+        writer.commit()  # Deliberate owned-synthetic corruption only.
+    finally:
+        writer.close()
+    with pytest.raises(holds.PrimaryAttemptHoldError) as error:
+        read_primary_hold(connections, namespace, started)
+    assert error.value.__context__ is None
+
+
+def test_autocommit_cannot_partially_create_primary_start_or_hold(connections, namespace, prepared):
+    writer = connections()
+    try:
+        empty = save(writer, namespace, prepared)
+    finally:
+        writer.close()
+    unsafe = connections(autocommit=True)
+    try:
+        with pytest.raises(holds.PrimaryAttemptHoldError, match="primary_hold_autocommit"):
+            holds.MariaDBPrimaryAttemptHoldRepository(unsafe, namespace).reserve(hold_start(prepared))
+    finally:
+        unsafe.close()
+    reader = connections()
+    try:
+        assert MariaDBJournalRepository(reader, namespace).load(prepared.key_sha256) == empty
+    finally:
+        reader.rollback()
+        reader.close()
+
+
+def test_legacy_started_journal_without_hold_cannot_be_silently_backfilled(connections, namespace, prepared):
+    receipt = retained(prepared, namespace=namespace)
+    store_receipt_predecessor(connections, receipt)
+    writer = connections()
+    try:
+        with pytest.raises(holds.PrimaryAttemptHoldError, match="primary_hold_journal_not_empty"):
+            holds.MariaDBPrimaryAttemptHoldRepository(writer, namespace).reserve(receipt.before)
+        writer.rollback()
+        with writer.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM zatca_primary_attempt_hold_v1 WHERE storage_namespace=%s", (namespace,))
+            assert cursor.fetchone() == (0,)
+    finally:
+        writer.close()
 
 
 def custody_cipher():

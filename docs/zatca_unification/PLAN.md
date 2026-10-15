@@ -137,6 +137,11 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 51 adds an [atomic primary start/logical-invoice hold](PRIMARY_ATTEMPT_HOLD.md).
+  One caller transaction appends an explicit first event and strictly reserves
+  the same logical source across changed candidate/version/chain/environment.
+  Existing/uncertain reservations never authorize reuse; no status/clock-based
+  release. Test-only SQL, no runtime sender/permissioned coordinator activation.
 - Increment 50 adds [permissioned encrypted local receipt custody](PRIMARY_RECEIPT_CUSTODY_ACCESS.md).
   Shared source/owned-acquisition helpers require invoice WRITE/related READ and
   exact receipt/key declarations before scoped keys/SQL. Stage retains the same

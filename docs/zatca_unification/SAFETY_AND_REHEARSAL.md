@@ -343,6 +343,17 @@ are synthetic v15/v16-shaped fixtures, not installed-v16/remote acceptance proof
 No schema, working source/config/assets/workers, customer or authority change.
 No durable no-replay hold, transport attestation or runtime activation is enabled.
 
+Increment 51 adds an [atomic start/logical-invoice no-replay hold](PRIMARY_ATTEMPT_HOLD.md)
+on explicit caller transactions only. The guarded final selection passed
+**6,640 local + 648 private SQL = 7,288 cases in 66.43 seconds**, across the same
+twelve private suites. Atomic commit/rollback/crash and competing same/different-
+version workers use only newly owned temporary SQL servers. No runtime caller,
+schema installer, permissioned reservation coordinator, lease/release mechanism
+or transport is activated. Existing runtime retries are NOT claimed fixed; true
+source/epoch/transport provenance and correction/reconciliation policy remain
+gates. Classification coverage does not verify SDK/crypto/advance accounting.
+No working source/config/schema/assets/workers/customer or authority change.
+
 These stages are future gates, not actions executed or approved by this increment.
 Full development and real v15/v16/application/crypto/advance acceptance remain
 unfinished. Remote authority acceptance is a separate unverified gate and cannot

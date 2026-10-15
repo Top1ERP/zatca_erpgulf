@@ -1,5 +1,9 @@
 # Permissioned encrypted local receipt custody — increment 50
 
+Increment 51 adds a separate [atomic start/logical-invoice hold repository](PRIMARY_ATTEMPT_HOLD.md),
+not a runtime caller or a new custody permission. No existing capture/retry path
+is wired to it and all custody authorization/transaction rules below still apply.
+
 ## Internal boundary, not activation
 
 `SavedPrimaryReceiptCustodyService` protects the increment 49 custody repository

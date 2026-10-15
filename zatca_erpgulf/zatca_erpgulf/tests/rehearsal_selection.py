@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "primary_attempt_hold",
     "primary_receipt_custody_access",
     "primary_receipt_custody",
     "primary_receipt_provider",
