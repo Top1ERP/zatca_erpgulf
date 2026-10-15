@@ -15,6 +15,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
+from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -38,6 +39,8 @@ from zatca_erpgulf.zatca_erpgulf import primary_receipt_custody as custody
 from zatca_erpgulf.zatca_erpgulf import primary_attempt_hold as holds
 from zatca_erpgulf.zatca_erpgulf import primary_capture as primary_capture
 from zatca_erpgulf.zatca_erpgulf import primary_receipt_reconciliation as primary_pair
+from zatca_erpgulf.zatca_erpgulf import primary_review_policy as primary_review
+from zatca_erpgulf.zatca_erpgulf.primary_receipt_persistence import RetainedPrimaryReceipt
 from zatca_erpgulf.zatca_erpgulf.tests.test_primary_capture import observed as primary_observed
 from zatca_erpgulf.zatca_erpgulf.tests.test_primary_attempt_hold import variant as hold_variant
 from zatca_erpgulf.zatca_erpgulf.tests.test_primary_receipt_persistence import retained
@@ -888,6 +891,123 @@ def test_actual_primary_pair_owned_database_restart_preserves_hold_and_whole_com
     assert result.state == ("PAIR_MATCHED_OBSERVATION_NO_REPLAY" if committed else "PAIR_MISSING_OBSERVATION_NO_REPLAY")
     assert read_primary_hold(connections, namespace, case.request.started)
     case.observer.assert_called_once()
+
+
+@pytest.mark.parametrize("first", ["journal", "custody"])
+@pytest.mark.parametrize("second_committed", [False, True])
+def test_actual_independent_receipt_writers_leave_a_partial_window_and_never_grant_automatic_repair(connections,
+    namespace, prepared, first, second_committed):
+    case = native_primary_pair_case(connections, namespace, prepared)
+    sealed, receipt = case.captured.sealed, case.captured.receipt
+    if first == "journal":
+        assert PrimaryReceiptPersistence(namespace, connection_factory=connections).persist(receipt).state == "RECEIPT_STORED_OBSERVATION_NO_REPLAY"
+    else:
+        writer = connections()
+        try:
+            custody.MariaDBPrimaryReceiptCustodyRepository(writer, namespace, case.cipher).stage(sealed)
+            writer.commit()  # Explicit test caller, NOT atomic with the other writer.
+        finally:
+            writer.close()
+    partial = case.pair_service.inspect(case.request, sealed)
+    expected = "JOURNAL_ONLY_REVIEW_NO_REPLAY" if first == "journal" else "CUSTODY_ONLY_REVIEW_NO_REPLAY"
+    assert partial.state == expected
+    reviewed = primary_review.review_primary_outcome(case.captured, partial).diagnostic_projection()
+    assert reviewed["review_reason"] == ("REVIEW_JOURNAL_ONLY_NO_REPAIR" if first == "journal" else "REVIEW_CUSTODY_ONLY_NO_REPAIR")
+    before = read_primary_pair(case, connections, namespace)
+    assert case.pair_service.persist(case.request, sealed).state == expected
+    assert read_primary_pair(case, connections, namespace) == before  # No half-repair shortcut.
+
+    def uncertain():
+        owned = connections()
+        def commit():
+            if second_committed:
+                owned.commit()
+            raise RuntimeError("PRIVATE separate writer commit acknowledgment unavailable")
+        return SimpleNamespace(cursor=owned.cursor, rollback=owned.rollback, close=owned.close, commit=commit)
+    if first == "journal":
+        def stage(connection):
+            return custody.MariaDBPrimaryReceiptCustodyRepository(connection, namespace, case.cipher).stage(sealed)
+        with pytest.raises(RuntimeError):
+            primary_capture._owned_transaction(uncertain, stage)
+    else:
+        result = PrimaryReceiptPersistence(namespace, connection_factory=uncertain).persist(receipt)
+        assert result.state == "RECEIPT_COMMIT_UNCONFIRMED_NO_REPLAY" and result.receipt is receipt
+    later = case.pair_service.inspect(case.request, sealed)
+    assert later.state == ("PAIR_MATCHED_OBSERVATION_NO_REPLAY" if second_committed else expected)
+    report = primary_review.review_primary_outcome(case.captured, later).diagnostic_projection()
+    assert all(value is False for key, value in report.items() if key.endswith(("_verified", "_authorized")))
+    assert read_primary_hold(connections, namespace, case.request.started)
+    case.observer.assert_called_once()
+
+
+@pytest.mark.parametrize("cause", ["TIMEOUT", "CONNECTION_ERROR", "WORKER_INTERRUPTION"])
+def test_actual_unknown_history_never_resequences_an_original_already_sealed_response(connections, namespace, prepared, cause):
+    case = native_primary_pair_case(connections, namespace, prepared)
+    original = case.captured
+    writer = connections()
+    try:
+        unknown_event = event(prepared, "TRANSPORT_UNKNOWN", 2, event_id=str(uuid4()),
+            attempt_id=case.request.started.events[0].attempt_id,
+            occurred_at=original.response.received_at + timedelta(seconds=1), unknown_cause=cause)
+        unknown = MariaDBJournalRepository(writer, namespace).append(prepared.key_sha256, unknown_event,
+            expected_journal_sha256=case.request.started.journal_sha256)
+        writer.commit()
+    finally:
+        writer.close()
+    result = PrimaryReceiptPersistence(namespace, connection_factory=connections).persist(original.receipt)
+    assert result.state == "RECEIPT_COMMIT_UNCONFIRMED_NO_REPLAY" and result.receipt is original.receipt
+    paired = case.pair_service.inspect(case.request, original.sealed)
+    assert paired.state == "PAIR_CONFLICT_REVIEW_NO_REPLAY"
+    assert case.pair_service.persist(case.request, original.sealed).state == "PAIR_CONFLICT_REVIEW_NO_REPLAY"
+    assert read_primary_pair(case, connections, namespace) == (unknown, None)
+    report = primary_review.review_primary_outcome(original, paired).diagnostic_projection()
+    assert report["review_reason"] == "REVIEW_PAIR_CONFLICT_NO_ADOPTION"
+    assert original.receipt.response_event.sequence == 2 and case.cipher.open(original.sealed) == original.receipt
+    assert all(value is False for key, value in report.items() if key.endswith(("_verified", "_authorized")))
+    assert read_primary_hold(connections, namespace, case.request.started)
+    case.observer.assert_called_once()
+
+
+@pytest.mark.parametrize("cause", ["TIMEOUT", "CONNECTION_ERROR", "WORKER_INTERRUPTION"])
+@pytest.mark.parametrize("status", [200, 401])
+def test_actual_independently_supplied_late_observation_is_not_the_original_two_event_capture(connections,
+    namespace, prepared, cause, status):
+    case = native_primary_pair_case(connections, namespace, prepared)
+    writer = connections()
+    try:
+        supplied_unknown = event(prepared, "TRANSPORT_UNKNOWN", 2, event_id=str(uuid4()),
+            attempt_id=case.request.started.events[0].attempt_id,
+            occurred_at=case.captured.response.received_at + timedelta(seconds=1), unknown_cause=cause)
+        unknown = MariaDBJournalRepository(writer, namespace).append(prepared.key_sha256, supplied_unknown,
+            expected_journal_sha256=case.request.started.journal_sha256)
+        writer.commit()
+    finally:
+        writer.close()
+    # An INDEPENDENT synthetic late event is supplied with its OWN original ID,
+    # time/body/sequence, not a rewritten copy of the earlier sealed response.
+    supplied_late = event(prepared, "HTTP_RESPONSE", 3, event_id=str(uuid4()),
+        attempt_id=case.request.started.events[0].attempt_id, occurred_at=supplied_unknown.occurred_at + timedelta(seconds=1),
+        http_status=status, response_bytes=b"INDEPENDENT synthetic late observation, not authority evidence")
+    retained_late = RetainedPrimaryReceipt(namespace, unknown, supplied_late)
+    stored = PrimaryReceiptPersistence(namespace, connection_factory=connections).persist(retained_late)
+    assert stored.state == "RECEIPT_STORED_OBSERVATION_NO_REPLAY"
+    late_sealed = case.cipher.seal(retained_late, key_id=case.captured.sealed.key_id)
+    writer = connections()
+    try:
+        custody.MariaDBPrimaryReceiptCustodyRepository(writer, namespace, case.cipher).stage(late_sealed)
+        writer.commit()
+    finally:
+        writer.close()
+    calls = case.factory.call_count
+    with pytest.raises(primary_pair.PrimaryReconciliationError, match="primary_pair_input"):
+        case.pair_service.inspect(case.request, late_sealed)
+    assert case.factory.call_count == calls  # Strict START-only contract rejects BEFORE SQL.
+    observed, sealed = read_primary_pair(case, connections, namespace)
+    assert observed.events == (*unknown.events, supplied_late) and sealed == late_sealed
+    assert case.cipher.open(case.captured.sealed) == case.captured.receipt  # Old envelope unchanged.
+    assert case.cipher.open(late_sealed) == retained_late
+    assert read_primary_hold(connections, namespace, case.request.started)
+    case.observer.assert_called_once()  # No sender or actual late-response receiver.
 
 
 def hold_start(selected):

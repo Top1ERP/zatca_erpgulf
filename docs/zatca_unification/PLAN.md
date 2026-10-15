@@ -137,6 +137,14 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 56 adds [writer/late-response evidence and pure outcome review](PRIMARY_WRITERS_AND_REVIEW.md).
+  Current mutable runtime writers are distinct from staged single/pair stores.
+  Actual independent private writers reproduce partial windows; original sealed
+  sequence-2 responses cannot be rewritten after UNKNOWN, and independent late
+  sequence-3 observations are not the strict START-only pair contract. Review
+  binds exact protected input, returns states only and never authorizes actions.
+  Next isolate local rejection/error-status logging failures in the four primary
+  source APIs before broader parent-commit/custody integration; no runtime wiring.
 - Increment 55 adds [permissioned local primary pair access](PRIMARY_RECONCILIATION_ACCESS.md).
   Shared saved invoice WRITE/related READ and exact original request/envelope
   declarations precede scoped keys/owned SQL. Source locks and final ACL checks

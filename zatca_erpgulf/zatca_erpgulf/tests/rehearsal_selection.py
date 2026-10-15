@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "primary_review_policy",
     "primary_reconciliation_access",
     "primary_receipt_reconciliation",
     "primary_capture_access",
