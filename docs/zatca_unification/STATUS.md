@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and fifty-six bounded increments (Compliance outcomes, dedicated
+Safety preparation and fifty-seven bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -47,7 +47,8 @@ and an exact auth-free local primary observation coordinator,
 and a permissioned metadata-only saved-source primary capture boundary,
 and exact local primary custody/journal pair inspection and persistence,
 and permissioned metadata-only saved-source paired reconciliation access,
-and bounded pure primary outcome review with writer/late-response evidence)
+and bounded pure primary outcome review with writer/late-response evidence,
+and received local presentation/logging-step isolation for all primary statuses)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -1025,6 +1026,28 @@ branches and credential-context differences are recorded in
   active runtime retry, accounting/advance/QR/signature behavior change occurred.
   See [PRIMARY_WRITERS_AND_REVIEW.md](PRIMARY_WRITERS_AND_REVIEW.md).
 
+## Increment 57: received local presentation/logging-step isolation
+
+- Closed the increment56 error-status local-log/formatter gap in the four actual
+  primary Sales/POS APIs in DEVELOPMENT source. Explicit callback guards are
+  bound only after transport returns; both event-log branches, hide and all
+  existing formatter calls (including lazy text and late rejection formatting)
+  use the static translated local-review RuntimeError signal for formerly caught
+  ValueError/TypeError/KeyError/framework ValidationError failures.
+- The signal escapes legacy narrow generic handlers without extra response/
+  status/UUID writes, 503 downgrade, commit, read or retry AFTER the local fault.
+  It neither rolls back previous writes nor guarantees receipt custody. Runtime
+  errors/interruptions, transport exceptions and pre-request notification errors
+  retain their previous propagation. No response/body/PIH/auth/route changes.
+- Intentional rejection throws and all normal success/rejection branches remain
+  unchanged, including undesirable old placeholders/commits/generic wrapping/
+  503 mappings and inconsistent 409 behavior. The twelve increment56 defect tests
+  are now exact no-extra-effect regressions. Reject-persistence/caller boundaries,
+  durable custody/parent lifecycle and endpoint-bound acceptance remain gates.
+  No working source/config/schema/assets/workers/customer/authority action, QR/
+  crypto/advance accounting or scheduler/replay change. See
+  [RESPONSE_PROCESSING.md](RESPONSE_PROCESSING.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -1346,8 +1369,34 @@ overwrites; this is explicitly an UNFIXED runtime-source gap, not a claimed
 acceptance/retry repair. No activated reviewer, actual late receiver, installed
 v16/SDK/authority or end-to-end durable response capture is established.
 
+Increment 57 adds **550 local + 88 private SQL cases**, reaching **8,049 local +
+972 private SQL = 9,021 passing cases** across the same twelve private suites.
+The final guarded combined run passed in **103.63 seconds**. First combined
+passed 9,009 in 102.98 seconds before twelve real event-logger-function cases.
+Those confirm insert/commit + fallback failures cannot add generic API writes,
+while swallowed failures/normal None returns remain unchanged and do NOT prove
+custody. Logger-owned commits and its fallback policy are still integration gates.
+First local had 3
+failures/8,034 passes in 54.09 seconds: the POS Reporting normal-rejection golden
+expected only four response-field writes but omitted its PREEXISTING pre-HTTP
+XML-link `db_set`. The corrected golden requires the exact five-field sequence,
+not a relaxed range, preserving existing behavior; runtime branches were not
+changed to satisfy it. Private phase1 QR SQL tests show 72 early error-status
+format/log/hide cases keep original response/status/UUID and parent-pending work
+uncommitted until the explicit test owner decides commit/rollback. Sixteen late
+400/401 formatting cases show already committed rejection fields/parent work
+are preserved without an added generic error commit/503; pending Sales Clearance
+raw response remains under the parent's decision. Existing independent commits,
+intentional-rejection generic wrapping and POS placeholders remain characterized
+defects, not certified/fixed behaviors. No guard/ownership/rollback/route/identity
+assertion was waived; the twelve old defect observations now enforce exact
+no-extra-effect snapshots. No SDK/installed-v16/browser/remote acceptance or
+end-to-end durable response guarantee is claimed; working code and all authority
+endpoints remain untouched.
+
 | Suite | Scope |
 | --- | --- |
+| `test_received_response_steps.py` | Actual four APIs/all rejection branch families: early/late formatter, lazy text, log/hide snapshots, all formerly caught types, exact normal rejection goldens, unchanged RuntimeError/interruption/transport/pre-request behavior, Arabic/forwarding/AST scope; existing phase1 QR SQL suite adds real parent-controlled pending work and partial committed rejection observations |
 | `test_primary_review_policy.py` | Closed capture/pair review reasons, exact full request/envelope equality and mismatch refusal, no protected output/I/O/acceptance or automatic actions, observed disagreement, twelve-adapter direct-name inventory and existing primary error-status logging gap; existing journal SQL suite adds real independent-writer partial windows/unknown commits and original-versus-independent-late history |
 | `test_primary_reconciliation_access.py` | Saved WRITE/related READ and both quiet permission signatures, exact request/START/full original seal binding before scoped keys/SQL, metadata-only pair outcomes, actor/source/ACL drift before/after commit, borrowed parents/interruption/Arabic/privacy; existing QR SQL suite adds actual pinned-provider/source-lock composition, rollback/uncertainty and no partial repair |
 | `test_primary_receipt_reconciliation.py` | Exact request/original-envelope authentication before SQL, mandatory existing hold/request binding, paired inspection/atomic local persistence, identical/partial/conflict/UNKNOWN policy, guard/commit/cleanup/interruption privacy and no resealing/transport; existing journal SQL suite adds actual rollback/uncertainty/corruption/concurrent redelivery/owned-server restart |
@@ -1480,9 +1529,12 @@ inspection/local persistence, not a permissioned paired facade or runtime repair
 Increment 55 adds saved-source/owned-resource metadata access for paired operations,
 not independent provenance or runtime adoption. Increment 56 adds actual
 single-writer/late-response characterization and pure non-authorizing review,
-not an activated receiver or partial-state repair. Next isolate local logging/
-formatting failures for primary rejection/error statuses without changing remote
-classification, continue lost/late/unbound and partial-write policy, and audit source/namespace/key/
+not an activated receiver or partial-state repair. Increment57 isolates known
+local formatting/event-log/hide failures for all primary statuses without changing
+normal rejection classification or legacy persistence. Next audit rejection-write
+and caller exception boundaries plus event logger swallowed errors/own commits,
+plan intentional rejection/custody/parent lifecycle
+together, continue lost/late/unbound and partial-write policy, and audit source/namespace/key/
 lookup custody and transport-source-epoch/response evidence before
 wiring durable receipt storage/review holds; remove legacy partial/parent commits before artifact
 work; cover concurrent source changes and the remaining writers; establish
@@ -1495,7 +1547,7 @@ recovery/mixed-phase bridge and server-owned site/namespace/chain/lookup/connect
 provenance and authentic capture/acceptance as gates before raw export or
 settlement adoption. Verify
 timezone/settings snapshots for new issuance separately. Neither increment 30
-nor 31/32/33/34/35/36/37/38/39/40/41/42/43/44/45/46/47/48/49/50/51/52/53/54/55/56 consolidates advance amounts/GL or cryptographic digests.
+nor 31/32/33/34/35/36/37/38/39/40/41/42/43/44/45/46/47/48/49/50/51/52/53/54/55/56/57 consolidates advance amounts/GL or cryptographic digests.
 
 All implementation/rehearsal below remains OFFLINE and in development. No live
 provider/site binding, dummy Company on a working bench, authority request or

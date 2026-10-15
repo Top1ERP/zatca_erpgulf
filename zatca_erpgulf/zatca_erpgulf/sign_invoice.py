@@ -13,6 +13,7 @@ import base64
 import json
 import hashlib
 import uuid
+from functools import partial
 import xml.etree.ElementTree as XML_ET
 from datetime import datetime, timezone
 from lxml import etree
@@ -112,7 +113,9 @@ from zatca_erpgulf.zatca_erpgulf.create_xml_final_part import (
 )
 from zatca_erpgulf.zatca_erpgulf.create_qr import MISSING_QR_FIELD, create_qr_code
 from zatca_erpgulf.zatca_erpgulf.primary_qr_attachment import require_primary_qr_attachment
-from zatca_erpgulf.zatca_erpgulf.response_processing import raise_local_response_review
+from zatca_erpgulf.zatca_erpgulf.response_processing import (
+    raise_local_response_review, run_received_response_step, received_response_message,
+)
 from zatca_erpgulf.zatca_erpgulf.sign_invoice_first import (
     removetags,
     canonicalize_xml,
@@ -347,9 +350,15 @@ def reporting_api(
                     json=payload,
                     timeout=300,
                 )
+                # Guard local display/logging for EVERY received status, not
+                # deliberate rejection throws or the transport call itself.
+                response_step = partial(
+                    run_received_response_step, validation_error_type=frappe.ValidationError
+                )
+                render_response = partial(response_step, received_response_message, format_zatca_response)
                 # Error boundary only: HTTP status is NOT acceptance evidence.
                 processing_response = response.status_code in (200, 202, 409)
-                frappe.publish_realtime("hide_gif", user=frappe.session.user)
+                response_step(frappe.publish_realtime, "hide_gif", user=frappe.session.user)
                 # Classify and log ZATCA API responses
                 if response.status_code in (200, 202, 409):
                     if response.status_code == 200:
@@ -364,10 +373,11 @@ def reporting_api(
 
                     msg = (
                         f"{_('Status Code')}: {response.status_code}<br>"
-                        f"{_('ZATCA Response')}: {format_zatca_response(response.text, response.status_code)}"
+                        f"{_('ZATCA Response')}: {render_response(response)}"
                     )
 
-                    log_zatca_event(
+                    response_step(
+                        log_zatca_event,
                         invoice_number=invoice_number,
                         response_text=msg,
                         status=status_label,
@@ -381,10 +391,11 @@ def reporting_api(
                     title = f"ZATCA API Failed - {invoice_number}"
                     msg = (
                         f"{_('Status Code')}: {response.status_code}<br>"
-                        f"{_('ZATCA Response')}: {format_zatca_response(response.text, response.status_code)}"
+                        f"{_('ZATCA Response')}: {render_response(response)}"
                     )
 
-                    log_zatca_event(
+                    response_step(
+                        log_zatca_event,
                         invoice_number=invoice_number,
                         response_text=msg,
                         status=status_label,
@@ -424,7 +435,7 @@ def reporting_api(
                                 "Error: The request you are sending to ZATCA is in incorrect format. "
                                 "Please report to system administrator. "
                                 f"Status code: {response.status_code}<br><br>"
-                                f"{format_zatca_response(response.text, response.status_code)}"
+                                f"{render_response(response)}"
                             )
                         )
                     )
@@ -462,7 +473,7 @@ def reporting_api(
                                 "Your access token may be expired or not valid. "
                                 "Please contact your system administrator. "
                                 f"Status code: {response.status_code}<br><br>"
-                                f"{format_zatca_response(response.text, response.status_code)}"
+                                f"{render_response(response)}"
                             )
                         )
                     )
@@ -470,7 +481,7 @@ def reporting_api(
                     msg = _("Submission successful:") + "<br><br>"
                     msg += (
                         f"{_('Status Code')}: {response.status_code}<br><br> "
-                        f"{_('ZATCA Response')}: {format_zatca_response(response.text, response.status_code)}<br><br>"
+                        f"{_('ZATCA Response')}: {render_response(response)}<br><br>"
                     )
 
                     # Update PIH
@@ -525,7 +536,7 @@ def reporting_api(
                                 "Error: ZATCA server busy or not responding."
                                 " Try after sometime or contact your system administrator. "
                                 f"Status code: {response.status_code}<br><br>"
-                                f"{format_zatca_response(response.text, response.status_code)}"
+                                f"{render_response(response)}"
                             )
                         )
                     )
@@ -542,7 +553,7 @@ def reporting_api(
                     )
                     msg += (
                         f"{_('Status Code')}: {response.status_code}<br><br> "
-                        f"{_('ZATCA Response')}: {format_zatca_response(response.text, response.status_code)}<br><br>"
+                        f"{_('ZATCA Response')}: {render_response(response)}<br><br>"
                     )
                     record_submission_owner_success(
                         submission, encoded_hash, sales_invoice_doc, msg
@@ -643,6 +654,12 @@ def clearance_api(
             json=payload,
             timeout=300,
         )
+        # Presentation failures cannot replace a received rejection/error with
+        # generic local failure writes. Normal rejection handling stays below.
+        response_step = partial(
+            run_received_response_step, validation_error_type=frappe.ValidationError
+        )
+        render_response = partial(response_step, received_response_message, format_zatca_response)
         # Preserve the legacy branch set without treating status as proof.
         processing_response = response.status_code in (200, 202, 409)
         
@@ -659,10 +676,11 @@ def clearance_api(
 
             msg = (
                 f"{_('Status Code')}: {response.status_code}<br>"
-                f"{_('ZATCA Response')}: {format_zatca_response(response.text, response.status_code)}"
+                f"{_('ZATCA Response')}: {render_response(response)}"
             )
 
-            log_zatca_event(
+            response_step(
+                log_zatca_event,
                 invoice_number=invoice_number,
                 response_text=msg,
                 status=status_label,
@@ -676,17 +694,18 @@ def clearance_api(
             title = f"ZATCA API Failed - {invoice_number}"
             msg = (
                 f"{_('Status Code')}: {response.status_code}<br>"
-                f"{_('ZATCA Response')}: {format_zatca_response(response.text, response.status_code)}"
+                f"{_('ZATCA Response')}: {render_response(response)}"
             )
 
-            log_zatca_event(
+            response_step(
+                log_zatca_event,
                 invoice_number=invoice_number,
                 response_text=msg,
                 status=status_label,
                 uuid=uuid1,
                 title=title
             )
-        frappe.publish_realtime("hide_gif", user=frappe.session.user)
+        response_step(frappe.publish_realtime, "hide_gif", user=frappe.session.user)
         if response.status_code == 303:
             invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
             invoice_doc.db_set(
@@ -717,7 +736,7 @@ def clearance_api(
                     (
                         "Error: The request you are sending to ZATCA is in incorrect format. "
                         f"Status code: {response.status_code}<br><br>"
-                        f"{format_zatca_response(response.text, response.status_code)}"
+                        f"{render_response(response)}"
                     )
                 )
             )
@@ -739,7 +758,7 @@ def clearance_api(
                     (
                         "Error: ZATCA Authentication failed. "
                         f"Status code: {response.status_code}<br><br>"
-                        f"{format_zatca_response(response.text, response.status_code)}"
+                        f"{render_response(response)}"
                     )
                 )
             )
@@ -748,7 +767,7 @@ def clearance_api(
             msg = _("Submission successful:") + "<br><br>"
             msg += (
                 f"{_('Status Code')}: {response.status_code}<br><br> "
-                f"{_('ZATCA Response')}: {format_zatca_response(response.text, response.status_code)}<br><br>"
+                f"{_('ZATCA Response')}: {render_response(response)}<br><br>"
             )
 
             # Update PIH
@@ -795,7 +814,7 @@ def clearance_api(
             )
             msg += (
                 f"{_('Status Code')}: {response.status_code}<br><br>"
-                f"{_('ZATCA Response')}: {format_zatca_response(response.text, response.status_code)}<br><br>"
+                f"{_('ZATCA Response')}: {render_response(response)}<br><br>"
             )
 
             record_submission_owner_success(

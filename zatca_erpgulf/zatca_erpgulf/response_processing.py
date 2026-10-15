@@ -23,3 +23,30 @@ class LocalResponseProcessingError(RuntimeError):
 def raise_local_response_review():
     """Call after leaving the legacy exception handler; retain no raw exception."""
     raise LocalResponseProcessingError(_(LOCAL_RESPONSE_REVIEW))
+
+
+def run_received_response_step(step, *args, validation_error_type, **kwargs):
+    """Guard ONE local presentation/logging step AFTER a response was received.
+
+    The caller supplies its framework ValidationError class (also in v15/v16
+    shaped tests). Deliberate HTTP-rejection throws MUST NOT use this wrapper.
+    Known formerly caught local failures become the static review signal OUTSIDE
+    their handler, not a generic authority failure. Unhandled RuntimeError and
+    interruptions keep their old propagation. There is no retry, commit/rollback,
+    raw exception retention or guarantee that the callback itself did not write.
+    """
+    try:
+        return step(*args, **kwargs)
+    except (ValueError, TypeError, KeyError, validation_error_type):
+        pass  # Raise below, after the raw exception handler has finished.
+    raise_local_response_review()
+
+
+def received_response_message(formatter, response):
+    """Use THROUGH run_received_response_step, including response-property reads.
+
+    Forward exactly the existing text/status without caching or reclassifying it.
+    This small adapter lets the guard cover lazy text decoding as well as the
+    formatter itself. It neither stores a response nor evaluates acceptance.
+    """
+    return formatter(response.text, response.status_code)

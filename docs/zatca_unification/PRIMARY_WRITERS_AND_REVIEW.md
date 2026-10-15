@@ -37,9 +37,12 @@ the four real primary APIs with HTTP 400/401/503 and a local event-log failure:
 generic handlers can replace `custom_zatca_full_response` with local `Error: ...`
 and commit mutable error fields; clearance can label the failure as 503. Exactly
 one mocked post occurs. No real HTTP, actual customer response or secrets are
-used. This is a characterized gap, NOT a repaired behavior in this increment.
+used. This is a characterized gap, NOT a repaired behavior in increment56.
+Increment57 subsequently adds a [received-step boundary](RESPONSE_PROCESSING.md)
+for formatting/event logging/hide failures on all statuses. Intentional rejection
+and its legacy persistence/commit policy are still separate unresolved gates.
 
-The next bounded runtime-source change should isolate response formatting/logging
+The next bounded runtime-source change proposed by this audit was to isolate response formatting/logging
 failures on ALL received statuses without converting intentional remote rejection
 exceptions into local failures or changing acceptance/duplicate classification.
 Use the existing static translated local-review signal, preserve known response
@@ -135,8 +138,9 @@ SQL additions). An initial test-only privacy assertion compared an absent seal's
 `None` to the optional pair state's `None`; it was corrected to check non-None
 protected identities and strengthened to require only the two closed state fields.
 No storage/source/permission guard was waived. History is in [STATUS.md](STATUS.md).
-Runtime-source error-log
-characterization remains an explicit unresolved gate. Full installed v15/v16,
+The subsequently added increment57 guard stops escaped formatting/log/hide
+errors, not the logger's swallowed errors/own commits or intentional rejection
+persistence. Those remain explicit gates. Full installed v15/v16,
 SDK/crypto/QR/advance GL/VAT, independent source/key/provider/epoch/transport
 provenance, actual late receiver and pre-first-durable-response loss remain
 unverified. Finish development before separately approved isolated fictional-

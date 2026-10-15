@@ -1,6 +1,6 @@
-# Primary post-response error boundary — increment 45
+# Primary post-response error boundaries — increments 45 and 57
 
-## Bounded change in development
+## Original bounded change — increment 45
 
 The four primary Sales/POS Reporting/Clearance functions now distinguish the
 legacy response-processing branch from generic pre-response/rejection failure
@@ -34,7 +34,74 @@ previously unhandled exception types, including RuntimeError, retain their old
 propagation behavior; this increment does not promise redaction of every possible
 framework/database exception.
 
-## What this does NOT guarantee
+## Received presentation/logging steps — increment 57
+
+The [increment 56 audit](PRIMARY_WRITERS_AND_REVIEW.md) reproduced a gap outside
+the original success/legacy-409 marker: a local formatter/event-log failure for
+HTTP400/401/503 could enter a generic handler and commit local error fields.
+Increment 57 closes that SPECIFIC local-step gap in the four primary Sales/POS
+Reporting/Clearance APIs, without reclassifying deliberate HTTP rejections.
+
+`run_received_response_step(step, ..., validation_error_type=...)` executes ONE
+explicit local callback. ValueError, TypeError, KeyError and the caller's exact
+framework ValidationError class become the existing static translated
+`LocalResponseProcessingError` AFTER leaving the raw handler. RuntimeError and
+BaseException interruptions retain their old propagation. Successful return
+values/arguments are forwarded unchanged; False/None is not a new failure or
+acceptance classification. The validation class is an explicit trusted code
+dependency, never a request option or new operator endpoint.
+
+`received_response_message(formatter, response)` reads the original text/status
+and calls the original formatter THROUGH that guard, so lazy text decoding and
+formatter failures share the boundary. No caching/JSON normalization or new
+authority classification is introduced. Each API binds these helpers locally
+only AFTER `requests.post` returned. Guarded steps are exactly:
+
+- Both existing event-log calls (success-labelled or error-labelled branch).
+- The existing `hide_gif` realtime callback.
+- Every existing `format_zatca_response` call in the four APIs, including late
+  formatting of rejection messages after some legacy writes already completed.
+
+Transport, pre-request `show_gif`, explicit `frappe.throw` rejection calls,
+response/status persistence, PIH/artifact work, and generic exception handlers
+are NOT moved into that wrapper. It is not a blanket guard around all framework
+operations, translations or arbitrary response-object behavior. Runtime status
+fields remain the existing Requests response fields. The helper adds no explicit
+database/file read/write/commit/rollback, logging fallback, transport/retry or raw
+export; the existing translator and explicit callbacks retain their own behavior.
+
+When a guarded local step fails, the RuntimeError-family signal bypasses legacy
+narrow handlers even on a rejected/auth/server-error response. No subsequent
+generic read/save/error-response overwrite/503 downgrade/failure commit is
+allowed. It does NOT undo the callback's own effects or earlier commits, nor
+guarantee the original response reached durable storage. Arguments/response may
+remain in traceback frames: static exception attributes are not a secure receipt
+store and frame locals must not be logged/serialized.
+
+The actual `event_log.log_zatca_event` still inserts with ignored permissions,
+commits internally, and catches ordinary failures before calling `frappe.log_error`.
+If that fallback succeeds, the logger returns None and the API cannot distinguish
+a swallowed insert failure from its normal None return. If insert/commit fails
+AND fallback logging raises a formerly caught error, the new guard stops further
+generic API effects; real logger-function tests exercise both paths. Its own
+commit attempts/swallowed errors are NOT removed or made durable by wrapping it.
+An explicit logger result/transaction contract is a separate integration gate.
+
+When callbacks work normally, the EXACT old rejection branches remain, including
+their UUID placeholders, independent commits, generic deliberate-rejection
+wrapping and sometimes misleading 503 labels. POS Reporting still links XML
+before HTTP. Normal 200/202, Sales Clearance 303 and inconsistent legacy 409
+semantics are unchanged. These limitations are explicit follow-up gates, NOT
+endorsed behavior or silently fixed by this increment. The old increment56
+logging-failure characterization now asserts exact no-extra-write regression
+snapshots rather than preserving a known defect.
+
+The same existing English/Arabic review catalog entry is reused. No new UI,
+endpoint, provider, schema, credential/route, signature/QR/amount/advance or
+scheduler/replay mechanism is added. This is development source ONLY: no working
+application update or authority call, including Sandbox/Simulation, occurred.
+
+## What these changes do NOT guarantee
 
 [Increment 46](PRIMARY_RECEIPT_PERSISTENCE.md) subsequently adds an internal local
 exact-retained-receipt persistence/redelivery primitive. It is not wired to these
@@ -67,6 +134,30 @@ No advance search/allocation/remaining/age/settlement, discount/GL/VAT arithmeti
 Compliance/Debug controls, credential/endpoint configuration or schema changes.
 
 ## Offline evidence
+
+The original increment45 counts below are historical. Increment57 adds targeted
+local/error-status/late-format/lazy-text/Arabic/transport/interruption/AST and
+normal-rejection golden tests plus actual private SQL parent/commit observations;
+its cumulative counts and timing are recorded in [STATUS.md](STATUS.md).
+
+Increment57 adds **550 local + 88 private SQL cases**, reaching **8,049 local +
+972 private SQL = 9,021 passing cases in 103.63 seconds**, across the same twelve
+private suites. First combined passed 9,009 in 102.98 seconds before twelve real
+event-logger-function/fallback/swallowed-failure cases. Local snapshots cover all four formerly caught error types at
+format/log/hide for rejection branch families, late 400/401 formatting, lazy text,
+Arabic, untouched ordinary return values, normal rejection goldens, RuntimeError/
+interruptions, timeout/connection/pre-request failures and AST-limited wrapping.
+The first local run's three failures were a golden-count omission of the EXISTING
+pre-HTTP POS XML link; exact five-write sequences corrected the expectation.
+No runtime branch or privacy/ownership assertion was weakened to make tests pass.
+
+The 72 early private SQL cases preserve original fields and parent-controlled
+pending work through explicit caller commit/rollback. Sixteen late 400/401 cases
+retain already committed legacy rejection fields without an extra failure write,
+while pending Sales Clearance response remains under the parent's commit/rollback
+decision. These prove the bounded guard, NOT full receipt durability or atomic
+whole-invoice behavior. Frappe/File/image/HTTP are synthetic; SQL is real only on
+new owned temporary servers. No live/customer/authority/Bench action occurred.
 
 143 new local cases execute the actual four adapters with mocked HTTP/ERP/File:
 all four formerly caught error types at log/PIH/final-log stages, image/File/XML/

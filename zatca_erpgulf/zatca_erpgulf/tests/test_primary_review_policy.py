@@ -12,6 +12,7 @@ import pytest
 from zatca_erpgulf.zatca_erpgulf import primary_review_policy as policy
 from zatca_erpgulf.zatca_erpgulf import primary_capture as capture
 from zatca_erpgulf.zatca_erpgulf import primary_receipt_reconciliation as pair
+from zatca_erpgulf.zatca_erpgulf import response_processing
 from zatca_erpgulf.zatca_erpgulf.primary_receipt_custody import PrimaryReceiptCustodyCipher
 from zatca_erpgulf.zatca_erpgulf.tests.test_certificate_evidence import certificates
 from zatca_erpgulf.zatca_erpgulf.tests.test_issuance_candidate import candidate, scope
@@ -19,7 +20,7 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_journal_repository import prepared
 from zatca_erpgulf.zatca_erpgulf.tests.test_primary_capture import Scenario
 from zatca_erpgulf.zatca_erpgulf.tests.test_retry_identity_contract import ADAPTERS
 from zatca_erpgulf.zatca_erpgulf.tests.test_response_processing import (
-    ROUTES, boundary, inject_failure, run_adapter, ValidationError,
+    ROUTES, boundary, inject_failure, run_adapter, snapshot,
 )
 
 
@@ -154,17 +155,16 @@ def test_current_twelve_runtime_adapters_are_not_wired_to_new_pair_storage_or_re
 
 @pytest.mark.parametrize("module,operation", ROUTES)
 @pytest.mark.parametrize("status", [400, 401, 503])
-def test_current_error_status_logging_failure_still_reaches_legacy_mutable_error_writes(boundary, monkeypatch, module, operation, status):
-    # Characterization, NOT approval or a repair. Existing increment45 protects
-    # successful-response paths; logging failure on error statuses remains a gate.
+def test_previously_characterized_error_status_logging_failure_no_longer_runs_mutable_error_writes(boundary, monkeypatch, module, operation, status):
+    # Increment56 reproduced the gap; increment57 now guards the log step
+    # without changing intentional HTTP-rejection branches when logging works.
     b = boundary
     b.response.status_code = status
     doc, observed = inject_failure(b, module, operation, monkeypatch, "log_zatca_event", ValueError)
-    with pytest.raises(ValidationError):
+    with pytest.raises(response_processing.LocalResponseProcessingError) as error:
         run_adapter(b, module, operation)
-    assert len(observed) == 1 and doc.custom_zatca_full_response.startswith("Error:")
-    assert doc.custom_zatca_full_response != b.response.text
-    assert b.frappe.db.commit.called or any(call.kwargs.get("commit") for call in doc.db_set.call_args_list)
+    assert len(observed) == 1 and snapshot(b, doc) == observed[0]
+    assert str(error.value) == response_processing.LOCAL_RESPONSE_REVIEW and error.value.__context__ is None
     b.post.assert_called_once()
 
 

@@ -137,6 +137,15 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 57 adds [received presentation/logging-step isolation](RESPONSE_PROCESSING.md)
+  to the four primary Sales/POS APIs for ALL statuses. Formatting (including lazy
+  text), event log and hide callbacks use the existing static translated local
+  review signal on formerly caught errors, never generic post-fault writes or
+  retry. Deliberate HTTP-rejection throws/normal writer policy remain unchanged.
+  Next audit rejection-persistence/caller boundaries plus the actual event logger's
+  swallowed failures/own commits, and plan intentional
+  rejection mapping, durable custody and parent transaction lifecycle together;
+  no working source or authority action is authorized by this development change.
 - Increment 56 adds [writer/late-response evidence and pure outcome review](PRIMARY_WRITERS_AND_REVIEW.md).
   Current mutable runtime writers are distinct from staged single/pair stores.
   Actual independent private writers reproduce partial windows; original sealed

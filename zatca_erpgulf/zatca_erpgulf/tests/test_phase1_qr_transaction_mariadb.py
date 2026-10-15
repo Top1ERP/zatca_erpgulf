@@ -21,6 +21,8 @@ from zatca_erpgulf.zatca_erpgulf import response_processing, zatca_response
 from zatca_erpgulf.zatca_erpgulf.tests.test_submission_context import (
     boundary, run_adapter, ValidationError as BoundaryError,
 )
+from zatca_erpgulf.zatca_erpgulf.tests.test_received_response_steps import fail_step
+from zatca_erpgulf.zatca_erpgulf.tests.test_response_processing import snapshot as response_snapshot
 
 
 pytestmark = pytest.mark.skipif(os.environ.get("ZATCA_RUN_ISOLATED_MARIADB") != "1",
@@ -210,6 +212,79 @@ def test_late_clearance_failure_preserves_already_committed_response_columns(qr_
     finally:
         transaction.close()
     assert read_response_sql(connections, key) == (b.response.text, "CLEARED", "test-uuid", "PARENT-PENDING")
+    b.post.assert_called_once()
+
+
+@pytest.mark.parametrize("module", [sign_invoice, pos_sign])
+@pytest.mark.parametrize("operation", ["reporting", "clearance"])
+@pytest.mark.parametrize("status", [400, 401, 503])
+@pytest.mark.parametrize("stage", ["format", "log_zatca_event", "hide"])
+@pytest.mark.parametrize("parent_commit", [False, True])
+def test_received_error_step_failure_never_commits_pending_parent_sql_or_overwrites_prior_fields(qr_schema,
+    boundary, connections, namespace, monkeypatch, module, operation, status, stage, parent_commit):
+    b = boundary
+    doc, transaction, key = response_sql_case(b, connections, namespace, module)
+    b.response.status_code = status
+    selected, observed = fail_step(b, module, operation, monkeypatch, stage, BoundaryError)
+    assert selected is doc
+    try:
+        with pytest.raises(response_processing.LocalResponseProcessingError) as error:
+            run_adapter(b, module, operation)
+        assert len(observed) == 1 and response_snapshot(b, doc) == observed[0]
+        assert error.value.__context__ is None and not vars(error.value)
+        assert read_response_sql(connections, key) == (
+            "ORIGINAL-RECEIPT", "ORIGINAL-STATUS", "test-existing-uuid", "ORIGINAL-BUSINESS")
+        b.frappe.db.commit.assert_not_called()
+        doc.save.assert_not_called()
+        assert all(call.args[0] == "custom_ksa_einvoicing_xml" for call in doc.db_set.call_args_list)
+        (transaction.commit if parent_commit else transaction.rollback)()  # Test's transaction owner, never guard.
+    finally:
+        transaction.close()
+    assert read_response_sql(connections, key) == (
+        "ORIGINAL-RECEIPT", "ORIGINAL-STATUS", "test-existing-uuid", "PARENT-PENDING" if parent_commit else "ORIGINAL-BUSINESS")
+    b.post.assert_called_once()
+
+
+@pytest.mark.parametrize("module", [sign_invoice, pos_sign])
+@pytest.mark.parametrize("operation", ["reporting", "clearance"])
+@pytest.mark.parametrize("status", [400, 401])
+@pytest.mark.parametrize("parent_commit", [False, True])
+def test_late_rejection_format_failure_adds_no_generic_write_commit_or_503_to_real_sql(qr_schema,
+    boundary, connections, namespace, monkeypatch, module, operation, status, parent_commit):
+    b = boundary
+    doc, transaction, key = response_sql_case(b, connections, namespace, module)
+    b.response.status_code = status
+    monkeypatch.setattr(module, "set_zatca_full_response", zatca_response.set_zatca_full_response)
+    observed, calls = [], []
+    def formatting(*args):
+        calls.append(args)
+        if len(calls) == 2:
+            observed.append((response_snapshot(b, doc), read_response_sql(connections, key)))
+            raise BoundaryError("PRIVATE synthetic late rejection format failure")
+        return "TEST RESPONSE"
+    monkeypatch.setattr(module, "format_zatca_response", formatting)
+    try:
+        with pytest.raises(response_processing.LocalResponseProcessingError) as error:
+            run_adapter(b, module, operation)
+        assert len(calls) == 2 and len(observed) == 1 and error.value.__context__ is None
+        assert response_snapshot(b, doc) == observed[0][0]  # No subsequent generic-handler effects.
+        assert read_response_sql(connections, key) == observed[0][1]
+        if module is sign_invoice:
+            # Reporting already committed response; Clearance has only committed
+            # status while its raw response remains in the parent's transaction.
+            expected_receipt = b.response.text if operation == "reporting" else "ORIGINAL-RECEIPT"
+            assert b.frappe.db.commit.call_count == 1
+            expected_uuid = "test-existing-uuid"
+        else:
+            expected_receipt = expected_uuid = "Not Submitted"  # Existing POS rejection placeholder policy.
+            assert b.frappe.db.commit.call_count == 3
+        assert observed[0][1] == (expected_receipt, "Not Submitted", expected_uuid, "PARENT-PENDING")
+        (transaction.commit if parent_commit else transaction.rollback)()
+    finally:
+        transaction.close()
+    if module is sign_invoice and operation == "clearance" and parent_commit:
+        expected_receipt = b.response.text  # Pending raw response committed ONLY by explicit test owner.
+    assert read_response_sql(connections, key) == (expected_receipt, "Not Submitted", expected_uuid, "PARENT-PENDING")
     b.post.assert_called_once()
 
 
