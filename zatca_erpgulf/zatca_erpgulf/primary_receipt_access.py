@@ -65,6 +65,51 @@ class _SavedPrimaryReceiptSource(ArchiveInspectionEngine):
         pass
 
 
+def _bind_retained_primary_receipt(binding, receipt):
+    """Shared exact saved declaration check, not historic origin attestation."""
+    _validate_retained(receipt)
+    candidate = receipt.before.candidate
+    if (binding.scope.storage_namespace != receipt.storage_namespace
+            or binding.context != candidate.context or binding.uuid != candidate.artifact.uuid
+            or binding.icv != candidate.artifact.icv or binding.journal_sha256 != receipt.before.journal_sha256
+            or binding.attempt_id != receipt.response_event.attempt_id
+            or binding.response_event_sha256 != hashlib.sha256(encode_dispatch_event(receipt.response_event)).hexdigest()):
+        raise binding.ERROR(binding.ERROR_PREFIX + "_binding")
+
+
+def _owned_saved_receipt_connection(policy, recheck):
+    """Acquire/clear ONLY a new owned handle; never clean recognizable parents.
+
+    Shared by journal persistence and protected custody access. Factories remain
+    trusted server dependencies; arbitrary handle ownership is not proven here.
+    """
+    runtime, translate, _permission_engine, _repository_type = policy._dependencies()
+    owned, failure, cleanup_failure = None, None, None
+    try:
+        recheck()
+        ambient = runtime.db
+        ambient_raw = getattr(ambient, "_conn", None)
+        acquired = policy._connect(policy._scope)
+        if acquired is ambient or acquired is ambient_raw:
+            raise policy.ERROR(policy.ERROR_PREFIX + "_borrowed")
+        owned = acquired
+        if any(not callable(getattr(owned, method, None)) for method in ("cursor", "commit", "rollback", "close")):
+            raise policy.ERROR(policy.ERROR_PREFIX + "_connection")
+        owned.rollback()  # Fresh OWNED handle only; no pending observations.
+        recheck()
+        return owned
+    except BaseException as error:
+        failure = error
+    if owned is not None:
+        cleanup_failure = _discard(owned)
+    for error in (failure, cleanup_failure):
+        if error is not None and not isinstance(error, Exception):
+            raise error
+    if isinstance(failure, runtime.PermissionError):
+        runtime.throw(translate(policy.DENIED_MESSAGE), runtime.PermissionError)
+    raise policy.ERROR(policy.ERROR_PREFIX + "_acquisition")
+
+
 class SavedPrimaryReceiptService:
     """Protected server input/output, not an operator JSON or dispatch endpoint.
 
@@ -101,37 +146,11 @@ class SavedPrimaryReceiptService:
             if (candidate.context.scope.doctype != doctype or candidate.context.scope.invoice_name != invoice_name):
                 raise PrimaryReceiptAccessError("primary_receipt_access_target")
             binding, rows, recheck = policy._saved_binding(invoice_name, doctype, actor)
-            if (binding.context != candidate.context or binding.uuid != candidate.artifact.uuid
-                    or binding.icv != candidate.artifact.icv or binding.journal_sha256 != receipt.before.journal_sha256
-                    or binding.attempt_id != receipt.response_event.attempt_id
-                    or binding.response_event_sha256 != hashlib.sha256(encode_dispatch_event(receipt.response_event)).hexdigest()):
-                raise PrimaryReceiptAccessError("primary_receipt_access_binding")
+            _bind_retained_primary_receipt(binding, receipt)
             recheck()
 
             def factory():
-                owned, failure, cleanup_failure = None, None, None
-                try:
-                    recheck()
-                    ambient = frappe.db
-                    ambient_raw = getattr(ambient, "_conn", None)
-                    acquired = policy._connect(policy._scope)
-                    # Recognizable borrowed handles must NEVER be cleaned up.
-                    if acquired is ambient or acquired is ambient_raw:
-                        raise PrimaryReceiptAccessError("primary_receipt_access_borrowed")
-                    owned = acquired
-                    if any(not callable(getattr(owned, method, None)) for method in ("cursor", "commit", "rollback", "close")):
-                        raise PrimaryReceiptAccessError("primary_receipt_access_connection")
-                    owned.rollback()  # Fresh OWNED handle only; no pending observations.
-                    recheck()
-                    return owned
-                except BaseException as error:
-                    failure = error
-                if owned is not None:
-                    cleanup_failure = _discard(owned)
-                for error in (failure, cleanup_failure):
-                    if error is not None and not isinstance(error, Exception):
-                        raise error
-                raise PrimaryReceiptAccessError("primary_receipt_access_acquisition")
+                return _owned_saved_receipt_connection(policy, recheck)
 
             def guard(connection, retained):
                 if retained is not receipt:

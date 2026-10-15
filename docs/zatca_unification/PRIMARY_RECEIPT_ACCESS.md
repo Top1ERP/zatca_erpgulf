@@ -4,6 +4,11 @@ Increment 48 adds an optional [explicit Unix connection provider](PRIMARY_RECEIP
 and synthetic composition tests. It is not installed and does not establish
 historical source/receipt provenance or durable retained-input custody.
 
+Increment 50 extracts shared exact-retained-binding/owned-acquisition helpers for
+the optional [permissioned encrypted custody service](PRIMARY_RECEIPT_CUSTODY_ACCESS.md).
+Acquisition-time permission denial now remains a redacted denial after owned
+cleanup. Existing journal/source/permission/parent-ownership gates remain intact.
+
 ## Internal service, NOT installed or activated
 
 `SavedPrimaryReceiptService` is a protected server-to-server boundary around the

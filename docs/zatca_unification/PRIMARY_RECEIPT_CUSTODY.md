@@ -1,5 +1,9 @@
 # Encrypted local retained-receipt custody — increment 49
 
+Increment 50 adds an optional [permissioned owned-transaction wrapper](PRIMARY_RECEIPT_CUSTODY_ACCESS.md)
+with ciphertext-only retrieval. It is not installed, does not attest transport/
+historical provenance and does not authorize HTTP or relax this repository's rules.
+
 ## Delivered boundary, not runtime integration
 
 `primary_receipt_custody.py` adds a protected binary codec, dedicated AES-256-GCM

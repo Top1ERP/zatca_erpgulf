@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and forty-nine bounded increments (Compliance outcomes, dedicated
+Safety preparation and fifty bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -40,7 +40,8 @@ and non-overwriting primary post-response local-error review boundaries,
 and explicit exact-attempt local primary receipt persistence/redelivery,
 and saved-row/WRITE-access-bound local primary receipt persistence,
 and an explicit pinned Unix local primary receipt connection provider,
-and encrypted immutable local retained-receipt custody)
+and encrypted immutable local retained-receipt custody,
+and permissioned saved-source/key-bound encrypted custody storage/retrieval)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -886,6 +887,24 @@ branches and credential-context differences are recorded in
   durable no-replay hold is enabled. Pre-first-commit response loss remains open.
   See [PRIMARY_RECEIPT_CUSTODY.md](PRIMARY_RECEIPT_CUSTODY.md).
 
+## Increment 50: permissioned encrypted local custody storage/retrieval
+
+- Added a protected internal service over the immutable custody repository.
+  Invoice WRITE/related READ and exact saved declaration precede scoped keys/SQL;
+  authenticated retained candidate/context/epoch/predecessor/attempt/response must
+  match. Current status is not receipt/acceptance authority. No sealer/fallback.
+- Shared exact-binding and owned-acquisition helpers now serve both primary
+  journal persistence and custody. Stage guards source rows around ONE owned
+  commit/close and retains identical ciphertext on uncertainty. Retrieval returns
+  ciphertext only after owned rollback/close and final actor/source/ACL checks.
+  Borrowed parents stay untouched; no ambient commits. Static unchained messages
+  include Arabic translations. A late denial cannot undo a completed commit.
+- Only synthetic composition with the pinned provider/private SQL is exercised.
+  No raw export, source/epoch/provider attestation, runtime provider/API/job/hold
+  activation, schema/working/client/authority change. Pre-first-durable-commit
+  response loss, partial parent commits and later retry policy remain gates.
+  See [PRIMARY_RECEIPT_CUSTODY_ACCESS.md](PRIMARY_RECEIPT_CUSTODY_ACCESS.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -1106,8 +1125,24 @@ parallel conflicts, nonce/scope isolation, no new starts/overwrites and preserve
 custody after journal drift without adoption rights. No worker capture/hold,
 permissioned retrieval, actual v16 or authentic remote receipt is proven.
 
+Increment 50 adds **302 local + 44 private SQL cases**, reaching **6,554 local +
+591 private SQL = 7,145 passing cases** across the same twelve private suites.
+The final guarded combined run passed in **63.05 seconds**. Initial new tests
+had 266 setup errors from an omitted fixture import (all existing 6,252 local
+cases passed); after fixing that import, four new tests exposed acquisition-time
+permission denials being classified as generic failures. Cleanup now preserves
+translated denial without disclosing original context; no ACL was relaxed.
+The first corrected combined run passed 7,109 in 62.96 seconds. Added native
+cases compose actual pinned provider/immutable custody with synthetic saved ACL,
+separate sessions, scope/source locks, both lost-acknowledgment commit outcomes,
+identical local redelivery and late denial preserving history. Final additions
+cover ciphertext/response/context/epoch misbinding and non-authorizing status.
+Existing receipt/QR/advance regressions pass unchanged; no installed v16,
+authentic transport, historic provider/epoch or runtime review hold is proven.
+
 | Suite | Scope |
 | --- | --- |
+| `test_primary_receipt_custody_access.py` | Saved invoice WRITE/related READ before scoped keys/SQL, exact envelope/retained binding, guarded owned commit and ciphertext-only rollback/close retrieval, late denial/uncertainty/borrowed-parent/Arabic/privacy; existing QR SQL suite adds actual pinned-provider/custody composition, stale SQL, unknown commits and post-close revocation |
 | `test_primary_receipt_custody.py` | Exact bounded binary codec and dedicated AES-GCM binding, empty/binary/status/UNKNOWN observations, tampering/bounds/domain/key/privacy, transaction poisoning/no raw error context; existing journal SQL suite adds immutable custody, owned-database crashes, competing writers, nonce/scope conflicts and stale-journal retention without replay |
 | `test_primary_receipt_provider.py` | Explicit Unix provisioning/typed credentials, scope/socket before secrets, fixed direct driver options, kernel peer/DB/marker/session checks, poisoned handles, no reconnect/retry, owned cleanup/interruptions and redaction; existing QR SQL suite adds actual provider/service composition and negative target/ACL cases |
 | `test_primary_receipt_access.py` | Saved System Manager/site/source WRITE and related READ, exact attempt/event/predecessor/context binding, shared owner/route/source revisions, quiet v15/v16-shaped ACL, guards/borrowed handles/revocation/Arabic/protected input; existing QR private SQL suite adds source/journal transaction and stale/denied/late-revocation cases |
@@ -1221,8 +1256,9 @@ source guards, not provider/historical authenticity. Increment 48 adds an option
 explicit pinned Unix provider, not runtime installation or origin attestation.
 Increment 49 adds exact encrypted custody on explicit caller transactions, not
 permissioned retrieval, automatic capture or a durable dispatch/review hold.
-Next audit provisioning/key custody and add the owned permissioned custody
-boundary/exact transport-source-epoch binding before
+Increment 50 adds permissioned owned custody storage/ciphertext retrieval, not
+live key/provider registration, transport authenticity or a no-replay hold.
+Next audit provisioning/key/lookup custody and exact transport-source-epoch binding before
 wiring durable receipt storage/review holds; remove legacy partial/parent commits before artifact
 work; cover concurrent source changes and the remaining writers; establish
 audited server-owned site/namespace/
@@ -1234,7 +1270,7 @@ recovery/mixed-phase bridge and server-owned site/namespace/chain/lookup/connect
 provenance and authentic capture/acceptance as gates before raw export or
 settlement adoption. Verify
 timezone/settings snapshots for new issuance separately. Neither increment 30
-nor 31/32/33/34/35/36/37/38/39/40/41/42/43/44/45/46/47/48/49 consolidates advance amounts/GL or cryptographic digests.
+nor 31/32/33/34/35/36/37/38/39/40/41/42/43/44/45/46/47/48/49/50 consolidates advance amounts/GL or cryptographic digests.
 
 All implementation/rehearsal below remains OFFLINE and in development. No live
 provider/site binding, dummy Company on a working bench, authority request or

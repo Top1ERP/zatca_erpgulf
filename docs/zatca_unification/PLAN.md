@@ -137,6 +137,11 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 50 adds [permissioned encrypted local receipt custody](PRIMARY_RECEIPT_CUSTODY_ACCESS.md).
+  Shared source/owned-acquisition helpers require invoice WRITE/related READ and
+  exact receipt/key declarations before scoped keys/SQL. Stage retains the same
+  envelope across uncertain commits; retrieval returns ciphertext only after
+  rollback/close and final ACL. No runtime capture/hold/provider activation.
 - Increment 49 adds [encrypted local retained-receipt custody](PRIMARY_RECEIPT_CUSTODY.md).
   Exact bounded codec/dedicated AES-GCM and immutable caller-transaction SQL keep
   one envelope for an existing attempt; identical LOCAL redelivery only. No

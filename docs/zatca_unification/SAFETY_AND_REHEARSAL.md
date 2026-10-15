@@ -332,6 +332,17 @@ commit loss window. No automatic capture, permissioned retrieval, durable review
 hold or live installation is enabled. Keys/data remain synthetic; no working
 schema/source/config/assets/workers/customer or authority change occurred.
 
+Increment 50 adds [permissioned encrypted local receipt custody](PRIMARY_RECEIPT_CUSTODY_ACCESS.md)
+without registering an API/provider/job. Direct saved invoice WRITE/related READ
+and exact server declarations precede scoped keys/owned SQL. Storage retains the
+same original envelope on uncertainty; retrieval returns ciphertext only after
+owned rollback/close and final source/ACL checks. The final guarded run passed
+**6,554 local + 591 private SQL = 7,145 cases in 63.05 seconds**, across the same
+twelve private suites. Pinned Unix/SQL behavior is real but keys/data/permissions
+are synthetic v15/v16-shaped fixtures, not installed-v16/remote acceptance proof.
+No schema, working source/config/assets/workers, customer or authority change.
+No durable no-replay hold, transport attestation or runtime activation is enabled.
+
 These stages are future gates, not actions executed or approved by this increment.
 Full development and real v15/v16/application/crypto/advance acceptance remain
 unfinished. Remote authority acceptance is a separate unverified gate and cannot

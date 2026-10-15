@@ -21,6 +21,11 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_qr_source_access import (
 from zatca_erpgulf.zatca_erpgulf import primary_receipt_access as receipt_access
 from zatca_erpgulf.zatca_erpgulf import primary_receipt_persistence as receipt_persistence
 from zatca_erpgulf.zatca_erpgulf import primary_receipt_provider as receipt_provider
+from zatca_erpgulf.zatca_erpgulf import primary_receipt_custody_access as custody_access
+from zatca_erpgulf.zatca_erpgulf.primary_receipt_custody import MariaDBPrimaryReceiptCustodyRepository, PrimaryReceiptCustodyError
+from zatca_erpgulf.zatca_erpgulf.tests.test_primary_receipt_custody_access import (
+    custody_operator, configure as configure_custody, invoke as invoke_custody,
+)
 from zatca_erpgulf.zatca_erpgulf.tests.test_primary_receipt_access import (
     receipt_operator, scenario as receipt_scenario, persist as persist_receipt, PermissionDenied,
 )
@@ -120,6 +125,133 @@ def read_primary_receipt_case(case, connections):
     finally:
         reader.rollback()
         reader.close()
+
+
+def native_custody_case(custody_operator, der, monkeypatch, connections, namespace, isolated_server, **options):
+    case = native_receipt_case(custody_operator, der, monkeypatch, connections, namespace, **options)
+    pinned_receipt_provider(case, isolated_server, connections)
+    configure_custody(case)
+    monkeypatch.setattr(custody_access, "MariaDBPrimaryReceiptCustodyRepository", MariaDBPrimaryReceiptCustodyRepository)
+    return case
+
+
+def read_custody_row(case, connections):
+    reader = connections()
+    try:
+        return MariaDBPrimaryReceiptCustodyRepository(reader, case.scope.storage_namespace, case.cipher).load(
+            case.original.key_sha256, case.binding.attempt_id)
+    finally:
+        reader.rollback()
+        reader.close()
+
+
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("indicator", ["0100000", "0200000"])
+@pytest.mark.parametrize("owner", ["company", "device", "linked"])
+def test_permissioned_custody_uses_actual_pinned_provider_and_two_separate_owned_transactions(qr_source_schema,
+    custody_operator, certificates, monkeypatch, connections, namespace, isolated_server, doctype, indicator, owner):
+    case = native_custody_case(custody_operator, certificates[0], monkeypatch, connections, namespace, isolated_server,
+        doctype=doctype, indicator=indicator, owner=owner, unknown=True)
+    stored = invoke_custody(case, "stage")
+    recovered = invoke_custody(case, "load")
+    assert stored.state == "CUSTODY_STORED_OBSERVATION_NO_REPLAY" and stored.sealed is case.sealed
+    assert recovered.state == "CUSTODY_READ_OBSERVATION_NO_REPLAY" and recovered.sealed == case.sealed
+    assert case.cipher.open(recovered.sealed) == case.retained
+    assert read_primary_receipt_case(case, connections) == case.before  # Custody never appends journal receipts.
+    assert len(case.pinned_opened) == 2 and all(owned.closed for owned in case.pinned_opened)
+    assert case.pinned_opened[0]._session != case.pinned_opened[1]._session
+    assert case.keys.call_count == case.credentials.call_count == 2
+    assert all(value is False for key, value in recovered.diagnostic_projection().items() if key.endswith(("_verified", "_authorized")))
+    custody_operator.runtime.db.commit.assert_not_called()
+    custody_operator.runtime.db.rollback.assert_not_called()
+
+
+@pytest.mark.parametrize("operation", ["stage", "load"])
+@pytest.mark.parametrize("denied", ["source", "company"])
+def test_permissioned_custody_actual_provider_denied_before_keys_or_sql(qr_source_schema, custody_operator, certificates,
+    monkeypatch, connections, namespace, isolated_server, operation, denied):
+    case = native_custody_case(custody_operator, certificates[0], monkeypatch, connections, namespace, isolated_server)
+    custody_operator.denied_operations.add(("Sales Invoice", "INV-TEST", "write") if denied == "source" else ("Company", "TEST", "read"))
+    with pytest.raises(PermissionDenied):
+        invoke_custody(case, operation)
+    case.keys.assert_not_called()
+    case.factory.assert_not_called()
+    case.credentials.assert_not_called()
+    assert read_primary_receipt_case(case, connections) == case.before
+
+
+@pytest.mark.parametrize("operation", ["stage", "load"])
+def test_permissioned_custody_actual_saved_sql_drift_blocks_write_or_disclosure(qr_source_schema, custody_operator,
+    certificates, monkeypatch, connections, namespace, isolated_server, operation):
+    case = native_custody_case(custody_operator, certificates[0], monkeypatch, connections, namespace, isolated_server)
+    if operation == "load":
+        invoke_custody(case, "stage")
+    writer = connections()
+    try:
+        with writer.cursor() as cursor:
+            cursor.execute("UPDATE `tabSales Invoice` SET custom_uuid=%s WHERE name='INV-TEST'", (str(uuid4()),))
+        writer.commit()  # Owned synthetic row only; ambient fake Frappe remains stale.
+    finally:
+        writer.close()
+    if operation == "stage":
+        result = invoke_custody(case, operation)
+        assert result.state == "CUSTODY_COMMIT_UNCONFIRMED_NO_REPLAY" and result.sealed is case.sealed
+        with pytest.raises(PrimaryReceiptCustodyError, match="receipt_custody_missing"):
+            read_custody_row(case, connections)
+    else:
+        with pytest.raises(InspectionFailed):
+            invoke_custody(case, operation)
+        assert read_custody_row(case, connections) == case.sealed  # No cleanup/deletion on access denial.
+    assert read_primary_receipt_case(case, connections) == case.before
+    assert all(owned.closed for owned in case.pinned_opened)
+
+
+@pytest.mark.parametrize("committed", [False, True])
+def test_permissioned_custody_unknown_actual_commit_preserves_exact_envelope_for_local_redelivery(qr_source_schema,
+    custody_operator, certificates, monkeypatch, connections, namespace, isolated_server, committed):
+    case = native_custody_case(custody_operator, certificates[0], monkeypatch, connections, namespace, isolated_server)
+    original = case.factory.side_effect
+    commits = []
+    def uncertain(scope):
+        owned = original(scope)
+        def commit():
+            commits.append(owned)
+            if committed:
+                owned.commit()
+            raise RuntimeError("PRIVATE synthetic unknown commit acknowledgment")
+        return SimpleNamespace(cursor=owned.cursor, rollback=owned.rollback, close=owned.close, commit=commit)
+    case.factory.side_effect = uncertain
+    result = invoke_custody(case, "stage")
+    assert result.state == "CUSTODY_COMMIT_UNCONFIRMED_NO_REPLAY" and result.sealed is case.sealed
+    assert len(commits) == 1 and case.pinned_opened[0].closed
+    case.factory.side_effect = original
+    recovered = case.service.stage(case.invoice.name, result.sealed)
+    assert recovered.state == "CUSTODY_STORED_OBSERVATION_NO_REPLAY" and recovered.sealed is case.sealed
+    assert read_custody_row(case, connections) == case.sealed
+    assert read_primary_receipt_case(case, connections) == case.before
+    assert case.credentials.call_count == 2
+
+
+@pytest.mark.parametrize("operation", ["stage", "load"])
+def test_permissioned_custody_post_close_revocation_refuses_disclosure_without_undoing_history(qr_source_schema,
+    custody_operator, certificates, monkeypatch, connections, namespace, isolated_server, operation):
+    case = native_custody_case(custody_operator, certificates[0], monkeypatch, connections, namespace, isolated_server)
+    if operation == "load":
+        invoke_custody(case, "stage")
+    original = case.factory.side_effect
+    def revoking(scope):
+        owned = original(scope)
+        def close():
+            owned.close()
+            custody_operator.denied_operations.add(("Sales Invoice", "INV-TEST", "write"))
+        return SimpleNamespace(cursor=owned.cursor, rollback=owned.rollback, close=close, commit=owned.commit)
+    case.factory.side_effect = revoking
+    with pytest.raises(PermissionDenied) as error:
+        invoke_custody(case, operation)
+    assert error.value.__context__ is None
+    assert read_custody_row(case, connections) == case.sealed
+    assert read_primary_receipt_case(case, connections) == case.before
+    assert all(owned.closed for owned in case.pinned_opened)
 
 
 def pinned_receipt_provider(case, isolated_server, connections, *, register=True):
