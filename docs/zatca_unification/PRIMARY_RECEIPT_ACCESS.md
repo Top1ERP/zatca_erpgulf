@@ -1,5 +1,9 @@
 # Saved-source access to local primary receipt persistence — increment 47
 
+Increment 48 adds an optional [explicit Unix connection provider](PRIMARY_RECEIPT_PROVIDER.md)
+and synthetic composition tests. It is not installed and does not establish
+historical source/receipt provenance or durable retained-input custody.
+
 ## Internal service, NOT installed or activated
 
 `SavedPrimaryReceiptService` is a protected server-to-server boundary around the

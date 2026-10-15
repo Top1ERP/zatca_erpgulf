@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and forty-seven bounded increments (Compliance outcomes, dedicated
+Safety preparation and forty-eight bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -38,7 +38,8 @@ and caller-owned primary Sales/POS QR-link staging without invoice events/DDL,
 and scoped primary QR ownership/schema checks before request/error persistence,
 and non-overwriting primary post-response local-error review boundaries,
 and explicit exact-attempt local primary receipt persistence/redelivery,
-and saved-row/WRITE-access-bound local primary receipt persistence)
+and saved-row/WRITE-access-bound local primary receipt persistence,
+and an explicit pinned Unix local primary receipt connection provider)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -849,6 +850,24 @@ branches and credential-context differences are recorded in
   permission atomicity remain unproven. No advance/accounting/working/authority
   change. See [PRIMARY_RECEIPT_ACCESS.md](PRIMARY_RECEIPT_ACCESS.md).
 
+## Increment 48: explicit pinned Unix local receipt connection provider
+
+- Added an optional concrete provider with explicit server-owned scope/socket/
+  database/registration declarations and a typed ephemeral credential callback.
+  No tenant/config/secret discovery, raw connector injection or ambient handles.
+  Exact scope/socket checks precede secrets; each fresh non-autocommit Unix
+  connection checks kernel peer UID/process, database/server/session identity
+  and locked site/namespace marker before handoff, cursors and commit.
+- Wrong/replaced endpoints or changed targets poison the handle; no TCP fallback,
+  ping, reconnect or commit retry. Owned acquisition failures attempt rollback
+  and close; static unchained errors do not disclose driver/credential details.
+- Synthetic marker DDL is test-only, not a runtime installer. Provider composition
+  is exercised only on owned private SQL. No Frappe/API/scheduler registration,
+  working config/schema writes or authority calls. Linux/Unix checks do not prove
+  historical tenant origin, receipt authenticity or custody; reviewed provisioning,
+  least privilege and protected retained-input durability remain release gates.
+  See [PRIMARY_RECEIPT_PROVIDER.md](PRIMARY_RECEIPT_PROVIDER.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -1045,8 +1064,19 @@ Existing advance/QR access regressions keep their assertions. No installed v16,
 provider origin, historical epoch/custody, remote acceptance or runtime retry hold
 is proven; no live provider/API/scheduler is activated.
 
+Increment 48 adds **60 local + 40 private SQL cases**, reaching **6,131 local +
+510 private SQL = 6,641 passing cases** across the same twelve private suites.
+The final guarded combined run passed in **65.62 seconds**. Actual owned Unix
+peer/socket/target/marker checks compose with the non-activated permissioned
+service; negative tests reject missing/wrong registration, swapped database,
+session/peer drift and denied access before credentials. The added unit cases
+also exercise socket replacement/symlinks, cleanup failures and interruptions.
+No customer provider/configuration was selected; no installed v16, genuine
+receipt provenance, durable custody or remote acceptance is proven.
+
 | Suite | Scope |
 | --- | --- |
+| `test_primary_receipt_provider.py` | Explicit Unix provisioning/typed credentials, scope/socket before secrets, fixed direct driver options, kernel peer/DB/marker/session checks, poisoned handles, no reconnect/retry, owned cleanup/interruptions and redaction; existing QR SQL suite adds actual provider/service composition and negative target/ACL cases |
 | `test_primary_receipt_access.py` | Saved System Manager/site/source WRITE and related READ, exact attempt/event/predecessor/context binding, shared owner/route/source revisions, quiet v15/v16-shaped ACL, guards/borrowed handles/revocation/Arabic/protected input; existing QR private SQL suite adds source/journal transaction and stale/denied/late-revocation cases |
 | `test_primary_receipt_persistence.py` | Explicit protected exact-attempt local receipt persistence/redelivery, unknown commit/close and source guards, codecs/tampering/namespace/stage checks before SQL, no replay/start/transport/clock; existing journal SQL suite adds actual idempotence/concurrency/uncertainty/parent-ownership tests |
 | `test_response_processing.py` | Actual four primary APIs with mocked HTTP/ERP/File, failure-stage snapshots, no generic post-response failure writes/retry, static unchained Arabic review and unchanged runtime-error propagation; private QR SQL suite adds early parent-controlled work and late existing-commit receipt/status preservation |
@@ -1118,7 +1148,7 @@ development worktree, not the installed production package. From the worktree:
 PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py
 ```
 
-For all selected local cases plus eleven owned-private SQL suites:
+For all selected local cases plus twelve owned-private SQL suites:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py --private-sql
@@ -1154,8 +1184,10 @@ error/503 persistence for previously caught local failures during primary respon
 processing, without asserting acceptance. Increment 46 adds an internal exact
 retained primary receipt storage/redelivery primitive, not runtime activation.
 Increment 47 adds saved-row WRITE/related-READ access and exact attempt/event/
-source guards, not provider/historical authenticity. Next audit concrete server
-provider/site/namespace/owned-acquisition and retained-receipt custody before
+source guards, not provider/historical authenticity. Increment 48 adds an optional
+explicit pinned Unix provider, not runtime installation or origin attestation.
+Next audit provisioning/key custody and retained-receipt durability/exact
+transport-source-epoch binding before
 wiring durable receipt storage/review holds; remove legacy partial/parent commits before artifact
 work; cover concurrent source changes and the remaining writers; establish
 audited server-owned site/namespace/
@@ -1167,7 +1199,7 @@ recovery/mixed-phase bridge and server-owned site/namespace/chain/lookup/connect
 provenance and authentic capture/acceptance as gates before raw export or
 settlement adoption. Verify
 timezone/settings snapshots for new issuance separately. Neither increment 30
-nor 31/32/33/34/35/36/37/38/39/40/41/42/43/44/45/46/47 consolidates advance amounts/GL or cryptographic digests.
+nor 31/32/33/34/35/36/37/38/39/40/41/42/43/44/45/46/47/48 consolidates advance amounts/GL or cryptographic digests.
 
 All implementation/rehearsal below remains OFFLINE and in development. No live
 provider/site binding, dummy Company on a working bench, authority request or

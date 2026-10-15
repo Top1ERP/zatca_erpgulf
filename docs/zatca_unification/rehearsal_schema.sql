@@ -2,6 +2,13 @@
 -- Tables require controlled access, recovery, encryption and tenant mapping
 -- before any live adoption. The caller owns all transaction boundaries.
 
+-- Synthetic provisioning marker ONLY; no runtime installer creates this table.
+CREATE TABLE zatca_receipt_storage_binding_v1 (
+    storage_namespace CHAR(36) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
+    site VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    registration_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL
+) ENGINE=InnoDB;
+
 CREATE TABLE zatca_issuance_candidate_v1 (
     storage_namespace CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     key_sha256 CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,

@@ -310,6 +310,18 @@ customer data or authority call changed.
    infer fleet deployment, invoice replay, credential rotation or an API send from
    a generic "continue". Monitor only the approved scope and preserve customer data.
 
+Increment 48 adds an [explicit Unix local receipt connection provider](PRIMARY_RECEIPT_PROVIDER.md)
+without installing it. The guarded final run passed **6,131 local + 510 private
+SQL = 6,641 cases in 65.62 seconds** across the same twelve private suites.
+Only newly owned temporary SQL servers contain the synthetic registration marker;
+no working database/config/schema, customer login or authority API was used.
+Actual kernel peer/session/target checks complement synthetic v15/v16-shaped
+saved-source tests; they do not prove tenant provenance, authentic receipts or
+installed ERPNext 16 behavior. Reviewed provisioning, least-privilege credentials,
+protected receipt custody and durable review holds remain release gates. No
+runtime provider/hook/scheduler is activated and no advance amounts/eligibility
+or invoice accounting is changed.
+
 These stages are future gates, not actions executed or approved by this increment.
 Full development and real v15/v16/application/crypto/advance acceptance remain
 unfinished. Remote authority acceptance is a separate unverified gate and cannot

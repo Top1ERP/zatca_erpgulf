@@ -137,6 +137,12 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 48 adds an [explicit pinned Unix receipt connection provider](PRIMARY_RECEIPT_PROVIDER.md).
+  Scope/socket checks precede typed local credentials; fresh direct SQL checks
+  kernel peer, target/session and locked site/namespace marker before handoff,
+  cursors and commit. No reconnect/fallback/discovery/runtime provisioning.
+  Synthetic composition only: provisioning/custody/receipt authenticity, durable
+  holds and exact transport-source-epoch binding remain gates before activation.
 - Increment 47 adds [saved-source access to local primary receipt persistence](PRIMARY_RECEIPT_ACCESS.md).
   Shared archive selection retains existing metadata behavior; private receipt
   access requires invoice WRITE/related READ and exact attempt/event/predecessor

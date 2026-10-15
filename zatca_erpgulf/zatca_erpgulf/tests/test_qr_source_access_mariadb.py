@@ -4,6 +4,7 @@ from dataclasses import replace
 import os
 from types import SimpleNamespace
 from unittest.mock import Mock
+from uuid import uuid4
 
 import pytest
 
@@ -19,6 +20,7 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_qr_source_access import (
 )
 from zatca_erpgulf.zatca_erpgulf import primary_receipt_access as receipt_access
 from zatca_erpgulf.zatca_erpgulf import primary_receipt_persistence as receipt_persistence
+from zatca_erpgulf.zatca_erpgulf import primary_receipt_provider as receipt_provider
 from zatca_erpgulf.zatca_erpgulf.tests.test_primary_receipt_access import (
     receipt_operator, scenario as receipt_scenario, persist as persist_receipt, PermissionDenied,
 )
@@ -118,6 +120,132 @@ def read_primary_receipt_case(case, connections):
     finally:
         reader.rollback()
         reader.close()
+
+
+def pinned_receipt_provider(case, isolated_server, connections, *, register=True):
+    """Provision ONLY this owned synthetic server; no site/config discovery."""
+    writer = connections()
+    registration = str(uuid4())
+    try:
+        with writer.cursor() as cursor:
+            cursor.execute("SELECT DATABASE(),@@server_id")
+            database, server_id = cursor.fetchone()
+            if register:
+                cursor.execute("INSERT INTO zatca_receipt_storage_binding_v1 VALUES (%s,%s,%s)",
+                    (case.scope.storage_namespace, case.scope.site, registration))
+        writer.commit()
+    finally:
+        writer.close()
+    observed = os.lstat(isolated_server[0])
+    selected = receipt_provider.ReceiptDatabaseBinding(case.scope, isolated_server[0], observed.st_dev,
+        observed.st_ino, observed.st_uid, database, server_id, registration)
+    credentials = Mock(return_value=receipt_provider.ReceiptDatabaseCredentials("root", ""))
+    concrete = receipt_provider.UnixPrimaryReceiptProvider(selected, credentials)
+    opened = []
+    def connect(scope):
+        owned = concrete(scope)
+        opened.append(owned)
+        return owned
+    factory = Mock(side_effect=connect)
+    case.provider, case.provider_binding, case.credentials, case.pinned_opened = concrete, selected, credentials, opened
+    case.factory = factory
+    case.service = receipt_access.SavedPrimaryReceiptService(case.scope, case.lookup, factory)
+    return case
+
+
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("indicator", ["0100000", "0200000"])
+@pytest.mark.parametrize("owner", ["company", "device", "linked"])
+def test_concrete_unix_provider_safely_composes_with_permissioned_local_receipt_storage(qr_source_schema,
+    receipt_operator, certificates, monkeypatch, connections, namespace, isolated_server, doctype, indicator, owner):
+    case = native_receipt_case(receipt_operator, certificates[0], monkeypatch, connections, namespace,
+        doctype=doctype, indicator=indicator, owner=owner, unknown=True)
+    pinned_receipt_provider(case, isolated_server, connections)
+    result = persist_receipt(case)
+    assert result.state == "RECEIPT_STORED_OBSERVATION_NO_REPLAY" and result.receipt is case.retained
+    assert read_primary_receipt_case(case, connections) == case.after
+    assert len(case.pinned_opened) == 1 and case.pinned_opened[0].closed
+    case.factory.assert_called_once_with(case.scope)
+    case.credentials.assert_called_once_with(case.scope)
+    receipt_operator.runtime.db.commit.assert_not_called()
+    receipt_operator.runtime.db.rollback.assert_not_called()
+    assert all(value is False for key, value in result.diagnostic_projection().items() if key.endswith(("_verified", "_authorized")))
+
+
+@pytest.mark.parametrize("wrong", ["missing", "site", "registration", "inode"])
+def test_concrete_provider_wrong_registration_or_endpoint_blocks_receipt_append(qr_source_schema,
+    receipt_operator, certificates, monkeypatch, connections, namespace, isolated_server, wrong):
+    case = native_receipt_case(receipt_operator, certificates[0], monkeypatch, connections, namespace)
+    pinned_receipt_provider(case, isolated_server, connections, register=wrong != "missing")
+    if wrong == "inode":
+        case.provider = receipt_provider.UnixPrimaryReceiptProvider(replace(case.provider_binding,
+            socket_inode=case.provider_binding.socket_inode + 1), case.credentials)
+        case.service = receipt_access.SavedPrimaryReceiptService(case.scope, case.lookup, case.provider)
+    elif wrong != "missing":
+        writer = connections()
+        try:
+            with writer.cursor() as cursor:
+                column, value = ("site", "other.test") if wrong == "site" else ("registration_id", str(uuid4()))
+                cursor.execute("UPDATE zatca_receipt_storage_binding_v1 SET " + column + "=%s WHERE storage_namespace=%s",
+                    (value, namespace))
+            writer.commit()
+        finally:
+            writer.close()
+    result = persist_receipt(case)
+    assert result.state == "RECEIPT_COMMIT_UNCONFIRMED_NO_REPLAY" and result.receipt is case.retained
+    assert read_primary_receipt_case(case, connections) == case.before
+    if wrong == "inode":
+        case.credentials.assert_not_called()
+
+
+@pytest.mark.parametrize("denied", ["source", "company"])
+def test_concrete_provider_does_not_acquire_db_credentials_before_acl(qr_source_schema, receipt_operator, certificates,
+    monkeypatch, connections, namespace, isolated_server, denied):
+    case = native_receipt_case(receipt_operator, certificates[0], monkeypatch, connections, namespace)
+    pinned_receipt_provider(case, isolated_server, connections)
+    receipt_operator.denied_operations.add(("Sales Invoice", "INV-TEST", "write") if denied == "source" else ("Company", "TEST", "read"))
+    with pytest.raises(PermissionDenied):
+        persist_receipt(case)
+    case.credentials.assert_not_called()
+    case.factory.assert_not_called()
+    assert read_primary_receipt_case(case, connections) == case.before
+
+
+def test_concrete_provider_rejects_database_switch_after_handoff_without_reconnect(qr_source_schema, receipt_operator,
+    certificates, monkeypatch, connections, namespace, isolated_server):
+    case = native_receipt_case(receipt_operator, certificates[0], monkeypatch, connections, namespace)
+    pinned_receipt_provider(case, isolated_server, connections)
+    original = case.factory.side_effect
+    def switch(scope):
+        owned = original(scope)
+        with owned._raw.cursor() as cursor:  # Deliberate trusted test fault injection, never an operator interface.
+            cursor.execute("USE mysql")  # Same owned private server, not another tenant/server.
+        return owned
+    case.factory.side_effect = switch
+    result = persist_receipt(case)
+    assert result.state == "RECEIPT_COMMIT_UNCONFIRMED_NO_REPLAY"
+    assert read_primary_receipt_case(case, connections) == case.before
+    case.credentials.assert_called_once()
+    assert case.pinned_opened[0].closed
+
+
+def test_concrete_provider_always_creates_new_sessions_and_never_revives_closed_handles(qr_source_schema,
+    receipt_operator, certificates, monkeypatch, connections, namespace, isolated_server):
+    case = native_receipt_case(receipt_operator, certificates[0], monkeypatch, connections, namespace)
+    pinned_receipt_provider(case, isolated_server, connections)
+    first = case.provider(case.scope)
+    first_session = first._session
+    first.rollback()
+    first.close()
+    second = case.provider(case.scope)
+    try:
+        assert second is not first and second._session != first_session
+        with pytest.raises(receipt_provider.ReceiptProviderError, match="receipt_provider_unusable"):
+            first.cursor()
+    finally:
+        second.rollback()
+        second.close()
+    assert case.credentials.call_count == 2
 
 
 @pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
