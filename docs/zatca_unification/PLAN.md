@@ -137,6 +137,11 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 52 adds an [auth-free exact primary observation coordinator](PRIMARY_CAPTURE.md).
+  Three owned transactions bind deterministic request bytes to strict start/hold,
+  close preflight before ONE synthetic observer, then store original encrypted
+  custody and HTTP event atomically. No actual HTTP/auth adapter or runtime caller.
+  Unknown results retain exact protected material without retry/reseal/release.
 - Increment 51 adds an [atomic primary start/logical-invoice hold](PRIMARY_ATTEMPT_HOLD.md).
   One caller transaction appends an explicit first event and strictly reserves
   the same logical source across changed candidate/version/chain/environment.

@@ -1,5 +1,10 @@
 # Atomic primary start and logical-invoice no-replay hold — increment 51
 
+Increment 52 adds a separate [auth-free exact observer coordinator](PRIMARY_CAPTURE.md)
+that composes this hold with deterministic request binding and encrypted receipt
+custody. It is not registered or an authenticated sender; the strict reservation,
+no-release and no-dispatch-authority rules below are unchanged.
+
 ## Scope: a local prerequisite, not an activated retry solution
 
 `primary_attempt_hold.py` adds an immutable repository that appends one explicit

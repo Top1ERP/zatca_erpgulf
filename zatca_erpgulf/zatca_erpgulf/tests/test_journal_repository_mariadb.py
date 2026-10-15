@@ -16,6 +16,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 from uuid import uuid4
 
 import pymysql
@@ -34,6 +36,8 @@ from zatca_erpgulf.zatca_erpgulf.tests.offline_rehearsal_plugin import active_gu
 from zatca_erpgulf.zatca_erpgulf.primary_receipt_persistence import PrimaryReceiptPersistence
 from zatca_erpgulf.zatca_erpgulf import primary_receipt_custody as custody
 from zatca_erpgulf.zatca_erpgulf import primary_attempt_hold as holds
+from zatca_erpgulf.zatca_erpgulf import primary_capture as primary_capture
+from zatca_erpgulf.zatca_erpgulf.tests.test_primary_capture import observed as primary_observed
 from zatca_erpgulf.zatca_erpgulf.tests.test_primary_attempt_hold import variant as hold_variant
 from zatca_erpgulf.zatca_erpgulf.tests.test_primary_receipt_persistence import retained
 from zatca_erpgulf.zatca_erpgulf.tests.test_issuance_candidate import scope
@@ -425,6 +429,237 @@ def test_private_server_crash_recovery_preserves_commit_and_rolls_back_incomplet
     assert recovered.candidate.xml_bytes == prepared.xml_bytes
     assert len(recovered.events) == 1
     assert recovered.diagnostic_projection()["replay_authorized"] is False
+
+
+def native_primary_capture_case(connections, namespace, selected, *, fault=None):
+    request = primary_capture.PrimaryCaptureRequest(hold_start(selected))
+    setup = connections()
+    try:
+        save(setup, namespace, selected)
+    finally:
+        setup.close()
+    case = SimpleNamespace(request=request, opened=[], events=[], fault=fault)
+    case.cipher = custody.PrimaryReceiptCustodyCipher({"synthetic-capture-sql": b"T" * 32})
+    def factory():
+        index = len(case.opened)
+        if case.fault == (index, "factory"):
+            raise RuntimeError("PRIVATE synthetic acquisition")
+        raw = connections()
+        case.opened.append(raw)
+        def commit():
+            case.events.append(("commit", index))
+            if case.fault == (index, "commit-before"):
+                raise RuntimeError("PRIVATE synthetic pre-commit loss")
+            raw.commit()
+            if case.fault == (index, "commit-after"):
+                raise RuntimeError("PRIVATE synthetic commit acknowledgment loss")
+        def close():
+            raw.close()
+            case.events.append(("close", index))
+            if case.fault == (index, "close"):
+                raise RuntimeError("PRIVATE synthetic close acknowledgment loss")
+        return SimpleNamespace(cursor=raw.cursor, commit=commit, rollback=raw.rollback, close=close, phase=index)
+    case.factory = Mock(side_effect=factory)
+    case.guard = Mock(return_value=True)  # NOT a Frappe permission/source attestation.
+    def observe(pinned):
+        assert case.opened and all(not raw.open for raw in case.opened)
+        assert pinned == request and pinned is not request
+        probe = connections()
+        try:
+            assert MariaDBJournalRepository(probe, namespace).load(selected.key_sha256) == request.started
+            assert holds.MariaDBPrimaryAttemptHoldRepository(probe, namespace).load(request.started)
+            with probe.cursor() as cursor:
+                cursor.execute("SELECT request_codec,request_sha256 FROM zatca_primary_request_binding_v1 "
+                    "WHERE storage_namespace=%s AND source_sha256=%s", (namespace, holds._source_sha256(selected)))
+                assert cursor.fetchone() == (1, request.body_sha256)
+        finally:
+            probe.rollback()
+            probe.close()
+        case.events.append(("observer",))
+        return primary_observed(pinned)
+    case.observer = Mock(side_effect=observe)
+    case.coordinator = primary_capture.PrimaryCaptureCoordinator(namespace, case.cipher, "synthetic-capture-sql",
+        connection_factory=case.factory, observe=case.observer, source_guard=case.guard)
+    return case
+
+
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("indicator", ["0100000", "0200000"])
+@pytest.mark.parametrize("code", ["388", "381", "383", "386"])
+def test_primary_coordinator_actual_three_transactions_store_atomic_custody_and_journal(connections, namespace,
+    certificates, doctype, indicator, code):
+    selected = candidate(certificates[0], selected_scope=scope(doctype=doctype), indicator=indicator, code=code)
+    case = native_primary_capture_case(connections, namespace, selected)
+    result = case.coordinator.capture(case.request)
+    assert result.state == "RECEIPT_CAPTURED_OBSERVATION_NO_REPLAY"
+    assert case.events == [("commit", 0), ("close", 0), ("commit", 1), ("close", 1), ("observer",), ("commit", 2), ("close", 2)]
+    reader = connections()
+    try:
+        assert MariaDBJournalRepository(reader, namespace).load(selected.key_sha256) == primary_capture._validate_retained(result.receipt)
+        sealed = custody.MariaDBPrimaryReceiptCustodyRepository(reader, namespace, case.cipher).load(
+            selected.key_sha256, case.request.started.events[0].attempt_id)
+        assert sealed == result.sealed and case.cipher.open(sealed) == result.receipt
+    finally:
+        reader.rollback()
+        reader.close()
+    repeat = case.coordinator.capture(case.request)
+    assert repeat.state == "RESERVATION_UNCONFIRMED_NO_OBSERVER"
+    case.observer.assert_called_once()
+    assert all(value is False for key, value in result.diagnostic_projection().items() if key.endswith(("_verified", "_authorized")))
+
+
+@pytest.mark.parametrize("phase", [0, 1, 2])
+@pytest.mark.parametrize("fault", ["factory", "commit-before", "commit-after", "close"])
+def test_primary_coordinator_actual_commit_uncertainty_never_repeats_observer(connections, namespace, prepared, phase, fault):
+    case = native_primary_capture_case(connections, namespace, prepared, fault=(phase, fault))
+    result = case.coordinator.capture(case.request)
+    expected = ("RESERVATION_UNCONFIRMED_NO_OBSERVER", "PREFLIGHT_FAILED_NO_OBSERVER", "RECEIPT_COMMIT_UNCONFIRMED_NO_REPLAY")[phase]
+    assert result.state == expected and case.observer.call_count == (1 if phase == 2 else 0)
+    assert all(not raw.open for raw in case.opened)
+    reader = connections()
+    try:
+        journal = MariaDBJournalRepository(reader, namespace).load(prepared.key_sha256)
+        if phase == 0 and fault in ("factory", "commit-before"):
+            assert journal.events == ()
+            with reader.cursor() as cursor:
+                for table in ("zatca_primary_attempt_hold_v1", "zatca_primary_request_binding_v1"):
+                    cursor.execute("SELECT COUNT(*) FROM " + table + " WHERE storage_namespace=%s", (namespace,))
+                    assert cursor.fetchone() == (0,)
+        elif phase < 2 or fault in ("factory", "commit-before"):
+            assert journal == case.request.started
+        else:
+            assert journal == primary_capture._validate_retained(result.receipt)
+            sealed = custody.MariaDBPrimaryReceiptCustodyRepository(reader, namespace, case.cipher).load(
+                prepared.key_sha256, result.response.attempt_id)
+            assert sealed == result.sealed
+        if phase == 2:
+            assert case.cipher.open(result.sealed) == result.receipt
+    finally:
+        reader.rollback()
+        reader.close()
+
+
+@pytest.mark.parametrize("stage", ["binding", "unknown"])
+def test_primary_coordinator_detects_actual_binding_or_journal_drift_after_observer(connections, namespace, prepared, stage):
+    case = native_primary_capture_case(connections, namespace, prepared)
+    original = case.observer.side_effect
+    def drift(request):
+        response = original(request)
+        writer = connections()
+        try:
+            if stage == "binding":
+                with writer.cursor() as cursor:
+                    cursor.execute("UPDATE zatca_primary_request_binding_v1 SET request_sha256=REPEAT('0',64) WHERE storage_namespace=%s", (namespace,))
+            else:
+                MariaDBJournalRepository(writer, namespace).append(prepared.key_sha256,
+                    event(prepared, "TRANSPORT_UNKNOWN", 2, attempt_id=request.started.events[0].attempt_id),
+                    expected_journal_sha256=request.started.journal_sha256)
+            writer.commit()  # Deliberate change in this owned synthetic namespace ONLY.
+        finally:
+            writer.close()
+        return response
+    case.observer.side_effect = drift
+    result = case.coordinator.capture(case.request)
+    assert result.state == "RECEIPT_COMMIT_UNCONFIRMED_NO_REPLAY"
+    assert result.sealed is not None and result.receipt.before == case.request.started
+    case.observer.assert_called_once()
+    reader = connections()
+    try:
+        with pytest.raises(custody.PrimaryReceiptCustodyError, match="receipt_custody_missing"):
+            custody.MariaDBPrimaryReceiptCustodyRepository(reader, namespace, case.cipher).load(prepared.key_sha256, result.response.attempt_id)
+    finally:
+        reader.rollback()
+        reader.close()
+
+
+def test_primary_coordinator_rolls_back_both_custody_and_journal_after_append_failure(connections, namespace, prepared, monkeypatch):
+    case = native_primary_capture_case(connections, namespace, prepared)
+    real_repository = MariaDBJournalRepository
+    def repository(connection, selected_namespace):
+        selected = real_repository(connection, selected_namespace)
+        def append(*args, **kwargs):
+            selected.append(*args, **kwargs)
+            raise RuntimeError("PRIVATE synthetic failure after actual append")
+        return SimpleNamespace(load=selected.load, append=append)
+    monkeypatch.setattr(primary_capture, "MariaDBJournalRepository", repository)
+    result = case.coordinator.capture(case.request)
+    assert result.state == "RECEIPT_COMMIT_UNCONFIRMED_NO_REPLAY"
+    assert case.cipher.open(result.sealed) == result.receipt
+    reader = connections()
+    try:
+        assert real_repository(reader, namespace).load(prepared.key_sha256) == case.request.started
+        with reader.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM zatca_primary_receipt_custody_v1 WHERE storage_namespace=%s", (namespace,))
+            assert cursor.fetchone() == (0,)
+        assert holds.MariaDBPrimaryAttemptHoldRepository(reader, namespace).load(case.request.started)
+    finally:
+        reader.rollback()
+        reader.close()
+
+
+@pytest.mark.parametrize("stage", [0, 2, 4, 5])
+def test_primary_coordinator_guard_failure_is_local_no_replay_with_owned_sql(connections, namespace, prepared, stage):
+    case = native_primary_capture_case(connections, namespace, prepared)
+    case.guard.side_effect = [True] * stage + [False]
+    result = case.coordinator.capture(case.request)
+    assert result.state == ("RESERVATION_UNCONFIRMED_NO_OBSERVER" if stage == 0 else
+        "PREFLIGHT_FAILED_NO_OBSERVER" if stage == 2 else "RECEIPT_COMMIT_UNCONFIRMED_NO_REPLAY")
+    assert case.observer.call_count == (1 if stage >= 4 else 0)
+    assert all(not raw.open for raw in case.opened)
+
+
+def test_primary_request_binding_failure_rolls_back_reservation_start_and_hold_together(connections, namespace, prepared, monkeypatch):
+    case = native_primary_capture_case(connections, namespace, prepared)
+    monkeypatch.setattr(primary_capture, "REQUEST_CODEC", 2)  # DDL correctly rejects unknown codec.
+    result = case.coordinator.capture(case.request)
+    assert result.state == "RESERVATION_UNCONFIRMED_NO_OBSERVER"
+    case.observer.assert_not_called()
+    reader = connections()
+    try:
+        assert MariaDBJournalRepository(reader, namespace).load(prepared.key_sha256).events == ()
+        with reader.cursor() as cursor:
+            for table in ("zatca_primary_attempt_hold_v1", "zatca_primary_request_binding_v1"):
+                cursor.execute("SELECT COUNT(*) FROM " + table + " WHERE storage_namespace=%s", (namespace,))
+                assert cursor.fetchone() == (0,)
+    finally:
+        reader.rollback()
+        reader.close()
+
+
+def test_changed_request_binding_before_preflight_never_invokes_observer(connections, namespace, prepared):
+    case = native_primary_capture_case(connections, namespace, prepared)
+    original = case.factory.side_effect
+    def acquire():
+        if len(case.opened) == 1:
+            writer = connections()
+            try:
+                with writer.cursor() as cursor:
+                    cursor.execute("UPDATE zatca_primary_request_binding_v1 SET request_sha256=REPEAT('0',64) WHERE storage_namespace=%s", (namespace,))
+                writer.commit()
+            finally:
+                writer.close()
+        return original()
+    case.factory.side_effect = acquire
+    result = case.coordinator.capture(case.request)
+    assert result.state == "PREFLIGHT_FAILED_NO_OBSERVER"
+    case.observer.assert_not_called()
+    assert read_primary_hold(connections, namespace, case.request.started)
+
+
+@pytest.mark.parametrize("different_candidate", [False, True])
+def test_competing_primary_coordinators_invoke_only_one_synthetic_observer(connections, namespace, prepared, certificates, different_candidate):
+    first = native_primary_capture_case(connections, namespace, prepared)
+    selected = distinct_hold_candidate(prepared, certificates) if different_candidate else prepared
+    second = native_primary_capture_case(connections, namespace, selected)
+    barrier = threading.Barrier(2)
+    def capture(case):
+        barrier.wait(timeout=3)
+        return case.coordinator.capture(case.request)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(capture, (first, second)))
+    assert sorted(result.state for result in results) == ["RECEIPT_CAPTURED_OBSERVATION_NO_REPLAY", "RESERVATION_UNCONFIRMED_NO_OBSERVER"]
+    assert first.observer.call_count + second.observer.call_count == 1
+    assert all(not raw.open for case in (first, second) for raw in case.opened)
 
 
 def hold_start(selected):

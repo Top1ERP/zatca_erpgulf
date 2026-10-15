@@ -78,3 +78,20 @@ CREATE TABLE zatca_primary_attempt_hold_v1 (
         REFERENCES zatca_issuance_candidate_v1 (storage_namespace,key_sha256)
         ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE=InnoDB;
+
+-- Exact deterministic auth-free body binding, owned private rehearsal ONLY.
+CREATE TABLE zatca_primary_request_binding_v1 (
+    storage_namespace CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    source_sha256 CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    candidate_sha256 CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    attempt_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    request_codec TINYINT UNSIGNED NOT NULL,
+    request_sha256 CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    PRIMARY KEY (storage_namespace,source_sha256),
+    UNIQUE KEY primary_request_candidate (storage_namespace,candidate_sha256),
+    UNIQUE KEY primary_request_attempt (storage_namespace,attempt_id),
+    CONSTRAINT primary_request_hold_fk FOREIGN KEY (storage_namespace,source_sha256)
+        REFERENCES zatca_primary_attempt_hold_v1 (storage_namespace,source_sha256)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT primary_request_codec CHECK (request_codec = 1)
+) ENGINE=InnoDB;

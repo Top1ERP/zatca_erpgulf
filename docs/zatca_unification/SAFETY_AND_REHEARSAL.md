@@ -354,6 +354,18 @@ source/epoch/transport provenance and correction/reconciliation policy remain
 gates. Classification coverage does not verify SDK/crypto/advance accounting.
 No working source/config/schema/assets/workers/customer or authority change.
 
+Increment 52 adds an [auth-free exact local observation coordinator](PRIMARY_CAPTURE.md)
+with synthetic observers only. Three owned transactions bind exact deterministic
+request/start/hold, close preflight before ONE callback, and store original
+encrypted receipt plus journal event atomically. Final guarded selection passed
+**6,804 local + 687 private SQL = 7,491 cases in 73.32 seconds**, across the same
+twelve private suites. Actual SQL/commit/race/rollback tests do not prove real
+HTTP/credential/transport/epoch provenance, installed v16 or authority acceptance.
+No authenticated sender, permissioned coordinator, runtime hook/provider or live
+schema/source/config/assets/workers/customer/authority change is enabled. Exact
+protected inputs survive returned uncertainty; pre-first-receipt-commit process
+loss and reviewed paired reconciliation remain gates. No hold is released.
+
 These stages are future gates, not actions executed or approved by this increment.
 Full development and real v15/v16/application/crypto/advance acceptance remain
 unfinished. Remote authority acceptance is a separate unverified gate and cannot
