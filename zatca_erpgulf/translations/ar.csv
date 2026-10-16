@@ -686,3 +686,6 @@ Staged ZATCA invoice capture access failed. Do not retry automatically. Review s
 Protected ZATCA capture requires server-side custody. Keep the protected recovery result and do not retry automatically.,تتطلب نتيجة التقاط زاتكا المحمية تسليمها إلى الحفظ الداخلي في الخادم. احتفظ بنتيجة التعافي المحمية ولا تُعد المحاولة تلقائيًا.
 You do not have permission to inspect or persist staged ZATCA receipt pairs.,ليس لديك صلاحية فحص أو حفظ أزواج سجل رد زاتكا ونسخته المشفرة في المخزن المرحلي.
 Staged ZATCA receipt pair access failed. Keep the original request and sealed receipt. Do not resend automatically. No new request was sent.,تعذر الوصول إلى أزواج سجل رد زاتكا ونسخته المشفرة في المخزن المرحلي. احتفظ بالطلب الأصلي ونسخة الرد المشفرة الأصلية. لا تُعد الإرسال تلقائيًا. لم يُرسل أي طلب جديد.
+Diagnostic Status,الحالة التشخيصية
+Diagnostic label only; not evidence of authority acceptance or durable receipt storage.,وصف تشخيصي فقط؛ لا يُعد دليلًا على قبول الهيئة أو حفظ الرد بصورة دائمة.
+ZATCA event log schema requires review. No diagnostic event was inserted.,مخطط سجل أحداث زاتكا يحتاج إلى مراجعة. لم يُدرج أي حدث تشخيصي.

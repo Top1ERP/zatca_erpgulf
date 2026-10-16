@@ -137,6 +137,13 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 60 adds [diagnostic source schema and staged preflight](EVENT_LOG_TRANSACTION.md).
+  A read-only Diagnostic Status Data field is defined in DEVELOPMENT DocType
+  source with Arabic labels; no site migration/backfill/collision repair occurs.
+  Staging checks ordinary table/unique fields/types/storage/widths before insert,
+  failing with static translated review. The legacy wrapper is not gated/rewired.
+  Physical schema, custom-field/Property Setter collisions and exact receipt/
+  parent lifecycle remain adoption gates; no submission staging caller is added.
 - Increment 59 adds [explicit diagnostic event staging](EVENT_LOG_TRANSACTION.md):
   normal permissions, no explicit commit/rollback/fallback/retry, same-object
   exception propagation and a closed INSERT_RETURNED result, not durability or

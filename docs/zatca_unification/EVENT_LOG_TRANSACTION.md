@@ -1,4 +1,4 @@
-# Explicit diagnostic event staging — increment 59
+# Explicit diagnostic event staging — increments 59 and 60
 
 Development only, 2026-10-16. No tenant/site initialization, working application
 change or authority request. This contract is not wired into invoice submission.
@@ -7,10 +7,14 @@ change or authority request. This contract is not wired into invoice submission.
 
 `stage_zatca_event` inserts a diagnostic event with `ignore_permissions=False`.
 It calls neither commit nor rollback, does not retry or invoke a fallback logger,
-and propagates every exception unchanged. A caller using the received-response
+and propagates insertion exceptions unchanged. Increment60 adds the read-only
+metadata preflight described below; malformed/incompatible metadata produces a
+static translated schema error BEFORE payload construction. Metadata acquisition
+failures propagate unchanged. A caller using the received-response
 step guard can convert the previously caught local error families into the
 existing static translated review signal. Other failures remain unchanged.
-No new UI, endpoint, translation text or permission override is introduced.
+Increment59 introduced no new UI, endpoint, translation text or permission
+override. Increment60 adds only the metadata/error translations described below.
 
 The closed `EventLogWriteResult.INSERT_RETURNED` result means ONLY that the
 insert call returned. It is not None, a framework Document or a response/body/
@@ -54,11 +58,12 @@ automatic retry, acceptance classification or PIH/ICV/QR mutation is added here.
 
 ## Source schema gap, not a live schema diagnosis
 
-The repository Event Log DocType defines title/invoice_number/time/api_response;
-its custom-field fixture adds custom_uuid. Neither source defines the legacy
-payload's status field. A source-only regression records this mismatch; no
+At increment59, the repository Event Log DocType defined title/invoice_number/time/api_response;
+its custom-field fixture added custom_uuid. Neither source defined the legacy
+payload's status field. A source-only regression recorded this mismatch; no
 tenant metadata was read and no field/migration/DDL was added. Installed schema
 may differ. A normal ORM insert return is not proof of that field's persistence.
+Increment60 adds the missing field in DEVELOPMENT source only, as described below.
 Review the intended schema and installed-version migration before activation;
 do not silently create a field or backfill customer logs during this refactor.
 
@@ -86,3 +91,56 @@ five insertion/hook outcomes and both explicit parent decisions. The first local
 run passed 8,604 in 53.95 seconds before four additional callback-return/schema
 cases, all included in the final combined run. No guard/ownership assertion was
 weakened; no installed application or authority acceptance claim follows.
+
+## Source field and preflight — increment 60
+
+The development DocType JSON now defines one ordinary read-only Data field named
+`status`, labelled Diagnostic Status, with an English explanation and Arabic
+catalog entries. It is a diagnostic label, not an authority verdict. UUID remains
+the existing `custom_uuid` fixture; existing fields and permissions are unchanged.
+There is no new Custom Field duplicate, patch, hook, field rename/delete or
+historic backfill. The JSON modified timestamp is source metadata, not a live
+database mutation. No `migrate`, reload, build or site operation was performed.
+
+`stage_zatca_event` now loads ORM metadata and calls `require_event_log_schema`
+BEFORE clock/normalizer/document construction/insertion. The legacy wrapper does
+not call this preflight and keeps its commit/fallback/None/permission behavior.
+The check requires an ordinary non-single/non-child/non-virtual Event Log table,
+exactly one of each of the six payload fields, matching field lookup identities,
+Data types for title/invoice/time/UUID/status and Long Text for api_response.
+Virtual/fetched fields, malformed metadata and narrowed Data widths fail closed;
+default Data width or an explicit integer width of at least 140 is allowed.
+Unknown additional fields are not deleted or renamed.
+
+Bad metadata raises the static English/Arabic RuntimeError-family schema review
+error OUTSIDE the metadata exception handler. It includes no raw field/site/body
+or chained driver error; no diagnostic event is inserted by that invocation.
+The preflight itself performs no SQL, DDL, transaction or repair operation. Its
+loaded metadata is NOT proof of physical-column synchronization, trusted field
+provenance, current schema locks or hook-free insertion. Acquisition errors and
+unhandled interruptions retain their propagation. Exact original response custody
+remains necessary; this normalizing diagnostic table is not its replacement.
+
+Before any separately approved fictional-client migration, inspect custom-field/
+Property Setter collisions, actual columns, storage widths and exact installed
+Frappe/ERPNext revisions. Do not automatically delete/coerce an existing `status`
+field or reinterpret an old missing/empty status as acceptance. A future approved
+migration would enable storing the legacy payload's status as well; it does not
+reconstruct historical labels. No tenant inventory or migration is authorized or
+performed here. Staging is still not called by invoice submission.
+
+Local tests merge only source JSON/fixture metadata into synthetic list/tuple
+shapes, not installed v15/v16 metadata. Private tests show preflight rejection
+does not write an event or commit/discard unrelated parent work. The existing
+diagnostic SQL bridge now verifies an actual temporary VARCHAR(140) status column
+against the payload JSON; it is not a Frappe schema-migration/lifecycle test.
+
+Increment60 final guarded combined evidence: **8,737 local + 1,160 private SQL
+= 9,897 passed in 103.74 seconds**, across the same twelve private suites (129
+local + 16 private SQL additions). First local passed 8,731 in 55.34 seconds
+before six extra malformed/lookup metadata cases, included in the final run.
+The sixteen new private cases reject missing/duplicate/wrong-type/narrow status
+metadata, using list/tuple shapes and both explicit parent commit/rollback
+decisions. No preflight failure inserted an event, committed pending work or
+discarded the parent's work. Existing insert/hook tests still pass with the
+temporary separate status column. No guard or custody assertion was relaxed.

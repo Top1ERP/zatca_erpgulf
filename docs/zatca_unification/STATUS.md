@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and fifty-nine bounded increments (Compliance outcomes, dedicated
+Safety preparation and sixty bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -50,7 +50,8 @@ and permissioned metadata-only saved-source paired reconciliation access,
 and bounded pure primary outcome review with writer/late-response evidence,
 and received local presentation/logging-step isolation for all primary statuses,
 and selected primary rejection-persistence local-failure isolation,
-and explicit caller-owned diagnostic event staging with a legacy compatibility wrapper)
+and explicit caller-owned diagnostic event staging with a legacy compatibility wrapper,
+and development diagnostic status schema with read-only staged metadata preflight)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -1098,6 +1099,31 @@ branches and credential-context differences are recorded in
   including Sandbox/Simulation. No advance/discount/accounting/QR/crypto change.
   See [EVENT_LOG_TRANSACTION.md](EVENT_LOG_TRANSACTION.md).
 
+## Increment 60: development diagnostic schema and staged preflight
+
+- Guarded combined: **8,737 local + 1,160 private SQL = 9,897 passed in 103.74
+  seconds**, across the same twelve private suites (129 local + 16 private SQL
+  additions). First local passed 8,731 in 55.34 seconds before six malformed/
+  unreadable metadata cases; all six are included in the final combined run.
+  Existing ownership/privacy/transaction assertions were not weakened.
+- The DEVELOPMENT Event Log DocType now defines read-only Diagnostic Status
+  (ordinary Data, not acceptance), with English explanation and Arabic catalog
+  entries. Existing UUID fixture/fields/permissions are preserved. No tenant
+  migration, automatic collision repair, historic backfill or patch/hook is added.
+- New staging alone checks loaded ORM metadata before clock/normalization/doc
+  creation: ordinary table, six unique stored fields, exact field types/lookup
+  identities and non-narrowed Data widths. Missing/duplicate/fetched/virtual or
+  malformed metadata raises static translated unchained schema review, no insert.
+  Metadata acquisition/insertion exceptions retain their propagation. The legacy
+  wrapper is not gated and no invoice caller is switched to staging.
+- This is not physical-column synchronization, installed v16 metadata evidence,
+  trusted schema provenance or hook isolation. Real custom-field/Property Setter
+  collision review and exact original response custody/parent lifecycle remain
+  prerequisites before separately approved fictional-client migration/adoption.
+- No installed source/config/schema/assets/Bench/customer/authority action;
+  no advance/discount/GL/VAT/QR/crypto or request acceptance change. See
+  [EVENT_LOG_TRANSACTION.md](EVENT_LOG_TRANSACTION.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -1585,7 +1611,9 @@ normal rejection classification or legacy persistence. Increment58 extends that
 boundary to selected rejection-persistence faults without extra post-fault writes,
 not atomicity or rollback of prior commits. Increment59 supplies explicit diagnostic
 staging/result/permission semantics while preserving the legacy wrapper, without
-runtime adoption or hook isolation. Next integrate caller-owned event logging only
+runtime adoption or hook isolation. Increment60 adds the missing status field in
+development source and a staged-only metadata preflight, not a site migration or
+physical schema guarantee. Next integrate caller-owned event logging only
 with original receipt custody, schema review, caller exception boundaries and intentional rejection/parent lifecycle
 together, continue lost/late/unbound and partial-write policy, and audit source/namespace/key/
 lookup custody and transport-source-epoch/response evidence before

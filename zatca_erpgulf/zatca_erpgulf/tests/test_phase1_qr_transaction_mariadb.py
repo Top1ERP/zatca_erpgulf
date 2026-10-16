@@ -26,6 +26,7 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_received_response_steps import (
     fail_step, fail_rejection_step, REJECTION_STAGES, bind_actual_event_logger,
 )
 from zatca_erpgulf.zatca_erpgulf.tests.test_response_processing import snapshot as response_snapshot
+from zatca_erpgulf.zatca_erpgulf.tests.test_event_log_contract import source_event_meta
 
 
 pytestmark = pytest.mark.skipif(os.environ.get("ZATCA_RUN_ISOLATED_MARIADB") != "1",
@@ -50,7 +51,7 @@ def qr_schema(isolated_server):
             cursor.execute("CREATE TABLE response_processing_test (namespace VARCHAR(36),doctype VARCHAR(40),name VARCHAR(140),"
                 "receipt TEXT,status VARCHAR(64),uuid VARCHAR(140),business_value TEXT,"
                 "PRIMARY KEY(namespace,doctype,name)) ENGINE=InnoDB")
-            cursor.execute("CREATE TABLE event_diagnostic_test (namespace VARCHAR(36),name VARCHAR(140),payload TEXT,"
+            cursor.execute("CREATE TABLE event_diagnostic_test (namespace VARCHAR(36),name VARCHAR(140),payload TEXT,diagnostic_status VARCHAR(140),"
                 "PRIMARY KEY(namespace,name)) ENGINE=InnoDB")
     finally:
         connection.close()
@@ -356,8 +357,10 @@ def read_diagnostic_sql(connections, namespace):
     reader = connections("READ COMMITTED")
     try:
         with reader.cursor() as cursor:
-            cursor.execute("SELECT payload FROM event_diagnostic_test WHERE namespace=%s ORDER BY name", (namespace,))
-            return [json.loads(row[0]) for row in cursor.fetchall()]
+            cursor.execute("SELECT payload,diagnostic_status FROM event_diagnostic_test WHERE namespace=%s ORDER BY name", (namespace,))
+            rows = cursor.fetchall()
+            assert all(json.loads(row[0])["status"] == row[1] for row in rows)
+            return [json.loads(row[0]) for row in rows]
     finally:
         reader.rollback()
         reader.close()
@@ -376,6 +379,7 @@ def test_diagnostic_writer_exact_sql_visibility_and_parent_commit_ownership(qr_s
     b = boundary
     doc, transaction, key = response_sql_case(b, connections, namespace, sign_invoice)
     event_doc = bind_actual_event_logger(b, sign_invoice, monkeypatch)
+    b.frappe.get_meta = Mock(return_value=source_event_meta())
     get_doc = b.frappe.get_doc.side_effect
     payloads = []
     def factory(doctype, name=None):
@@ -388,8 +392,8 @@ def test_diagnostic_writer_exact_sql_visibility_and_parent_commit_ownership(qr_s
         if failure == "before_insert":
             raise BoundaryError("SYNTHETIC before diagnostic insert")
         with transaction.cursor() as cursor:
-            cursor.execute("INSERT INTO event_diagnostic_test VALUES (%s,%s,%s)",
-                (namespace, "TEST-EVENT", json.dumps(payloads[0], ensure_ascii=False)))
+            cursor.execute("INSERT INTO event_diagnostic_test VALUES (%s,%s,%s,%s)",
+                (namespace, "TEST-EVENT", json.dumps(payloads[0], ensure_ascii=False), payloads[0]["status"]))
         if failure in ("hook_commit", "hook_commit_then_fail"):
             # Simulate a third-party after_insert hook. The staging helper does
             # not sandbox Document hooks or certify that a callback never commits.
@@ -425,6 +429,48 @@ def test_diagnostic_writer_exact_sql_visibility_and_parent_commit_ownership(qr_s
     assert read_diagnostic_sql(connections, namespace) == ([expected_payload] if event_survives else [])
     assert read_response_sql(connections, key) == ("ORIGINAL-RECEIPT", "ORIGINAL-STATUS",
         "test-existing-uuid", "PARENT-PENDING" if parent_commit or already_committed else "ORIGINAL-BUSINESS")
+    b.post.assert_not_called()
+
+
+@pytest.mark.parametrize("defect", ["missing", "duplicate", "wrong_type", "narrow"])
+@pytest.mark.parametrize("tuple_fields", [False, True])
+@pytest.mark.parametrize("parent_commit", [False, True])
+def test_diagnostic_schema_review_cannot_commit_or_discard_pending_parent_sql(qr_schema, boundary, connections,
+    namespace, monkeypatch, defect, tuple_fields, parent_commit):
+    b = boundary
+    doc, transaction, key = response_sql_case(b, connections, namespace, sign_invoice)
+    event_doc = bind_actual_event_logger(b, sign_invoice, monkeypatch)
+    meta = source_event_meta()
+    field = meta.get_field("status")
+    if defect == "missing":
+        meta.fields.remove(field)
+    elif defect == "duplicate":
+        meta.fields.append(field)
+    elif defect == "wrong_type":
+        field.fieldtype = "Select"
+    else:
+        field.length = 10
+    if tuple_fields:
+        meta.fields = tuple(meta.fields)
+    b.frappe.get_meta = Mock(return_value=meta)
+    monkeypatch.setattr(event_log, "_", lambda message: message)
+    try:
+        with pytest.raises(event_log.EventLogSchemaError) as raised:
+            event_log.stage_zatca_event(doc.name, "PRIVATE body", "Success")
+        assert str(raised.value) == event_log.EVENT_LOG_SCHEMA_REVIEW
+        assert raised.value.__context__ is None and not vars(raised.value)
+        assert read_diagnostic_sql(connections, namespace) == []
+        assert read_response_sql(connections, key) == ("ORIGINAL-RECEIPT", "ORIGINAL-STATUS",
+            "test-existing-uuid", "ORIGINAL-BUSINESS")
+        b.frappe.db.commit.assert_not_called()
+        event_doc.insert.assert_not_called()
+        (transaction.commit if parent_commit else transaction.rollback)()
+    finally:
+        transaction.rollback()
+        transaction.close()
+    assert read_diagnostic_sql(connections, namespace) == []
+    assert read_response_sql(connections, key) == ("ORIGINAL-RECEIPT", "ORIGINAL-STATUS",
+        "test-existing-uuid", "PARENT-PENDING" if parent_commit else "ORIGINAL-BUSINESS")
     b.post.assert_not_called()
 
 

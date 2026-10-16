@@ -9,6 +9,7 @@
   "title",
   "invoice_number",
   "time",
+  "status",
   "api_response"
  ],
  "fields": [
@@ -35,6 +36,13 @@
    "read_only": 1
   },
   {
+   "description": "Diagnostic label only; not evidence of authority acceptance or durable receipt storage.",
+   "fieldname": "status",
+   "fieldtype": "Data",
+   "label": "Diagnostic Status",
+   "read_only": 1
+  },
+  {
    "fieldname": "time",
    "fieldtype": "Data",
    "label": "Time",
@@ -43,7 +51,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-11-06 09:38:24.939156",
+ "modified": "2026-10-16 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Zatca Erpgulf",
  "name": "ZATCA ERPGulf Event Log",

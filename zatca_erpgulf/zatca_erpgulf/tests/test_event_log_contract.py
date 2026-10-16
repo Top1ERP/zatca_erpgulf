@@ -1,6 +1,7 @@
 """Diagnostic writer contracts, synthetic Frappe only; never HTTP/site init."""
 
 import ast
+import csv
 import inspect
 import json
 from pathlib import Path
@@ -10,17 +11,31 @@ from unittest.mock import Mock
 import pytest
 
 from zatca_erpgulf.zatca_erpgulf import event_log, response_processing
-from zatca_erpgulf.zatca_erpgulf.tests.test_submission_context import ValidationError
+from zatca_erpgulf.zatca_erpgulf.tests.test_submission_context import ValidationError, Document
+
+
+def source_event_meta(*, tuple_fields=False):
+    """Synthetic merged source metadata; never Frappe/site metadata discovery."""
+    root = Path(event_log.__file__).parent
+    schema = json.loads((root / "doctype/zatca_erpgulf_event_log/zatca_erpgulf_event_log.json").read_text())
+    custom = json.loads((root.parent / "fixtures/custom_field.json").read_text())
+    fields = [Document(**field) for field in schema["fields"]]
+    fields.extend(Document(**field) for field in custom if field.get("dt") == event_log.EVENT_LOG_DOCTYPE)
+    meta = Document(name=schema["name"], fields=tuple(fields) if tuple_fields else fields)
+    meta.get_field = lambda name: next((field for field in meta.fields if field.fieldname == name), None)
+    return meta
 
 
 @pytest.fixture
 def writer(monkeypatch):
     doc = SimpleNamespace(insert=Mock())
     runtime = SimpleNamespace(get_doc=Mock(return_value=doc),
+        get_meta=Mock(return_value=source_event_meta()),
         db=SimpleNamespace(commit=Mock(), rollback=Mock()), log_error=Mock())
     clock = Mock(return_value="2026-10-16 12:00:00")
     monkeypatch.setattr(event_log, "frappe", runtime)
     monkeypatch.setattr(event_log, "now_datetime", clock)
+    monkeypatch.setattr(event_log, "_", lambda message: message)
     monkeypatch.setattr(response_processing, "_", lambda message: message)
     return SimpleNamespace(doc=doc, runtime=runtime, clock=clock)
 
@@ -50,6 +65,7 @@ def test_exact_diagnostic_payload_and_distinct_permission_transaction_contract(w
     assert writer.runtime.db.commit.call_count == (not staged)
     writer.runtime.db.rollback.assert_not_called()
     writer.runtime.log_error.assert_not_called()
+    assert writer.runtime.get_meta.call_count == staged
 
 
 ERRORS = (ValueError, TypeError, KeyError, ValidationError, PermissionError, RuntimeError, KeyboardInterrupt, SystemExit)
@@ -112,8 +128,11 @@ def test_staging_has_no_permission_override_catch_transaction_or_runtime_caller(
     tree = ast.parse(inspect.getsource(event_log.stage_zatca_event))
     assert not any(isinstance(node, (ast.Try, ast.ExceptHandler)) for node in ast.walk(tree))
     calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
-    assert len(calls) == 1 and calls[0].func.id == "_insert_zatca_event"
-    assert any(keyword.arg == "ignore_permissions" and keyword.value.value is False for keyword in calls[0].keywords)
+    insert = [call for call in calls if isinstance(call.func, ast.Name) and call.func.id == "_insert_zatca_event"]
+    preflight = [call for call in calls if isinstance(call.func, ast.Name) and call.func.id == "require_event_log_schema"]
+    assert len(calls) == 3 and len(insert) == len(preflight) == 1
+    assert preflight[0].lineno < insert[0].lineno
+    assert any(keyword.arg == "ignore_permissions" and keyword.value.value is False for keyword in insert[0].keywords)
     assert list(event_log.EventLogWriteResult) == [event_log.EventLogWriteResult.INSERT_RETURNED]
     # Refactoring the legacy wrapper must not silently switch any invoice path
     # to staging before independent receipt custody/parent lifecycle is ready.
@@ -132,13 +151,122 @@ def test_result_means_call_returned_not_framework_value_or_durability(writer, in
     writer.runtime.db.commit.assert_not_called()
 
 
-def test_source_schema_gap_is_characterized_not_silently_migrated():
+def test_source_schema_defines_diagnostic_status_without_changing_legacy_fields_or_permissions():
     root = Path(event_log.__file__).parent
     schema = json.loads((root / "doctype/zatca_erpgulf_event_log/zatca_erpgulf_event_log.json").read_text())
     custom = json.loads((root.parent / "fixtures/custom_field.json").read_text())
-    fields = {field["fieldname"] for field in schema["fields"]}
-    fields.update(field["fieldname"] for field in custom if field.get("dt") == "ZATCA ERPGulf Event Log")
-    assert {"title", "invoice_number", "time", "api_response", "custom_uuid"} <= fields
-    # Source metadata lacks the legacy payload's status field. ORM insert return
-    # cannot certify field coverage. Installed schema may differ: no site lookup.
-    assert "status" not in fields
+    assert event_log.require_event_log_schema(source_event_meta()) is None
+    field = next(field for field in schema["fields"] if field["fieldname"] == "status")
+    assert field == {"fieldname": "status", "fieldtype": "Data", "label": "Diagnostic Status", "read_only": 1,
+        "description": "Diagnostic label only; not evidence of authority acceptance or durable receipt storage."}
+    assert schema["field_order"].count("status") == 1
+    assert len([field for field in custom if field.get("dt") == schema["name"] and field["fieldname"] == "custom_uuid"]) == 1
+    assert not any(field.get("dt") == schema["name"] and field["fieldname"] == "status" for field in custom)
+    assert schema["permissions"] == [{"create": 1, "delete": 1, "email": 1, "export": 1,
+        "print": 1, "read": 1, "report": 1, "role": "System Manager", "share": 1, "write": 1}]
+
+
+@pytest.mark.parametrize("tuple_fields", [False, True])
+@pytest.mark.parametrize("fieldname", list(event_log.EVENT_LOG_FIELD_TYPES))
+@pytest.mark.parametrize("defect", ["missing", "duplicate", "wrong_type", "virtual", "fetched"])
+def test_missing_conflicting_or_nonstored_fields_fail_before_any_diagnostic_write(writer, tuple_fields, fieldname, defect):
+    meta = source_event_meta()
+    field = meta.get_field(fieldname)
+    if defect == "missing":
+        meta.fields.remove(field)
+    elif defect == "duplicate":
+        meta.fields.append(Document(**vars(field)))
+    elif defect == "wrong_type":
+        field.fieldtype = "Select" if fieldname != "api_response" else "Small Text"
+    elif defect == "virtual":
+        field.is_virtual = 1
+    else:
+        field.fetch_from = "PRIVATE.source"
+    if tuple_fields:
+        meta.fields = tuple(meta.fields)
+    writer.runtime.get_meta.return_value = meta
+    with pytest.raises(event_log.EventLogSchemaError) as raised:
+        event_log.stage_zatca_event("TEST-INVOICE", "PRIVATE BODY", "Success")
+    assert str(raised.value) == event_log.EVENT_LOG_SCHEMA_REVIEW
+    assert raised.value.__context__ is raised.value.__cause__ is None and not vars(raised.value)
+    writer.runtime.get_doc.assert_not_called()
+    writer.clock.assert_not_called()
+    writer.runtime.db.commit.assert_not_called()
+    writer.runtime.db.rollback.assert_not_called()
+    writer.runtime.log_error.assert_not_called()
+
+
+@pytest.mark.parametrize("fieldname", [name for name, fieldtype in event_log.EVENT_LOG_FIELD_TYPES.items() if fieldtype == "Data"])
+@pytest.mark.parametrize("length,valid", [(None, True), (0, True), (140, True), (255, True),
+    (139, False), (-1, False), ("140", False), (True, False), (140.5, False)])
+def test_data_width_is_not_silently_narrowed(writer, fieldname, length, valid):
+    meta = writer.runtime.get_meta.return_value
+    meta.get_field(fieldname).length = length
+    if valid:
+        assert event_log.stage_zatca_event("TEST-INVOICE", "TEST-BODY", "Success") is event_log.EventLogWriteResult.INSERT_RETURNED
+    else:
+        with pytest.raises(event_log.EventLogSchemaError):
+            event_log.stage_zatca_event("TEST-INVOICE", "TEST-BODY", "Success")
+        writer.runtime.get_doc.assert_not_called()
+    writer.runtime.db.commit.assert_not_called()
+
+
+@pytest.mark.parametrize("flag", ["issingle", "istable", "is_virtual"])
+@pytest.mark.parametrize("value", [1, "0", "PRIVATE invalid flag"])
+def test_nonordinary_or_malformed_table_metadata_fails_without_insert(writer, flag, value):
+    setattr(writer.runtime.get_meta.return_value, flag, value)
+    with pytest.raises(event_log.EventLogSchemaError):
+        event_log.stage_zatca_event("TEST-INVOICE", "TEST-BODY", "Warning")
+    writer.runtime.get_doc.assert_not_called()
+
+
+@pytest.mark.parametrize("error_type", ERRORS)
+def test_metadata_acquisition_error_keeps_original_propagation_and_no_side_effect(writer, error_type):
+    error = error_type("PRIVATE metadata acquisition")
+    writer.runtime.get_meta.side_effect = error
+    with pytest.raises(error_type) as raised:
+        event_log.stage_zatca_event("TEST-INVOICE", "TEST-BODY", "Warning")
+    assert raised.value is error
+    writer.runtime.get_doc.assert_not_called()
+    writer.clock.assert_not_called()
+    writer.runtime.db.commit.assert_not_called()
+    writer.runtime.log_error.assert_not_called()
+
+
+@pytest.mark.parametrize("defect", ["wrong_name", "no_fields", "mapping_fields", "bad_row", "wrong_lookup", "lookup_error"])
+def test_malformed_or_unreadable_metadata_is_static_review_not_a_private_error_export(writer, defect):
+    meta = writer.runtime.get_meta.return_value
+    if defect == "wrong_name":
+        meta.name = "PRIVATE foreign doctype"
+    elif defect == "no_fields":
+        meta.fields = None
+    elif defect == "mapping_fields":
+        meta.fields = {"PRIVATE": "invalid fields container"}
+    elif defect == "bad_row":
+        meta.fields.append(object())
+    elif defect == "wrong_lookup":
+        meta.get_field = lambda name: Document(fieldname="PRIVATE wrong field", fieldtype="Data")
+    else:
+        meta.get_field = Mock(side_effect=ValueError("PRIVATE lookup driver error"))
+    with pytest.raises(event_log.EventLogSchemaError) as raised:
+        event_log.stage_zatca_event("TEST-INVOICE", "PRIVATE body", "Success")
+    assert str(raised.value) == event_log.EVENT_LOG_SCHEMA_REVIEW
+    assert raised.value.__context__ is raised.value.__cause__ is None
+    assert not vars(raised.value)
+    writer.runtime.get_doc.assert_not_called()
+    writer.runtime.db.commit.assert_not_called()
+
+
+def test_schema_error_and_new_source_labels_have_arabic_catalog_entries(writer, monkeypatch):
+    path = Path(event_log.__file__).parents[1] / "translations/ar.csv"
+    with path.open() as stream:
+        entries = {row[0]: row[1] for row in csv.reader(stream) if len(row) == 2}
+    labels = (event_log.EVENT_LOG_SCHEMA_REVIEW, "Diagnostic Status",
+        "Diagnostic label only; not evidence of authority acceptance or durable receipt storage.")
+    assert all(entries[label] and entries[label] != label for label in labels)
+    monkeypatch.setattr(event_log, "_", lambda message: entries[message])
+    writer.runtime.get_meta.return_value.fields = []
+    with pytest.raises(event_log.EventLogSchemaError) as raised:
+        event_log.stage_zatca_event("TEST-INVOICE", "PRIVATE BODY", "Success")
+    assert str(raised.value) == entries[event_log.EVENT_LOG_SCHEMA_REVIEW]
+    assert raised.value.__context__ is None

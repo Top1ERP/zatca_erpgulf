@@ -481,6 +481,23 @@ SQL = 9,752 cases in 103.30 seconds**, across the same twelve private suites,
 including 121 local and 60 private SQL additions. Publication of reviewed
 code/synthetic tests/docs to the approved development branch is not deployment.
 
+Increment60 adds a standard Diagnostic Status field ONLY in DEVELOPMENT DocType
+source and English/Arabic metadata, plus a read-only schema preflight ONLY for the
+unwired staging helper. It rejects missing/duplicate/incompatible/virtual/fetched/
+narrowed metadata without event insertion or transaction/repair operations. The
+legacy wrapper and all submission callers remain unchanged. No working-source/
+schema/Bench/worker/customer/authority change, migration/build/backfill or remote
+request occurred. Installed schema/collision/Property Setter/column inspection
+is a future separately approved gate, not a performed tenant diagnosis; source
+definition and temporary SQL are not a full installed v15/v16 migration test.
+Exact original receipt custody and whole-parent lifecycle still block adoption.
+
+Increment60 guarded combined verification passed **8,737 local + 1,160 private
+SQL = 9,897 cases in 103.74 seconds**, across the same twelve private suites,
+including 129 local and sixteen private SQL additions. Temporary SQL bridges
+verify the diagnostic status column and pending-parent ownership, not an
+installed-application migration. Publication is development source only.
+
 These stages are future gates, not actions executed or approved by this increment.
 Full development and real v15/v16/application/crypto/advance acceptance remain
 unfinished. Remote authority acceptance is a separate unverified gate and cannot

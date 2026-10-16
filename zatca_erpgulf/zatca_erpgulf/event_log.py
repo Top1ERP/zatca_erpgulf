@@ -9,8 +9,59 @@ from enum import Enum
 
 from frappe.utils import now_datetime
 import frappe
+from frappe import _
 
 from zatca_erpgulf.zatca_erpgulf.zatca_response import extract_raw_response
+
+
+EVENT_LOG_DOCTYPE = "ZATCA ERPGulf Event Log"
+EVENT_LOG_SCHEMA_REVIEW = "ZATCA event log schema requires review. No diagnostic event was inserted."
+EVENT_LOG_FIELD_TYPES = {
+    "title": "Data", "invoice_number": "Data", "time": "Data",
+    "api_response": "Long Text", "custom_uuid": "Data", "status": "Data",
+}
+
+
+class EventLogSchemaError(RuntimeError):
+    """Static translated metadata failure, not a remote rejection or repair."""
+
+
+def require_event_log_schema(meta):
+    """Read caller-loaded ORM metadata; never migrate, rename or discard fields.
+
+    Enforce the six diagnostic payload fields and ordinary table storage before
+    staging. This is NOT physical-column synchronization, installed-version
+    attestation, field collision resolution or a guarantee against hook writes.
+    Narrowed Data fields, fetched/virtual values and incompatible types require
+    explicit migration review rather than silent loss/coercion of diagnostic data.
+    """
+    try:
+        if meta.name != EVENT_LOG_DOCTYPE or any(meta.get(flag) not in (None, 0, False)
+                for flag in ("issingle", "istable", "is_virtual")):
+            raise ValueError
+        fields = meta.get("fields")
+        if type(fields) not in (list, tuple):
+            raise ValueError
+        for name, fieldtype in EVENT_LOG_FIELD_TYPES.items():
+            if sum(field.fieldname == name for field in fields) != 1:
+                raise ValueError
+            field = meta.get_field(name)
+            if (field is None or field.fieldname != name or field.fieldtype != fieldtype
+                    or field.get("is_virtual") not in (None, 0, False)
+                    or field.get("fetch_from")):
+                raise ValueError
+            if fieldtype == "Data":
+                length = field.get("length")
+                if length not in (None, 0):
+                    if type(length) is not int or length < 140:
+                        raise ValueError
+    except Exception:
+        invalid = True
+    else:
+        invalid = False
+    if invalid:
+        # Outside the metadata exception handler: no raw field/site/driver data.
+        raise EventLogSchemaError(_(EVENT_LOG_SCHEMA_REVIEW))
 
 
 class EventLogWriteResult(Enum):
@@ -22,7 +73,7 @@ class EventLogWriteResult(Enum):
 def _insert_zatca_event(invoice_number, response_text, status, uuid, title, *, ignore_permissions):
     """Share the legacy payload/normalizer without owning transaction policy."""
     event_doc = frappe.get_doc({
-        "doctype": "ZATCA ERPGulf Event Log",
+        "doctype": EVENT_LOG_DOCTYPE,
         "title": title or f"ZATCA API Call for {invoice_number}",
         "invoice_number": invoice_number,
         "time": now_datetime(),
@@ -38,8 +89,10 @@ def stage_zatca_event(invoice_number, response_text, status, uuid=None, title=No
     """Insert a diagnostic log with normal permissions and caller-owned SQL.
 
     No commit, rollback, fallback log, retry, permission override or exception
-    translation is performed here. Every error, including permission denial,
-    propagates unchanged. Call inside the received-step guard when appropriate;
+    translation is performed for insertion errors. A read-only metadata preflight
+    fails with a static translated schema error before payload construction;
+    other errors, including permission denial, propagate unchanged. Call inside
+    the received-step guard when appropriate;
     do not let a legacy generic handler label local failure as remote rejection.
 
     INSERT_RETURNED distinguishes this contract from the legacy None return. It
@@ -48,6 +101,7 @@ def stage_zatca_event(invoice_number, response_text, status, uuid=None, title=No
     the original response and own pending work/failed transaction cleanup. This
     entry point is intentionally not wired into existing invoice submission.
     """
+    require_event_log_schema(frappe.get_meta(EVENT_LOG_DOCTYPE))
     _insert_zatca_event(invoice_number, response_text, status, uuid, title, ignore_permissions=False)
     return EventLogWriteResult.INSERT_RETURNED
 
