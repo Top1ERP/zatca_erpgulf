@@ -137,6 +137,12 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 59 adds [explicit diagnostic event staging](EVENT_LOG_TRANSACTION.md):
+  normal permissions, no explicit commit/rollback/fallback/retry, same-object
+  exception propagation and a closed INSERT_RETURNED result, not durability or
+  acceptance. The legacy wrapper keeps its transaction/fallback/None contract;
+  no submission caller is switched. Source schema status-field coverage and
+  actual hook/parent/custody lifecycle remain gates before staging adoption.
 - Increment 58 adds [selected rejection-persistence isolation](REJECTION_PERSISTENCE.md)
   in the four primary Sales/POS APIs. Three named adapters replace twelve
   repeated blocks, preserving normal rejection/UUID/commit policy. Known local

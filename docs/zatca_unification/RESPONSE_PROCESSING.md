@@ -87,6 +87,11 @@ generic API effects; real logger-function tests exercise both paths. Its own
 commit attempts/swallowed errors are NOT removed or made durable by wrapping it.
 An explicit logger result/transaction contract is a separate integration gate.
 
+Increment59 subsequently supplies an explicit [diagnostic staging contract](EVENT_LOG_TRANSACTION.md)
+without switching invoice callers. Its exceptions may use this explicit step
+guard; its INSERT_RETURNED result is not committed/durable receipt evidence.
+The legacy logger behavior described above remains unchanged.
+
 When callbacks work normally, the EXACT old rejection branches remain, including
 their UUID placeholders, independent commits, generic deliberate-rejection
 wrapping and sometimes misleading 503 labels. POS Reporting still links XML

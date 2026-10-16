@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and fifty-eight bounded increments (Compliance outcomes, dedicated
+Safety preparation and fifty-nine bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -49,7 +49,8 @@ and exact local primary custody/journal pair inspection and persistence,
 and permissioned metadata-only saved-source paired reconciliation access,
 and bounded pure primary outcome review with writer/late-response evidence,
 and received local presentation/logging-step isolation for all primary statuses,
-and selected primary rejection-persistence local-failure isolation)
+and selected primary rejection-persistence local-failure isolation,
+and explicit caller-owned diagnostic event staging with a legacy compatibility wrapper)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -1072,6 +1073,31 @@ branches and credential-context differences are recorded in
   no advance/discount/GL/VAT, credentials/routing or signature/QR change.
   See [REJECTION_PERSISTENCE.md](REJECTION_PERSISTENCE.md).
 
+## Increment 59: explicit diagnostic event staging, not runtime adoption
+
+- Guarded combined: **8,608 local + 1,144 private SQL = 9,752 passed in 103.30
+  seconds**, across the same twelve private suites. This adds 121 local and 60
+  private SQL cases. First local passed 8,604 in 53.95 seconds before four
+  callback-return/schema-characterization cases; the final combined run includes
+  them. No runtime/ownership assertion was relaxed to make the tests pass.
+- `stage_zatca_event` uses normal insertion permissions, no explicit commit/
+  rollback/fallback/retry, and propagates exceptions unchanged. Its closed
+  INSERT_RETURNED result means only that the call returned, never durable
+  storage/complete schema/authority acceptance. Optional explicit received-step
+  guarding uses the existing translated static review signal.
+- The legacy `log_zatca_event` keeps ignored permissions, ambient commit,
+  swallowed ordinary failures/fallback and None behavior. Shared insertion/
+  payload construction does not migrate any submission path to staging. Raw
+  fallback privacy and diagnostic normalization limitations remain unchanged.
+- Private SQL distinguishes pending work from previous commits and explicitly
+  reproduces hooks committing/committing-then-failing. A staging helper is NOT
+  a sandbox against hook side effects. No exact receipt/capture/provider/worker/
+  acceptance integration is claimed. Source metadata also lacks the payload's
+  status field; this is recorded without tenant lookup, DDL or migration.
+- No installed source/config/schema/assets/Bench/customer/authority action,
+  including Sandbox/Simulation. No advance/discount/accounting/QR/crypto change.
+  See [EVENT_LOG_TRANSACTION.md](EVENT_LOG_TRANSACTION.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -1557,8 +1583,10 @@ not an activated receiver or partial-state repair. Increment57 isolates known
 local formatting/event-log/hide failures for all primary statuses without changing
 normal rejection classification or legacy persistence. Increment58 extends that
 boundary to selected rejection-persistence faults without extra post-fault writes,
-not atomicity or rollback of prior commits. Next design honest caller-owned event
-logging plus caller exception boundaries, intentional rejection/custody/parent lifecycle
+not atomicity or rollback of prior commits. Increment59 supplies explicit diagnostic
+staging/result/permission semantics while preserving the legacy wrapper, without
+runtime adoption or hook isolation. Next integrate caller-owned event logging only
+with original receipt custody, schema review, caller exception boundaries and intentional rejection/parent lifecycle
 together, continue lost/late/unbound and partial-write policy, and audit source/namespace/key/
 lookup custody and transport-source-epoch/response evidence before
 wiring durable receipt storage/review holds; remove legacy partial/parent commits before artifact

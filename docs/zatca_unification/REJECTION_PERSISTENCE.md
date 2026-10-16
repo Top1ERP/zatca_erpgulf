@@ -70,6 +70,12 @@ source/key/provider provenance and no-replay hold integration remain unfinished.
 
 ## Offline verification
 
+Increment59 subsequently adds an explicit [diagnostic event staging contract](EVENT_LOG_TRANSACTION.md)
+with normal permissions and honest INSERT_RETURNED semantics. It is not wired
+into these primary APIs; their legacy logger still commits/swallows/returns None.
+Exact custody and whole-parent lifecycle remain prerequisites, not solved by
+adding the separate staging primitive.
+
 The fixed-manifest guarded runner denies external network and site initialization.
 New tests execute the actual four primary functions using synthetic documents
 and mocked HTTP. They cover every guarded persistence point before/after writes,

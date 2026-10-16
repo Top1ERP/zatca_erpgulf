@@ -3,6 +3,7 @@
 Not a restored application, filesystem rollback, client invoice or authority test.
 """
 
+import json
 import os
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -17,12 +18,12 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_journal_repository_mariadb import is
 from zatca_erpgulf.zatca_erpgulf.tests.test_nonproduction_isolation import ValidationError
 from zatca_erpgulf.zatca_erpgulf.tests.test_qr_attachment_policy import row as stored_row
 from zatca_erpgulf.zatca_erpgulf.tests.test_qr_regeneration_access import access, Denied, Row, invoke, no_writes
-from zatca_erpgulf.zatca_erpgulf import response_processing, zatca_response
+from zatca_erpgulf.zatca_erpgulf import response_processing, zatca_response, event_log
 from zatca_erpgulf.zatca_erpgulf.tests.test_submission_context import (
     boundary, run_adapter, ValidationError as BoundaryError,
 )
 from zatca_erpgulf.zatca_erpgulf.tests.test_received_response_steps import (
-    fail_step, fail_rejection_step, REJECTION_STAGES,
+    fail_step, fail_rejection_step, REJECTION_STAGES, bind_actual_event_logger,
 )
 from zatca_erpgulf.zatca_erpgulf.tests.test_response_processing import snapshot as response_snapshot
 
@@ -49,6 +50,8 @@ def qr_schema(isolated_server):
             cursor.execute("CREATE TABLE response_processing_test (namespace VARCHAR(36),doctype VARCHAR(40),name VARCHAR(140),"
                 "receipt TEXT,status VARCHAR(64),uuid VARCHAR(140),business_value TEXT,"
                 "PRIMARY KEY(namespace,doctype,name)) ENGINE=InnoDB")
+            cursor.execute("CREATE TABLE event_diagnostic_test (namespace VARCHAR(36),name VARCHAR(140),payload TEXT,"
+                "PRIMARY KEY(namespace,name)) ENGINE=InnoDB")
     finally:
         connection.close()
 
@@ -347,6 +350,82 @@ def test_rejection_persistence_fault_preserves_exact_partial_sql_and_parent_deci
     assert read_response_sql(connections, key) == expected_final
     b.post.assert_called_once()
     b.frappe.log_error.assert_not_called()
+
+
+def read_diagnostic_sql(connections, namespace):
+    reader = connections("READ COMMITTED")
+    try:
+        with reader.cursor() as cursor:
+            cursor.execute("SELECT payload FROM event_diagnostic_test WHERE namespace=%s ORDER BY name", (namespace,))
+            return [json.loads(row[0]) for row in cursor.fetchall()]
+    finally:
+        reader.rollback()
+        reader.close()
+
+
+@pytest.mark.parametrize("staged", [False, True])
+@pytest.mark.parametrize("failure", [None, "before_insert", "after_insert", "hook_commit", "hook_commit_then_fail"])
+@pytest.mark.parametrize("parent_commit", [False, True])
+@pytest.mark.parametrize("body,expected", [
+    (' \n{"message": "اختبار"}\n ', ' \n{"message": "اختبار"}\n '),
+    ('Status: 400<br>{"error":"test"}<br>', '{"error":"test"}'),
+    (b"\xff", "\ufffd"),
+])
+def test_diagnostic_writer_exact_sql_visibility_and_parent_commit_ownership(qr_schema, boundary, connections,
+    namespace, monkeypatch, staged, failure, parent_commit, body, expected):
+    b = boundary
+    doc, transaction, key = response_sql_case(b, connections, namespace, sign_invoice)
+    event_doc = bind_actual_event_logger(b, sign_invoice, monkeypatch)
+    get_doc = b.frappe.get_doc.side_effect
+    payloads = []
+    def factory(doctype, name=None):
+        if isinstance(doctype, dict) and doctype.get("doctype") == "ZATCA ERPGulf Event Log":
+            payloads.append(dict(doctype))
+        return get_doc(doctype, name)
+    b.frappe.get_doc.side_effect = factory
+    def insert(**options):
+        assert options == {"ignore_permissions": not staged}
+        if failure == "before_insert":
+            raise BoundaryError("SYNTHETIC before diagnostic insert")
+        with transaction.cursor() as cursor:
+            cursor.execute("INSERT INTO event_diagnostic_test VALUES (%s,%s,%s)",
+                (namespace, "TEST-EVENT", json.dumps(payloads[0], ensure_ascii=False)))
+        if failure in ("hook_commit", "hook_commit_then_fail"):
+            # Simulate a third-party after_insert hook. The staging helper does
+            # not sandbox Document hooks or certify that a callback never commits.
+            transaction.commit()
+        if failure in ("after_insert", "hook_commit_then_fail"):
+            raise BoundaryError("SYNTHETIC after diagnostic insert")
+    event_doc.insert.side_effect = insert
+    expected_payload = {"doctype": "ZATCA ERPGulf Event Log", "invoice_number": doc.name,
+        "title": "TEST-DIAGNOSTIC", "time": "2026-10-16 12:00:00", "api_response": expected,
+        "custom_uuid": "TEST-UUID", "status": "Failed (HTTP 400)"}
+    callback = event_log.stage_zatca_event if staged else event_log.log_zatca_event
+    try:
+        args = (doc.name, body, "Failed (HTTP 400)")
+        has_error = failure in ("before_insert", "after_insert", "hook_commit_then_fail")
+        if staged and has_error:
+            with pytest.raises(BoundaryError):
+                callback(*args, uuid="TEST-UUID", title="TEST-DIAGNOSTIC")
+        else:
+            result = callback(*args, uuid="TEST-UUID", title="TEST-DIAGNOSTIC")
+            assert result is (event_log.EventLogWriteResult.INSERT_RETURNED if staged else None)
+        assert payloads == [expected_payload]
+        assert b.frappe.db.commit.call_count == (not staged and not has_error)
+        assert b.frappe.log_error.call_count == (not staged and has_error)
+        already_committed = (not staged and not has_error) or failure in ("hook_commit", "hook_commit_then_fail")
+        assert read_diagnostic_sql(connections, namespace) == ([expected_payload] if already_committed else [])
+        assert read_response_sql(connections, key) == ("ORIGINAL-RECEIPT", "ORIGINAL-STATUS",
+            "test-existing-uuid", "PARENT-PENDING" if already_committed else "ORIGINAL-BUSINESS")
+        (transaction.commit if parent_commit else transaction.rollback)()
+    finally:
+        transaction.rollback()
+        transaction.close()
+    event_survives = failure != "before_insert" and (parent_commit or already_committed)
+    assert read_diagnostic_sql(connections, namespace) == ([expected_payload] if event_survives else [])
+    assert read_response_sql(connections, key) == ("ORIGINAL-RECEIPT", "ORIGINAL-STATUS",
+        "test-existing-uuid", "PARENT-PENDING" if parent_commit or already_committed else "ORIGINAL-BUSINESS")
+    b.post.assert_not_called()
 
 
 def prepare_primary(primary_qr, connections, namespace, doctype, status, *, failure=None):
