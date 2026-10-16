@@ -498,6 +498,23 @@ including 129 local and sixteen private SQL additions. Temporary SQL bridges
 verify the diagnostic status column and pending-parent ownership, not an
 installed-application migration. Publication is development source only.
 
+Increment61 adds an internal original-pair-bound diagnostic adapter only: exact
+request/envelope authentication and real read-only matched-pair inspection before
+caller-owned diagnostic insertion. Owned inspection closes before hooks; partial/
+missing/conflicting/uncertain/undecodable originals stop for static translated
+review. No pair persist/repair/reseal, retry/send/hold release, accepted verdict,
+invoice/PIH/ICV/QR/accounting write or live caller/provider registration occurs.
+Separate committed pair storage survives diagnostic rollback/failure; hook commits
+can still affect ambient work. Original custody/source/ACL/race/transport/worker
+provenance remains required. No installed source/config/schema/assets/Bench/
+customer/authority action or fictional-client rehearsal was performed.
+
+Increment61 guarded combined verification passed **8,824 local + 1,176 private
+SQL = 10,000 cases in 107.21 seconds**, across the same twelve private suites,
+including 87 local and sixteen private SQL additions. Actual pair repositories
+and owned transactions are exercised only on newly owned temporary SQL with
+synthetic request/response/key data, never on a tenant or authority endpoint.
+
 These stages are future gates, not actions executed or approved by this increment.
 Full development and real v15/v16/application/crypto/advance acceptance remain
 unfinished. Remote authority acceptance is a separate unverified gate and cannot

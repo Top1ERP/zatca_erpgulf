@@ -27,6 +27,9 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_received_response_steps import (
 )
 from zatca_erpgulf.zatca_erpgulf.tests.test_response_processing import snapshot as response_snapshot
 from zatca_erpgulf.zatca_erpgulf.tests.test_event_log_contract import source_event_meta
+from zatca_erpgulf.zatca_erpgulf.tests.test_certificate_evidence import certificates
+from zatca_erpgulf.zatca_erpgulf.tests.test_journal_repository import prepared
+from zatca_erpgulf.zatca_erpgulf.tests.test_journal_repository_mariadb import native_primary_pair_case, read_primary_pair
 
 
 pytestmark = pytest.mark.skipif(os.environ.get("ZATCA_RUN_ISOLATED_MARIADB") != "1",
@@ -471,6 +474,74 @@ def test_diagnostic_schema_review_cannot_commit_or_discard_pending_parent_sql(qr
     assert read_diagnostic_sql(connections, namespace) == []
     assert read_response_sql(connections, key) == ("ORIGINAL-RECEIPT", "ORIGINAL-STATUS",
         "test-existing-uuid", "PARENT-PENDING" if parent_commit else "ORIGINAL-BUSINESS")
+    b.post.assert_not_called()
+
+
+@pytest.mark.parametrize("pair_present", [False, True])
+@pytest.mark.parametrize("failure", [None, "before_insert", "after_insert", "hook_commit_then_fail"])
+@pytest.mark.parametrize("parent_commit", [False, True])
+def test_retained_diagnostic_uses_independent_exact_pair_and_never_changes_it(qr_schema, boundary, prepared,
+    connections, namespace, monkeypatch, pair_present, failure, parent_commit):
+    b = boundary
+    # This source is synthetic; no ORM/tenant/accounting document is involved.
+    case = native_primary_pair_case(connections, namespace, prepared)
+    if pair_present:
+        stored = case.pair_service.persist(case.request, case.captured.sealed)
+        assert stored.state == "PAIR_STORED_OBSERVATION_NO_REPLAY"
+    before = read_primary_pair(case, connections, namespace)
+    doc, parent, key = response_sql_case(b, connections, namespace, sign_invoice)
+    event_doc = bind_actual_event_logger(b, sign_invoice, monkeypatch)
+    b.frappe.get_meta = Mock(return_value=source_event_meta())
+    monkeypatch.setattr(event_log, "_", lambda message: message)
+    payloads = []
+    original = b.frappe.get_doc.side_effect
+    def get_doc(doctype, name=None):
+        if isinstance(doctype, dict) and doctype.get("doctype") == event_log.EVENT_LOG_DOCTYPE:
+            payloads.append(dict(doctype))
+        return original(doctype, name)
+    b.frappe.get_doc.side_effect = get_doc
+    def insert(**options):
+        assert all(not raw.open for raw in case.opened)  # Pair locks released BEFORE hooks.
+        assert options == {"ignore_permissions": False}
+        if failure == "before_insert":
+            raise BoundaryError("PRIVATE diagnostic pre-insert")
+        with parent.cursor() as cursor:
+            cursor.execute("INSERT INTO event_diagnostic_test VALUES (%s,%s,%s,%s)",
+                (namespace, "TEST-RETAINED", json.dumps(payloads[0]), payloads[0]["status"]))
+        if failure == "hook_commit_then_fail":
+            parent.commit()  # Simulate ambient hook, NEVER the independent pair transaction.
+        if failure in ("after_insert", "hook_commit_then_fail"):
+            raise BoundaryError("PRIVATE diagnostic post-insert")
+    event_doc.insert.side_effect = insert
+    try:
+        def call():
+            return event_log.stage_retained_primary_event(case.request, case.captured.sealed,
+                reconciliation=case.pair_service, cipher=case.cipher)
+        if not pair_present:
+            with pytest.raises(event_log.RetainedEventLogError):
+                call()
+            event_doc.insert.assert_not_called()
+        elif failure:
+            with pytest.raises(BoundaryError):
+                call()
+        else:
+            assert call() is event_log.EventLogWriteResult.INSERT_RETURNED
+        assert read_primary_pair(case, connections, namespace) == before
+        assert case.cipher.open(case.captured.sealed) == case.captured.receipt
+        committed = pair_present and failure == "hook_commit_then_fail"
+        assert read_diagnostic_sql(connections, namespace) == (payloads if committed else [])
+        assert read_response_sql(connections, key)[3] == ("PARENT-PENDING" if committed else "ORIGINAL-BUSINESS")
+        b.frappe.db.commit.assert_not_called()
+        (parent.commit if parent_commit else parent.rollback)()
+    finally:
+        parent.rollback()
+        parent.close()
+    survives = pair_present and (committed or parent_commit and failure != "before_insert")
+    assert read_diagnostic_sql(connections, namespace) == (payloads if survives else [])
+    assert read_primary_pair(case, connections, namespace) == before
+    assert read_response_sql(connections, key)[3] == ("PARENT-PENDING" if committed or parent_commit else "ORIGINAL-BUSINESS")
+    assert all(not raw.open for raw in case.opened)
+    case.observer.assert_called_once()  # Initial synthetic capture only, not actual HTTP.
     b.post.assert_not_called()
 
 

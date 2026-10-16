@@ -1,4 +1,4 @@
-# Explicit diagnostic event staging — increments 59 and 60
+# Explicit diagnostic event staging — increments 59–61
 
 Development only, 2026-10-16. No tenant/site initialization, working application
 change or authority request. This contract is not wired into invoice submission.
@@ -144,3 +144,79 @@ metadata, using list/tuple shapes and both explicit parent commit/rollback
 decisions. No preflight failure inserted an event, committed pending work or
 discarded the parent's work. Existing insert/hook tests still pass with the
 temporary separate status column. No guard or custody assertion was relaxed.
+
+## Original-pair-bound diagnostic adapter — increment 61
+
+`stage_retained_primary_event(request, sealed, reconciliation=..., cipher=...)`
+is an internal server-only bridge, NOT a whitelisted endpoint or active invoice
+caller. The trusted server must authorize saved-source access and supply exact
+owned-connection/source-guard/key dependencies. Their provenance is not attested
+by accepting Python objects; this helper is not permission or transport evidence.
+
+The bridge authenticates the ORIGINAL envelope, checks its exact started request
+and namespace, and invokes the existing real pair reconciliation INSPECT operation.
+Only an exact matching custody/journal observation may continue. Missing,
+custody-only, journal-only, conflicting, UNKNOWN and unconfirmed inspection
+outcomes require review without diagnostic insertion. There is no call to pair
+persist, no missing-half repair, resealing, new event/attempt identity or HTTP.
+A caller-supplied success Boolean/state/body/UUID is not an alternative gate.
+
+The owned inspection rolls back and closes BEFORE diagnostic construction or
+framework hooks. After that read, the original envelope is authenticated again
+and checked against the same original request. Invoice name and UUID come from
+the exact archived candidate; HTTP status/body come from the retained event,
+never mutable invoice response fields. Strict UTF-8 decoding rejects incompatible
+bodies without a diagnostic replacement; encrypted original bytes remain intact.
+Valid diagnostic text still uses the legacy normalizer and is not the exact-byte
+receipt store. Empty bodies and all observed HTTP statuses remain observations,
+not success/rejection/acceptance verdicts. New fixed diagnostic labels and review
+text have English/Arabic catalog entries; response content is never translated.
+
+The bridge then calls existing `stage_zatca_event`, including its schema/normal
+permission checks. Known insertion errors can use the explicit received-step
+guard. It returns only INSERT_RETURNED, not the receipt, envelope, private keys
+or a durable/accepted capability. Pair-input/inspection/decoding errors raise a
+static unchained RuntimeError-family review signal. Other insertion exceptions
+and interruptions retain their propagation. Original protected inputs may remain
+in stack frames: never serialize/log them; keep the ORIGINAL request/envelope
+under server custody on every outcome.
+
+Diagnostic insertion uses the caller's ambient transaction, NOT the pair's owned
+transaction. A later diagnostic failure or owner rollback cannot undo the already
+committed pair merely because that diagnostic did not finish. Hooks can still
+commit unrelated ambient work, including on error. A match is observed at the
+inspection moment, not a perpetual lock or a guarantee against later authorized
+deletion/source/permission changes. Caller provenance, race policy, ACL rechecks,
+initial pre-first-durable-response loss and complete worker lifecycle still need
+integration. No automatic retry, hold release, PIH/ICV/invoice/QR/GL/VAT update,
+live registration, migration or authority request is added.
+
+The legacy log has no doctype/version/attempt ledger key. Do not recover or
+authorize an invoice by its invoice_number alone, or mistake a diagnostic row
+for exact scoped custody. Explicit repeat calls may create repeat diagnostic
+rows; no diagnostic deduplication/retry/outbox policy is invented here. Existing
+submission callers still use the legacy logger. This internal bridge and the
+original capture/pair providers remain unwired to actual invoice HTTP.
+
+Offline tests use synthetic originals and source metadata with mocked framework
+insertion. They check exact pair binding, different seals with identical plaintext,
+namespace/attempt/key mismatch, strict decoding, partial/missing/uncertain pairs,
+cleanup and insertion interruptions, Arabic labels/body preservation, schema
+failure and Sales/POS standard/simplified invoice/credit/debit/advance candidate
+forms. That candidate matrix does not certify accounting or installed v16.
+Private tests use actual existing pair repositories and separately owned parent
+transactions on the new temporary server. They observe the pair and ambient
+diagnostic independently before/after owner decisions, insert faults and hook
+commit-then-fail; no synthetic observer is called a second time.
+
+Increment61 final guarded combined evidence: **8,824 local + 1,176 private SQL
+= 10,000 passed in 107.21 seconds**, across the same twelve private suites (87
+local + 16 private additions). Initial local had 60 setup errors due to the new
+suite's missing certificate-fixture import, with the prior 8,737 tests passing.
+After that test dependency fix, 8,797 local passed in 57.30 seconds; 27 subsequent
+binding/interruption/schema/Arabic/type-matrix cases are included in the final
+combined run. No runtime, custody or ownership assertion was relaxed to pass.
+The sixteen SQL cases cover pair missing/matched, before/after insert failure
+and hook commit-then-fail, with both explicit ambient owner decisions. Source/
+permission provenance, actual ORM/hooks/v16 and authority acceptance remain
+unverified; no deployment or live request occurred.

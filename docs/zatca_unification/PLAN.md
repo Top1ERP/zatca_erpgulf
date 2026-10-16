@@ -137,6 +137,13 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 61 adds an [original-pair-bound diagnostic bridge](EVENT_LOG_TRANSACTION.md).
+  It authenticates the exact original envelope, invokes read-only matching-pair
+  inspection and closes owned SQL before caller-owned diagnostic hooks. Only
+  archived candidate/event data is used; missing/partial/conflict/uncertain or
+  undecodable originals remain review-only. No pair persistence/repair/reseal,
+  replay/acceptance authority or live invoice wiring is added. Finish authorized
+  source/ACL/race/provenance and whole-worker/parent integration before adoption.
 - Increment 60 adds [diagnostic source schema and staged preflight](EVENT_LOG_TRANSACTION.md).
   A read-only Diagnostic Status Data field is defined in DEVELOPMENT DocType
   source with Arabic labels; no site migration/backfill/collision repair occurs.

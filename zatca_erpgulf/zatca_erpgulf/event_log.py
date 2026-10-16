@@ -12,10 +12,16 @@ import frappe
 from frappe import _
 
 from zatca_erpgulf.zatca_erpgulf.zatca_response import extract_raw_response
+from .primary_capture import PrimaryCaptureRequest
+from .primary_receipt_custody import PrimaryReceiptCustodyCipher, SealedPrimaryReceipt
+from .primary_receipt_reconciliation import PrimaryReceiptReconciliation, PrimaryReconciliationResult
 
 
 EVENT_LOG_DOCTYPE = "ZATCA ERPGulf Event Log"
 EVENT_LOG_SCHEMA_REVIEW = "ZATCA event log schema requires review. No diagnostic event was inserted."
+RETAINED_EVENT_REVIEW = "Retained ZATCA response requires custody review. No diagnostic event was inserted and no request was sent."
+RETAINED_EVENT_TITLE = "Retained ZATCA response diagnostic"
+RETAINED_EVENT_STATUS = "HTTP {0} (retained observation)"
 EVENT_LOG_FIELD_TYPES = {
     "title": "Data", "invoice_number": "Data", "time": "Data",
     "api_response": "Long Text", "custom_uuid": "Data", "status": "Data",
@@ -24,6 +30,10 @@ EVENT_LOG_FIELD_TYPES = {
 
 class EventLogSchemaError(RuntimeError):
     """Static translated metadata failure, not a remote rejection or repair."""
+
+
+class RetainedEventLogError(RuntimeError):
+    """Exact pair/decoding review; no raw protected input or action capability."""
 
 
 def require_event_log_schema(meta):
@@ -104,6 +114,54 @@ def stage_zatca_event(invoice_number, response_text, status, uuid=None, title=No
     require_event_log_schema(frappe.get_meta(EVENT_LOG_DOCTYPE))
     _insert_zatca_event(invoice_number, response_text, status, uuid, title, ignore_permissions=False)
     return EventLogWriteResult.INSERT_RETURNED
+
+
+def stage_retained_primary_event(request, sealed, *, reconciliation, cipher):
+    """Stage diagnostics ONLY after inspecting the exact original stored pair.
+
+    Internal server-only adapter, NOT an endpoint or permission grant. Supply
+    authorized saved-source guards, independently owned SQL and custody keys;
+    dependency provenance is not attested here. Never supply a free-form response
+    body, status/UUID or a caller-declared "stored" Boolean instead of inspection.
+
+    Pair inspection rolls back/closes its owned transaction before diagnostic
+    hooks run in the caller's ambient transaction. It never persists/repairs a
+    missing pair. This observes a match at inspection time, not permanent custody
+    or authority acceptance. Keep the ORIGINAL request/envelope on every outcome.
+    Diagnostics may normalize text; invalid UTF-8 requires review, not replacement
+    or resealing. Insertion errors propagate for the explicit received-step guard.
+    No replay hold release, HTTP, retry, PIH/ICV or invoice mutation is added.
+    """
+    try:
+        if (type(request) is not PrimaryCaptureRequest or type(sealed) is not SealedPrimaryReceipt
+                or type(reconciliation) is not PrimaryReceiptReconciliation
+                or type(cipher) is not PrimaryReceiptCustodyCipher):
+            raise ValueError
+        receipt = cipher.open(sealed)
+        if receipt.before != request.started or receipt.storage_namespace != sealed.storage_namespace:
+            raise ValueError
+        inspected = reconciliation.inspect(request, sealed)
+        if (type(inspected) is not PrimaryReconciliationResult
+                or inspected.state != "PAIR_MATCHED_OBSERVATION_NO_REPLAY"
+                or inspected.request != request or inspected.sealed != sealed):
+            raise ValueError
+        # Decryption/authentication and exact request checks are repeated after
+        # the owned read finishes; no plaintext is taken from diagnostic fields.
+        checked = cipher.open(sealed)
+        if checked != receipt or checked.before != request.started:
+            raise ValueError
+        text = checked.response_event.response_bytes.decode("utf-8", errors="strict")
+        invoice = checked.before.candidate.context.scope.invoice_name
+        uuid = checked.before.candidate.artifact.uuid
+        status = checked.response_event.http_status
+    except Exception:
+        invalid = True
+    else:
+        invalid = False
+    if invalid:
+        raise RetainedEventLogError(_(RETAINED_EVENT_REVIEW))
+    return stage_zatca_event(invoice, text, _(RETAINED_EVENT_STATUS).format(status),
+        uuid=uuid, title=_(RETAINED_EVENT_TITLE))
 
 
 def log_zatca_event(invoice_number, response_text, status, uuid=None, title=None):

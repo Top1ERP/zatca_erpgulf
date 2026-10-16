@@ -689,3 +689,6 @@ Staged ZATCA receipt pair access failed. Keep the original request and sealed re
 Diagnostic Status,الحالة التشخيصية
 Diagnostic label only; not evidence of authority acceptance or durable receipt storage.,وصف تشخيصي فقط؛ لا يُعد دليلًا على قبول الهيئة أو حفظ الرد بصورة دائمة.
 ZATCA event log schema requires review. No diagnostic event was inserted.,مخطط سجل أحداث زاتكا يحتاج إلى مراجعة. لم يُدرج أي حدث تشخيصي.
+Retained ZATCA response requires custody review. No diagnostic event was inserted and no request was sent.,رد زاتكا المحفوظ يحتاج إلى مراجعة نسخته الأصلية وسجله. لم يُدرج أي حدث تشخيصي ولم يُرسل أي طلب.
+Retained ZATCA response diagnostic,سجل تشخيصي لرد زاتكا المحفوظ
+HTTP {0} (retained observation),HTTP {0} (ملاحظة محفوظة)

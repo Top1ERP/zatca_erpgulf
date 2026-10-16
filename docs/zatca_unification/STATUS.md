@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and sixty bounded increments (Compliance outcomes, dedicated
+Safety preparation and sixty-one bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -51,7 +51,8 @@ and bounded pure primary outcome review with writer/late-response evidence,
 and received local presentation/logging-step isolation for all primary statuses,
 and selected primary rejection-persistence local-failure isolation,
 and explicit caller-owned diagnostic event staging with a legacy compatibility wrapper,
-and development diagnostic status schema with read-only staged metadata preflight)
+and development diagnostic status schema with read-only staged metadata preflight,
+and an explicit original-pair-bound caller-owned diagnostic bridge)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -1124,6 +1125,35 @@ branches and credential-context differences are recorded in
   no advance/discount/GL/VAT/QR/crypto or request acceptance change. See
   [EVENT_LOG_TRANSACTION.md](EVENT_LOG_TRANSACTION.md).
 
+## Increment 61: original-pair-bound diagnostic bridge, no active caller
+
+- Final guarded combined: **8,824 local + 1,176 private SQL = 10,000 passed in
+  107.21 seconds**, across the same twelve private suites (87 local + 16 private
+  SQL additions). Initial local had 8,737 passes and 60 fixture setup errors in
+  54.40 seconds because the new module omitted the certificate fixture import.
+  Adding that import, without changing runtime/crypto/ownership assertions,
+  yielded 8,797 local passes in 57.30 seconds. The final run also includes 27
+  added binding/interruption/schema/Arabic/all-declared-source-type cases.
+- Added an internal exact-original request/envelope adapter. Supplied authorized
+  reconciliation/key dependencies authenticate originals and INSPECT the actual
+  pair; only MATCHED continues. Missing/partial/conflict/UNKNOWN/unconfirmed
+  observations are review-only. No pair persist/repair, reseal or HTTP occurs.
+- Owned inspection rollback/close precedes diagnostic hooks. Original envelope
+  authentication is repeated, strict UTF-8 is required, and invoice/UUID/status/
+  body derive from archived originals, never free-form or mutable response fields.
+  Static English/Arabic review/labels do not translate the body. Result remains
+  only INSERT_RETURNED, not acceptance/durable-custody proof or protected export.
+- Independent committed pair evidence is not rolled back by a diagnostic failure
+  or caller rollback; ambient hooks can still commit unrelated parent work.
+  Diagnostic normalization/duplicate rows and bare invoice-number lookup are NOT
+  ledger custody, idempotence or permission. Original inputs must remain under
+  server custody; provider/source/ACL/race/transport and worker lifecycle remain
+  unfinished integration gates.
+- No active submission/endpoint/provider wiring, installed source/schema/Bench/
+  worker/customer/authority action, including Sandbox/Simulation. No accounting/
+  advance eligibility/QR/crypto/PIH/ICV/acceptance policy change. See
+  [EVENT_LOG_TRANSACTION.md](EVENT_LOG_TRANSACTION.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -1613,7 +1643,10 @@ not atomicity or rollback of prior commits. Increment59 supplies explicit diagno
 staging/result/permission semantics while preserving the legacy wrapper, without
 runtime adoption or hook isolation. Increment60 adds the missing status field in
 development source and a staged-only metadata preflight, not a site migration or
-physical schema guarantee. Next integrate caller-owned event logging only
+physical schema guarantee. Increment61 adds an internal exact-original matched-pair
+diagnostic adapter with separate transaction ownership, not a live caller or
+provider registration. Next complete authorized source/ACL/race and whole-worker
+integration for caller-owned event logging only
 with original receipt custody, schema review, caller exception boundaries and intentional rejection/parent lifecycle
 together, continue lost/late/unbound and partial-write policy, and audit source/namespace/key/
 lookup custody and transport-source-epoch/response evidence before
