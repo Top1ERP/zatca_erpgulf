@@ -1,6 +1,7 @@
 """Owned synthetic source/archive locks; no tenant, ORM, files or authority."""
 
 from dataclasses import replace
+import json
 import os
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -40,6 +41,9 @@ from zatca_erpgulf.zatca_erpgulf import primary_reconciliation_access as pair_ac
 from zatca_erpgulf.zatca_erpgulf.tests.test_primary_reconciliation_access import (
     pair_operator, configure as configure_pair_access, invoke as invoke_pair_access,
 )
+from zatca_erpgulf.zatca_erpgulf import event_log
+from zatca_erpgulf.zatca_erpgulf.tests.test_retained_event_access import diagnostic_operator
+from zatca_erpgulf.zatca_erpgulf.tests.test_event_log_contract import writer
 
 
 pytestmark = pytest.mark.skipif(os.environ.get("ZATCA_RUN_ISOLATED_MARIADB") != "1",
@@ -53,6 +57,7 @@ def qr_source_schema(isolated_server):
         database="zatca_journal_rehearsal", autocommit=True)
     try:
         with connection.cursor() as cursor:
+            cursor.execute("CREATE TABLE diagnostic_access_test (namespace VARCHAR(36) PRIMARY KEY,payload LONGTEXT) ENGINE=InnoDB")
             for dt, fields in access.FIELDS.items():
                 numeric = ("docstatus", "custom_zatca_icv", "custom__use_company_certificate__keys")
                 columns = ["`name` VARCHAR(140) PRIMARY KEY", "`modified` DATETIME(6) NOT NULL"]
@@ -301,6 +306,88 @@ def native_pair_access_case(reconciliation_operator, der, monkeypatch, connectio
     case.credentials.reset_mock()
     configure_pair_access(case, case.captured.request, case.captured.sealed, case.cipher)
     return case
+
+
+@pytest.mark.parametrize("stage", ["none", "before_insert", "after_insert"])
+@pytest.mark.parametrize("target", ["source", "company", "device"])
+@pytest.mark.parametrize("parent_commit", [False, True])
+def test_diagnostic_fresh_owned_checks_detect_sql_drift_hidden_by_ambient_saved_documents(qr_source_schema,
+    reconciliation_operator, diagnostic_operator, certificates, monkeypatch, connections, namespace, isolated_server,
+    stage, target, parent_commit):
+    op = diagnostic_operator
+    assert op.source is reconciliation_operator
+    case = native_pair_access_case(reconciliation_operator, certificates[0], monkeypatch, connections, namespace,
+        isolated_server, owner="linked")
+    assert invoke_pair_access(case, "persist")["state"] == "PAIR_STORED_OBSERVATION_NO_REPLAY"
+    before_journal, before_sealed = read_primary_receipt_case(case, connections), read_custody_row(case, connections)
+    case.factory.reset_mock()
+    parent = connections()
+    # Deliberately DO NOT mutate the synthetic ORM document. Fresh locking SQL,
+    # rather than an ambient repeatable-read/cached document, must detect drift.
+    dt, name, column, value = {
+        "source": (case.invoice.doctype, case.invoice.name, "modified", "2026-10-21 12:00:00.000000"),
+        "company": ("Company", "TEST", "tax_id", "CHANGED-SYNTHETIC-VAT"),
+        "device": ("ZATCA Multiple Setting", "DEVICE", "custom_linked_doctype", "OTHER-COMPANY"),
+    }[target]
+    def drift():
+        changed = connections()
+        try:
+            with changed.cursor() as cursor:
+                # Identifiers come from the fixed map above, never caller text.
+                cursor.execute("UPDATE `tab" + dt + "` SET `" + column + "`=%s WHERE name=%s", (value, name))
+                assert cursor.rowcount == 1
+            changed.commit()
+        finally:
+            changed.close()
+    original_get = op.writer.runtime.get_doc.return_value
+    def make_event(payload):
+        if stage == "before_insert":
+            drift()
+        return original_get
+    op.writer.runtime.get_doc.side_effect = make_event
+    def insert(**options):
+        assert options == {"ignore_permissions": False}
+        assert all(owned.closed for owned in case.pinned_opened)
+        with parent.cursor() as cursor:
+            cursor.execute("INSERT INTO diagnostic_access_test VALUES (%s,%s)",
+                (namespace, json.dumps(op.writer.runtime.get_doc.call_args.args[0])))
+        if stage == "after_insert":
+            drift()
+    op.writer.doc.insert.side_effect = insert
+    def read_event():
+        probe = connections()
+        try:
+            with probe.cursor() as cursor:
+                cursor.execute("SELECT COUNT(*) FROM diagnostic_access_test WHERE namespace=%s", (namespace,))
+                return cursor.fetchone()[0]
+        finally:
+            probe.rollback()
+            probe.close()
+    try:
+        if stage == "none":
+            report = invoke_pair_access(case, "stage_diagnostic")
+            assert report["state"] == "DIAGNOSTIC_INSERT_RETURNED_OBSERVATION_NO_REPLAY"
+            assert all(value is False for key, value in report.items() if key != "state")
+            assert case.factory.call_count == 3
+        else:
+            with pytest.raises(pair_access.PrimaryDiagnosticReviewError) as raised:
+                invoke_pair_access(case, "stage_diagnostic")
+            assert raised.value.__context__ is None and not vars(raised.value)
+        assert op.writer.doc.insert.call_count == (stage != "before_insert")
+        assert read_event() == 0
+        assert read_primary_receipt_case(case, connections) == before_journal
+        assert read_custody_row(case, connections) == before_sealed
+        (parent.commit if parent_commit else parent.rollback)()
+    finally:
+        parent.rollback()
+        parent.close()
+    assert read_event() == (parent_commit and stage != "before_insert")
+    assert all(owned.closed for owned in case.pinned_opened)
+    op.writer.runtime.db.commit.assert_not_called()
+    op.writer.runtime.db.rollback.assert_not_called()
+    reconciliation_operator.runtime.db.commit.assert_not_called()
+    reconciliation_operator.runtime.db.rollback.assert_not_called()
+    case.observer.assert_called_once()  # Fixture's original synthetic response only.
 
 
 def assert_pair_access_missing(case, connections):

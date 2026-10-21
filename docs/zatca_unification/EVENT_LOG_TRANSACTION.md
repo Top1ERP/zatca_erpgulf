@@ -1,4 +1,4 @@
-# Explicit diagnostic event staging — increments 59–61
+# Explicit diagnostic event staging — increments 59–62
 
 Development only, 2026-10-16. No tenant/site initialization, working application
 change or authority request. This contract is not wired into invoice submission.
@@ -220,3 +220,85 @@ The sixteen SQL cases cover pair missing/matched, before/after insert failure
 and hook commit-then-fail, with both explicit ambient owner decisions. Source/
 permission provenance, actual ORM/hooks/v16 and authority acceptance remain
 unverified; no deployment or live request occurred.
+
+## Saved-source access and drift checks — increment 62 (2026-10-21)
+
+`SavedPrimaryReconciliationService.stage_diagnostic` is an explicit INTERNAL
+saved-source facade, not a whitelisted method, button, worker or active HTTP
+caller. It reuses the existing site/actor/System Manager policy, source invoice
+WRITE and related Company/device/linked-owner READ checks. A quiet Event Log
+CREATE check must also return literal True before lookup/key/owned-SQL access;
+it is repeated after lookup/key loading, around diagnostic insertion and before
+metadata disclosure. The source/lookup must match the exact original request,
+start, namespace, key ID, receipt and full envelope fingerprints. Existing
+ignore_permissions flags are not authority. Normal Document insertion still
+enforces its own permission check; no ignore-permissions bypass is added.
+
+The permission adapter selects the explicit v15 raise_exception=False or
+v16-shaped print_logs=False engine signature. Create checks use doc=None, not
+an unsaved Document permission shortcut. Unknown signatures fail closed;
+permission-engine faults never cause TypeError retries or fallback signatures.
+This is inspected-signature/synthetic evidence, not installed Frappe16 rehearsal.
+
+The exact-pair bridge remains read-only toward the pair. A trusted callback now
+brackets the actual diagnostic Document.insert, including its hooks. That callback
+rechecks exact source binding, actor and ACL, and opens a fresh OWNED source-only
+transaction to lock/compare the saved source revision/field projections. It
+rolls back/closes BEFORE returning literal True. It does not rely solely on an
+ambient cached/repeatable-read Document. The successful path uses three owned
+reads: pair inspection, pre-insert source comparison and post-insert comparison.
+None commits, mutates source rows, repairs a pair or cleans the parent connection.
+
+This is detection at explicit boundaries, NOT atomic source/ACL locking across
+hooks. Locks are deliberately released before hooks; a change can still occur
+between checks. A late denial/changed source can follow a pending or hook-committed
+diagnostic row. Do not delete it, compensate, roll back the parent automatically
+or say nothing was inserted. The caller must review any staged row and own its
+transaction; independently retained originals remain untouched. A source-neutral
+diagnostic parent and bounded SQL lock-wait policy still need review before
+adoption: existing pending parent source writes can conflict with fresh owned
+locking reads. Revoked ACLs, ABA changes and external hook effects are not
+globally serialized by these checks.
+
+Only static metadata is returned: DIAGNOSTIC_INSERT_RETURNED_OBSERVATION_NO_REPLAY
+with transaction completion/acceptance/provenance/send/replay flags False. The
+normal insertion result does not attest durability or hook-free execution.
+Permission failures use static translated denial; other diagnostic failures use
+a static translated RuntimeError-family review raised outside handlers, NOT
+legacy ValidationError generic invoice-failure persistence. Interruptions still
+propagate after owned cleanup. English/Arabic late-source messages acknowledge
+that an event may already exist. Original request/envelope custody is mandatory.
+
+Inspect/persist public behavior and the legacy logger remain unchanged. There is
+no runtime registration, automatic retry, original receipt write/reseal, invoice/
+PIH/ICV/QR/accounting/schema/worker change or authority request. Exact installed
+source/key/provider/custody provenance, source-neutral caller lifecycle, race and
+permissions policy remain adoption gates before a separately approved fictional
+client rehearsal. Diagnostic access is not a new permission to issue invoices.
+
+Tests cover source WRITE/related READ/create denial before keys, both quiet ACL
+signature shapes, actor/site/role denial, exact source drift around lookup/key/
+owned-close/construction/hooks, static metadata and Arabic review. Private SQL
+tests deliberately commit source revision, Company tax identity or device-owner
+drift while leaving the synthetic ambient Document unchanged. Fresh locking
+reads reject it before insertion or deny success after insertion; explicit parent
+commit/rollback alone decides the diagnostic row. The matched original pair
+remains unchanged and no original synthetic observer is invoked again.
+
+The diagnostic sink is still plaintext normalized Long Text, not encrypted
+receipt custody. Source/create permission and metadata-only return do NOT prove
+that all other users allowed to read/export the legacy log have matching Company
+access. Shared log read/export/retention policy and saved diagnostic scope need
+separate review before adoption; existing log permissions are not changed here.
+
+Increment62 final guarded combined evidence: **8,942 local + 1,212 private SQL
+= 10,154 passed in 133.20 seconds**, across the same twelve private suites (118
+local + 36 private additions). Initial local passed 8,928 in 61.33 seconds before
+fourteen actor/strict-callback tests. The first combined run had 36 new native
+test failures/10,118 passes in 116.94 seconds: a test asserted a raw-driver open
+attribute on a pinned wrapped connection. Correcting it to the provider's public
+closed property preserves the closure requirement and matches existing provider
+tests; no runtime or ownership/ACL/custody check was weakened. The 36 native cases
+cover both signature-shaped engines, three SQL drift targets, three insertion
+timings and two explicit parent decisions. Installed application/hooks/v16 and
+authority acceptance remain unverified; no working environment was changed.

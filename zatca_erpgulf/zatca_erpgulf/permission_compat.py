@@ -1,4 +1,4 @@
-"""Quiet direct saved-row ACL checks for the inspected Frappe 15/16 signatures.
+"""Quiet direct saved-row/create ACL checks for inspected Frappe 15/16 signatures.
 
 Frappe 15 uses raise_exception=False to suppress permission diagnostic messages;
 Frappe 16 renamed it print_logs=False. Select by the explicit engine signature,
@@ -16,14 +16,10 @@ class PermissionCompatibilityError(ValueError):
         super().__init__("permission_engine_signature")
 
 
-def saved_row_has_permission(engine, doctype, operation, *, doc, user):
-    """Invoke the trusted permission engine ONCE and require literal True.
-
-    Unknown/decorated-away signatures fail closed before invocation. Engine
-    exceptions propagate to the redacted service boundary, never trigger retry.
-    """
+def _quiet_keyword(engine):
+    """Choose the explicit framework signature without TypeError retries."""
     try:
-        if not callable(engine) or operation not in ("read", "write"):
+        if not callable(engine):
             raise PermissionCompatibilityError()
         parameters = signature(engine).parameters
         keyword = next((name for name in ("print_logs", "raise_exception") if name in parameters
@@ -36,4 +32,22 @@ def saved_row_has_permission(engine, doctype, operation, *, doc, user):
         invalid = False
     if invalid:
         raise PermissionCompatibilityError()
+    return keyword
+
+
+def saved_row_has_permission(engine, doctype, operation, *, doc, user):
+    """Invoke one quiet saved-row ACL check, requiring literal True."""
+    if operation not in ("read", "write"):
+        raise PermissionCompatibilityError()
+    keyword = _quiet_keyword(engine)
     return engine(doctype, operation, doc=doc, user=user, **{keyword: False}) is True
+
+
+def doctype_has_create_permission(engine, doctype, *, user):
+    """Check ordinary create ACL once, without an unsaved Document shortcut.
+
+    This does not grant row access or replace the insert's normal permission
+    checks. Unknown signatures and engine errors never cause a fallback/retry.
+    """
+    keyword = _quiet_keyword(engine)
+    return engine(doctype, "create", doc=None, user=user, **{keyword: False}) is True

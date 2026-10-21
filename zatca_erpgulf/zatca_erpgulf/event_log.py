@@ -22,6 +22,7 @@ EVENT_LOG_SCHEMA_REVIEW = "ZATCA event log schema requires review. No diagnostic
 RETAINED_EVENT_REVIEW = "Retained ZATCA response requires custody review. No diagnostic event was inserted and no request was sent."
 RETAINED_EVENT_TITLE = "Retained ZATCA response diagnostic"
 RETAINED_EVENT_STATUS = "HTTP {0} (retained observation)"
+EVENT_LOG_SOURCE_REVIEW = "Diagnostic source access changed. Review the retained response and any staged event before trying again."
 EVENT_LOG_FIELD_TYPES = {
     "title": "Data", "invoice_number": "Data", "time": "Data",
     "api_response": "Long Text", "custom_uuid": "Data", "status": "Data",
@@ -34,6 +35,15 @@ class EventLogSchemaError(RuntimeError):
 
 class RetainedEventLogError(RuntimeError):
     """Exact pair/decoding review; no raw protected input or action capability."""
+
+
+class EventLogSourceError(RuntimeError):
+    """A late source check may follow insertion; never claim nothing was written."""
+
+
+def _recheck_event_source(check):
+    if check is not None and (not callable(check) or check() is not True):
+        raise EventLogSourceError(_(EVENT_LOG_SOURCE_REVIEW))
 
 
 def require_event_log_schema(meta):
@@ -80,7 +90,7 @@ class EventLogWriteResult(Enum):
     INSERT_RETURNED = "INSERT_RETURNED"
 
 
-def _insert_zatca_event(invoice_number, response_text, status, uuid, title, *, ignore_permissions):
+def _insert_zatca_event(invoice_number, response_text, status, uuid, title, *, ignore_permissions, source_recheck=None):
     """Share the legacy payload/normalizer without owning transaction policy."""
     event_doc = frappe.get_doc({
         "doctype": EVENT_LOG_DOCTYPE,
@@ -92,10 +102,12 @@ def _insert_zatca_event(invoice_number, response_text, status, uuid, title, *, i
         "custom_uuid": uuid or "",
         "status": status,
     })
+    _recheck_event_source(source_recheck)
     event_doc.insert(ignore_permissions=ignore_permissions)
+    _recheck_event_source(source_recheck)
 
 
-def stage_zatca_event(invoice_number, response_text, status, uuid=None, title=None):
+def stage_zatca_event(invoice_number, response_text, status, uuid=None, title=None, *, source_recheck=None):
     """Insert a diagnostic log with normal permissions and caller-owned SQL.
 
     No commit, rollback, fallback log, retry, permission override or exception
@@ -110,13 +122,17 @@ def stage_zatca_event(invoice_number, response_text, status, uuid=None, title=No
     schema completeness or absence of hook side effects. The caller must retain
     the original response and own pending work/failed transaction cleanup. This
     entry point is intentionally not wired into existing invoice submission.
+    An optional trusted source callback must return literal True immediately
+    before/after insertion. Its own effects are not sandboxed; late denial does
+    not undo an insert/hook commit. No callback is inferred from browser input.
     """
     require_event_log_schema(frappe.get_meta(EVENT_LOG_DOCTYPE))
-    _insert_zatca_event(invoice_number, response_text, status, uuid, title, ignore_permissions=False)
+    _insert_zatca_event(invoice_number, response_text, status, uuid, title,
+        ignore_permissions=False, source_recheck=source_recheck)
     return EventLogWriteResult.INSERT_RETURNED
 
 
-def stage_retained_primary_event(request, sealed, *, reconciliation, cipher):
+def stage_retained_primary_event(request, sealed, *, reconciliation, cipher, source_recheck=None):
     """Stage diagnostics ONLY after inspecting the exact original stored pair.
 
     Internal server-only adapter, NOT an endpoint or permission grant. Supply
@@ -161,7 +177,7 @@ def stage_retained_primary_event(request, sealed, *, reconciliation, cipher):
     if invalid:
         raise RetainedEventLogError(_(RETAINED_EVENT_REVIEW))
     return stage_zatca_event(invoice, text, _(RETAINED_EVENT_STATUS).format(status),
-        uuid=uuid, title=_(RETAINED_EVENT_TITLE))
+        uuid=uuid, title=_(RETAINED_EVENT_TITLE), source_recheck=source_recheck)
 
 
 def log_zatca_event(invoice_number, response_text, status, uuid=None, title=None):

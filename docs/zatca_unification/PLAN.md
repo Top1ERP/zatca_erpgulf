@@ -137,6 +137,13 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 62 adds [saved-source diagnostic access and fresh drift checks](EVENT_LOG_TRANSACTION.md).
+  Source WRITE/related READ plus Event Log CREATE precede keys/owned SQL. Exact
+  request/envelope binding and fresh source-only owned reads bracket insertion;
+  late changes deny metadata without claiming rollback of possible hook writes.
+  Public failure is a static translated RuntimeError review, not a generic invoice
+  rejection. No endpoint/worker/HTTP caller is activated. Source-neutral parent,
+  bounded lock waits, full race/ACL/provenance and installed lifecycle remain gates.
 - Increment 61 adds an [original-pair-bound diagnostic bridge](EVENT_LOG_TRANSACTION.md).
   It authenticates the exact original envelope, invokes read-only matching-pair
   inspection and closes owned SQL before caller-owned diagnostic hooks. Only

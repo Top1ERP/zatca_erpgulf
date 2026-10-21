@@ -692,3 +692,6 @@ ZATCA event log schema requires review. No diagnostic event was inserted.,مخط
 Retained ZATCA response requires custody review. No diagnostic event was inserted and no request was sent.,رد زاتكا المحفوظ يحتاج إلى مراجعة نسخته الأصلية وسجله. لم يُدرج أي حدث تشخيصي ولم يُرسل أي طلب.
 Retained ZATCA response diagnostic,سجل تشخيصي لرد زاتكا المحفوظ
 HTTP {0} (retained observation),HTTP {0} (ملاحظة محفوظة)
+Diagnostic source access changed. Review the retained response and any staged event before trying again.,تغيّرت بيانات المصدر أو صلاحية الوصول إليه. راجع الرد الأصلي وأي حدث تشخيصي أُدرج قبل المحاولة مجددًا.
+You do not have permission to stage diagnostics for retained ZATCA responses.,ليس لديك صلاحية إدراج سجلات تشخيصية لردود زاتكا المحفوظة.
+Retained ZATCA diagnostic staging requires review. Keep the original request and sealed receipt and review any staged event. Do not resend automatically.,إدراج السجل التشخيصي لرد زاتكا يحتاج إلى مراجعة. احتفظ بالطلب الأصلي ونسخة الرد المشفّرة وراجع أي حدث أُدرج. لا تُعد الإرسال تلقائيًا.

@@ -6,7 +6,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from zatca_erpgulf.zatca_erpgulf.permission_compat import saved_row_has_permission, PermissionCompatibilityError
+from zatca_erpgulf.zatca_erpgulf.permission_compat import (
+    saved_row_has_permission, doctype_has_create_permission, PermissionCompatibilityError,
+)
 
 
 @pytest.mark.parametrize("version", [15, 16])
@@ -61,3 +63,31 @@ def test_unsupported_engine_fails_before_acl_and_without_context(kind):
     assert raised.value.__context__ is None and "PRIVATE-SECRET" not in str(raised.value)
     if engine is not None:
         engine.assert_not_called()
+
+
+@pytest.mark.parametrize("version", [15, 16])
+@pytest.mark.parametrize("value", [True, False, 1, None, "yes"])
+def test_create_acl_uses_one_quiet_explicit_signature_without_a_document(version, value):
+    calls = []
+    def v15(dt, operation, *, doc, user, raise_exception):
+        calls.append((dt, operation, doc, user, raise_exception))
+        return value
+    def v16(dt, operation, *, doc, user, print_logs):
+        calls.append((dt, operation, doc, user, print_logs))
+        return value
+    assert doctype_has_create_permission(v15 if version == 15 else v16, "ZATCA ERPGulf Event Log", user="manager") is (value is True)
+    assert calls == [("ZATCA ERPGulf Event Log", "create", None, "manager", False)]
+
+
+@pytest.mark.parametrize("version", [15, 16])
+def test_create_acl_internal_fault_never_tries_another_signature(version):
+    calls = []
+    def v15(dt, operation, *, doc, user, raise_exception):
+        calls.append(raise_exception)
+        raise TypeError("PRIVATE create ACL")
+    def v16(dt, operation, *, doc, user, print_logs):
+        calls.append(print_logs)
+        raise TypeError("PRIVATE create ACL")
+    with pytest.raises(TypeError):
+        doctype_has_create_permission(v15 if version == 15 else v16, "ZATCA ERPGulf Event Log", user="manager")
+    assert calls == [False]

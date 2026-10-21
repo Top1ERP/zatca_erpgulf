@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "retained_event_access",
     "retained_event_log",
     "event_log_contract",
     "received_response_steps",

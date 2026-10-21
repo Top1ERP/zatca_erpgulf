@@ -515,6 +515,25 @@ including 87 local and sixteen private SQL additions. Actual pair repositories
 and owned transactions are exercised only on newly owned temporary SQL with
 synthetic request/response/key data, never on a tenant or authority endpoint.
 
+Increment62 adds an INTERNAL saved-source diagnostic facade: invoice WRITE,
+related READ and quiet Event Log CREATE before keys/owned SQL, exact original
+binding and fresh owned source-only comparisons around normal-permission insert.
+The owned reads roll back/close and never clean or commit parent SQL. Late source/
+ACL changes deny metadata but cannot undo a possible diagnostic/hook commit.
+Static English/Arabic RuntimeError review avoids legacy generic failure writes;
+no event compensation, authority send/retry, original pair repair/reseal, live
+caller/provider, installed source/schema/Bench/customer/worker action occurs.
+Source-neutral parent and bounded lock-wait/race/ACL/ABA/provenance/lifecycle policy
+remain unfinished; this is not fictional-client or installed v16 acceptance.
+
+Increment62 guarded combined verification passed **8,942 local + 1,212 private
+SQL = 10,154 cases in 133.20 seconds**, across the same twelve private suites,
+including 118 local and 36 private additions. Temporary native cases demonstrate
+fresh source reads despite stale synthetic ORM state and independent original
+pair preservation. Existing plaintext diagnostic-log read/export/retention scope
+also needs review before adoption; metadata-only output is not encryption or a
+Company-scoped log ACL. No existing log permission policy is silently changed.
+
 These stages are future gates, not actions executed or approved by this increment.
 Full development and real v15/v16/application/crypto/advance acceptance remain
 unfinished. Remote authority acceptance is a separate unverified gate and cannot

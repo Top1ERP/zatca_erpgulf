@@ -1,8 +1,8 @@
-# Implementation status — 2026-10-16
+# Implementation status — 2026-10-21
 
 ## Scope delivered in this increment
 
-Safety preparation and sixty-one bounded increments (Compliance outcomes, dedicated
+Safety preparation and sixty-two bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -52,7 +52,8 @@ and received local presentation/logging-step isolation for all primary statuses,
 and selected primary rejection-persistence local-failure isolation,
 and explicit caller-owned diagnostic event staging with a legacy compatibility wrapper,
 and development diagnostic status schema with read-only staged metadata preflight,
-and an explicit original-pair-bound caller-owned diagnostic bridge)
+and an explicit original-pair-bound caller-owned diagnostic bridge,
+and saved-source/create-ACL diagnostic access with fresh source drift checks)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -1154,6 +1155,36 @@ branches and credential-context differences are recorded in
   advance eligibility/QR/crypto/PIH/ICV/acceptance policy change. See
   [EVENT_LOG_TRANSACTION.md](EVENT_LOG_TRANSACTION.md).
 
+## Increment 62: permissioned diagnostic access and fresh source drift checks
+
+- Final guarded combined: **8,942 local + 1,212 private SQL = 10,154 passed in
+  133.20 seconds**, across the same twelve private suites (118 local + 36 private
+  SQL additions). Initial local passed 8,928 in 61.33 seconds before fourteen
+  actor/strict-callback cases. First combined had 10,118 passes and 36 failures
+  in 116.94 seconds: the new native test inspected a raw-driver open attribute
+  on the pinned provider's wrapped handle. It now requires the same documented
+  closed property used by existing provider tests, retaining the strict cleanup
+  assertion. No runtime, source/ACL/custody or transaction assertion was relaxed.
+- Added INTERNAL saved-source diagnostic staging using the existing exact-source
+  binding/access engine. Invoice WRITE/related READ plus quiet Event Log CREATE
+  are required before keys/owned SQL. Site/role/actor, source revision, original
+  request and full envelope declarations remain bound; ignore_permissions is
+  not an access shortcut. No endpoint, worker or live caller is registered.
+- Fresh independently owned source-only locking reads bracket the diagnostic
+  insert/hook call, not just the ambient ORM snapshot. Owned reads rollback/close
+  without commit/source mutation/parent cleanup. Changes at these boundaries
+  deny success metadata; post-insert changes may follow a pending/committed event
+  and do NOT authorize deletion/compensation or pretending no event was written.
+- Metadata is static and non-authorizing; non-permission diagnostic failures are
+  static translated RuntimeError-family review, avoiding narrow legacy generic
+  invoice-failure writers. Existing inspect/persist/logger behavior is preserved.
+  Source-neutral parent, lock-wait/race/ACL/ABA/provenance and full installed
+  lifecycle remain gates; source locks do not span framework hooks.
+- No installed source/config/schema/assets/Bench/worker/customer/authority action,
+  including Sandbox/Simulation; no original receipt rewrite, reseal/retry/hold
+  release or invoice/advance/accounting/QR/PIH/ICV change. See
+  [EVENT_LOG_TRANSACTION.md](EVENT_LOG_TRANSACTION.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -1645,8 +1676,10 @@ runtime adoption or hook isolation. Increment60 adds the missing status field in
 development source and a staged-only metadata preflight, not a site migration or
 physical schema guarantee. Increment61 adds an internal exact-original matched-pair
 diagnostic adapter with separate transaction ownership, not a live caller or
-provider registration. Next complete authorized source/ACL/race and whole-worker
-integration for caller-owned event logging only
+provider registration. Increment62 adds source WRITE/related READ/create-ACL
+checks and fresh owned source comparisons around diagnostic insertion, not
+atomic locking across hooks or rollback of possible event writes. Next complete
+source-neutral parent/lock-wait/race/provenance and whole-worker integration for caller-owned event logging only
 with original receipt custody, schema review, caller exception boundaries and intentional rejection/parent lifecycle
 together, continue lost/late/unbound and partial-write policy, and audit source/namespace/key/
 lookup custody and transport-source-epoch/response evidence before

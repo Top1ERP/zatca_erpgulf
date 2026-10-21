@@ -1,8 +1,8 @@
-"""Permissioned metadata-only LOCAL pair access, NOT runtime activation.
+"""Permissioned LOCAL pair access/diagnostic staging, NOT runtime activation.
 
 Server dependencies and ORIGINAL request/envelope only. Caller retains both
 even after denial, interruption or uncertain commit. No sender, observer,
-retainer installation, raw export, Frappe endpoint, job, UI or schema change.
+retainer installation, operator raw export, Frappe endpoint, job, UI or schema change.
 Current permissions and typed declarations do not attest historical provenance.
 """
 
@@ -16,21 +16,31 @@ from frappe.permissions import has_permission
 
 from .archive_source_access import _verify_rows
 from .issuance_candidate import _sha256
+from .permission_compat import doctype_has_create_permission
+from .event_log import EVENT_LOG_DOCTYPE, EventLogWriteResult, stage_retained_primary_event
 from .primary_capture_access import PrimaryCaptureBinding, _bind_request
 from .primary_receipt_access import (
     PrimaryReceiptAccessError, _SavedPrimaryReceiptSource, _owned_saved_receipt_connection,
 )
 from .primary_receipt_custody import AAD_FIELDS, SealedPrimaryReceipt
 from .primary_receipt_custody_access import PrimaryReceiptCustodyKeys
-from .primary_receipt_reconciliation import PrimaryReceiptReconciliation, PrimaryReconciliationResult, _references
+from .primary_receipt_reconciliation import (
+    PrimaryReceiptReconciliation, PrimaryReconciliationResult, _references, _owned_pair_transaction,
+)
 
 
 DENIED_MESSAGE = "You do not have permission to inspect or persist staged ZATCA receipt pairs."
 FAILED_MESSAGE = "Staged ZATCA receipt pair access failed. Keep the original request and sealed receipt. Do not resend automatically. No new request was sent."
+DIAGNOSTIC_DENIED = "You do not have permission to stage diagnostics for retained ZATCA responses."
+DIAGNOSTIC_FAILED = "Retained ZATCA diagnostic staging requires review. Keep the original request and sealed receipt and review any staged event. Do not resend automatically."
 
 
 class PrimaryReconciliationAccessError(PrimaryReceiptAccessError):
     """Static internal code, translated/redacted at the outer boundary."""
+
+
+class PrimaryDiagnosticReviewError(RuntimeError):
+    """Bypass legacy generic invoice-failure writers; no raw exception context."""
 
 
 def sealed_envelope_sha256(sealed):
@@ -86,8 +96,9 @@ def _bind(binding, request, sealed):
 class SavedPrimaryReconciliationService:
     """Saved source WRITE/related READ before scoped keys and OWNED SQL.
 
-    Both methods require exact protected server inputs, never browser payloads.
+    All operations require exact protected server inputs, never browser payloads.
     Inspect does not commit; persist is explicit LOCAL storage, not a resend.
+    Diagnostic staging leaves its insert to the caller-owned ambient transaction.
     Current owner/settings drift needs review, not a historical ACL fallback.
     """
 
@@ -115,10 +126,25 @@ class SavedPrimaryReconciliationService:
         """
         return self._run(invoice_name, request, sealed, doctype=doctype, persist=True)
 
-    def _run(self, invoice_name, supplied, sealed, *, doctype, persist):
+    def stage_diagnostic(self, invoice_name, request, sealed, *, doctype="Sales Invoice"):
+        """Explicit internal staging, NOT a commit, public endpoint or live hook.
+
+        Require source WRITE/related READ and log create BEFORE keys/SQL. Fresh
+        owned source-only checks bracket the normal-permission diagnostic insert.
+        No source lock spans hooks; a late failure may follow a saved event/hook
+        commit. Caller owns pending diagnostic cleanup and retains originals.
+        """
+        return self._run(invoice_name, request, sealed, doctype=doctype, persist=False, diagnostic=True)
+
+    def _run(self, invoice_name, supplied, sealed, *, doctype, persist, diagnostic=False):
         try:
             policy = self._policy
             actor = policy._actor()
+            def check_create():
+                if policy._actor() != actor or not doctype_has_create_permission(has_permission, EVENT_LOG_DOCTYPE, user=actor[1]):
+                    frappe.throw(_(DIAGNOSTIC_DENIED), frappe.PermissionError)
+            if diagnostic:
+                check_create()
             request = _references(supplied, sealed)  # Rebuilt/detached before saved lookup.
             source = request.started.candidate.context.scope
             if (sealed.storage_namespace != policy._scope.storage_namespace
@@ -128,6 +154,8 @@ class SavedPrimaryReconciliationService:
             binding.__post_init__()
             _bind(binding, request, sealed)
             recheck()
+            if diagnostic:
+                check_create()
             resources = self._keys(policy._scope)
             if type(resources) is not PrimaryReceiptCustodyKeys:
                 raise PrimaryReconciliationAccessError("primary_pair_access_keys")
@@ -135,6 +163,8 @@ class SavedPrimaryReconciliationService:
             if resources.scope != policy._scope or resources.key_id != binding.custody_key_id:
                 raise PrimaryReconciliationAccessError("primary_pair_access_keys")
             recheck()
+            if diagnostic:
+                check_create()
 
             def guard(connection, pinned):
                 if pinned != request:
@@ -147,6 +177,34 @@ class SavedPrimaryReconciliationService:
 
             service = PrimaryReceiptReconciliation(policy._scope.storage_namespace, resources.cipher,
                 connection_factory=lambda: _owned_saved_receipt_connection(policy, recheck), source_guard=guard)
+            if diagnostic:
+                def fresh_source_check():
+                    # Current locking SQL reads, not just the ambient ORM's
+                    # possibly stale transaction snapshot. Never clean parent SQL.
+                    _bind(binding, request, sealed)
+                    recheck()
+                    check_create()
+                    def work(connection):
+                        _verify_rows(connection, rows)
+                        recheck()
+                        check_create()
+                    _owned_pair_transaction(lambda: _owned_saved_receipt_connection(policy, recheck), work, persist=False)
+                    recheck()
+                    check_create()
+                    return True
+                outcome = stage_retained_primary_event(request, sealed, reconciliation=service,
+                    cipher=resources.cipher, source_recheck=fresh_source_check)
+                if outcome is not EventLogWriteResult.INSERT_RETURNED:
+                    raise PrimaryReconciliationAccessError("primary_diagnostic_result")
+                _bind(binding, request, sealed)
+                recheck()
+                check_create()
+                return {"state": "DIAGNOSTIC_INSERT_RETURNED_OBSERVATION_NO_REPLAY",
+                    "local_transaction_completed": False, "durable_custody_verified": False,
+                    "provider_origin_verified": False, "historical_source_verified": False,
+                    "credential_epoch_verified": False, "transport_verified": False,
+                    "remote_receipt_verified": False, "remote_acceptance_verified": False,
+                    "dispatch_authorized": False, "replay_authorized": False}
             # Core authenticates the complete retained payload BEFORE acquisition.
             result = service.persist(request, sealed) if persist else service.inspect(request, sealed)
             if (type(result) is not PrimaryReconciliationResult or result.request != request or result.sealed is not sealed):
@@ -159,5 +217,9 @@ class SavedPrimaryReconciliationService:
             denied = True
         except Exception:
             denied = False
+        if diagnostic:
+            if denied:
+                frappe.throw(_(DIAGNOSTIC_DENIED), frappe.PermissionError)
+            raise PrimaryDiagnosticReviewError(_(DIAGNOSTIC_FAILED))
         frappe.throw(_(DENIED_MESSAGE if denied else FAILED_MESSAGE),
             frappe.PermissionError if denied else frappe.ValidationError)
