@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and sixty-five bounded increments (Compliance outcomes, dedicated
+Safety preparation and sixty-six bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -56,7 +56,8 @@ and an explicit original-pair-bound caller-owned diagnostic bridge,
 and saved-source/create-ACL diagnostic access with fresh source drift checks,
 and bounded/rechecked owned-session lock waits in the optional concrete provider,
 and caller database-owner/raw-handle continuity checks for explicit diagnostic staging,
-and received local-step isolation across existing-XML Sales/POS APIs and their public wrappers)
+and received local-step isolation across existing-XML Sales/POS APIs and their public wrappers,
+and shared guarded existing-XML rejection persistence with exact legacy UUID policy)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -1268,6 +1269,32 @@ original artifacts, fields and history without an extra generic post-fault write
 The initial unchanged-code reproduction and three corrected golden assumptions
 are documented in [RESPONSE_PROCESSING.md](RESPONSE_PROCESSING.md); no guard was waived.
 
+## Increment 66: shared guarded existing-XML rejection writes, not atomic custody
+
+- One small explicit-runtime writer replaces fourteen repeated rejection blocks
+  in the four existing-XML Sales/POS Reporting APIs. Fixed Sales/POS DocTypes and
+  literal boolean code policy are checked before loading; no public endpoint,
+  browser option, Company setting, new site initialization or implicit provider.
+- Load/UUID/text/save/final-commit faults in the four formerly caught families
+  use the existing static translated received-step review and public-wrapper
+  escape. No additional generic Error/Failed write, fetch, commit, cleanup or retry.
+- Prior ordering remains: simplified UUID db_set commits, except Sales simplified
+  404 ordinary assignment; both machine paths assign UUID. Status/raw response/
+  ignored-permission save/final commit and deliberate remote throws are unchanged.
+  Earlier commits/pending writes/objects need review; there is no compensation.
+- Signed artifacts/QR links, PIH/ICV, request/auth/routes/settings, success/409,
+  advance/amount/GL/VAT and existing log permissions stay unchanged. No installed
+  source/config/schema/Bench/worker/customer or authority change. Successful-
+  response/other-writer faults, whole-worker custody/holds/provenance and scoped
+  log access/retention remain gates. See [REJECTION_PERSISTENCE.md](REJECTION_PERSISTENCE.md).
+
+Final guarded combined: **9,950 local + 1,528 private SQL = 11,478 passed in
+137.49 seconds**, across the same twelve private suites (506 local + 220 private
+additions). Initial unchanged-code reproduction: 456 failures/9,472 passes in
+107.92 seconds. Exact native visibility and pending-owner decisions preserve
+earlier UUID/final commits without extra generic persistence or borrowed cleanup.
+No assertion/guard was waived; no installed v16 or authority acceptance is inferred.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -1768,7 +1795,8 @@ observed diagnostic database-owner/raw-handle drift at explicit boundaries, not
 same-handle commits or complete transaction isolation. Increment65 extends the
 selected received-step guard to four existing-XML APIs and preserves local review
 through their broad public wrappers, not all local writers or worker lifecycle.
-Next complete
+Increment66 unifies fourteen guarded existing-XML rejection-write blocks with
+exact UUID commit policy, not successful-response writer isolation. Next complete
 source-neutral parent/race/provenance, log read/export/retention and whole-worker integration for caller-owned event logging only
 with original receipt custody, schema review, caller exception boundaries and intentional rejection/parent lifecycle
 together, continue lost/late/unbound and partial-write policy, and audit source/namespace/key/

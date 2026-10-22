@@ -137,6 +137,12 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 66 unifies fourteen [existing-XML rejection persistence blocks](REJECTION_PERSISTENCE.md)
+  behind one named writer through the received-step guard. It preserves explicit
+  UUID commit/assignment policy, including Sales simplified 404 versus POS 404.
+  Known local load/text/save/commit failures cannot add generic error persistence;
+  prior UUID/hook/parent commits are not undone. Success/remaining-writer faults,
+  exact custody, whole-worker lifecycle and scoped log access remain gates.
 - Increment 65 extends [received local-step review](RESPONSE_PROCESSING.md) to the
   four existing-XML Sales/POS Reporting APIs and preserves that signal through
   their broad public wrappers. Hide/event/presentation failures no longer add

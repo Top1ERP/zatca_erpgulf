@@ -586,6 +586,23 @@ in 132.45 seconds**, across the same twelve private suites, adding 416 local and
 remain explicit; original signed artifacts and receipt/status/UUID are preserved.
 No guard/ownership rule is waived and no real v16/authority acceptance is claimed.
 
+Increment66 unifies fourteen existing-XML rejection-write blocks into one small
+explicit-runtime callback through the existing received-step guard. Original
+UUID commit/assignment policy, including Sales simplified 404, and deliberate
+remote-rejection handling remain. The callback retains legacy ignored-permission
+save/final commit; it is not a transaction-free helper or atomic receipt custody.
+Known load/write/text/commit faults add no generic post-fault persistence/cleanup/
+retry. Prior commits and pending objects still need explicit owner review. No live
+source/config/schema/Bench/worker/customer or authority action occurs; normal
+success/409/PIH/ICV/QR/advance/GL/VAT/settings and log permissions are not changed.
+
+Increment66 guarded combined: **9,950 local + 1,528 private SQL = 11,478 passed
+in 137.49 seconds**, across the same twelve private suites (726 additions).
+The existing offline guard remains active. Both parent decisions at all 110
+native route/status/fault points preserve the exact expected pending/committed
+history without a new generic error write or borrowed cleanup. This is not real
+v16/ORM/hooks, complete worker isolation or remote certification evidence.
+
 Full development and real v15/v16/application/crypto/advance acceptance remain
 unfinished. Remote authority acceptance is a separate unverified gate and cannot
 be inferred or marked complete while actual requests remain prohibited.

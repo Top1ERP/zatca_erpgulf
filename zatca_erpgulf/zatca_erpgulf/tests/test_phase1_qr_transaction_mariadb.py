@@ -29,6 +29,7 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_response_processing import snapshot 
 from zatca_erpgulf.zatca_erpgulf.tests.test_event_log_contract import source_event_meta
 from zatca_erpgulf.zatca_erpgulf.tests.test_legacy_submission_context import (
     legacy_boundary, ADAPTERS as XML_ADAPTERS, call_adapter as call_xml_adapter, assert_artifacts_unchanged,
+    XML_REJECTION_STAGES, fail_xml_rejection_step, xml_rejection_commits_uuid,
 )
 from zatca_erpgulf.zatca_erpgulf.tests.test_submission_context import select_owner
 from zatca_erpgulf.zatca_erpgulf.tests.test_certificate_evidence import certificates
@@ -198,6 +199,59 @@ def test_existing_xml_event_fault_never_adds_sql_writes_or_parent_cleanup(qr_sch
         transaction.close()
     assert read_response_sql(connections, key) == ("ORIGINAL-RECEIPT", "ORIGINAL-STATUS",
         "test-existing-uuid", "PARENT-PENDING" if callback_commit or parent_commit else "ORIGINAL-BUSINESS")
+
+
+def xml_rejection_sql_expectations(adapter, status, stage):
+    """Distinguish an earlier UUID commit from pending save and final commit."""
+    complete = ("TEST RESPONSE", "Not Submitted", "Not Submitted", "PARENT-PENDING")
+    uuid_committed = xml_rejection_commits_uuid(adapter, status) and stage not in ("get_doc", "custom_uuid_before")
+    visible = complete if stage == "commit_after" else (
+        "ORIGINAL-RECEIPT", "ORIGINAL-STATUS", "Not Submitted" if uuid_committed else "test-existing-uuid",
+        "PARENT-PENDING" if uuid_committed else "ORIGINAL-BUSINESS")
+    pending = complete if stage in ("save_after", "commit_before", "commit_after") else (*visible[:3], "PARENT-PENDING")
+    return visible, pending
+
+
+@pytest.mark.parametrize("adapter,status,stage", XML_REJECTION_STAGES)
+@pytest.mark.parametrize("parent_commit", [False, True])
+def test_existing_xml_rejection_fault_preserves_exact_sql_and_parent_decision(qr_schema, legacy_boundary,
+    connections, namespace, monkeypatch, adapter, status, stage, parent_commit):
+    b = legacy_boundary
+    invoice = getattr(b, adapter[3])
+    select_owner(b, invoice, "linked")
+    primary_module = sign_invoice if adapter[3] == "sales" else pos_sign
+    doc, transaction, key = response_sql_case(b, connections, namespace, primary_module)
+    b.response.status_code = status
+    b.frappe.db.rollback = Mock(side_effect=AssertionError("Never clean the parent"))
+    b.frappe.db.close = Mock(side_effect=AssertionError("Never close the parent"))
+    selected, observed = fail_xml_rejection_step(b, adapter, monkeypatch, stage, BoundaryError,
+        observe=lambda: read_response_sql(connections, key))
+    assert selected is doc
+    visible, pending = xml_rejection_sql_expectations(adapter, status, stage)
+    try:
+        with pytest.raises(response_processing.LocalResponseProcessingError) as raised:
+            call_xml_adapter(b, adapter)
+        assert str(raised.value) == response_processing.LOCAL_RESPONSE_REVIEW
+        assert raised.value.__context__ is raised.value.__cause__ is None and not vars(raised.value)
+        assert len(observed) == 1 and response_snapshot(b, doc) == observed[0][0]
+        assert observed[0][1] == read_response_sql(connections, key) == visible
+        with transaction.cursor() as cursor:
+            cursor.execute("SELECT receipt,status,uuid,business_value FROM response_processing_test WHERE namespace=%s AND doctype=%s AND name=%s", key)
+            assert cursor.fetchone() == pending
+        assert transaction.open
+        b.frappe.db.rollback.assert_not_called()
+        b.frappe.db.close.assert_not_called()
+        b.frappe.log_error.assert_not_called()
+        b.post.assert_called_once()
+        for owner in (b.company, b.device, b.linked):
+            owner.save.assert_not_called()
+            assert owner.custom_pih == "previous"
+        assert_artifacts_unchanged(b)
+        (transaction.commit if parent_commit else transaction.rollback)()
+    finally:
+        transaction.rollback()
+        transaction.close()
+    assert read_response_sql(connections, key) == (pending if parent_commit else visible)
 
 
 def read_response_sql(connections, key):
