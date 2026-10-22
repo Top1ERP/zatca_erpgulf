@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and seventy-three bounded increments (Compliance outcomes, dedicated
+Safety preparation and seventy-four bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -64,7 +64,8 @@ and shared presentation for Company single-check and Sales/POS Debug results,
 and POS Debug generation independent of the unused live-scheduling selector,
 and permissioned/non-destructive shared Sales/POS Debug attachment creation,
 and attachment-only Debug UI updates with saved-form/concurrent-click guards,
-and auth-free CSID success results with display-only wizard result fields)
+and auth-free CSID success results with display-only wizard result fields,
+and allowlisted single-popup CSID HTTP-failure diagnostics)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -1476,6 +1477,35 @@ and eight invalid pure-builder purposes; the two existing writer transition
 cases now also assert auth-free results. Node passed **412 synthetic cases**
 (108 Company + 60 Debug messages + 164 Debug lifecycle + 80 CSID). The fixed
 manifest and offline/source/permission/SQL ownership guards are unchanged.
+
+## Increment 74: CSID HTTP errors without raw response disclosure
+
+- Replace unsuccessful CSID raw-body/header/reason/endpoint exports with a
+  bounded English diagnostic classifier. Known OTP/missing-check codes are
+  purpose-bound; 401/403/429/5xx and unknown failures have static interpretations.
+- Keep one translated framework-owned ValidationError popup with numeric HTTP
+  status. The internal normalized exception is caught before a single final
+  throw outside its handler, avoiding raw HTTP exception context/cause.
+- Do not label every 400 Invalid OTP. Do not retry, save credentials, commit,
+  clean up, log raw content or send an extra request on a rejected response.
+- Public signatures/success contract, exact mocked routes/auth/environment
+  guards and normal settings remain. Transport/local/200-processing exceptions,
+  full log/snapshot security, access/credential lifecycle and form reload/save
+  remain separate gates; normalized data is English, not proof about all logs.
+- No installed/live/site/customer/credential/schema/worker or authority action.
+  All transport, ERP and new response observations are synthetic.
+
+See [CSID_HTTP_FAILURE_PRESENTATION.md](CSID_HTTP_FAILURE_PRESENTATION.md).
+
+Guarded combined evidence: **11,467 local + 1,800 private SQL = 13,267 passed in
+142.51 seconds**, across the same twelve owned-private suites. The 130 added
+Python cases cover 64 status/body/purpose projections, 20 malformed/unbounded
+bodies, six unsupported status types and 40 actual entry-body/catalog cases.
+The existing route assertions now require canonical failure, without removing
+destination/OTP/auth/environment/no-save checks. Standalone Node checks retain
+**412 synthetic cases**. No manifest or offline/permission/SQL guard is relaxed.
+The final stable-source local recheck also passed **11,467 cases in 73.09
+seconds**, after the fixture resource-close/readability and docstring cleanup.
 
 ## Verification
 

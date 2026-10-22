@@ -59,6 +59,11 @@ display translated read-only outcomes. Error/log redaction, general CSID access,
 storage/rotation and existing form save/reload remain independent gates. This is
 not remote Compliance completion or credential lifecycle adoption. See
 [CSID_SUCCESS_PRESENTATION.md](CSID_SUCCESS_PRESENTATION.md).
+Increment 74 adds purpose-bound allowlisted HTTP-failure diagnostics and one
+localized CSID error instead of raw-body/repeated throws. It removes the old
+all-400-means-OTP assumption. Transport/local/200-processing failures and complete
+framework log/snapshot/custody/access/lifecycle controls remain gates. See
+[CSID_HTTP_FAILURE_PRESENTATION.md](CSID_HTTP_FAILURE_PRESENTATION.md).
 
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |

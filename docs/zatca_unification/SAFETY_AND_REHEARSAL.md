@@ -725,6 +725,23 @@ There are 44 new local Python cases. No fixed-manifest selection, permission or
 network/site/SQL ownership guard was loosened. No actual certificate or tenant
 credential was used, issued, rotated or inspected.
 
+Increment74 restricts CSID HTTP failures to bounded English metadata and one
+translated popup, without raw-body/header/reason/endpoint/request-ID disclosure
+or a raw exception chain. Known OTP/missing-check codes are purpose-bound, not
+the old every-400-is-OTP assumption. It adds no retry, save, commit, cleanup,
+logging writer or transport. Route/auth/environment assertions remain; only
+unsafe raw-error substring expectations are removed. HTTP 200 acceptance and
+transport/local wrappers, framework logs/snapshots, saved access and lifecycle
+remain gates. No live/source/assets/config/schema/worker/site/credential/authority
+action occurs. See [CSID_HTTP_FAILURE_PRESENTATION.md](CSID_HTTP_FAILURE_PRESENTATION.md).
+
+Increment74 guarded combined: **11,467 local + 1,800 private SQL = 13,267 passed
+in 142.51 seconds**, across the same twelve owned-private SQL suites, plus the
+unchanged **412 standalone Node VM cases**. The 130 new Python cases cover pure
+bounded diagnostics and actual mocked entry bodies/catalog display. All existing
+guard/source/permission/SQL ownership restrictions remain; there is no actual
+tenant, certificate issuance, browser, v16 or authority acceptance assertion.
+
 Full development and real v15/v16/application/crypto/advance acceptance remain
 unfinished. Remote authority acceptance is a separate unverified gate and cannot
 be inferred or marked complete while actual requests remain prohibited.

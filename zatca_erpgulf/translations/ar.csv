@@ -741,3 +741,12 @@ CSID creation was not confirmed. Review saved settings before trying again.,لم
 Only the CSID creation result is displayed here. Credentials remain in the saved settings.,تُعرض هنا نتيجة إنشاء شهادة CSID فقط. تبقى بيانات الاعتماد في الإعدادات المحفوظة.
 Compliance CSID Result,نتيجة شهادة CSID لفحص الامتثال
 Final CSID Result,نتيجة شهادة CSID النهائية
+CSID Generation Failed,فشل إنشاء شهادة CSID
+HTTP status,حالة HTTP
+CSID creation was not confirmed by the response. Review the selected environment and saved onboarding settings before trying again.,لم يؤكد الرد إنشاء شهادة CSID. راجع البيئة المحددة وإعدادات الربط المحفوظة قبل المحاولة مجددًا.
+ZATCA authentication failed. Check that the Compliance credentials match the selected environment and issuing unit.,فشلت المصادقة لدى زاتكا. تحقق من تطابق بيانات اعتماد الامتثال مع البيئة المحددة ووحدة الإصدار.
+ZATCA denied access to this CSID operation. Review the selected environment and issuing-unit authorization.,رفضت زاتكا السماح بعملية شهادة CSID هذه. راجع البيئة المحددة وصلاحية وحدة الإصدار.
+ZATCA returned a rate-limit response. Review the request outcome before trying again; no automatic retry was performed.,أعادت زاتكا ردًا بتجاوز حد الطلبات. راجع نتيجة الطلب قبل المحاولة مجددًا؛ لم تُنفذ إعادة محاولة تلقائية.
+ZATCA returned a server error during CSID creation. Review saved settings and the request outcome before trying again.,أعادت زاتكا خطأ في الخادم أثناء إنشاء شهادة CSID. راجع الإعدادات المحفوظة ونتيجة الطلب قبل المحاولة مجددًا.
+ZATCA rejected the OTP. Check the OTP and the selected environment before trying again.,رفضت زاتكا رمز OTP. تحقق من الرمز والبيئة المحددة قبل المحاولة مجددًا.
+ZATCA reports incomplete Compliance checks. Complete the required checks for the same Compliance CSID before requesting the Final CSID.,أفادت زاتكا بأن فحوص الامتثال غير مكتملة. أكمل الفحوص المطلوبة لشهادة الامتثال CSID نفسها قبل طلب الشهادة النهائية.

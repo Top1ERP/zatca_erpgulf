@@ -20,7 +20,9 @@ from zatca_erpgulf.zatca_erpgulf.credential_lifecycle import inspect_legacy_cred
 from zatca_erpgulf.zatca_erpgulf.credential_material import CredentialOwner
 from zatca_erpgulf.zatca_erpgulf.credential_snapshot import CredentialSnapshotError, authentication_certificate_der
 from zatca_erpgulf.zatca_erpgulf.api_routing import ApiConfigurationError
-from zatca_erpgulf.zatca_erpgulf.operation_messages import csid_creation_result
+from zatca_erpgulf.zatca_erpgulf.operation_messages import (
+    csid_creation_result, csid_request_rejection, CSIDRequestRejected,
+)
 from zatca_erpgulf.zatca_erpgulf.tests.test_api_route_contract import settings
 from zatca_erpgulf.zatca_erpgulf.tests.test_credential_snapshot import basic
 from zatca_erpgulf.zatca_erpgulf.tests.test_credential_selection import materials, boundary, ValidationError
@@ -465,6 +467,95 @@ def test_csid_success_is_not_announced_before_parsing_and_save(csid_writer, sour
 def test_csid_metadata_builder_refuses_unknown_purpose_without_reflecting_input(purpose):
     with pytest.raises(ValueError, match="^Unsupported CSID purpose\\.$"):
         csid_creation_result(purpose)
+
+
+@pytest.mark.parametrize("purpose", ["compliance", "production"])
+@pytest.mark.parametrize("status", [400, 401, 403, 429, 500, 503, 202, 406])
+@pytest.mark.parametrize("body_kind", ["otp", "steps", "unknown", "malformed"])
+def test_csid_http_classification_exports_no_response_text_or_untrusted_fields(purpose, status, body_kind):
+    body = {
+        "otp": json.dumps({"errors": [{"code": "Invalid-OTP", "message": "PRIVATE-ERROR"}], "secret": "PRIVATE-SECRET"}),
+        "steps": json.dumps({"code": "Missing-ComplianceSteps", "message": "PRIVATE-ERROR", "binarySecurityToken": "PRIVATE-TOKEN"}),
+        "unknown": json.dumps({"code": "PRIVATE-CODE", "message": "PRIVATE-ERROR"}),
+        "malformed": "PRIVATE-MALFORMED <script>alert(1)</script>",
+    }[body_kind]
+    result = csid_request_rejection(purpose, status, body)
+    assert result["status"] == "ERROR" and result["http_status"] == status
+    assert set(result) == {"status", "purpose", "code", "http_status", "message"}
+    assert result["purpose"] == purpose
+    assert "PRIVATE" not in json.dumps(result) and "<script>" not in json.dumps(result)
+    expected = {401: "CSID_AUTHENTICATION_FAILED", 403: "CSID_ACCESS_DENIED",
+                429: "CSID_RATE_LIMITED", 500: "CSID_REMOTE_ERROR", 503: "CSID_REMOTE_ERROR"}.get(status, "CSID_RESPONSE_UNCONFIRMED")
+    if status == 400 and purpose == "compliance" and body_kind == "otp":
+        expected = "CSID_INVALID_OTP"
+    if status == 400 and purpose == "production" and body_kind == "steps":
+        expected = "CSID_COMPLIANCE_INCOMPLETE"
+    assert result["code"] == expected
+    error = CSIDRequestRejected(purpose, status, body)
+    assert vars(error) == {"result": result}
+    assert str(error) == result["code"] and "PRIVATE" not in repr(error)
+
+
+@pytest.mark.parametrize("purpose", ["compliance", "production"])
+@pytest.mark.parametrize("body", [None, [], {}, b"PRIVATE", 1, "x" * 65537,
+    "[" * 1500 + "]" * 1500, '{"errors":[{"code":null}]}',
+    '{"errors":[{"code":["Invalid-OTP"]}]}', '{"errors":[{"code":"invalid-otp"}]}'])
+def test_csid_http_unknown_malformed_or_unbounded_body_is_generic(purpose, body):
+    result = csid_request_rejection(purpose, 400, body)
+    assert result["code"] == "CSID_RESPONSE_UNCONFIRMED"
+
+
+@pytest.mark.parametrize("value", [None, True, "401", 401.0, -1, 999])
+def test_csid_http_status_requires_bounded_literal_integer(value):
+    result = csid_request_rejection("compliance", value, "PRIVATE-BODY")
+    assert result["http_status"] is None and result["code"] == "CSID_RESPONSE_UNCONFIRMED"
+
+
+@pytest.mark.parametrize("source", ["company", "device"])
+@pytest.mark.parametrize("purpose", ["compliance", "production"])
+@pytest.mark.parametrize("arabic", [False, True])
+@pytest.mark.parametrize("status,code", [(400, "Invalid-OTP"), (400, "Missing-ComplianceSteps"),
+                                      (401, "PRIVATE-CODE"), (503, "PRIVATE-CODE"), (406, "PRIVATE-CODE")])
+def test_csid_http_entry_raises_one_redacted_dialog_without_raw_exception_chain(csid_writer, monkeypatch, source, purpose, arabic, status, code):
+    import csv
+    from pathlib import Path
+
+    b = csid_writer
+    b.environment = "Production"
+    doc = getattr(b, source)
+    body = json.dumps({"errors": [{"code": code, "message": "PRIVATE-ERROR"}],
+                       "code": code, "secret": "PRIVATE-SECRET", "binarySecurityToken": "PRIVATE-TOKEN"})
+    b.reply.status_code, b.reply.text = status, body
+    b.reply.headers = SimpleNamespace(get=Mock(side_effect=AssertionError("Untrusted header must not be read")))
+    b.reply.reason = "PRIVATE-REASON"
+    with (Path(__file__).parents[2] / "translations/ar.csv").open(encoding="utf-8") as catalog_file:
+        catalog = {row[0]: row[1] for row in csv.reader(catalog_file) if len(row) >= 2}
+    translated = []
+
+    def translate(key):
+        translated.append(key)
+        return catalog[key] if arabic else key
+
+    monkeypatch.setattr(client, "_", translate)
+    def fail(message, **kwargs):
+        raise ValidationError(message)
+
+    b.frappe.throw = Mock(side_effect=fail)
+    operation = client.create_csid if purpose == "compliance" else client.production_csid
+    result = csid_request_rejection(purpose, status, body)
+    with pytest.raises(ValidationError) as raised:
+        inspect.unwrap(operation)({"doctype": doc.doctype, "name": doc.name}, "TC")
+    expected = (catalog[result["message"]] if arabic else result["message"]) + "<br>" + (catalog["HTTP status"] if arabic else "HTTP status") + ": " + str(status)
+    b.frappe.throw.assert_called_once_with(expected, title=catalog["CSID Generation Failed"] if arabic else "CSID Generation Failed")
+    assert str(raised.value) == expected
+    assert raised.value.__context__ is None and raised.value.__cause__ is None
+    assert "PRIVATE" not in repr(raised.value) and "PRIVATE" not in repr(translated)
+    assert result["message"] in translated
+    assert result["code"].isascii() and result["message"].isascii()
+    doc.save.assert_not_called()
+    b.frappe.msgprint.assert_not_called()
+    b.frappe.db.commit.assert_not_called()
+    assert b.post.call_count == 1
 
 
 @pytest.mark.parametrize("source", ["company", "device"])

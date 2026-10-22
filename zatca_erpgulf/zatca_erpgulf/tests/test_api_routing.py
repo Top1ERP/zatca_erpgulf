@@ -101,7 +101,7 @@ def test_create_csid_uses_selected_environment_without_changing_settings(routing
     company.custom_select = environment
     post = Mock(return_value=SimpleNamespace(status_code=400, text="Mock rejection", headers={}))
     monkeypatch.setattr(sign_invoice_first.requests, "post", post)
-    with pytest.raises(ValidationError, match="Mock rejection"):
+    with pytest.raises(ValidationError, match="CSID creation was not confirmed"):
         inspect.unwrap(sign_invoice_first.create_csid)({"doctype": "Company", "name": company.name}, "TC")
     assert post.call_args.kwargs["url"] == BASES[environment] + "compliance"
     assert post.call_args.kwargs["headers"]["OTP"] == "000000"
@@ -127,7 +127,7 @@ def test_explicit_csid_override_does_not_modify_company(routing, monkeypatch):
     company, _ = routing
     post = Mock(return_value=SimpleNamespace(status_code=400, text="Mock rejection", headers={}))
     monkeypatch.setattr(sign_invoice_first.requests, "post", post)
-    with pytest.raises(ValidationError, match="Sandbox"):
+    with pytest.raises(ValidationError, match="CSID creation was not confirmed"):
         inspect.unwrap(sign_invoice_first.create_csid)(
             {"doctype": "Company", "name": company.name}, "TC", portal_type="Sandbox",
         )
@@ -142,7 +142,7 @@ def test_final_csid_still_uses_compliance_auth_in_selected_environment(routing, 
     company.custom_select = environment
     post = Mock(return_value=SimpleNamespace(status_code=400, text="Mock rejection", headers={}, reason="Test"))
     monkeypatch.setattr(sign_invoice_first.requests, "post", post)
-    with pytest.raises(ValidationError, match="Mock rejection"):
+    with pytest.raises(ValidationError, match="CSID creation was not confirmed"):
         inspect.unwrap(sign_invoice_first.production_csid)(
             {"doctype": "Company", "name": company.name}, "TC",
         )

@@ -5,6 +5,7 @@ No transport, language mutation, persistence, or global Frappe monkeypatching.
 """
 
 from contextlib import contextmanager
+import json
 
 
 DEBUG_CREATED = "Debug XML attached successfully."
@@ -33,6 +34,60 @@ def csid_creation_result(purpose):
     if type(purpose) is not str or purpose not in messages:
         raise ValueError("Unsupported CSID purpose.")
     return {"status": "SUCCESS", "purpose": purpose, "message": messages[purpose]}
+
+
+def csid_request_rejection(purpose, http_status, body):
+    """Bounded allowlisted response classification, never raw-text redaction.
+
+    Unknown codes/messages/IDs/URLs/credential fields are not copied or logged.
+    This is an unconfirmed CSID response, not authority acceptance or retry
+    authorization. Only exact known codes in the expected purpose are used.
+    """
+    csid_creation_result(purpose)  # Validate the app-owned literal purpose.
+    status = http_status if type(http_status) is int and 100 <= http_status <= 599 else None
+    code = "CSID_RESPONSE_UNCONFIRMED"
+    message = "CSID creation was not confirmed by the response. Review the selected environment and saved onboarding settings before trying again."
+    if status == 401:
+        code = "CSID_AUTHENTICATION_FAILED"
+        message = "ZATCA authentication failed. Check that the Compliance credentials match the selected environment and issuing unit."
+    elif status == 403:
+        code = "CSID_ACCESS_DENIED"
+        message = "ZATCA denied access to this CSID operation. Review the selected environment and issuing-unit authorization."
+    elif status == 429:
+        code = "CSID_RATE_LIMITED"
+        message = "ZATCA returned a rate-limit response. Review the request outcome before trying again; no automatic retry was performed."
+    elif status is not None and 500 <= status <= 599:
+        code = "CSID_REMOTE_ERROR"
+        message = "ZATCA returned a server error during CSID creation. Review saved settings and the request outcome before trying again."
+    elif status == 400 and type(body) is str and len(body) <= 65536:
+        try:
+            data = json.loads(body)
+        except (ValueError, RecursionError):
+            data = None
+        codes = []
+        if type(data) is dict:
+            codes.append(data.get("code"))
+            errors = data.get("errors")
+            if type(errors) is list and len(errors) <= 16:
+                codes.extend(item.get("code") for item in errors if type(item) is dict)
+        # Strings only; no arbitrary object's equality/coercion behavior.
+        codes = [item for item in codes if type(item) is str]
+        if purpose == "compliance" and "Invalid-OTP" in codes:
+            code = "CSID_INVALID_OTP"
+            message = "ZATCA rejected the OTP. Check the OTP and the selected environment before trying again."
+        elif purpose == "production" and "Missing-ComplianceSteps" in codes:
+            code = "CSID_COMPLIANCE_INCOMPLETE"
+            message = "ZATCA reports incomplete Compliance checks. Complete the required checks for the same Compliance CSID before requesting the Final CSID."
+    return {"status": "ERROR", "purpose": purpose, "code": code,
+            "http_status": status, "message": message}
+
+
+class CSIDRequestRejected(Exception):
+    """Carry only normalized English metadata, never the response or headers."""
+
+    def __init__(self, purpose, http_status, body):
+        self.result = csid_request_rejection(purpose, http_status, body)
+        super().__init__(self.result["code"])
 
 
 @contextmanager

@@ -191,3 +191,11 @@ old/raw replies are not copied. The 80 new VM cases bring standalone UI coverage
 to 412. Failures/logs/traces, credential storage/access/rotation and CSID caller
 save/reload remain separate gates. See
 [CSID_SUCCESS_PRESENTATION.md](CSID_SUCCESS_PRESENTATION.md).
+
+Increment 74 extends CSID presentation to unsuccessful HTTP responses: one
+translated error with numeric HTTP status, purpose-bound known codes and generic
+unknown-response review. No response body/header/reason/endpoint/request ID is
+exported and no nested raw exception chain is attached. Normalized app data
+stays English; no new logger is introduced. Transport/local/200-processing
+failures and framework log/snapshot security remain separate gates. See
+[CSID_HTTP_FAILURE_PRESENTATION.md](CSID_HTTP_FAILURE_PRESENTATION.md).

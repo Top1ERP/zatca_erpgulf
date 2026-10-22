@@ -32,7 +32,7 @@ from zatca_erpgulf.zatca_erpgulf.compliance_result import (
     is_already_completed_response,
 )
 from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
-from zatca_erpgulf.zatca_erpgulf.operation_messages import csid_creation_result
+from zatca_erpgulf.zatca_erpgulf.operation_messages import csid_creation_result, CSIDRequestRejected
 
 SUPPORTED_INVOICES = ["Sales Invoice", "POS Invoice"]
 
@@ -335,6 +335,18 @@ def _csid_creation_success(purpose):
     return json.dumps(result, ensure_ascii=False)
 
 
+def _raise_csid_rejection(result):
+    """One localized HTTP-failure popup, outside the caught exception context.
+
+    No request ID, endpoint, response text or credential reaches this boundary.
+    No log/commit/retry or speculative cleanup follows the received response.
+    """
+    message = _(result["message"])
+    if result["http_status"] is not None:
+        message += "<br>" + _("HTTP status") + ": " + str(result["http_status"])
+    frappe.throw(message, title=_("CSID Generation Failed"))
+
+
 @frappe.whitelist(allow_guest=False)
 def create_csid(zatca_doc, company_abbr, portal_type=None):
     """creating csid"""
@@ -394,7 +406,6 @@ def create_csid(zatca_doc, company_abbr, portal_type=None):
         route = get_company_api_route(
             company_abbr, "compliance", environment=portal_type, onboarding_only=True,
         )
-        selected_environment = route.environment
         api_url = route.url
         frappe.publish_realtime(
             "show_gif",
@@ -409,36 +420,8 @@ def create_csid(zatca_doc, company_abbr, portal_type=None):
         )
         frappe.publish_realtime("hide_gif", user=frappe.session.user)
 
-        request_id = response.headers.get("x-request-id") or response.headers.get(
-            "X-Request-ID"
-        )
-        request_context = _(
-            "Environment: {0}; endpoint: {1}; OTP length: {2}; CSR payload length: {3}"
-        ).format(
-            selected_environment,
-            api_url,
-            len(otp),
-            len(csr_contents),
-        )
-
-        if response.status_code == 400:
-            details = response.text
-            if request_id:
-                details += _(" (request id: {0})").format(request_id)
-            frappe.throw(
-                _("Error: OTP is not valid. {0}\n{1}").format(
-                    details, request_context
-                )
-            )
         if response.status_code != 200:
-            details = response.text
-            if request_id:
-                details += _(" (request id: {0})").format(request_id)
-            frappe.throw(
-                _("Error: Issue with Certificate or OTP. {0}\n{1}").format(
-                    details, request_context
-                )
-            )
+            raise CSIDRequestRejected("compliance", response.status_code, response.text)
         data = json.loads(response.text)
 
         concatenated_value = data["binarySecurityToken"] + ":" + data["secret"]
@@ -459,9 +442,13 @@ def create_csid(zatca_doc, company_abbr, portal_type=None):
             company_doc.save(ignore_permissions=True)
         return _csid_creation_success("compliance")
 
+    except CSIDRequestRejected as error:
+        rejection = error.result
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(_("Error in creating CSID: " + str(e)))
         return None
+    # Raise after leaving the exception handler: no raw response traceback chain.
+    _raise_csid_rejection(rejection)
 
 
 def _csid_material_diagnostics(company_name):
@@ -1451,14 +1438,7 @@ def production_csid(zatca_doc, company_abbr):
         frappe.publish_realtime("hide_gif", user=frappe.session.user)
 
         if response.status_code != 200:
-            response_body = (response.text or "").strip()
-            request_id = response.headers.get("x-request-id") or response.headers.get(
-                "X-Request-ID"
-            )
-            details = response_body or response.reason or "No response body"
-            if request_id:
-                details += f" (request id: {request_id})"
-            frappe.throw(_(f"Error in production [HTTP {response.status_code}]: {details}"))
+            raise CSIDRequestRejected("production", response.status_code, response.text)
 
         data = response.json()
         company_vat = ""
@@ -1536,6 +1516,9 @@ def production_csid(zatca_doc, company_abbr):
 
         return _csid_creation_success("production")
 
+    except CSIDRequestRejected as error:
+        rejection = error.result
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(_("Error in production CSID formation: " + str(e)))
         return None
+    _raise_csid_rejection(rejection)

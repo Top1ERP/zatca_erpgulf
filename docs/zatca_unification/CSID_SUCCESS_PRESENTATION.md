@@ -44,8 +44,10 @@ in-repository Company and Multiple Setting callbacks only check for errors;
 the wizard's `.trim()` consumers have been replaced. This inventory is not a
 guarantee about external integrations. No persistent DocType field is renamed.
 
-This is **success-path redaction only**, not a complete CSID security redesign.
-Failure bodies/exceptions, framework tracebacks, log read/export/retention,
+This increment is **success-path redaction only**, not a complete CSID security
+redesign. Increment 74 separately removes unsuccessful HTTP body exports and
+repeated throws; see [CSID_HTTP_FAILURE_PRESENTATION.md](CSID_HTTP_FAILURE_PRESENTATION.md).
+Other failure exceptions, framework tracebacks, log read/export/retention,
 credential-bearing saved form fields and general Company/Multiple Setting
 access controls remain release gates. Existing CSID writers still use ignored
 permissions and legacy shared certificate fields; no permission, key epoch,
