@@ -5,6 +5,7 @@ pytest temporary directories or the temporary sample file being submitted.
 """
 
 import inspect
+from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -352,8 +353,8 @@ def test_debug_cancellation_restores_flags_without_logging_or_conversion(isolate
     module.compliance_api_call.assert_not_called()
 
 
-def test_pos_debug_background_existing_selector_error_is_visible_not_a_success(isolated, monkeypatch):
-    """Known generation defect remains an adoption gate, NOT an accepted result."""
+def test_pos_debug_background_generates_only_a_local_artifact(isolated, monkeypatch):
+    """Regression for the old undefined, unused Background selector."""
     invoice, company, _, app, files = isolated
     prepare_debug_messages(isolated, monkeypatch, pos_debug_xml)
     company.custom_send_invoice_to_zatca = "Background"
@@ -361,13 +362,194 @@ def test_pos_debug_background_existing_selector_error_is_visible_not_a_success(i
     monkeypatch.setattr(pos_debug_xml, "is_qr_and_xml_attached", lambda *args: False)
     monkeypatch.delattr(pos_debug_xml, "bypass_background_check", raising=False)
     result = inspect.unwrap(pos_debug_xml.debug_call)(invoice.name)
-    assert result["status"] == "error" and result["message"] == DEBUG_FAILED
-    assert "bypass_background_check" in result["technical_details"]
-    assert not files
+    assert result["status"] == "success" and result["message"] == DEBUG_CREATED
+    assert len(files) == 1 and files[0]["file_name"] == f"DEBUG_INVOICE_{invoice.name}.xml"
+    assert files[0]["is_private"] == 1
     assert app.flags == {"mute_messages": False}
     invoice.save.assert_not_called()
     app.db.commit.assert_not_called()
     pos_debug_xml.compliance_api_call.assert_not_called()
+
+
+@pytest.mark.parametrize("phase", ["Phase-1", "Phase-2"])
+@pytest.mark.parametrize("method", ["Background", "Live", "Batches", "Immediate", "", None])
+@pytest.mark.parametrize("b2c", [0, 1])
+@pytest.mark.parametrize("compliance_type", ["0", "1", "2", "3", "4", "5", "6"])
+def test_pos_debug_type_selection_is_independent_of_live_scheduling(
+    isolated, monkeypatch, tmp_path, phase, method, b2c, compliance_type,
+):
+    invoice, company, _, app, files = isolated
+    prepare_debug_messages(isolated, monkeypatch, pos_debug_xml)
+    company.custom_send_invoice_to_zatca = method
+    monkeypatch.setattr(pos_debug_xml, "resolve_zatca_phase", lambda *args: phase)
+    monkeypatch.setattr(pos_debug_xml, "is_qr_and_xml_attached", lambda *args: False)
+    monkeypatch.setattr(pos_debug_xml, "get_alias_value", lambda group, *args: b2c if group == "customer_b2c" else "")
+    transport = SimpleNamespace(request=Mock(), post=Mock())
+    monkeypatch.setattr(pos_debug_xml, "requests", transport)
+    monkeypatch.setattr(pos_debug_xml, "get_api_url", Mock())
+    snapshot = deepcopy({key: value for key, value in vars(invoice).items() if not callable(value)})
+    originals = {tmp_path / "signed.xml": b"ORIGINAL-SYNTHETIC-SIGNED-XML",
+                 tmp_path / "qr.png": b"ORIGINAL-SYNTHETIC-QR"}
+    for path, value in originals.items():
+        path.write_bytes(value)
+
+    result = inspect.unwrap(pos_debug_xml.debug_call)(invoice.name, compliance_type=compliance_type)
+
+    if compliance_type == "0" and not b2c:
+        assert result["status"] == "error" and result["message"] == DEBUG_FAILED
+        assert "Customer should be B2C" in result["technical_details"]
+        assert not files
+        pos_debug_xml.invoice_typecode_simplified.assert_not_called()
+        pos_debug_xml.invoice_typecode_compliance.assert_not_called()
+    else:
+        assert result["status"] == "success" and result["message"] == DEBUG_CREATED
+        assert result["notices"] == []
+        assert len(files) == 1 and files[0]["file_name"] == f"DEBUG_INVOICE_{invoice.name}.xml"
+        assert files[0]["is_private"] == 1 and files[0]["attached_to_doctype"] == "POS Invoice"
+        if compliance_type == "0":
+            pos_debug_xml.invoice_typecode_simplified.assert_called_once()
+            pos_debug_xml.invoice_typecode_compliance.assert_not_called()
+        else:
+            assert pos_debug_xml.invoice_typecode_compliance.call_args.args[1] == compliance_type
+            pos_debug_xml.invoice_typecode_simplified.assert_not_called()
+        assert pos_debug_xml.salesinvoice_data.call_args.kwargs["purpose"] == "debug"
+        assert pos_debug_xml.doc_reference.call_args.kwargs["debug"] is True
+    assert {key: value for key, value in vars(invoice).items() if not callable(value)} == snapshot
+    assert all(path.read_bytes() == value for path, value in originals.items())
+    assert app.flags == {"mute_messages": False} and app.local.lang == "ar"
+    invoice.save.assert_not_called()
+    invoice.db_set.assert_not_called()
+    company.db_set.assert_not_called()
+    app.db.commit.assert_not_called()
+    app.db.set_value.assert_not_called()
+    app.db.sql.assert_not_called()
+    app.msgprint.assert_not_called()
+    app.delete_doc.assert_not_called()
+    pos_debug_xml.get_api_url.assert_not_called()
+    pos_debug_xml.compliance_api_call.assert_not_called()
+    transport.request.assert_not_called()
+    transport.post.assert_not_called()
+
+
+@pytest.mark.parametrize("phase,schema,unique,pos_name,gpos,xml,qr,attached,error,notice", [
+    ("Phase-2", True, True, None, False, False, False, False, "POS name is required", False),
+    ("Phase-2", True, True, "MOCK-POS", False, False, False, False, None, False),
+    ("Phase-2", True, True, "MOCK-POS", True, True, True, False, None, True),
+    ("Phase-2", True, True, None, True, True, True, False, "POS name is required", False),
+    ("Phase-2", False, True, None, False, False, False, False, None, False),
+    ("Phase-1", True, True, None, False, False, False, False, None, False),
+    ("Phase-1", True, False, None, True, True, False, False, "qr_code", False),
+    ("Phase-2", True, False, None, True, True, False, False, "qr_code", False),
+    ("Phase-2", True, False, None, True, True, True, False, None, False),
+    ("Phase-2", True, False, None, False, False, False, True, None, True),
+    ("Phase-1", True, False, None, False, False, False, True, None, False),
+    ("Phase-2", False, True, None, False, False, False, True, None, True),
+])
+def test_pos_debug_preserves_phase_schema_pos_gpos_and_existing_artifact_checks(
+    isolated, monkeypatch, phase, schema, unique, pos_name, gpos, xml, qr, attached, error, notice,
+):
+    invoice, company, _, app, files = isolated
+    prepare_debug_messages(isolated, monkeypatch, pos_debug_xml)
+    company.custom_send_invoice_to_zatca = "Background"
+    invoice.custom_unique_id = "MOCK-UNIQUE" if unique else None
+    invoice.custom_zatca_pos_name = pos_name
+    invoice.custom_xml = "<Original/>" if xml else None
+    invoice.custom_qr_code = "ORIGINAL-QR" if qr else None
+    monkeypatch.setattr(pos_debug_xml, "_", lambda message: message)
+    monkeypatch.setattr(pos_debug_xml, "resolve_zatca_phase", lambda *args: phase)
+    app.get_meta.return_value.has_field = lambda field: schema
+    app.get_installed_apps.return_value = ["gpos"] if gpos else []
+    monkeypatch.setattr(pos_debug_xml, "is_qr_and_xml_attached", Mock(return_value=attached))
+    result = inspect.unwrap(pos_debug_xml.debug_call)(invoice.name)
+    if error:
+        assert result["status"] == "error" and error in result["technical_details"]
+        assert not files
+        pos_debug_xml.salesinvoice_data.assert_not_called()
+    else:
+        assert result["status"] == "success" and len(files) == 1
+        assert result["notices"] == ([DEBUG_EXISTING] if notice else [])
+    assert invoice.custom_xml == ("<Original/>" if xml else None)
+    assert invoice.custom_qr_code == ("ORIGINAL-QR" if qr else None)
+    invoice.save.assert_not_called()
+    invoice.db_set.assert_not_called()
+    app.db.commit.assert_not_called()
+    pos_debug_xml.compliance_api_call.assert_not_called()
+
+
+@pytest.mark.parametrize("phase", ["Phase-1", "Phase-2"])
+@pytest.mark.parametrize("method", ["Background", "Live"])
+@pytest.mark.parametrize("template", [False, True])
+def test_pos_debug_keeps_existing_explicit_tax_adapter_choice(isolated, monkeypatch, phase, method, template):
+    invoice, company, _, _, files = isolated
+    prepare_debug_messages(isolated, monkeypatch, pos_debug_xml)
+    company.custom_send_invoice_to_zatca = method
+    monkeypatch.setattr(pos_debug_xml, "resolve_zatca_phase", lambda *args: phase)
+    monkeypatch.setattr(pos_debug_xml, "is_qr_and_xml_attached", lambda *args: False)
+    for name in ("add_document_level_discount_with_tax_template", "tax_data_with_template", "item_data_with_template"):
+        monkeypatch.setattr(pos_debug_xml, name, Mock(side_effect=lambda root, *args: root))
+    result = inspect.unwrap(pos_debug_xml.debug_call)(invoice.name, any_item_has_tax_template=template)
+    assert result["status"] == "success" and len(files) == 1
+    for plain, with_template in (("tax_data", "tax_data_with_template"), ("item_data", "item_data_with_template"),
+                                 ("add_document_level_discount_with_tax", "add_document_level_discount_with_tax_template")):
+        assert getattr(pos_debug_xml, with_template if template else plain).call_count == 1
+        getattr(pos_debug_xml, plain if template else with_template).assert_not_called()
+
+
+def test_pos_debug_does_not_read_or_add_live_background_configuration(isolated, monkeypatch):
+    invoice, company, _, app, files = isolated
+    prepare_debug_messages(isolated, monkeypatch, pos_debug_xml)
+
+    class LocalSettings(Document):
+        @property
+        def custom_send_invoice_to_zatca(self):
+            raise AssertionError("Debug must not read live scheduling")
+
+    settings = LocalSettings(**{key: value for key, value in vars(company).items() if key != "custom_send_invoice_to_zatca"})
+    get_doc = app.get_doc.side_effect
+    app.get_doc.side_effect = lambda doctype, name=None: settings if doctype == "Company" else get_doc(doctype, name)
+    monkeypatch.setattr(pos_debug_xml, "resolve_zatca_phase", lambda *args: "Phase-2")
+    monkeypatch.setattr(pos_debug_xml, "is_qr_and_xml_attached", lambda *args: False)
+    result = inspect.unwrap(pos_debug_xml.debug_call)(invoice.name)
+    assert result["status"] == "success" and len(files) == 1
+    assert tuple(inspect.signature(inspect.unwrap(pos_debug_xml.debug_call)).parameters) == (
+        "invoice_number", "compliance_type", "any_item_has_tax_template", "company_abbr", "source_doc",
+    )
+    app.db.commit.assert_not_called()
+    pos_debug_xml.compliance_api_call.assert_not_called()
+
+
+def test_pos_debug_background_still_rejects_buyer_id_without_type(isolated, monkeypatch):
+    invoice, company, _, app, files = isolated
+    prepare_debug_messages(isolated, monkeypatch, pos_debug_xml)
+    company.custom_send_invoice_to_zatca = "Background"
+    monkeypatch.setattr(pos_debug_xml, "resolve_zatca_phase", lambda *args: "Phase-2")
+    monkeypatch.setattr(pos_debug_xml, "_", lambda message: message)
+    monkeypatch.setattr(pos_debug_xml, "get_alias_value", lambda group, *args: "MOCK-ID" if group == "customer_buyer_id" else "")
+    result = inspect.unwrap(pos_debug_xml.debug_call)(invoice.name)
+    assert result["status"] == "error" and "Buyer ID must be blank" in result["technical_details"]
+    assert not files
+    pos_debug_xml.salesinvoice_data.assert_not_called()
+    pos_debug_xml.compliance_api_call.assert_not_called()
+    invoice.save.assert_not_called()
+    app.db.commit.assert_not_called()
+
+
+def test_pos_debug_background_does_not_turn_signing_failure_into_success(isolated, monkeypatch):
+    invoice, company, _, app, files = isolated
+    prepare_debug_messages(isolated, monkeypatch, pos_debug_xml)
+    company.custom_send_invoice_to_zatca = "Background"
+    monkeypatch.setattr(pos_debug_xml, "resolve_zatca_phase", lambda *args: "Phase-2")
+    monkeypatch.setattr(pos_debug_xml, "is_qr_and_xml_attached", lambda *args: False)
+    monkeypatch.setattr(pos_debug_xml, "digital_signature", Mock(side_effect=ValidationError("Synthetic signing failure")))
+    result = inspect.unwrap(pos_debug_xml.debug_call)(invoice.name)
+    assert result == {"status": "error", "message": DEBUG_FAILED,
+                      "technical_details": "Synthetic signing failure", "notices": []}
+    assert not files
+    assert app.flags == {"mute_messages": False}
+    pos_debug_xml.digital_signature.assert_called_once()
+    pos_debug_xml.compliance_api_call.assert_not_called()
+    invoice.save.assert_not_called()
+    app.db.commit.assert_not_called()
 
 
 @pytest.mark.parametrize("module", [sign_invoice, pos_sign])

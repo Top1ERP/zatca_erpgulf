@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and sixty-nine bounded increments (Compliance outcomes, dedicated
+Safety preparation and seventy bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -60,7 +60,8 @@ and received local-step isolation across existing-XML Sales/POS APIs and their p
 and shared guarded existing-XML rejection persistence with exact legacy UUID policy,
 and guarded shared existing-XML reported writes with pinned-owner PIH/logging boundaries,
 and Company batch message aggregation/display-only translation with English retained-event labels,
-and shared presentation for Company single-check and Sales/POS Debug results)
+and shared presentation for Company single-check and Sales/POS Debug results,
+and POS Debug generation independent of the unused live-scheduling selector)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -1370,6 +1371,28 @@ cases), plus **160 standalone synthetic VM UI cases** (108 Company + 52 Debug).
 Real generator integration skips only the Frappe HTTP type wrapper in the
 site-free fixture; source checks and the existing generator body execute.
 No offline/permission/acceptance guard or deployment restriction was waived.
+
+## Increment 70: POS Debug Background fix, not live scheduling/type migration
+
+- The broken Phase-2 Background branch read an undefined variable solely to
+  calculate an unused private flag. Remove that calculation and nested argument;
+  no public bypass parameter, settings field or fallback is added.
+- Actual customer-B2C/explicit-sample selection, Phase/schema/POS/GPOS validation,
+  existing-artifact notices and explicit tax adapter choice remain. Sales Debug
+  uses its selector and is unchanged; ordinary scheduling/submission is untouched.
+- Replace the old failure characterization with required local Debug success,
+  and cover 168 phase/scheduling/customer/type combinations plus preflight,
+  adapter/read-independence and failure regressions. Existing synthetic signed
+  XML/QR and invoice fields remain; ERP/signing/tax/transport are mocked.
+- No live/site/source/config/assets/schema/Bench/worker/customer or authority
+  action. Existing Debug File replacement/access/reload and full framework/crypto
+  adoption gates remain. See [POS_DEBUG_LOCAL_ROUTING.md](POS_DEBUG_LOCAL_ROUTING.md).
+
+Final guarded combined: **10,873 local + 1,800 private SQL = 12,673 passed in
+143.43 seconds**, across the unchanged twelve private suites (191 new local
+cases plus the repaired former defect observation), with the same **160
+synthetic English/Arabic UI cases**. No transport/site/ownership guard or normal
+preflight was waived. This is not installed ERPNext 16 or authority acceptance.
 
 ## Verification
 

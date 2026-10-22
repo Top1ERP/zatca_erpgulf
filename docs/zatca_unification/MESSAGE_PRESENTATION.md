@@ -109,9 +109,12 @@ the agent does not invoke any real button or authority endpoint.
 Existing Debug generation/attachment policies are not certified safe by message
 consolidation: ignored-permission file replacement and the ordinary reload
 lifecycle still need review. Source inspection also found the old POS Phase-2
-Background branch refers to undefined `bypass_background_check`. The new
-presenter makes this existing returned error visible; it is NOT repaired or
-waived here. POS/Background generation consistency remains an adoption gate.
+Background branch referred to undefined `bypass_background_check`. Increment 69
+made this existing returned error visible but did not repair it. Increment 70
+removes the unused POS selector and its undefined read, preserving the actual
+type/preflight rules; Sales Debug is unchanged. Debug File access/replacement,
+reload and installed framework lifecycle still need review before adoption.
+See [POS_DEBUG_LOCAL_ROUTING.md](POS_DEBUG_LOCAL_ROUTING.md).
 
 ## Verification
 

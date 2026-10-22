@@ -654,6 +654,22 @@ the nested Frappe HTTP type decorator alone is skipped in the site-free generato
 integration fixture. Actual source/generator/acceptance checks remain. No runtime
 guard, permission rule, installed environment or authority request was changed.
 
+Increment70 removes the POS Debug private selector that was unused by its
+generator yet read an undefined bypass variable under Background. Actual B2C/
+sample type selection and Phase/schema/POS/GPOS/buyer/tax preflights remain;
+Sales Debug and ordinary submission/scheduling are unchanged. No new public
+bypass argument, setting, transport, credentials, invoice save or commit.
+Existing Debug File replacement/permissions/reload still require independent
+review before adoption. No installed source/assets/config/schema/Bench/worker/
+customer/authority action. See [POS_DEBUG_LOCAL_ROUTING.md](POS_DEBUG_LOCAL_ROUTING.md).
+
+Increment70 final guarded combined: **10,873 local + 1,800 private SQL = 12,673
+passed in 143.43 seconds**, across the same twelve owned-private SQL suites,
+plus the unchanged **160 synthetic Node VM UI cases**. All new ERP/signing/tax/
+transport observations are mocked; original synthetic artifacts and invoice
+values remain. No guard or preflight was waived, and no real v16/framework/
+cryptographic/authority acceptance is inferred.
+
 Full development and real v15/v16/application/crypto/advance acceptance remain
 unfinished. Remote authority acceptance is a separate unverified gate and cannot
 be inferred or marked complete while actual requests remain prohibited.

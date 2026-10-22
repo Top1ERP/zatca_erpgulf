@@ -37,8 +37,11 @@ the two Company batch checks and retained-event labels. Increment 69 adds the
 Company single-check wrapper and Sales/POS Debug menus with a shared presenter.
 Ordinary invoice/POS submission, legacy direct calls, CSR/CSID and background
 boundaries still require staged adoption; original diagnostic details remain
-unchanged, even when a legacy exception is localized. Debug POS/Background's
-existing undefined bypass selector remains a generation gate, not a message fix.
+unchanged, even when a legacy exception is localized. Increment 70 fixes Debug
+POS/Background's undefined bypass read by removing an unused private selector,
+without changing its actual type selection or Sales Debug. Debug File access/
+replacement and full framework lifecycle review remain adoption gates.
+See [POS_DEBUG_LOCAL_ROUTING.md](POS_DEBUG_LOCAL_ROUTING.md).
 See [MESSAGE_PRESENTATION.md](MESSAGE_PRESENTATION.md).
 
 | Mode | Intended output | Side-effect boundary to enforce |

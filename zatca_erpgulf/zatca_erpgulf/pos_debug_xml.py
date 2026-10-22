@@ -159,7 +159,7 @@ def _debug_call(
             )
 
         # --- Function to generate and attach XML ---
-        def generate_and_attach_xml(invoice_doc, handle_b2c_simplified=True):
+        def generate_and_attach_xml(invoice_doc):
             invoice = xml_tags()
             invoice, uuid1, invoice_doc = salesinvoice_data(
                 invoice, invoice_number, purpose="debug"
@@ -252,9 +252,9 @@ def _debug_call(
             return {"status": "success", "message": DEBUG_CREATED,
                     "file_name": debug_filename, "notices": notices}
 
-        # --- Determine handle_b2c_simplified flag ---
-        handle_b2c_simplified = False
-
+        # Keep Phase-2 POS/GPOS checks and existing-artifact notices. Debug is
+        # local: live submission scheduling does not select its document type.
+        # The generator above already selects B2C or an explicit sample type.
         if resolve_zatca_phase(settings) == PHASE_2_VALUE:
             if field_exists and getattr(pos_invoice_doc, "custom_unique_id", None):
                 if not getattr(pos_invoice_doc, "custom_zatca_pos_name", None):
@@ -262,17 +262,11 @@ def _debug_call(
 
                 if is_gpos_installed and getattr(pos_invoice_doc, "custom_xml", None):
                     notices.append(DEBUG_EXISTING)
-                else:
-                    handle_b2c_simplified = True
             else:
                 if is_qr_and_xml_attached(pos_invoice_doc):
                     notices.append(DEBUG_EXISTING)
-                elif settings.custom_send_invoice_to_zatca == "Background" and not bypass_background_check:
-                    handle_b2c_simplified = True
-                else:
-                    handle_b2c_simplified = False
 
-        return generate_and_attach_xml(pos_invoice_doc, handle_b2c_simplified=handle_b2c_simplified)
+        return generate_and_attach_xml(pos_invoice_doc)
 
     except Exception as e:
         frappe.log_error(traceback.format_exc(), f"Debug XML Error for invoice {invoice_number}")
