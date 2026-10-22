@@ -30,9 +30,12 @@ mock saves and mock HTTP to reproduce these transitions. No remote issue or save
 tenant credential was inspected. This is source evidence, not a diagnosis of any
 particular customer's current certificate.
 
-The current Compliance writer also displays/returns its response body containing
-credential material. Public UI/return/log redaction is a separate release gate;
-this increment's new assessment never exposes that body or its secrets.
+At increment 18, the Compliance writer also displayed/returned its response body
+containing credential material. Increment 73 removes that success popup/return
+and restricts both CSID success results to English metadata with translated UI
+text. Failure/log/trace redaction, saved-field access and lifecycle changes remain
+release gates. This assessment itself never exposes the body or its secrets.
+See [CSID_SUCCESS_PRESENTATION.md](CSID_SUCCESS_PRESENTATION.md).
 
 ## Implemented read-only assessment
 

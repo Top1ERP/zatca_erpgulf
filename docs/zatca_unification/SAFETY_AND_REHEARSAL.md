@@ -706,6 +706,25 @@ lifecycle). The fixed manifest and all resource guards are unchanged. All new
 ERP/crypto/File/transport observations are mocked; there is no acceptance claim
 for actual Desk, installed v16, custom hooks, physical storage or the authority.
 
+Increment73 removes Compliance success response bodies from popup/API return;
+both CSID success paths emit static auth-free English metadata and one translated
+notice only after existing save. Wizard fields show canonical translated results
+read-only. The public JSON-string shape remains but secret-bearing/ID payload
+consumers must migrate. No routing, credential field/activation, ignored-permission
+writer, retry, transport or lifecycle policy is approved by this change. Failure/
+log/trace redaction, saved-field access and existing Company/device auto-save/
+reload remain gates. There is no live site/source/assets/config/schema/worker/
+credential operation or real HTTP/authority request; all new observations use
+synthetic material and mocked transport. See
+[CSID_SUCCESS_PRESENTATION.md](CSID_SUCCESS_PRESENTATION.md).
+
+Increment73 final guarded combined: **11,337 local + 1,800 private SQL = 13,137
+passed in 145.35 seconds**, across the same twelve owned-private SQL suites,
+plus **412 synthetic Node VM cases**, including 80 new CSID/wizard projections.
+There are 44 new local Python cases. No fixed-manifest selection, permission or
+network/site/SQL ownership guard was loosened. No actual certificate or tenant
+credential was used, issued, rotated or inspected.
+
 Full development and real v15/v16/application/crypto/advance acceptance remain
 unfinished. Remote authority acceptance is a separate unverified gate and cannot
 be inferred or marked complete while actual requests remain prohibited.

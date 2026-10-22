@@ -132,6 +132,7 @@ site API inside the VM:
 node zatca_erpgulf/zatca_erpgulf/tests/test_company_compliance_messages.js
 node zatca_erpgulf/zatca_erpgulf/tests/test_debug_messages.js
 node zatca_erpgulf/zatca_erpgulf/tests/test_debug_ui_lifecycle.js
+node zatca_erpgulf/zatca_erpgulf/tests/test_csid_messages.js
 PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py --private-sql
 ```
 
@@ -182,3 +183,11 @@ to refresh metadata; generic uncertain transport asks for attachment review
 first. Raw server data is unchanged. Synthetic UI evidence grows to 332 cases
 (108 Company, 60 Debug menu/message, 164 lifecycle). See
 [DEBUG_UI_LIFECYCLE.md](DEBUG_UI_LIFECYCLE.md); this is not installed Desk proof.
+
+Increment 73 removes raw CSID success material from popup/return. One private
+purpose-only presenter emits English JSON-string metadata and one translated
+notice after save. Wizard result fields display known translated text read-only;
+old/raw replies are not copied. The 80 new VM cases bring standalone UI coverage
+to 412. Failures/logs/traces, credential storage/access/rotation and CSID caller
+save/reload remain separate gates. See
+[CSID_SUCCESS_PRESENTATION.md](CSID_SUCCESS_PRESENTATION.md).

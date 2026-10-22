@@ -53,6 +53,12 @@ See [DEBUG_UI_LIFECYCLE.md](DEBUG_UI_LIFECYCLE.md). Actual browser/File/custom-h
 and installed v15/v16 lifecycle rehearsal remains a separately approved gate.
 See [POS_DEBUG_LOCAL_ROUTING.md](POS_DEBUG_LOCAL_ROUTING.md).
 See [MESSAGE_PRESENTATION.md](MESSAGE_PRESENTATION.md).
+Increment 73 removes raw Compliance success responses from popup/API return and
+uses canonical auth-free success metadata for both CSID purposes; wizard fields
+display translated read-only outcomes. Error/log redaction, general CSID access,
+storage/rotation and existing form save/reload remain independent gates. This is
+not remote Compliance completion or credential lifecycle adoption. See
+[CSID_SUCCESS_PRESENTATION.md](CSID_SUCCESS_PRESENTATION.md).
 
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |

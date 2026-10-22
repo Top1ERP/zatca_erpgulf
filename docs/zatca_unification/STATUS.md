@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and seventy-two bounded increments (Compliance outcomes, dedicated
+Safety preparation and seventy-three bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -63,7 +63,8 @@ and Company batch message aggregation/display-only translation with English reta
 and shared presentation for Company single-check and Sales/POS Debug results,
 and POS Debug generation independent of the unused live-scheduling selector,
 and permissioned/non-destructive shared Sales/POS Debug attachment creation,
-and attachment-only Debug UI updates with saved-form/concurrent-click guards)
+and attachment-only Debug UI updates with saved-form/concurrent-click guards,
+and auth-free CSID success results with display-only wizard result fields)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -1448,6 +1449,33 @@ projections with mocked dependencies. Standalone Node checks passed **332 cases*
 (108 Company + 60 Debug menu/message + 164 lifecycle). Intermediate combined
 runs passed 13,073 and 13,081 before the final integration/link-ID additions.
 No offline, permission, source, SQL ownership or authority guard was relaxed.
+
+## Increment 73: CSID success redaction, not credential lifecycle adoption
+
+- Remove Compliance's raw success-body popup/return. Both CSID paths now return
+  English status/purpose/message JSON strings only and display one translated
+  static success notice after existing persistence completes. No token, secret,
+  certificate, request ID, OTP, CSR or auth material is projected.
+- Keep the public signatures and JSON-string shape; raw-body/ID consumers must
+  migrate. The wizard now consumes only the canonical result contract and shows
+  translated read-only outcome text, never raw credential replies.
+- Existing saved credential/request-ID values, route/auth/acceptance policy,
+  field aliases, ignored-permission writers, saves and retry behavior are not
+  redesigned or approved. Failure/log/trace redaction, protected credential
+  storage/rotation, access controls and non-Debug auto-save/reload remain gates.
+- No site/customer/credential query or write, installed source/assets/config/
+  schema/worker change, real HTTP or authority request. All new issuance and
+  storage observations are synthetic; no v16/browser/crypto acceptance claim.
+
+See [CSID_SUCCESS_PRESENTATION.md](CSID_SUCCESS_PRESENTATION.md).
+
+Final guarded combined: **11,337 local + 1,800 private SQL = 13,137 passed in
+145.35 seconds**, using the same twelve owned-private suites. The 44 added
+Python cases cover 24 successful projections, 12 pre-success parse/save faults
+and eight invalid pure-builder purposes; the two existing writer transition
+cases now also assert auth-free results. Node passed **412 synthetic cases**
+(108 Company + 60 Debug messages + 164 Debug lifecycle + 80 CSID). The fixed
+manifest and offline/source/permission/SQL ownership guards are unchanged.
 
 ## Verification
 

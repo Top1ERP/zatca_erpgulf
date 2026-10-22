@@ -20,6 +20,7 @@ from zatca_erpgulf.zatca_erpgulf.credential_lifecycle import inspect_legacy_cred
 from zatca_erpgulf.zatca_erpgulf.credential_material import CredentialOwner
 from zatca_erpgulf.zatca_erpgulf.credential_snapshot import CredentialSnapshotError, authentication_certificate_der
 from zatca_erpgulf.zatca_erpgulf.api_routing import ApiConfigurationError
+from zatca_erpgulf.zatca_erpgulf.operation_messages import csid_creation_result
 from zatca_erpgulf.zatca_erpgulf.tests.test_api_route_contract import settings
 from zatca_erpgulf.zatca_erpgulf.tests.test_credential_snapshot import basic
 from zatca_erpgulf.zatca_erpgulf.tests.test_credential_selection import materials, boundary, ValidationError
@@ -347,10 +348,13 @@ def test_actual_legacy_csid_writers_reproduce_transition_without_real_http(bound
     post = Mock(side_effect=[response(pair[0], "TEST-COMPLIANCE"), response(pair[1], "TEST-FINAL")])
     monkeypatch.setattr(client.requests, "post", post)
     identity = {"doctype": doc.doctype, "name": doc.name}
-    inspect.unwrap(client.create_csid)(identity, "TC")
+    compliance_result = inspect.unwrap(client.create_csid)(identity, "TC")
+    assert json.loads(compliance_result) == csid_creation_result("compliance")
     assert doc.custom_compliance_request_id_ == "TEST-COMPLIANCE"
     assert doc.custom_basic_auth_from_csid == basic(pair[0])
-    inspect.unwrap(client.production_csid)(identity, "TC")
+    final_result = inspect.unwrap(client.production_csid)(identity, "TC")
+    assert json.loads(final_result) == csid_creation_result("production")
+    assert "PRIVATE-SECRET" not in compliance_result + final_result + str(b.frappe.msgprint.call_args_list)
     assert doc.custom_certificate == pair[1].text
     assert doc.custom_compliance_request_id_ == "TEST-COMPLIANCE"
     assert post.call_count == 2
@@ -365,6 +369,102 @@ def test_actual_legacy_csid_writers_reproduce_transition_without_real_http(bound
     else:
         assert "COMPLIANCE_CERTIFICATE_NOT_STORED" in report.review_codes
     b.frappe.db.commit.assert_not_called()
+
+
+@pytest.fixture
+def csid_writer(boundary, pair, monkeypatch):
+    """Synthetic issuance replies and saved documents; transport never leaves VM."""
+    b = boundary
+    for doc in (b.company, b.device):
+        doc.custom_csr_data = "PRIVATE-CSR"
+        doc.custom_otp = "PRIVATE-OTP"
+        doc.custom_compliance_request_id_ = "PRIVATE-ORIGINAL-REQUEST"
+    b.frappe.publish_realtime = Mock()
+    b.frappe.session = SimpleNamespace(user="TEST-OPERATOR")
+    b.translated = []
+
+    def translate(key):
+        b.translated.append(key)
+        return "DISPLAY:" + key if b.ui_arabic else key
+
+    b.ui_arabic = False
+    monkeypatch.setattr(client, "_", translate)
+    monkeypatch.setattr(client, "get_company_api_route", lambda *args, **kwargs:
+                        SimpleNamespace(environment=b.environment, url="https://example.invalid/compliance"))
+    monkeypatch.setattr(client, "get_compliance_api_url", lambda *args, **kwargs:
+                        "https://example.invalid/production/csids")
+    b.data = {"binarySecurityToken": base64.b64encode(pair[0].text.encode()).decode(),
+              "secret": "PRIVATE-SECRET", "requestID": "PRIVATE-RETURNED-REQUEST"}
+    b.raw_body = json.dumps(b.data)
+    b.reply = SimpleNamespace(status_code=200, headers={}, text=b.raw_body, json=lambda: b.data)
+    b.post = Mock(return_value=b.reply)
+    monkeypatch.setattr(client.requests, "post", b.post)
+    return b
+
+
+@pytest.mark.parametrize("source", ["company", "device"])
+@pytest.mark.parametrize("purpose", ["compliance", "production"])
+@pytest.mark.parametrize("environment", ["Sandbox", "Simulation", "Production"])
+@pytest.mark.parametrize("arabic", [False, True])
+def test_csid_success_exports_only_english_metadata_after_save(csid_writer, pair, source, purpose, environment, arabic):
+    b = csid_writer
+    b.environment, b.ui_arabic = environment, arabic
+    doc = getattr(b, source)
+
+    def saved(**kwargs):
+        assert kwargs == {"ignore_permissions": True}, "Legacy persistence is characterized, not approved"
+        b.frappe.msgprint.assert_not_called()
+
+    doc.save.side_effect = saved
+    operation = client.create_csid if purpose == "compliance" else client.production_csid
+    result = inspect.unwrap(operation)({"doctype": doc.doctype, "name": doc.name}, "TC")
+    canonical = csid_creation_result(purpose)
+    assert type(result) is str and json.loads(result) == canonical
+    prefix = "DISPLAY:" if arabic else ""
+    b.frappe.msgprint.assert_called_once_with({"title": prefix + "CSID Generation Result",
+        "message": prefix + canonical["message"], "indicator": "green"})
+    exported = result + repr(b.frappe.msgprint.call_args_list)
+    for private in (b.raw_body, b.data["binarySecurityToken"], b.data["secret"], b.data["requestID"],
+                    doc.custom_otp, doc.custom_csr_data, doc.custom_private_key):
+        assert private not in exported
+        assert private not in b.translated
+    assert "DISPLAY:" not in result
+    if purpose == "compliance":
+        assert doc.custom_compliance_request_id_ == b.data["requestID"]
+        assert doc.custom_basic_auth_from_csid == basic(pair[0])
+    else:
+        field = "custom_basic_auth_from_production" if source == "company" else "custom_final_auth_csid"
+        assert getattr(doc, field) == basic(pair[0])
+        assert b.post.call_args.kwargs["json"] == {"compliance_request_id": "PRIVATE-ORIGINAL-REQUEST"}
+    doc.save.assert_called_once_with(ignore_permissions=True)
+    assert b.post.call_count == 1
+    b.frappe.db.commit.assert_not_called()
+
+
+@pytest.mark.parametrize("source", ["company", "device"])
+@pytest.mark.parametrize("purpose", ["compliance", "production"])
+@pytest.mark.parametrize("fault", ["save", "missing-token", "missing-secret"])
+def test_csid_success_is_not_announced_before_parsing_and_save(csid_writer, source, purpose, fault):
+    b = csid_writer
+    b.environment = "Production"
+    doc = getattr(b, source)
+    if fault == "save":
+        doc.save.side_effect = ValueError("Synthetic local persistence failure")
+    else:
+        del b.data["binarySecurityToken" if fault == "missing-token" else "secret"]
+        b.reply.text = json.dumps(b.data)
+    operation = client.create_csid if purpose == "compliance" else client.production_csid
+    with pytest.raises(ValidationError):
+        inspect.unwrap(operation)({"doctype": doc.doctype, "name": doc.name}, "TC")
+    b.frappe.msgprint.assert_not_called()
+    assert b.post.call_count == 1
+    b.frappe.db.commit.assert_not_called()
+
+
+@pytest.mark.parametrize("purpose", [None, "", "COMPLIANCE", "PRIVATE-SECRET", [], {}, 1, True])
+def test_csid_metadata_builder_refuses_unknown_purpose_without_reflecting_input(purpose):
+    with pytest.raises(ValueError, match="^Unsupported CSID purpose\\.$"):
+        csid_creation_result(purpose)
 
 
 @pytest.mark.parametrize("source", ["company", "device"])

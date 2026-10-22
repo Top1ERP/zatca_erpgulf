@@ -32,6 +32,7 @@ from zatca_erpgulf.zatca_erpgulf.compliance_result import (
     is_already_completed_response,
 )
 from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
+from zatca_erpgulf.zatca_erpgulf.operation_messages import csid_creation_result
 
 SUPPORTED_INVOICES = ["Sales Invoice", "POS Invoice"]
 
@@ -319,6 +320,21 @@ def get_compliance_api_url(company_abbr, base_url="compliance/invoices", environ
     ).url
 
 
+def _csid_creation_success(purpose):
+    """One translated success notice after save; English auth-free JSON result.
+
+    Do not pass a response body or certificate to this presentation boundary.
+    Preserve the JSON-string return shape used by existing wizard consumers.
+    """
+    result = csid_creation_result(purpose)
+    frappe.msgprint({
+        "title": _("CSID Generation Result"),
+        "message": _(result["message"]),
+        "indicator": "green",
+    })
+    return json.dumps(result, ensure_ascii=False)
+
+
 @frappe.whitelist(allow_guest=False)
 def create_csid(zatca_doc, company_abbr, portal_type=None):
     """creating csid"""
@@ -423,7 +439,6 @@ def create_csid(zatca_doc, company_abbr, portal_type=None):
                     details, request_context
                 )
             )
-        frappe.msgprint(_(str(response.text)))
         data = json.loads(response.text)
 
         concatenated_value = data["binarySecurityToken"] + ":" + data["secret"]
@@ -442,7 +457,7 @@ def create_csid(zatca_doc, company_abbr, portal_type=None):
             company_doc.custom_basic_auth_from_csid = encoded_value
             company_doc.custom_compliance_request_id_ = data["requestID"]
             company_doc.save(ignore_permissions=True)
-        return response.text
+        return _csid_creation_success("compliance")
 
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(_("Error in creating CSID: " + str(e)))
@@ -1519,10 +1534,7 @@ def production_csid(zatca_doc, company_abbr):
 
             company_doc.save(ignore_permissions=True)
 
-        return json.dumps(
-            {"status": "SUCCESS", "request_id": data.get("requestID")},
-            ensure_ascii=False,
-        )
+        return _csid_creation_success("production")
 
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(_("Error in production CSID formation: " + str(e)))

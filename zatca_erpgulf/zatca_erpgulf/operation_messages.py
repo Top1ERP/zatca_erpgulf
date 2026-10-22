@@ -20,6 +20,21 @@ DEBUG_ACCESS_DENIED = "You do not have permission to create a debug XML attachme
 DEBUG_ATTACHMENT_REVIEW = "Debug XML attachment could not be confirmed. Review the source and existing files before retrying."
 
 
+def csid_creation_result(purpose):
+    """Success metadata only; never accept a response, token or request ID.
+
+    A saved local result is not invoice acceptance, remote Compliance completion
+    or a credential-activation/rotation authorization.
+    """
+    messages = {
+        "compliance": "Compliance CSID generated and saved successfully.",
+        "production": "Final CSID generated and saved successfully.",
+    }
+    if type(purpose) is not str or purpose not in messages:
+        raise ValueError("Unsupported CSID purpose.")
+    return {"status": "SUCCESS", "purpose": purpose, "message": messages[purpose]}
+
+
 @contextmanager
 def mute_operation_messages(runtime):
     """Mute only child popups; exceptions still raise and parents keep ownership.

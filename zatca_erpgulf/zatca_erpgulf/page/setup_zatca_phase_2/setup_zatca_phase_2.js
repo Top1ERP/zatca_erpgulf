@@ -119,7 +119,7 @@ frappe.pages["setup-zatca-phase-2"].on_page_load = function (wrapper) {
 		{
 			fieldname: "basic_auth_from_csid",
 			context: "dialog",
-			text: "Provide the basic authentication credentials from your CSID.",
+			text: __("Only the CSID creation result is displayed here. Credentials remain in the saved settings."),
 			links: ["https://example.com/basic-auth-from-csid-help"],
 		},
 		{
@@ -573,10 +573,10 @@ frappe.pages["setup-zatca-phase-2"].on_page_load = function (wrapper) {
 														callback: function (response) {
 															if (response && response.message) {
 															
-																const encodedString = response.message.trim();
+																const resultMessage = zatca_csid_result_message(response.message, false);
 																
 																if (current_dialog) {
-																	current_dialog.set_value("basic_auth_from_csid", encodedString);
+																	current_dialog.set_value("basic_auth_from_csid", resultMessage);
 																	current_dialog.refresh();
 																} else {
 																	frappe.msgprint(
@@ -608,8 +608,9 @@ frappe.pages["setup-zatca-phase-2"].on_page_load = function (wrapper) {
 
 				{
 					fieldname: "basic_auth_from_csid",
-					label: __("Basic Auth from CSID"),
+					label: __("Compliance CSID Result"),
 					fieldtype: "Long Text",
+					read_only: 1,
 				},
 			],
 			primary_action_label: __("Next"),
@@ -790,10 +791,10 @@ frappe.pages["setup-zatca-phase-2"].on_page_load = function (wrapper) {
 											callback: function (response) {
 												if (response && response.message) {
 
-													const encodedString = response.message.trim();
+													const resultMessage = zatca_csid_result_message(response.message, true);
 													
 													if (current_dialog) {
-														current_dialog.set_value("final_auth_csid", encodedString);
+														current_dialog.set_value("final_auth_csid", resultMessage);
 														current_dialog.refresh();
 												
 													} else {
@@ -818,8 +819,9 @@ frappe.pages["setup-zatca-phase-2"].on_page_load = function (wrapper) {
 
 				{
 					fieldname: "final_auth_csid",
-					label: __("Final Auth CSID"),
+					label: __("Final CSID Result"),
 					fieldtype: "Long Text",
+					read_only: 1,
 				},
 			],
 			primary_action_label: __("Next"),

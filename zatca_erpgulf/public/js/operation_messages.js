@@ -1,4 +1,23 @@
 // Presentation only: never translate or rewrite a raw authority diagnostic.
+function zatca_csid_result_message(value, production) {
+    const purpose = production ? "production" : "compliance";
+    const messages = {
+        compliance: ["Compliance CSID generated and saved successfully.",
+            __("Compliance CSID generated and saved successfully.")],
+        production: ["Final CSID generated and saved successfully.",
+            __("Final CSID generated and saved successfully.")]
+    };
+    // Do not copy an old/raw response into a wizard credential field. Parsing
+    // does not authorize progression or replace the server's saved settings.
+    let result;
+    try { result = typeof value === "string" ? JSON.parse(value) : value; }
+    catch (error) { result = null; }
+    const expected = messages[purpose];
+    return result && typeof result === "object" && result.status === "SUCCESS" &&
+        result.purpose === purpose && result.message === expected[0] ? expected[1] :
+        __("CSID creation was not confirmed. Review saved settings before trying again.");
+}
+
 function zatca_compliance_summary(response, automatic, single = false) {
     const escape = value => frappe.utils.escape_html(String(value ?? ""));
     // Explicit keys are discoverable by Frappe's translation extractor.

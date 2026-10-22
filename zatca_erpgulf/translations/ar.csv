@@ -734,3 +734,10 @@ The debug result belongs to another form. The current form was not refreshed.,ن
 The invoice form is no longer active. Reopen it before generating Debug XML.,نموذج الفاتورة لم يعد نشطًا. أعد فتحه قبل إنشاء XML للفحص التقني.
 Save the invoice before generating Debug XML. No request was sent.,احفظ الفاتورة قبل إنشاء XML للفحص التقني. لم يُرسل أي طلب.
 The Debug request did not complete visibly. Review existing attachments before trying again.,لم يتأكد اكتمال طلب الفحص التقني في الواجهة. راجع المرفقات الموجودة قبل المحاولة مجددًا.
+CSID Generation Result,نتيجة إنشاء شهادة CSID
+Compliance CSID generated and saved successfully.,تم إنشاء شهادة CSID لفحص الامتثال وحفظها بنجاح.
+Final CSID generated and saved successfully.,تم إنشاء شهادة CSID النهائية وحفظها بنجاح.
+CSID creation was not confirmed. Review saved settings before trying again.,لم يتأكد إنشاء شهادة CSID. راجع الإعدادات المحفوظة قبل المحاولة مجددًا.
+Only the CSID creation result is displayed here. Credentials remain in the saved settings.,تُعرض هنا نتيجة إنشاء شهادة CSID فقط. تبقى بيانات الاعتماد في الإعدادات المحفوظة.
+Compliance CSID Result,نتيجة شهادة CSID لفحص الامتثال
+Final CSID Result,نتيجة شهادة CSID النهائية
