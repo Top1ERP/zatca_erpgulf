@@ -534,7 +534,8 @@ pair preservation. Existing plaintext diagnostic-log read/export/retention scope
 also needs review before adoption; metadata-only output is not encryption or a
 Company-scoped log ACL. No existing log permission policy is silently changed.
 
-Increment63 adds fixed/rechecked two-second SESSION row/metadata lock waits ONLY
+Increment63 adds fixed/rechecked SESSION row/metadata lock waits (now one second,
+reduced from two seconds at the user's request) ONLY
 on newly owned connections from the optional concrete Unix provider, after peer
 validation and before registration locking. Wrong/changed settings fail closed;
 no GLOBAL/ambient policy change, reset, reconnect, schema or live registration.
@@ -543,10 +544,14 @@ blocking parent's pending work or the committed original pair, and no new send.
 Whole transaction deadlines, source-neutral diagnostic isolation, arbitrary
 factory policy and Company-scoped log read/export/retention remain unfinished;
 the existing System Manager log ACL was not changed. No installed source/config/
-schema/assets/Bench/worker/customer/authority action occurred. The guarded run
+schema/assets/Bench/worker/customer/authority action occurred. The original guarded run
 passed **8,972 local + 1,228 private SQL = 10,200 cases in 132.20 seconds** across
 the same twelve private suites, adding thirty local and sixteen private cases.
 No installed v16/ORM/hook/SDK or authority acceptance claim follows.
+
+The user-requested one-second policy rerun passed the same **10,200 cases in
+123.72 seconds**, under the offline guard with fixture-owned Unix SQL only.
+No working environment setting or installed application was modified.
 
 These stages are future gates, not actions executed or approved by this increment.
 Full development and real v15/v16/application/crypto/advance acceptance remain

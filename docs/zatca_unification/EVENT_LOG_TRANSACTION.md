@@ -306,7 +306,7 @@ authority acceptance remain unverified; no working environment was changed.
 ## Bounded owned lock waits, not completed isolation — increment 63
 
 The optional [concrete Unix provider](PRIMARY_RECEIPT_PROVIDER.md) now sets and
-rechecks SESSION-only row/metadata lock waits of two seconds on each freshly
+rechecks SESSION-only row/metadata lock waits of one second on each freshly
 owned handle before any registration lock. Wrong or changed settings fail closed,
 without GLOBAL changes, reconnect or automatic reset. Other injected factories
 are not globally constrained; this provider is still not registered in runtime.

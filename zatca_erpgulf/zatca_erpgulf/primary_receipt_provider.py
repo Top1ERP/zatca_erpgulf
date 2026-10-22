@@ -18,7 +18,7 @@ from .credential_bundle_access import CredentialStorageScope
 from .issuance_candidate import _canonical_uuid
 
 
-LOCK_WAIT_SECONDS = 2
+LOCK_WAIT_SECONDS = 1
 
 
 class ReceiptProviderError(ValueError):
@@ -122,8 +122,8 @@ def _set_owned_lock_waits(raw, binding):
     """
     _peer_pid(raw, binding)
     with raw.cursor() as cursor:
-        cursor.execute("SET SESSION innodb_lock_wait_timeout=2")
-        cursor.execute("SET SESSION lock_wait_timeout=2")
+        cursor.execute("SET SESSION innodb_lock_wait_timeout=1")
+        cursor.execute("SET SESSION lock_wait_timeout=1")
 
 
 def _check_connection(raw, binding):

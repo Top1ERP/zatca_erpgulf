@@ -729,7 +729,7 @@ def test_provider_sets_only_owned_waits_and_never_global_or_control_session(qr_s
     before = session_and_global_waits(control)
     owned = case.provider(case.scope)
     try:
-        assert session_and_global_waits(owned) == (2, 2, *before[2:])
+        assert session_and_global_waits(owned) == (1, 1, *before[2:])
         assert session_and_global_waits(control) == before
     finally:
         owned.rollback()

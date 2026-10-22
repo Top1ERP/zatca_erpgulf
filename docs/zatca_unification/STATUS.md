@@ -1188,7 +1188,7 @@ branches and credential-context differences are recorded in
 
 ## Increment 63: owned-session lock waits, not completed diagnostic isolation
 
-- The optional concrete Unix provider validates its peer and sets fixed two-second
+- The optional concrete Unix provider validates its peer and sets fixed one-second
   SESSION row/metadata lock waits before registration locking. Exact read-back is
   required before every cursor/commit. Drift/unreadable settings reject/poison
   rather than reset/reconnect; acquisition errors attempt owned rollback/close.
@@ -1199,7 +1199,7 @@ branches and credential-context differences are recorded in
   parent's pending work or modifying the committed original pair. No second
   observer/HTTP call occurs. Individual lock waits are not a whole-transaction
   deadline or permission to retry after uncertainty.
-- Final guarded combined: **8,972 local + 1,228 private SQL = 10,200 passed in
+- Original two-second-policy guarded combined: **8,972 local + 1,228 private SQL = 10,200 passed in
   132.20 seconds**, across the same twelve private suites (30 local + 16 private
   additions). Local-only passed 8,972 in 61.78 seconds. No failing guard was waived.
 - Source-neutral diagnostic transaction isolation, all-factory enforcement,
@@ -1209,6 +1209,13 @@ branches and credential-context differences are recorded in
 - No installed source/config/schema/assets/Bench/worker/customer/authority action,
   including Sandbox/Simulation; no invoice/advance/GL/VAT/PIH/ICV/QR/crypto or
   acceptance/replay policy change. See [PRIMARY_RECEIPT_PROVIDER.md](PRIMARY_RECEIPT_PROVIDER.md).
+
+The user's follow-up reduces both owned-session waits from two seconds to one
+second in the isolated development worktree only. This does not promise a
+one-second total operation deadline; driver timeouts and all adoption gates remain.
+Guarded combined rerun: **8,972 local + 1,228 private SQL = 10,200 passed in
+123.72 seconds**, including real registration/source contention and unchanged
+control-session/GLOBAL values. No production or authority action occurred.
 
 ## Verification
 

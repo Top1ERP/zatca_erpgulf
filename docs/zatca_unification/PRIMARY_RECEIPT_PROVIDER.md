@@ -33,7 +33,7 @@ reject pickle. These are protected internal Python dependencies, not web JSON.
    timeouts, local infile disabled and no default-file discovery. There is no
    arbitrary raw connection factory, ambient Frappe handle, DSN discovery,
    TCP/TLS fallback, ping or reconnect.
-   Increment63 validates the owned peer and sets fixed SESSION-only two-second
+   Increment63 validates the owned peer and sets fixed SESSION-only one-second
    row/metadata lock waits before the first registration lock; details below.
 4. On the owned connection it rechecks the socket, AF_UNIX peer pathname and
    Linux SO_PEERCRED process/UID, then reads DATABASE(), server ID, session
@@ -107,10 +107,10 @@ fictional-client acceptance still precede any active-client adoption.
 
 ## Owned session lock waits — increment 63 (2026-10-22)
 
-The optional concrete Unix provider now sets `innodb_lock_wait_timeout=2` and
-`lock_wait_timeout=2` ONLY on its directly created fresh owned connection, after
+The optional concrete Unix provider now sets `innodb_lock_wait_timeout=1` and
+`lock_wait_timeout=1` ONLY on its directly created fresh owned connection, after
 kernel peer validation and BEFORE the first registration `FOR UPDATE`. It reads
-back both session variables and requires an exact two-int (2,2) result before
+back both session variables and requires an exact two-int (1,1) result before
 continuing to SQL target/session/registration checks. No GLOBAL setting, ambient
 Frappe handle, configured site, operational service or server policy is changed.
 The fixed connect/read/write timeouts remain five seconds.
@@ -128,7 +128,7 @@ lock timeout ordinarily rolls back the statement, not the entire transaction.
 Metadata waits can occur multiple times within one statement. See the primary
 [InnoDB variable reference](https://mariadb.com/docs/server/server-usage/storage-engines/innodb/innodb-system-variables)
 and [server variable reference](https://mariadb.com/docs/server/server-management/variables-and-modes/server-system-variables).
-Thus two seconds is NOT an overall transaction/wall-clock deadline, universal
+Thus one second is NOT an overall transaction/wall-clock deadline, universal
 statement cancellation or proof that an earlier write did not occur. Existing
 reviewed service owners must still rollback/close after failure and retain the
 exact original recovery input. No automatic replay is added.
@@ -152,8 +152,22 @@ parent's pending change under its own explicit commit/rollback, and preserves
 the independent exact original pair without a new observer. Metadata settings
 are read-back/drift tested; this is not a complete metadata-lock/DDL race matrix.
 
-Final guarded combined evidence: **8,972 local + 1,228 private SQL = 10,200 passed
+Original increment63 guarded combined evidence (two-second policy): **8,972 local + 1,228 private SQL = 10,200 passed
 in 132.20 seconds**, across the same twelve private suites. The local-only run
 passed 8,972 in 61.78 seconds. No failed guard/ownership assertion was relaxed.
 All SQL is on newly owned temporary servers with synthetic data. No installed
 v16/ORM/hook/SDK/authority acceptance or working environment change is established.
+
+### User-requested shorter wait (2026-10-22)
+
+The current policy reduces both owned-session lock waits from two seconds to one
+second, without reducing driver I/O timeouts or changing any working environment.
+Synthetic read-back/drift cases require integer `1`, reject boolean/float/string
+lookalikes and reject the former integer `2`. Native tests require `(1,1)` on the
+owned session while preserving control-session and GLOBAL values. The same real
+registration/source contention cases must still fail safely with owned cleanup,
+no parent transaction mutation and no retry or authority request.
+
+Guarded combined rerun with the one-second policy: **8,972 local + 1,228 private
+SQL = 10,200 passed in 123.72 seconds**, with the offline guard active and only
+fixture-owned Unix SQL permitted. The installed application remains unchanged.

@@ -37,9 +37,9 @@ def scenario(monkeypatch):
     raw._sock = SimpleNamespace(family=socket.AF_UNIX, getpeername=Mock(return_value=selected.unix_socket),
         getsockopt=Mock(return_value=struct.pack("iII", 42, 1000, 1000)))
     case = SimpleNamespace(binding=selected, raw=raw, cursor=cursor, target=(selected.database, 1, 0, 123),
-        registration=(SCOPE.site, REGISTRATION), waits=(2, 2))
+        registration=(SCOPE.site, REGISTRATION), waits=(1, 1))
     def execute(sql, values=None):
-        if sql in ("SET SESSION innodb_lock_wait_timeout=2", "SET SESSION lock_wait_timeout=2"):
+        if sql in ("SET SESSION innodb_lock_wait_timeout=1", "SET SESSION lock_wait_timeout=1"):
             pass  # Read-back result is independently supplied for drift/error tests.
         elif sql == "SELECT @@session.innodb_lock_wait_timeout,@@session.lock_wait_timeout":
             cursor.fetchone.return_value = case.waits
@@ -265,7 +265,7 @@ def test_no_automatic_installation_dispatch_or_framework_config_discovery():
 def test_session_waits_are_set_before_any_registration_lock_and_never_committed(scenario):
     owned = scenario.service(SCOPE)
     statements = [call.args[0] for call in scenario.cursor.execute.call_args_list]
-    assert statements[:3] == ["SET SESSION innodb_lock_wait_timeout=2", "SET SESSION lock_wait_timeout=2",
+    assert statements[:3] == ["SET SESSION innodb_lock_wait_timeout=1", "SET SESSION lock_wait_timeout=1",
         "SELECT @@session.innodb_lock_wait_timeout,@@session.lock_wait_timeout"]
     assert all("GLOBAL" not in sql for sql in statements)
     assert statements.index("SELECT @@session.innodb_lock_wait_timeout,@@session.lock_wait_timeout") < next(
@@ -274,7 +274,7 @@ def test_session_waits_are_set_before_any_registration_lock_and_never_committed(
     owned.close()
 
 
-@pytest.mark.parametrize("waits", [None, (), (2,), [2, 2], (True, 2), (2, False), ("2", 2), (2.0, 2), (0, 2), (2, 0), (3, 2), (2, 3)])
+@pytest.mark.parametrize("waits", [None, (), (1,), [1, 1], (True, 1), (1, False), ("1", 1), (1.0, 1), (0, 1), (1, 0), (2, 1), (1, 2)])
 def test_incorrect_or_unreadable_lock_wait_policy_fails_acquisition_with_owned_cleanup(scenario, waits):
     scenario.waits = waits
     with pytest.raises(provider.ReceiptProviderError, match="^receipt_provider_acquisition$") as raised:
@@ -287,7 +287,7 @@ def test_incorrect_or_unreadable_lock_wait_policy_fails_acquisition_with_owned_c
 
 
 @pytest.mark.parametrize("operation", ["cursor", "commit"])
-@pytest.mark.parametrize("waits", [(0, 2), (2, 0), (5, 2), (2, 5)])
+@pytest.mark.parametrize("waits", [(0, 1), (1, 0), (2, 1), (1, 2)])
 def test_changed_waits_poison_owned_handle_without_reset_reconnect_or_retry(scenario, operation, waits):
     owned = scenario.service(SCOPE)
     before_sets = sum(call.args[0].startswith("SET SESSION") for call in scenario.cursor.execute.call_args_list)
@@ -303,7 +303,7 @@ def test_changed_waits_poison_owned_handle_without_reset_reconnect_or_retry(scen
     owned.close()
 
 
-@pytest.mark.parametrize("statement", ["SET SESSION innodb_lock_wait_timeout=2", "SET SESSION lock_wait_timeout=2",
+@pytest.mark.parametrize("statement", ["SET SESSION innodb_lock_wait_timeout=1", "SET SESSION lock_wait_timeout=1",
     "SELECT @@session.innodb_lock_wait_timeout,@@session.lock_wait_timeout"])
 @pytest.mark.parametrize("error_type", [RuntimeError, KeyboardInterrupt, SystemExit])
 def test_wait_configuration_or_probe_error_always_cleans_owned_acquisition(scenario, statement, error_type):
