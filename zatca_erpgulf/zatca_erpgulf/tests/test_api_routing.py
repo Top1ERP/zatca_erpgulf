@@ -54,6 +54,7 @@ def routing(monkeypatch):
         custom_compliance_request_id_="mock-compliance-request",
     )
     frappe = SimpleNamespace(
+        flags={},
         get_doc=Mock(return_value=company), throw=fail, ValidationError=ValidationError,
         db=SimpleNamespace(get_value=Mock(return_value=company.name)),
         publish_realtime=Mock(), session=SimpleNamespace(user="TEST USER"), msgprint=Mock(),
@@ -115,7 +116,7 @@ def test_invalid_csid_environment_never_sends_otp(routing, monkeypatch, portal):
     company.custom_select = ""
     post = Mock(side_effect=AssertionError("Must not send OTP"))
     monkeypatch.setattr(sign_invoice_first.requests, "post", post)
-    with pytest.raises(ValidationError, match="Select a valid ZATCA environment"):
+    with pytest.raises(ValidationError, match="CSID preparation failed before the request was started"):
         inspect.unwrap(sign_invoice_first.create_csid)(
             {"doctype": "Company", "name": company.name}, "TC", portal_type=portal,
         )
@@ -180,7 +181,8 @@ def test_missing_environment_blocks_requests_with_existing_credentials(routing, 
     monkeypatch.setattr(sign_invoice_first.requests, "request", request)
     monkeypatch.setattr(sign_invoice_first.requests, "post", request)
     monkeypatch.setattr(sign_invoice_first, "xml_base64_decode", lambda *args: "MOCK_XML")
-    with pytest.raises(ValidationError, match="Select a valid ZATCA environment"):
+    message = "Select a valid ZATCA environment" if operation == "compliance" else "CSID preparation failed before the request was started"
+    with pytest.raises(ValidationError, match=message):
         if operation == "compliance":
             sign_invoice_first.compliance_api_call("uuid", "hash", "unused.xml", "TC", None)
         else:

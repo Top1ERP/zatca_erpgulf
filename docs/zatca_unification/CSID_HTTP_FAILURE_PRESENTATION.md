@@ -73,6 +73,11 @@ saved-field/endpoint access, form auto-save/reload, protected raw-receipt custod
 log read/export/retention and credential epochs/rotation remain release gates.
 No general log-security or CSID workflow-completion claim is made.
 
+Increment 75 separately introduces that local/transport-stage boundary and
+best-effort progress cleanup; see [CSID_LOCAL_OUTCOMES.md](CSID_LOCAL_OUTCOMES.md).
+The above limits describe increment 74, not a claim that the newer boundary
+certifies storage, logs, client lifecycle or authority acceptance.
+
 ## Offline evidence
 
 The unchanged guarded manifest already selects the credential lifecycle and

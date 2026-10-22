@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and seventy-four bounded increments (Compliance outcomes, dedicated
+Safety preparation and seventy-five bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -65,7 +65,8 @@ and POS Debug generation independent of the unused live-scheduling selector,
 and permissioned/non-destructive shared Sales/POS Debug attachment creation,
 and attachment-only Debug UI updates with saved-form/concurrent-click guards,
 and auth-free CSID success results with display-only wizard result fields,
-and allowlisted single-popup CSID HTTP-failure diagnostics)
+and allowlisted single-popup CSID HTTP-failure diagnostics,
+and explicit CSID local/transport outcome presentation with progress cleanup)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -1506,6 +1507,38 @@ destination/OTP/auth/environment/no-save checks. Standalone Node checks retain
 **412 synthetic cases**. No manifest or offline/permission/SQL guard is relaxed.
 The final stable-source local recheck also passed **11,467 cases in 73.09
 seconds**, after the fixture resource-close/readability and docstring cleanup.
+
+## Increment 75: CSID local faults without raw exception exports
+
+- Keep the public signatures, split private workers, and share one explicit
+  attempt/UI boundary. Record only transport/response/save/overlay observations,
+  not secrets, remote acceptance, durable commit or retry authority.
+- Replace raw generic/transport/local failure text with canonical English stage
+  metadata and Arabic display. Child messages are muted, flags restored exactly
+  and parent messages/language preserved. Public errors leave caught raw contexts.
+- Attempt progress cleanup in finally, including cancellation paths. A cleanup
+  fault preserves known HTTP/local failure metadata and adds a static notice;
+  post-save/presentation faults require local review, not automatic regeneration.
+- Never undo partial hook/commit/output effects or claim atomic single-dialog
+  behavior across arbitrary presentation hooks. No retry, credential cleanup,
+  helper commit/rollback, new log writer or live connection is introduced.
+- Keep route/auth/environment/save/VAT behavior and HTTP rejection policy; local
+  configuration messages become coarse preparation review. Existing ignored-
+  permission writers, saved access, client save/reload and complete framework
+  log/snapshot/custody/lifecycle controls remain gates.
+- All work is in development. No installed assets/source/config/schema/worker/
+  site/customer/credential or authority operation. See
+  [CSID_LOCAL_OUTCOMES.md](CSID_LOCAL_OUTCOMES.md).
+
+Final guarded combined: **11,656 local + 1,800 private SQL = 13,456 passed in
+143.97 seconds**, across the same twelve owned-private SQL suites. The new
+reviewed local-outcome suite adds 189 synthetic cases: 27 progress projections/
+invalid states, 88 execution faults, 12 cleanup faults, 18 cancellations, eight
+parent mute cases, two early returns, 28 preflight cases, four opaque errors and
+two already-emitted presentation effects. The earlier compatibility-only local
+run passed 11,467 cases in 73.41 seconds. Node checks remain **412 synthetic
+cases**. The fixed manifest adds only this reviewed suite; no ownership/network/
+site/permission or transport guard is weakened.
 
 ## Verification
 

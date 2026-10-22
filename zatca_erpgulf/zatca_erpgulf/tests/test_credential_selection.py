@@ -92,6 +92,7 @@ def boundary(monkeypatch, materials):
         return docs[doctype, name]
 
     frappe = SimpleNamespace(
+        flags={},
         get_doc=Mock(side_effect=get_doc), throw=fail, ValidationError=ValidationError,
         db=SimpleNamespace(get_value=Mock(return_value="A"), commit=Mock()), msgprint=Mock(),
     )

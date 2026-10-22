@@ -32,7 +32,10 @@ from zatca_erpgulf.zatca_erpgulf.compliance_result import (
     is_already_completed_response,
 )
 from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
-from zatca_erpgulf.zatca_erpgulf.operation_messages import csid_creation_result, CSIDRequestRejected
+from zatca_erpgulf.zatca_erpgulf.operation_messages import (
+    csid_creation_result, CSIDRequestRejected, CSIDProgress, csid_local_failure,
+    CSID_PROGRESS_REVIEW, mute_operation_messages,
+)
 
 SUPPORTED_INVOICES = ["Sales Invoice", "POS Invoice"]
 
@@ -335,8 +338,8 @@ def _csid_creation_success(purpose):
     return json.dumps(result, ensure_ascii=False)
 
 
-def _raise_csid_rejection(result):
-    """One localized HTTP-failure popup, outside the caught exception context.
+def _raise_csid_failure(result):
+    """One localized failure popup, outside the caught exception context.
 
     No request ID, endpoint, response text or credential reaches this boundary.
     No log/commit/retry or speculative cleanup follows the received response.
@@ -344,111 +347,148 @@ def _raise_csid_rejection(result):
     message = _(result["message"])
     if result["http_status"] is not None:
         message += "<br>" + _("HTTP status") + ": " + str(result["http_status"])
+    for notice in result.get("notices", ()):
+        message += "<br>" + _(notice)
     frappe.throw(message, title=_("CSID Generation Failed"))
+
+
+def _run_csid_operation(purpose, operation, *args):
+    """Own one attempt and its UI boundary, never a receipt or transaction.
+
+    Child popups are muted request-locally; parent flags/messages/language stay
+    owned by their caller. Do not stringify/log exceptions or retry after faults.
+    Cleanup targets only the progress display, not saved/physical credentials.
+    """
+    progress = CSIDProgress()
+    failure = None
+    try:
+        try:
+            with mute_operation_messages(frappe):
+                operation(progress, *args)
+        except CSIDRequestRejected as error:
+            failure = error.result
+        except Exception:
+            failure = csid_local_failure(purpose, progress)
+    finally:
+        if progress.overlay_started:
+            try:
+                with mute_operation_messages(frappe):
+                    frappe.publish_realtime("hide_gif", user=frappe.session.user)
+            except Exception:
+                if failure is None:
+                    failure = csid_local_failure(purpose, progress)
+                failure = {**failure, "notices": [CSID_PROGRESS_REVIEW]}
+    if failure is None and not progress.save_completed:
+        failure = csid_local_failure(purpose, progress)
+    # No caught raw exception or response is attached to the public failure.
+    if failure is not None:
+        _raise_csid_failure(failure)
+        return None
+    try:
+        return _csid_creation_success(purpose)
+    except Exception:
+        failure = csid_local_failure(purpose, progress)
+    _raise_csid_failure(failure)
 
 
 @frappe.whitelist(allow_guest=False)
 def create_csid(zatca_doc, company_abbr, portal_type=None):
-    """creating csid"""
-    try:
-        if isinstance(zatca_doc, str):
-            zatca_doc = json.loads(zatca_doc)
-        # frappe.msgprint(f"Using OTP (Company): {zatca_doc}")
-        # Validate zatca_doc structure
-        if (
-            not isinstance(zatca_doc, dict)
-            or "doctype" not in zatca_doc
-            or "name" not in zatca_doc
-        ):
-            frappe.throw(
-                _("Invalid 'zatca_doc' format. Must include 'doctype' and 'name'.")
-            )
-        # Fetch the document based on doctype and name
-        doc = frappe.get_doc(zatca_doc.get("doctype"), zatca_doc.get("name"))
-        if doc.doctype == "ZATCA Multiple Setting":
-            multiple_setting_doc = frappe.get_doc("ZATCA Multiple Setting", doc.name)
-            csr_data_str = multiple_setting_doc.get("custom_csr_data", "")
-        elif doc.doctype == "Company":
-            company_name = frappe.db.get_value(
-                "Company", {"abbr": company_abbr}, "name"
-            )
+    """Create once; public compatibility signature and redacted UI boundary."""
+    return _run_csid_operation("compliance", _create_csid, zatca_doc, company_abbr, portal_type)
 
-            company_doc = frappe.get_doc("Company", company_name)
-            csr_data_str = company_doc.get("custom_csr_data", "")
 
-            # frappe.msgprint(f"Using OTP (Company): {csr_values}")
-        else:
-            frappe.throw(_("Unsupported document type for CSR creation."))
-
-        csr_contents = csr_data_str.strip()
-
-        if not csr_contents:
-            frappe.throw(_(f"No valid CSR data found for company {company_name}"))
-
-        payload = json.dumps({"csr": csr_contents})
-        # frappe.msgprint(f"Using OTP: {company_doc.custom_otp}")
-        if doc.doctype == "ZATCA Multiple Setting":
-            otp = str(multiple_setting_doc.get("custom_otp", "") or "").strip()
-            # frappe.msgprint(f"Using OTP (Multiple Setting): {csr_values}")
-        elif doc.doctype == "Company":
-            otp = str(company_doc.get("custom_otp", "") or "").strip()
-
-            # frappe.msgprint(f"Using OTP (Company): {csr_values}")
-        else:
-            frappe.throw(_("no otp."))
-        headers = {
-            "accept": "application/json",
-            "OTP": otp,
-            "Accept-Version": "V2",
-            "Content-Type": "application/json",
-        }
-
-        route = get_company_api_route(
-            company_abbr, "compliance", environment=portal_type, onboarding_only=True,
+def _create_csid(progress, zatca_doc, company_abbr, portal_type):
+    """Legacy Compliance writer; no public message, retry or transaction owner."""
+    if isinstance(zatca_doc, str):
+        zatca_doc = json.loads(zatca_doc)
+    # Validate zatca_doc structure
+    if (
+        not isinstance(zatca_doc, dict)
+        or "doctype" not in zatca_doc
+        or "name" not in zatca_doc
+    ):
+        frappe.throw(
+            _("Invalid 'zatca_doc' format. Must include 'doctype' and 'name'.")
         )
-        api_url = route.url
-        frappe.publish_realtime(
-            "show_gif",
-            {"gif_url": "/assets/zatca_erpgulf/js/loading.gif"},
-            user=frappe.session.user,
+    # Fetch the document based on doctype and name
+    doc = frappe.get_doc(zatca_doc.get("doctype"), zatca_doc.get("name"))
+    if doc.doctype == "ZATCA Multiple Setting":
+        multiple_setting_doc = frappe.get_doc("ZATCA Multiple Setting", doc.name)
+        csr_data_str = multiple_setting_doc.get("custom_csr_data", "")
+    elif doc.doctype == "Company":
+        company_name = frappe.db.get_value(
+            "Company", {"abbr": company_abbr}, "name"
         )
-        response = requests.post(
-            url=api_url,
-            headers=headers,
-            data=payload,
-            timeout=300,
-        )
-        frappe.publish_realtime("hide_gif", user=frappe.session.user)
 
-        if response.status_code != 200:
-            raise CSIDRequestRejected("compliance", response.status_code, response.text)
-        data = json.loads(response.text)
+        company_doc = frappe.get_doc("Company", company_name)
+        csr_data_str = company_doc.get("custom_csr_data", "")
 
-        concatenated_value = data["binarySecurityToken"] + ":" + data["secret"]
-        encoded_value = base64.b64encode(concatenated_value.encode()).decode()
-        if doc.doctype == "ZATCA Multiple Setting":
-            multiple_setting_doc.custom_certficate = base64.b64decode(
-                data["binarySecurityToken"]
-            ).decode("utf-8")
-            multiple_setting_doc.custom_basic_auth_from_csid = encoded_value
-            multiple_setting_doc.custom_compliance_request_id_ = data["requestID"]
-            multiple_setting_doc.save(ignore_permissions=True)
-        elif doc.doctype == "Company":
-            company_doc.custom_certificate = base64.b64decode(
-                data["binarySecurityToken"]
-            ).decode("utf-8")
-            company_doc.custom_basic_auth_from_csid = encoded_value
-            company_doc.custom_compliance_request_id_ = data["requestID"]
-            company_doc.save(ignore_permissions=True)
-        return _csid_creation_success("compliance")
+    else:
+        frappe.throw(_("Unsupported document type for CSR creation."))
 
-    except CSIDRequestRejected as error:
-        rejection = error.result
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(_("Error in creating CSID: " + str(e)))
-        return None
-    # Raise after leaving the exception handler: no raw response traceback chain.
-    _raise_csid_rejection(rejection)
+    csr_contents = csr_data_str.strip()
+
+    if not csr_contents:
+        frappe.throw(_("No valid CSR data found in the saved settings."))
+
+    payload = json.dumps({"csr": csr_contents})
+    if doc.doctype == "ZATCA Multiple Setting":
+        otp = str(multiple_setting_doc.get("custom_otp", "") or "").strip()
+    elif doc.doctype == "Company":
+        otp = str(company_doc.get("custom_otp", "") or "").strip()
+
+    else:
+        frappe.throw(_("no otp."))
+    headers = {
+        "accept": "application/json",
+        "OTP": otp,
+        "Accept-Version": "V2",
+        "Content-Type": "application/json",
+    }
+
+    route = get_company_api_route(
+        company_abbr, "compliance", environment=portal_type, onboarding_only=True,
+    )
+    api_url = route.url
+    progress.overlay_started = True
+    frappe.publish_realtime(
+        "show_gif",
+        {"gif_url": "/assets/zatca_erpgulf/js/loading.gif"},
+        user=frappe.session.user,
+    )
+    progress.request_started = True
+    response = requests.post(
+        url=api_url,
+        headers=headers,
+        data=payload,
+        timeout=300,
+    )
+    progress.response_received = True
+
+    if response.status_code != 200:
+        raise CSIDRequestRejected("compliance", response.status_code, response.text)
+    data = json.loads(response.text)
+
+    concatenated_value = data["binarySecurityToken"] + ":" + data["secret"]
+    encoded_value = base64.b64encode(concatenated_value.encode()).decode()
+    if doc.doctype == "ZATCA Multiple Setting":
+        multiple_setting_doc.custom_certficate = base64.b64decode(
+            data["binarySecurityToken"]
+        ).decode("utf-8")
+        multiple_setting_doc.custom_basic_auth_from_csid = encoded_value
+        multiple_setting_doc.custom_compliance_request_id_ = data["requestID"]
+        progress.save_started = True
+        multiple_setting_doc.save(ignore_permissions=True)
+    elif doc.doctype == "Company":
+        company_doc.custom_certificate = base64.b64decode(
+            data["binarySecurityToken"]
+        ).decode("utf-8")
+        company_doc.custom_basic_auth_from_csid = encoded_value
+        company_doc.custom_compliance_request_id_ = data["requestID"]
+        progress.save_started = True
+        company_doc.save(ignore_permissions=True)
+    progress.save_completed = True
+    return None
 
 
 def _csid_material_diagnostics(company_name):
@@ -1378,147 +1418,149 @@ def compliance_api_call(
 
 @frappe.whitelist(allow_guest=False)
 def production_csid(zatca_doc, company_abbr):
-    """production csid button and api"""
-    try:
+    """Create once; public compatibility signature and redacted UI boundary."""
+    return _run_csid_operation("production", _production_csid, zatca_doc, company_abbr)
 
-        if isinstance(zatca_doc, str):
-            zatca_doc = json.loads(zatca_doc)
 
-        if (
-            not isinstance(zatca_doc, dict)
-            or "doctype" not in zatca_doc
-            or "name" not in zatca_doc
-        ):
-            frappe.throw(
-                _("Invalid 'zatca_doc' format. Must include 'doctype' and 'name'.")
-            )
-        # Fetch the document based on doctype and name
-        doc = frappe.get_doc(zatca_doc.get("doctype"), zatca_doc.get("name"))
-        if doc.doctype == "ZATCA Multiple Setting":
-            multiple_setting_doc = frappe.get_doc("ZATCA Multiple Setting", doc.name)
-            csid = multiple_setting_doc.custom_basic_auth_from_csid
-            request_id = multiple_setting_doc.custom_compliance_request_id_
-        elif doc.doctype == "Company":
-            company_name = frappe.db.get_value(
-                "Company", {"abbr": company_abbr}, "name"
-            )
+def _production_csid(progress, zatca_doc, company_abbr):
+    """Legacy Final-CSID writer, separate from invoice reporting/clearance."""
 
-            company_doc = frappe.get_doc("Company", company_name)
-            csid = company_doc.custom_basic_auth_from_csid
-            request_id = company_doc.custom_compliance_request_id_
+    if isinstance(zatca_doc, str):
+        zatca_doc = json.loads(zatca_doc)
 
-        if not csid:
-            frappe.throw(_(("CSID for company not found")))
-
-        if not request_id:
-            frappe.throw(_("Compliance request ID for company  not found"))
-        payload = {"compliance_request_id": request_id}
-
-        headers = {
-            "accept": "application/json",
-            "Accept-Version": "V2",
-            "Authorization": "Basic " + csid,
-            "Content-Type": "application/json",
-        }
-        api_url = get_compliance_api_url(company_abbr, base_url="production/csids")
-        frappe.publish_realtime(
-            "show_gif",
-            {"gif_url": "/assets/zatca_erpgulf/js/loading.gif"},
-            user=frappe.session.user,
+    if (
+        not isinstance(zatca_doc, dict)
+        or "doctype" not in zatca_doc
+        or "name" not in zatca_doc
+    ):
+        frappe.throw(
+            _("Invalid 'zatca_doc' format. Must include 'doctype' and 'name'.")
+        )
+    # Fetch the document based on doctype and name
+    doc = frappe.get_doc(zatca_doc.get("doctype"), zatca_doc.get("name"))
+    if doc.doctype == "ZATCA Multiple Setting":
+        multiple_setting_doc = frappe.get_doc("ZATCA Multiple Setting", doc.name)
+        csid = multiple_setting_doc.custom_basic_auth_from_csid
+        request_id = multiple_setting_doc.custom_compliance_request_id_
+    elif doc.doctype == "Company":
+        company_name = frappe.db.get_value(
+            "Company", {"abbr": company_abbr}, "name"
         )
 
-        # Final-CSID generation uses Compliance credentials in the configured
-        # environment. It is not a live invoice reporting/clearance operation.
-        response = requests.post(
-            url=api_url,
-            headers=headers,
-            json=payload,
-            timeout=300,
-        )
-        frappe.publish_realtime("hide_gif", user=frappe.session.user)
+        company_doc = frappe.get_doc("Company", company_name)
+        csid = company_doc.custom_basic_auth_from_csid
+        request_id = company_doc.custom_compliance_request_id_
 
-        if response.status_code != 200:
-            raise CSIDRequestRejected("production", response.status_code, response.text)
+    if not csid:
+        frappe.throw(_(("CSID for company not found")))
 
-        data = response.json()
-        company_vat = ""
-        if doc.doctype == "Company":
-            company_vat = (company_doc.tax_id or "").strip()
+    if not request_id:
+        frappe.throw(_("Compliance request ID for company  not found"))
+    payload = {"compliance_request_id": request_id}
 
-        # Never save a test/production certificate for a different taxpayer.
-        # ZATCA rejects subsequent invoice calls with certificate-permissions,
-        # which is otherwise surfaced to users as a misleading HTTP 401.
-        if company_vat and data.get("binarySecurityToken"):
-            token_bytes = base64.b64decode(data["binarySecurityToken"])
-            certificate_candidates = [token_bytes]
+    headers = {
+        "accept": "application/json",
+        "Accept-Version": "V2",
+        "Authorization": "Basic " + csid,
+        "Content-Type": "application/json",
+    }
+    api_url = get_compliance_api_url(company_abbr, base_url="production/csids")
+    progress.overlay_started = True
+    frappe.publish_realtime(
+        "show_gif",
+        {"gif_url": "/assets/zatca_erpgulf/js/loading.gif"},
+        user=frappe.session.user,
+    )
+
+    # Final-CSID generation uses Compliance credentials in the configured
+    # environment. It is not a live invoice reporting/clearance operation.
+    progress.request_started = True
+    response = requests.post(
+        url=api_url,
+        headers=headers,
+        json=payload,
+        timeout=300,
+    )
+    progress.response_received = True
+
+    if response.status_code != 200:
+        raise CSIDRequestRejected("production", response.status_code, response.text)
+
+    data = response.json()
+    company_vat = ""
+    if doc.doctype == "Company":
+        company_vat = (company_doc.tax_id or "").strip()
+
+    # Never save a test/production certificate for a different taxpayer.
+    # ZATCA rejects subsequent invoice calls with certificate-permissions,
+    # which is otherwise surfaced to users as a misleading HTTP 401.
+    if company_vat and data.get("binarySecurityToken"):
+        token_bytes = base64.b64decode(data["binarySecurityToken"])
+        certificate_candidates = [token_bytes]
+        try:
+            certificate_candidates.append(base64.b64decode(token_bytes))
+        except Exception:
+            pass
+
+        certificate = None
+        for candidate in certificate_candidates:
+            for loader in (
+                x509.load_der_x509_certificate,
+                x509.load_pem_x509_certificate,
+            ):
+                try:
+                    certificate = loader(candidate, default_backend())
+                    break
+                except Exception:
+                    continue
+            if certificate is not None:
+                break
+
+        if certificate is not None:
+            certificate_text = certificate.subject.rfc4514_string()
             try:
-                certificate_candidates.append(base64.b64decode(token_bytes))
+                certificate_text += " " + str(
+                    certificate.extensions.get_extension_for_class(
+                        x509.SubjectAlternativeName
+                    ).value
+                )
             except Exception:
                 pass
-
-            certificate = None
-            for candidate in certificate_candidates:
-                for loader in (
-                    x509.load_der_x509_certificate,
-                    x509.load_pem_x509_certificate,
-                ):
-                    try:
-                        certificate = loader(candidate, default_backend())
-                        break
-                    except Exception:
-                        continue
-                if certificate is not None:
-                    break
-
-            if certificate is not None:
-                certificate_text = certificate.subject.rfc4514_string()
-                try:
-                    certificate_text += " " + str(
-                        certificate.extensions.get_extension_for_class(
-                            x509.SubjectAlternativeName
-                        ).value
-                    )
-                except Exception:
-                    pass
-                certificate_vat_match = re.search(
-                    r"(?<!\d)3\d{13}3(?!\d)", certificate_text
+            certificate_vat_match = re.search(
+                r"(?<!\d)3\d{13}3(?!\d)", certificate_text
+            )
+            certificate_vat = (
+                certificate_vat_match.group(0)
+                if certificate_vat_match
+                else ""
+            )
+            if certificate_vat and certificate_vat != company_vat:
+                frappe.throw(
+                    _(
+                        "ZATCA returned a Production CSID for VAT {0}, "
+                        "but company {1} uses VAT {2}. Generate the CSID "
+                        "with the company's VAT number."
+                    ).format(certificate_vat, company_abbr, company_vat)
                 )
-                certificate_vat = (
-                    certificate_vat_match.group(0)
-                    if certificate_vat_match
-                    else ""
-                )
-                if certificate_vat and certificate_vat != company_vat:
-                    frappe.throw(
-                        _(
-                            "ZATCA returned a Production CSID for VAT {0}, "
-                            "but company {1} uses VAT {2}. Generate the CSID "
-                            "with the company's VAT number."
-                        ).format(certificate_vat, company_abbr, company_vat)
-                    )
 
-        concatenated_value = data["binarySecurityToken"] + ":" + data["secret"]
-        encoded_value = base64.b64encode(concatenated_value.encode()).decode()
-        if doc.doctype == "ZATCA Multiple Setting":
-            multiple_setting_doc.custom_certificate = base64.b64decode(
-                data["binarySecurityToken"]
-            ).decode("utf-8")
-            multiple_setting_doc.custom_final_auth_csid = encoded_value
+    concatenated_value = data["binarySecurityToken"] + ":" + data["secret"]
+    encoded_value = base64.b64encode(concatenated_value.encode()).decode()
+    if doc.doctype == "ZATCA Multiple Setting":
+        multiple_setting_doc.custom_certificate = base64.b64decode(
+            data["binarySecurityToken"]
+        ).decode("utf-8")
+        multiple_setting_doc.custom_final_auth_csid = encoded_value
 
-            multiple_setting_doc.save(ignore_permissions=True)
-        elif doc.doctype == "Company":
-            company_doc.custom_certificate = base64.b64decode(
-                data["binarySecurityToken"]
-            ).decode("utf-8")
-            company_doc.custom_basic_auth_from_production = encoded_value
+        progress.save_started = True
+        multiple_setting_doc.save(ignore_permissions=True)
+    elif doc.doctype == "Company":
+        company_doc.custom_certificate = base64.b64decode(
+            data["binarySecurityToken"]
+        ).decode("utf-8")
+        company_doc.custom_basic_auth_from_production = encoded_value
 
-            company_doc.save(ignore_permissions=True)
+        progress.save_started = True
+        company_doc.save(ignore_permissions=True)
 
-        return _csid_creation_success("production")
-
-    except CSIDRequestRejected as error:
-        rejection = error.result
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(_("Error in production CSID formation: " + str(e)))
-        return None
-    _raise_csid_rejection(rejection)
+    progress.save_completed = True
+    return None

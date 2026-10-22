@@ -742,6 +742,26 @@ bounded diagnostics and actual mocked entry bodies/catalog display. All existing
 guard/source/permission/SQL ownership restrictions remain; there is no actual
 tenant, certificate issuance, browser, v16 or authority acceptance assertion.
 
+Increment75 shares one CSID transport/local-outcome boundary with private workers,
+child muting/exact flag restoration and best-effort finally-based progress cleanup.
+Static stage metadata replaces raw local exceptions, without retry, logging writer,
+credential deletion, guessed rollback or helper commit. Known primary failures
+survive cleanup faults. Save/commit/output may already have partial effects;
+neither normal save return nor timeout is remote/durable success evidence. Parent
+mute/messages/language and cancellation remain owned by their caller. The fixed
+manifest adds only the reviewed synthetic local-outcome suite; all existing
+site/network/SQL ownership guards remain. No installed source/assets/config/
+schema/worker/site/credential/authority action. See
+[CSID_LOCAL_OUTCOMES.md](CSID_LOCAL_OUTCOMES.md).
+
+Increment75 final guarded combined: **11,656 local + 1,800 private SQL = 13,456
+passed in 143.97 seconds**, across the same twelve owned-private SQL suites,
+plus the unchanged **412 standalone Node VM cases**. The 189 new local cases
+use only mocked ERP/transport and synthetic credentials; no site/network/SQL
+ownership guard or normal acceptance policy is waived. Actual installed
+framework/browser/credential lifecycle, logs and authority acceptance remain
+unverified; the suite does not authorize retry, activation or deployment.
+
 Full development and real v15/v16/application/crypto/advance acceptance remain
 unfinished. Remote authority acceptance is a separate unverified gate and cannot
 be inferred or marked complete while actual requests remain prohibited.

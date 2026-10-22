@@ -5,6 +5,7 @@ No transport, language mutation, persistence, or global Frappe monkeypatching.
 """
 
 from contextlib import contextmanager
+from dataclasses import dataclass
 import json
 
 
@@ -88,6 +89,52 @@ class CSIDRequestRejected(Exception):
     def __init__(self, purpose, http_status, body):
         self.result = csid_request_rejection(purpose, http_status, body)
         super().__init__(self.result["code"])
+
+
+@dataclass
+class CSIDProgress:
+    """Internal execution observations only, never remote or durable evidence."""
+
+    request_started: bool = False
+    response_received: bool = False
+    save_started: bool = False
+    save_completed: bool = False
+    overlay_started: bool = False
+
+
+CSID_PROGRESS_REVIEW = "The progress display could not be cleared. Review the form before starting another operation."
+
+
+def csid_local_failure(purpose, progress):
+    """Classify observed execution stage without accepting any raw exception.
+
+    Entering transport does not prove sending; save returning does not prove
+    commit. A failure must not authorize retries, cleanup or credential rotation.
+    """
+    csid_creation_result(purpose)
+    if type(progress) is not CSIDProgress or any(type(value) is not bool for value in vars(progress).values()):
+        raise ValueError("Invalid CSID progress.")
+    if ((progress.response_received and not progress.request_started)
+            or (progress.save_started and not progress.response_received)
+            or (progress.save_completed and not progress.save_started)):
+        raise ValueError("Invalid CSID progress.")
+    if progress.save_completed:
+        code = "CSID_LOCAL_COMPLETION_UNCONFIRMED"
+        message = "The CSID save returned, but local completion could not be confirmed. Review saved settings and the outcome; do not generate another CSID just to refresh the form."
+    elif progress.save_started:
+        code = "CSID_STORAGE_UNCONFIRMED"
+        message = "CSID storage could not be confirmed after a response was received. Changes may already exist. Review saved settings before trying again; no automatic retry was performed."
+    elif progress.response_received:
+        code = "CSID_PROCESSING_UNCONFIRMED"
+        message = "A response was received, but CSID processing could not be completed. Review saved settings and the response outcome before trying again; no automatic retry was performed."
+    elif progress.request_started:
+        code = "CSID_REQUEST_OUTCOME_UNKNOWN"
+        message = "The CSID request outcome is unknown after a connection or execution failure. Review saved settings and the onboarding status before trying again; no automatic retry was performed."
+    else:
+        code = "CSID_PREPARATION_FAILED"
+        message = "CSID preparation failed before the request was started. Review saved Company, environment, CSR and authentication settings."
+    return {"status": "ERROR", "purpose": purpose, "code": code,
+            "http_status": None, "message": message}
 
 
 @contextmanager

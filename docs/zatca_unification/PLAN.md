@@ -64,6 +64,12 @@ localized CSID error instead of raw-body/repeated throws. It removes the old
 all-400-means-OTP assumption. Transport/local/200-processing failures and complete
 framework log/snapshot/custody/access/lifecycle controls remain gates. See
 [CSID_HTTP_FAILURE_PRESENTATION.md](CSID_HTTP_FAILURE_PRESENTATION.md).
+Increment 75 adds an internal transport/local-stage boundary with request-local
+child muting and best-effort progress cleanup. Raw local exceptions are no longer
+the public result; partial save/commit/output and unknown outcomes require review,
+not retry or rollback. Client save/reload, ignored-permission writers, protected
+receipts and full framework log/snapshot/access/lifecycle remain gates. See
+[CSID_LOCAL_OUTCOMES.md](CSID_LOCAL_OUTCOMES.md).
 
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |

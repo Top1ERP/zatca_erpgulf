@@ -199,3 +199,11 @@ exported and no nested raw exception chain is attached. Normalized app data
 stays English; no new logger is introduced. Transport/local/200-processing
 failures and framework log/snapshot security remain separate gates. See
 [CSID_HTTP_FAILURE_PRESENTATION.md](CSID_HTTP_FAILURE_PRESENTATION.md).
+
+Increment 75 adds canonical CSID preparation/unknown-transport/processing/storage/
+local-completion failures. Child popups are muted with exact flag restoration;
+progress cleanup is best effort and its failure adds a notice to the same primary
+error. Arabic is display only; raw exceptions are never stringified by the new
+boundary. Partial custom-hook output cannot be erased, and complete framework
+logging/client lifecycle is not certified. See
+[CSID_LOCAL_OUTCOMES.md](CSID_LOCAL_OUTCOMES.md).
