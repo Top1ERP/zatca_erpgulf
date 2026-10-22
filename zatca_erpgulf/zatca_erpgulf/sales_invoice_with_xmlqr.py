@@ -1,11 +1,15 @@
 """This module is used to submit the POS invoice to ZATCA using the API through xml and qr."""
 
 import base64
+from functools import partial
 from frappe import _
 import frappe
 import requests
 from lxml import etree
 from zatca_erpgulf.zatca_erpgulf.event_log import log_zatca_event
+from zatca_erpgulf.zatca_erpgulf.response_processing import (
+    LocalResponseProcessingError, run_received_response_step, received_response_message,
+)
 from zatca_erpgulf.zatca_erpgulf.zatca_response import format_zatca_response
 from zatca_erpgulf.zatca_erpgulf.submission_context import (
     get_submission_context, record_submission_owner_success,
@@ -151,7 +155,12 @@ def reporting_api_xml_sales_invoice(
                 json=payload,
                 timeout=300,
             )
-            frappe.publish_realtime("hide_gif", user=frappe.session.user)
+            # Guard local response steps only; preserve deliberate rejection handling.
+            response_step = partial(
+                run_received_response_step, validation_error_type=frappe.ValidationError
+            )
+            render_response = partial(response_step, received_response_message, format_zatca_response)
+            response_step(frappe.publish_realtime, "hide_gif", user=frappe.session.user)
             if response.status_code in (200, 202, 409):
                 if response.status_code == 200:
                     status_label = "Success"
@@ -165,10 +174,11 @@ def reporting_api_xml_sales_invoice(
 
                 msg = (
                     f"Status Code: {response.status_code}<br>"
-                    f"ZATCA Response: {format_zatca_response(response.text, response.status_code)}"
+                    f"ZATCA Response: {render_response(response)}"
                 )
 
-                log_zatca_event(
+                response_step(
+                    log_zatca_event,
                     invoice_number=invoice_number,
                     response_text=msg,
                     status=status_label,
@@ -182,9 +192,10 @@ def reporting_api_xml_sales_invoice(
                 title = f"ZATCA API Failed - {invoice_number}"
                 msg = (
                     f"Status Code: {response.status_code}<br>"
-                    f"ZATCA Response: {format_zatca_response(response.text, response.status_code)}"
+                    f"ZATCA Response: {render_response(response)}"
                 )
-                log_zatca_event(
+                response_step(
+                    log_zatca_event,
                     invoice_number=invoice_number,
                     response_text=msg,
                     status=status_label,
@@ -219,7 +230,7 @@ def reporting_api_xml_sales_invoice(
                             "Error: The request you are sending to ZATCA is in incorrect format. "
                             "Please report to system administrator. "
                             f"Status code: {response.status_code}<br><br>"
-                            f"{format_zatca_response(response.text, response.status_code)}"
+                            f"{render_response(response)}"
                         )
                     )
                 )
@@ -253,7 +264,7 @@ def reporting_api_xml_sales_invoice(
                             "Your access token may be expired or not valid. "
                             "Please contact your system administrator. "
                             f"Status code: {response.status_code}<br><br>"
-                            f"{format_zatca_response(response.text, response.status_code)}"
+                            f"{render_response(response)}"
                         )
                     )
                 )
@@ -261,7 +272,7 @@ def reporting_api_xml_sales_invoice(
                 msg = "SUCCESS: <br><br>"
                 msg += (
                     f"Status Code: {response.status_code}<br><br> "
-                    f"ZATCA Response: {format_zatca_response(response.text, response.status_code)}<br><br>"
+                    f"ZATCA Response: {render_response(response)}<br><br>"
                 )
 
                 # Update PIH
@@ -310,7 +321,7 @@ def reporting_api_xml_sales_invoice(
                             "Error: ZATCA server busy or not responding."
                             " Try after sometime or contact your system administrator. "
                             f"Status code: {response.status_code}<br><br>"
-                            f"{format_zatca_response(response.text, response.status_code)}"
+                            f"{render_response(response)}"
                         )
                     )
                 )
@@ -327,7 +338,7 @@ def reporting_api_xml_sales_invoice(
                 )
                 msg += (
                     f"Status Code: {response.status_code}<br><br> "
-                    f"ZATCA Response: {format_zatca_response(response.text, response.status_code)}<br><br>"
+                    f"ZATCA Response: {render_response(response)}<br><br>"
                 )
                 record_submission_owner_success(
                     submission, encoded_hash, sales_invoice_doc, msg
@@ -388,5 +399,8 @@ def submit_sales_invoice_withxmlqr(sales_invoice_doc, file_path, invoice_number)
             sales_invoice_doc,
         )
 
+    except LocalResponseProcessingError:
+        # Do not turn received local review into a generic submission failure.
+        raise
     except Exception as e:
         frappe.throw(_(f"Error in submitting sales invoice with XML and  QR: {str(e)}"))

@@ -53,3 +53,12 @@ def received_response_message(formatter, response):
     formatter itself. It neither stores a response nor evaluates acceptance.
     """
     return formatter(response.text, response.status_code)
+
+
+def received_response_text(response):
+    """Read THROUGH the step guard for legacy unformatted response messages.
+
+    Preserve the original value exactly; do not add formatting, caching or JSON
+    normalization to POS paths that previously displayed the raw response text.
+    """
+    return response.text

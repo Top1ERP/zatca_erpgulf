@@ -27,6 +27,10 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_received_response_steps import (
 )
 from zatca_erpgulf.zatca_erpgulf.tests.test_response_processing import snapshot as response_snapshot
 from zatca_erpgulf.zatca_erpgulf.tests.test_event_log_contract import source_event_meta
+from zatca_erpgulf.zatca_erpgulf.tests.test_legacy_submission_context import (
+    legacy_boundary, ADAPTERS as XML_ADAPTERS, call_adapter as call_xml_adapter, assert_artifacts_unchanged,
+)
+from zatca_erpgulf.zatca_erpgulf.tests.test_submission_context import select_owner
 from zatca_erpgulf.zatca_erpgulf.tests.test_certificate_evidence import certificates
 from zatca_erpgulf.zatca_erpgulf.tests.test_journal_repository import prepared
 from zatca_erpgulf.zatca_erpgulf.tests.test_journal_repository_mariadb import native_primary_pair_case, read_primary_pair
@@ -146,6 +150,54 @@ def response_sql_case(b, connections, namespace, module):
         cursor.execute("UPDATE response_processing_test SET business_value=%s "
             "WHERE namespace=%s AND doctype=%s AND name=%s", ("PARENT-PENDING", *key))
     return doc, transaction, key
+
+
+@pytest.mark.parametrize("adapter", XML_ADAPTERS)
+@pytest.mark.parametrize("status", [200, 401])
+@pytest.mark.parametrize("callback_commit", [False, True])
+@pytest.mark.parametrize("parent_commit", [False, True])
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_existing_xml_event_fault_never_adds_sql_writes_or_parent_cleanup(qr_schema, legacy_boundary,
+    connections, namespace, monkeypatch, adapter, status, callback_commit, parent_commit, wrapped):
+    b = legacy_boundary
+    module = adapter[0]
+    invoice = getattr(b, adapter[3])
+    select_owner(b, invoice, "linked")
+    primary_module = sign_invoice if adapter[3] == "sales" else pos_sign
+    doc, transaction, key = response_sql_case(b, connections, namespace, primary_module)
+    b.response.status_code = status
+    def fail_log(**options):
+        if callback_commit:
+            transaction.commit()  # Existing callback effects cannot be undone.
+        raise BoundaryError("PRIVATE synthetic XML event failure after response")
+    monkeypatch.setattr(module, "log_zatca_event", fail_log)
+    try:
+        with pytest.raises(response_processing.LocalResponseProcessingError) as raised:
+            call_xml_adapter(b, adapter, wrapper=wrapped)
+        assert str(raised.value) == response_processing.LOCAL_RESPONSE_REVIEW
+        assert raised.value.__context__ is raised.value.__cause__ is None and not vars(raised.value)
+        expected = ("ORIGINAL-RECEIPT", "ORIGINAL-STATUS", "test-existing-uuid",
+            "PARENT-PENDING" if callback_commit else "ORIGINAL-BUSINESS")
+        assert read_response_sql(connections, key) == expected
+        assert transaction.open
+        with transaction.cursor() as cursor:
+            cursor.execute("SELECT business_value FROM response_processing_test WHERE namespace=%s AND doctype=%s AND name=%s", key)
+            assert cursor.fetchone() == ("PARENT-PENDING",)
+        doc.save.assert_not_called()
+        doc.db_set.assert_not_called()
+        b.frappe.db.commit.assert_not_called()
+        b.frappe.log_error.assert_not_called()
+        for owner in (b.company, b.device, b.linked):
+            assert owner.custom_pih == "previous"
+            owner.save.assert_not_called()
+        assert_artifacts_unchanged(b)
+        b.post.assert_called_once()
+        (transaction.commit if parent_commit else transaction.rollback)()
+    finally:
+        transaction.rollback()
+        transaction.close()
+    assert read_response_sql(connections, key) == ("ORIGINAL-RECEIPT", "ORIGINAL-STATUS",
+        "test-existing-uuid", "PARENT-PENDING" if callback_commit or parent_commit else "ORIGINAL-BUSINESS")
 
 
 def read_response_sql(connections, key):

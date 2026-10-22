@@ -1,4 +1,76 @@
-# Primary post-response error boundaries — increments 45, 57 and 58
+# Post-response error boundaries — increments 45, 57, 58 and 65
+
+## Existing-XML presentation/logging boundary — increment 65 (2026-10-22)
+
+The four existing-XML Reporting APIs now reuse the same received-step guard after
+HTTP returns. This extends protection to existing signed XML, not a new sender,
+receipt coordinator, CSID flow or signature/QR generator.
+
+| Existing-XML entry point | Preserved presentation |
+| --- | --- |
+| `submit_xml_qr_notmultiple.reporting_api_xml_sales_invoice_simplified` | Existing Sales formatter |
+| `sales_invoice_with_xmlqr.reporting_api_xml_sales_invoice` | Existing Sales formatter |
+| `submit_poswithqr_notmultiple.reporting_api_xml_sales_invoice_simplified` | Original raw POS text |
+| `pos_submit_with_xml_qr.reporting_api_machine` | Original raw POS text |
+
+Each API binds `run_received_response_step` only AFTER its existing POST returns.
+The existing hide notification, both event-log branches and every presentation
+text read are guarded. Sales keeps its formatter through `received_response_message`;
+the new tiny `received_response_text` adapter preserves raw POS text, without new
+formatting, JSON extraction, response caching or status classification. Deferred
+text-decoding errors therefore occur inside the selected presentation guard.
+
+The four public XML wrappers previously caught all ordinary exceptions; the
+simplified Sales wrapper also saved a new `Failed: ...` response and committed.
+They now re-raise ONLY `LocalResponseProcessingError` unchanged before that broad
+handler, so the static translated review reaches the caller without additional
+generic error reads/writes/commits. Other exception handling is unchanged.
+The wrapper itself does not acquire a sender, repair/reseal an artifact or retry.
+
+Normal 200/202/409 branches, log labels, legacy duplicate behavior, intentional
+remote rejection throws, UUID resets and existing save/db_set/commit order remain
+unchanged. The two simplified adapters still have their existing UUID db_set with
+commit=True on the characterized rejection branches; the two machine adapters
+use ordinary assignments. These legacy effects are characterized, not endorsed.
+Existing endpoint/auth/owner selection, file bytes/base64 payload, signing/ICV,
+PIH updates on ordinary success and Company/device settings are not changed.
+
+This is a **selected local-step boundary**, not blanket transaction isolation or
+guarding of every response-field assignment, PIH/save/success-log/error-log failure.
+Those remaining existing-XML operations and the other four generated/reporting
+adapters require separate review. Pre-request show failures, HTTP/transport errors,
+deliberate rejection handling and unrelated unhandled exceptions retain their
+existing behavior. An event logger can still swallow a failure and return None,
+or commit pending parent work before throwing. The guard cannot undo callback
+effects or prior commits, ensure exact durable custody, block a later worker retry
+or establish remote acceptance. Generic workers still have their own outer error
+logging policy; this increment does not silently rewrite it.
+
+New offline local cases cover all four formerly caught exception families for
+eight status branches, hide/event/Sales-format failures, raw/formatted lazy text,
+direct versus public-wrapper propagation, Arabic, unhandled interruptions,
+pre-request distinction and ordinary rejection write-order goldens. The initial
+unchanged-code run produced **379 failures and 9,065 passes in 74.93 seconds**:
+376 reproduced the new local-review gap, while three golden assertions mistakenly
+omitted the POS simplified UUID db_set. Those three assertions were corrected to
+the actual unchanged code (one exact committed UUID db_set in BOTH simplified
+adapters, none in the machine adapters), without changing rejection persistence.
+
+New native cases use actual temporary InnoDB plus mocked HTTP/ERP and original
+synthetic XML. They exercise direct/public-wrapper event failures for HTTP200/401,
+both explicit owner decisions and an event callback that commits before failing.
+Original receipt/status/UUID, signed XML/QR links, PIH and ICV stay unchanged by the
+new failure path. Pending unrelated work remains the owner's decision; callback-
+committed history survives a later owner rollback. No guard was relaxed and no
+site, live source/config/schema/worker/customer or authority action occurred.
+Installed v16/ORM/hooks, complete worker lifecycle, exact custody/provenance,
+source/Company-scoped log access/retention and runtime adoption remain gates.
+
+Final guarded combined evidence: **9,444 local + 1,308 private SQL = 10,752 passed
+in 132.45 seconds**, across the same twelve private suites (416 local + 64 private
+additions). The fixed manifest and offline guard remain unchanged: external
+network/site initialization denied, fixture-owned Unix SQL only. This is not an
+installed v16/ORM/worker/SDK or remote-acceptance result.
 
 ## Original bounded change — increment 45
 

@@ -20,6 +20,8 @@ from zatca_erpgulf.zatca_erpgulf import (
 from zatca_erpgulf.zatca_erpgulf.tests.test_submission_context import (
     Document, ValidationError, boundary, select_owner,
 )
+from zatca_erpgulf.zatca_erpgulf import response_processing as processing
+from zatca_erpgulf.zatca_erpgulf.tests.test_response_processing import snapshot, LOCAL_ERRORS
 
 
 ADAPTERS = (
@@ -209,3 +211,144 @@ def test_machine_requirement_message_has_arabic_translation():
         messages = {row[0]: row[1] for row in csv.reader(handle) if len(row) >= 2}
     translated = messages["A saved ZATCA issuing unit is required for this XML submission path."]
     assert any("\u0600" <= char <= "\u06ff" for char in translated)
+
+
+def fail_received_step(b, adapter, monkeypatch, stage, error_type):
+    module = adapter[0]
+    invoice = getattr(b, adapter[3])
+    select_owner(b, invoice, "linked")
+    observed = []
+    def fail(*args, **kwargs):
+        observed.append(snapshot(b, invoice))
+        raise error_type("PRIVATE legacy local failure must not overwrite the receipt")
+    if stage == "hide":
+        def publish(event, *args, **kwargs):
+            if event == "hide_gif":
+                fail()
+        b.frappe.publish_realtime.side_effect = publish
+    else:
+        monkeypatch.setattr(module, stage, fail)
+    return invoice, observed
+
+
+RECEIVED_STEPS = tuple((adapter, stage) for adapter in ADAPTERS for stage in ("hide", "log_zatca_event")) + tuple(
+    (adapter, "format_zatca_response") for adapter in (ADAPTERS[0], ADAPTERS[2]))
+
+
+@pytest.mark.parametrize("adapter,stage", RECEIVED_STEPS)
+@pytest.mark.parametrize("status", [200, 202, 303, 400, 401, 406, 409, 503])
+@pytest.mark.parametrize("error_type", LOCAL_ERRORS)
+def test_existing_xml_received_local_fault_never_adds_generic_writes(legacy_boundary, monkeypatch,
+    adapter, stage, status, error_type):
+    b = legacy_boundary
+    b.response.status_code = status
+    invoice, observed = fail_received_step(b, adapter, monkeypatch, stage, error_type)
+    with pytest.raises(processing.LocalResponseProcessingError) as raised:
+        call_adapter(b, adapter)
+    assert len(observed) == 1 and snapshot(b, invoice) == observed[0]
+    assert str(raised.value) == processing.LOCAL_RESPONSE_REVIEW
+    assert raised.value.__context__ is raised.value.__cause__ is None and not vars(raised.value)
+    b.post.assert_called_once()
+    b.frappe.log_error.assert_not_called()
+    for owner in (b.company, b.device, b.linked):
+        assert owner.custom_pih == "previous"
+        owner.save.assert_not_called()
+    assert_artifacts_unchanged(b)
+
+
+@pytest.mark.parametrize("adapter", ADAPTERS)
+@pytest.mark.parametrize("stage", ["hide", "log_zatca_event"])
+@pytest.mark.parametrize("error_type", LOCAL_ERRORS)
+def test_existing_xml_public_wrapper_preserves_local_review_without_failure_save(legacy_boundary, monkeypatch,
+    adapter, stage, error_type):
+    b = legacy_boundary
+    invoice, observed = fail_received_step(b, adapter, monkeypatch, stage, error_type)
+    with pytest.raises(processing.LocalResponseProcessingError) as raised:
+        call_adapter(b, adapter, wrapper=True)
+    assert len(observed) == 1 and snapshot(b, invoice) == observed[0]
+    assert raised.value.__context__ is raised.value.__cause__ is None and not vars(raised.value)
+    b.post.assert_called_once()
+    b.frappe.log_error.assert_not_called()
+    assert_artifacts_unchanged(b)
+
+
+@pytest.mark.parametrize("adapter", ADAPTERS)
+@pytest.mark.parametrize("status", [200, 400, 401, 503])
+def test_existing_xml_lazy_response_text_fault_is_not_generic_invoice_failure(legacy_boundary, adapter, status):
+    b = legacy_boundary
+    invoice = getattr(b, adapter[3])
+    select_owner(b, invoice, "linked")
+    observed = []
+    class LazyResponse:
+        status_code = status
+        @property
+        def text(self):
+            observed.append(snapshot(b, invoice))
+            raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "PRIVATE lazy XML response")
+    b.post.return_value = LazyResponse()
+    with pytest.raises(processing.LocalResponseProcessingError):
+        call_adapter(b, adapter)
+    assert len(observed) == 1 and snapshot(b, invoice) == observed[0]
+    b.post.assert_called_once()
+    assert_artifacts_unchanged(b)
+
+
+@pytest.mark.parametrize("adapter", ADAPTERS)
+@pytest.mark.parametrize("stage", ["hide", "log_zatca_event"])
+@pytest.mark.parametrize("error_type", [RuntimeError, KeyboardInterrupt, SystemExit])
+def test_existing_xml_unhandled_callback_errors_keep_direct_propagation(legacy_boundary, monkeypatch,
+    adapter, stage, error_type):
+    b = legacy_boundary
+    invoice, observed = fail_received_step(b, adapter, monkeypatch, stage, error_type)
+    with pytest.raises(error_type) as raised:
+        call_adapter(b, adapter)
+    assert type(raised.value) is error_type
+    assert len(observed) == 1 and snapshot(b, invoice) == observed[0]
+    b.post.assert_called_once()
+    assert_artifacts_unchanged(b)
+
+
+@pytest.mark.parametrize("adapter", ADAPTERS)
+def test_existing_xml_show_failure_is_not_mislabelled_as_a_received_response(legacy_boundary, adapter):
+    b = legacy_boundary
+    select_owner(b, getattr(b, adapter[3]), "linked")
+    b.frappe.publish_realtime.side_effect = ValueError("PRIVATE pre-request failure")
+    with pytest.raises(ValidationError):
+        call_adapter(b, adapter)
+    b.post.assert_not_called()
+    assert_artifacts_unchanged(b)
+
+
+@pytest.mark.parametrize("adapter", ADAPTERS)
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_existing_xml_local_review_uses_arabic_catalog(legacy_boundary, monkeypatch, adapter, wrapped):
+    b = legacy_boundary
+    with (Path(__file__).resolve().parents[2] / "translations/ar.csv").open() as stream:
+        entries = {row[0]: row[1] for row in csv.reader(stream) if len(row) == 2}
+    monkeypatch.setattr(processing, "_", lambda message: entries[message])
+    fail_received_step(b, adapter, monkeypatch, "log_zatca_event", ValueError)
+    with pytest.raises(processing.LocalResponseProcessingError) as raised:
+        call_adapter(b, adapter, wrapper=wrapped)
+    assert str(raised.value) == entries[processing.LOCAL_RESPONSE_REVIEW]
+    assert raised.value.__context__ is None
+
+
+@pytest.mark.parametrize("adapter", ADAPTERS)
+@pytest.mark.parametrize("status", [400, 401, 503])
+def test_existing_xml_intentional_rejection_keeps_legacy_write_sequence(legacy_boundary, adapter, status):
+    b = legacy_boundary
+    invoice = getattr(b, adapter[3])
+    owner, _ = select_owner(b, invoice, "linked")
+    b.response.status_code = status
+    with pytest.raises(ValidationError):
+        call_adapter(b, adapter)
+    assert invoice.custom_uuid == invoice.custom_zatca_status == "Not Submitted"
+    assert invoice.custom_zatca_full_response.startswith("Error:")
+    assert invoice.save.call_count == b.frappe.db.commit.call_count == 2
+    if adapter in ADAPTERS[:2]:
+        invoice.db_set.assert_called_once_with("custom_uuid", "Not Submitted", commit=True, update_modified=True)
+    else:
+        invoice.db_set.assert_not_called()
+    owner.save.assert_not_called()
+    b.post.assert_called_once()
+    assert_artifacts_unchanged(b)

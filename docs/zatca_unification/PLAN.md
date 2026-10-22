@@ -137,6 +137,13 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 65 extends [received local-step review](RESPONSE_PROCESSING.md) to the
+  four existing-XML Sales/POS Reporting APIs and preserves that signal through
+  their broad public wrappers. Hide/event/presentation failures no longer add
+  generic error persistence; POS raw text and Sales formatting remain unchanged.
+  Normal rejection/duplicate/owner/commit policy and original artifacts stay as-is.
+  Selected persistence/PIH/remaining-writer faults, worker lifecycle, exact custody
+  and scoped log read/export/retention remain unfinished; no live wiring/deployment.
 - Increment 64 pins the caller's diagnostic database owner/raw identity before
   metadata loading and rechecks it around source callbacks and insertion. It
   resolves a context-local proxy to its current owner; observed drift/unavailable

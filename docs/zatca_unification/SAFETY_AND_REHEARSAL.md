@@ -572,6 +572,20 @@ drift/unavailability, static Arabic review, unchanged legacy behavior and real
 pending-parent/original-pair preservation. Existing hook-commit cases still pass;
 this is not a live/v16/authority acceptance or a deployment authorization.
 
+Increment65 extends selected received-step guards to four existing-XML Sales/POS
+Reporting APIs and preserves static local review through their broad wrappers.
+No new send, retry, parent cleanup, signing, QR/PIH/ICV mutation or normal rejection
+policy change. Existing callback commits/swallowed errors remain; whole-worker
+custody/hold/isolation and scoped log access/retention are not complete. Tests use
+synthetic signed XML, mocked HTTP/ERP and owned temporary SQL only; no site/live
+source/config/schema/worker/customer or authority action is authorized or performed.
+
+Increment65 guarded combined: **9,444 local + 1,308 private SQL = 10,752 passed
+in 132.45 seconds**, across the same twelve private suites, adding 416 local and
+64 native cases. Private parent commit/rollback and callback-committed history
+remain explicit; original signed artifacts and receipt/status/UUID are preserved.
+No guard/ownership rule is waived and no real v16/authority acceptance is claimed.
+
 Full development and real v15/v16/application/crypto/advance acceptance remain
 unfinished. Remote authority acceptance is a separate unverified gate and cannot
 be inferred or marked complete while actual requests remain prohibited.
