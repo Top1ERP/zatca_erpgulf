@@ -7,6 +7,7 @@ or trusted File-hook/physical-storage provenance guarantee.
 
 from dataclasses import dataclass
 from datetime import datetime
+import re
 from uuid import uuid4
 
 from .operation_messages import DEBUG_ACCESS_DENIED, DEBUG_ATTACHMENT_REVIEW
@@ -92,7 +93,15 @@ def _recheck(runtime, binding):
         raise DebugArtifactError(DEBUG_ATTACHMENT_REVIEW)
 
 
-def save_debug_artifact(runtime, binding, content):
+def _recheck_after_save(runtime, binding):
+    """Even a later access denial may follow File effects; require review."""
+    try:
+        _recheck(runtime, binding)
+    except DebugArtifactError as error:
+        raise DebugArtifactError(DEBUG_ATTACHMENT_REVIEW) from error
+
+
+def _create_debug_file(runtime, binding, content):
     """Create a new private File with normal permissions; preserve all history.
 
 Frappe may deduplicate identical content internally. Never delete or select an
@@ -130,7 +139,51 @@ No cleanup is guessed if File.save/hooks fail after partial effects.
                 or not actual.endswith(".xml") or len(actual) > 255
                 or any(ord(char) < 32 or ord(char) == 127 or char in "/\\" for char in actual)):
             raise DebugArtifactError(DEBUG_ATTACHMENT_REVIEW)
-        return actual
+        # Attachment/comment hooks may have changed source, actor or ACLs.
+        # Refuse confirmation of observed drift; never undo earlier effects.
+        _recheck_after_save(runtime, binding)
+        return file_doc
+    except DebugArtifactError:
+        raise
+    except Exception as error:
+        failure = error
+    raise DebugArtifactError(DEBUG_ATTACHMENT_REVIEW) from failure
+
+
+def save_debug_artifact(runtime, binding, content):
+    """Compatibility filename result for internal callers; one creation only."""
+    return _create_debug_file(runtime, binding, content).get("file_name")
+
+
+def save_debug_attachment(runtime, binding, content):
+    """Create once and return READ-authorized, bounded attachment metadata.
+
+    Nonstandard/private-storage URLs are not exported as automatic UI links.
+    The File remains created; a missing projection means manual list refresh,
+    not a reason to repeat generation. No XML, credentials or invoice payload.
+    """
+    doc = _create_debug_file(runtime, binding, content)
+    try:
+        fields = ("doctype", "__islocal", "name", "file_name", "file_url", "is_private",
+                  "attached_to_doctype", "attached_to_name", "attached_to_field")
+        observed = tuple(doc.get(field) for field in fields)
+        if not saved_row_has_permission(runtime.has_permission, "File", "read", doc=doc, user=binding.user):
+            raise DebugArtifactError(DEBUG_ATTACHMENT_REVIEW)
+        _recheck_after_save(runtime, binding)
+        if tuple(doc.get(field) for field in fields) != observed or doc.flags.get("ignore_permissions"):
+            raise DebugArtifactError(DEBUG_ATTACHMENT_REVIEW)
+        metadata = None
+        url = doc.get("file_url")
+        if (re.fullmatch(r"[A-Za-z0-9_-]{1,140}", doc.name)
+                and isinstance(url, str) and len(url) <= 2048
+                and re.fullmatch(r"/private/files/[A-Za-z0-9_.-]+", url)
+                and url.rsplit("/", 1)[1] not in (".", "..")):
+            metadata = {
+                "name": doc.name, "file_name": doc.get("file_name"), "file_url": url,
+                "is_private": 1, "attached_to_doctype": binding.doctype,
+                "attached_to_name": binding.name,
+            }
+        return {"file_name": doc.get("file_name"), "attachment": metadata}
     except DebugArtifactError:
         raise
     except Exception as error:

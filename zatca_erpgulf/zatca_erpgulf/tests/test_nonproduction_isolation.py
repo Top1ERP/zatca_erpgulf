@@ -352,6 +352,60 @@ def prepare_debug_messages(isolated, monkeypatch, module):
 
 
 @pytest.mark.parametrize("module", [debug_xml, pos_debug_xml])
+@pytest.mark.parametrize("version", [15, 16])
+@pytest.mark.parametrize("file_read", [True, False])
+def test_debug_entry_returns_only_authorized_attachment_projection(isolated, monkeypatch, module, version, file_read):
+    invoice, _, _, app, files = isolated
+    prepare_debug_messages(isolated, monkeypatch, module)
+    loader = app.get_doc.side_effect
+    saved = []
+
+    def get_doc(dt, name=None):
+        doc = loader(dt, name)
+        if isinstance(dt, dict) and dt.get("doctype") == "File":
+            original = doc.save.side_effect
+
+            def save():
+                original()
+                doc.file_url = "/private/files/DEBUG_MOCK.xml"
+                saved.append(doc)
+
+            doc.save.side_effect = save
+        return doc
+
+    def v15(dt, op, doc=None, user=None, raise_exception=True):
+        assert raise_exception is False
+        return file_read if (dt, op) == ("File", "read") else True
+
+    def v16(dt, op, doc=None, user=None, *, print_logs=True):
+        assert print_logs is False
+        return file_read if (dt, op) == ("File", "read") else True
+
+    app.get_doc.side_effect = get_doc
+    app.has_permission = v15 if version == 15 else v16
+    result = inspect.unwrap(module.debug_call)(invoice.name)
+    assert len(saved) == len(files) == 1
+    saved[0].save.assert_called_once_with()
+    if file_read:
+        assert result == {"status": "success", "message": DEBUG_CREATED, "notices": [],
+            "file_name": saved[0].file_name, "attachment": {
+                "name": saved[0].name, "file_name": saved[0].file_name,
+                "file_url": "/private/files/DEBUG_MOCK.xml", "is_private": 1,
+                "attached_to_doctype": invoice.doctype, "attached_to_name": invoice.name,
+            }}
+    else:
+        assert result == {"status": "error", "message": DEBUG_FAILED,
+            "technical_details": DEBUG_ATTACHMENT_REVIEW, "notices": [DEBUG_ATTACHMENT_REVIEW]}
+    assert app.flags == {"mute_messages": False} and app.local.lang == "ar"
+    app.msgprint.assert_not_called()
+    app.db.commit.assert_not_called()
+    app.delete_doc.assert_not_called()
+    invoice.db_set.assert_not_called()
+    invoice.save.assert_not_called()
+    module.compliance_api_call.assert_not_called()
+
+
+@pytest.mark.parametrize("module", [debug_xml, pos_debug_xml])
 @pytest.mark.parametrize("flags", [{}, {"mute_messages": False}, {"mute_messages": True}])
 def test_debug_failure_keeps_english_summary_original_details_and_parent_state(isolated, monkeypatch, module, flags):
     invoice, _, _, app, files = isolated

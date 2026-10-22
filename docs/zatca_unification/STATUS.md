@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and seventy-one bounded increments (Compliance outcomes, dedicated
+Safety preparation and seventy-two bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -62,7 +62,8 @@ and guarded shared existing-XML reported writes with pinned-owner PIH/logging bo
 and Company batch message aggregation/display-only translation with English retained-event labels,
 and shared presentation for Company single-check and Sales/POS Debug results,
 and POS Debug generation independent of the unused live-scheduling selector,
-and permissioned/non-destructive shared Sales/POS Debug attachment creation)
+and permissioned/non-destructive shared Sales/POS Debug attachment creation,
+and attachment-only Debug UI updates with saved-form/concurrent-click guards)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -1418,6 +1419,35 @@ Final guarded combined: **11,153 local + 1,800 private SQL = 12,953 passed in
 cases), plus **168 synthetic UI cases** (108 Company + 60 Debug). The first
 local pass was 11,109 in 71.30 seconds before the final cause/cancellation and
 entry-boundary additions. No offline/ACL/ownership/acceptance guard was waived.
+
+## Increment 72: attachment-only Debug UI and post-save review
+
+- Both actual Sales/POS menus use one pending-form runner; inactive/dirty/local
+  forms are refused without saving or requesting. Concurrent clicks share one
+  promise only, not durable idempotency.
+- No full invoice reload, docinfo lookup RPC or attachment-upload field callback.
+  Return normal File READ-authorized bounded private metadata from the original
+  create request, then update only the attachment list through the normal API.
+- Capture document object/identity, route and active form; moved forms are not
+  updated. Edits while waiting remain untouched, with a notice about saved data.
+- Failed/unsupported metadata refresh keeps confirmed creation and asks for
+  manual review, never automatic regeneration. Later ACL/source drift after
+  File.save requires review because earlier effects may already exist.
+- Single English/Arabic display summary, escaped source identity and untouched
+  English/raw payloads. No installed source/assets/config/schema/worker/site/
+  customer or authority action. File/Comment/reload/attachment source inspection
+  is read-only, not real framework/browser/storage acceptance.
+
+See [DEBUG_UI_LIFECYCLE.md](DEBUG_UI_LIFECYCLE.md). Actual isolated v15/v16,
+File/custom-hook/physical rollback, retention and crypto acceptance remain gates.
+
+Final guarded combined: **11,293 local + 1,800 private SQL = 13,093 passed in
+141.30 seconds**, across the same twelve owned-private suites. The 140 added
+Python cases are 132 ACL/metadata/hook observations and eight real Debug entry
+projections with mocked dependencies. Standalone Node checks passed **332 cases**
+(108 Company + 60 Debug menu/message + 164 lifecycle). Intermediate combined
+runs passed 13,073 and 13,081 before the final integration/link-ID additions.
+No offline, permission, source, SQL ownership or authority guard was relaxed.
 
 ## Verification
 

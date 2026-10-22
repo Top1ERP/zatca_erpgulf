@@ -131,6 +131,7 @@ site API inside the VM:
 ```sh
 node zatca_erpgulf/zatca_erpgulf/tests/test_company_compliance_messages.js
 node zatca_erpgulf/zatca_erpgulf/tests/test_debug_messages.js
+node zatca_erpgulf/zatca_erpgulf/tests/test_debug_ui_lifecycle.js
 PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py --private-sql
 ```
 
@@ -173,3 +174,11 @@ the message contract otherwise remains. Evidence: **12,953 guarded Python
 cases in 141.65 seconds** and **168 synthetic UI cases**. Actual File hooks,
 physical rollback, retention, UI reload and installed v15/v16 remain separate
 gates; see [DEBUG_ATTACHMENT_ACCESS.md](DEBUG_ATTACHMENT_ACCESS.md).
+
+Increment 72 removes both Debug invoice reloads and adds localized guards and
+UI-only notices to the same summary for dirty/inactive forms, edits during the
+request, moved forms and failed attachment-list refresh. Creation is not repeated
+to refresh metadata; generic uncertain transport asks for attachment review
+first. Raw server data is unchanged. Synthetic UI evidence grows to 332 cases
+(108 Company, 60 Debug menu/message, 164 lifecycle). See
+[DEBUG_UI_LIFECYCLE.md](DEBUG_UI_LIFECYCLE.md); this is not installed Desk proof.

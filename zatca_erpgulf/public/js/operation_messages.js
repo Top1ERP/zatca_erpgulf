@@ -67,7 +67,7 @@ function zatca_compliance_summary(response, automatic, single = false) {
     });
 }
 
-function zatca_operation_client_error(error, title) {
+function zatca_operation_client_error(error, title, message) {
     // Frappe owns HTTP/permission/session/validation dialogs. Do not display a
     // second dialog on rejection. Never stringify an XHR as "[object Object]".
     const frameworkStatuses = [401, 403, 404, 413, 500, 502, 504, 508];
@@ -75,13 +75,18 @@ function zatca_operation_client_error(error, title) {
         (error.responseJSON && error.responseJSON._server_messages))) return;
     frappe.msgprint({
         title: __(title),
-        message: __("The operation could not be completed. Reload the form and try again."),
+        message: message || __("The operation could not be completed. Reload the form and try again."),
         indicator: "red"
     });
 }
 
 // Only the view translates these keys. Raw exception/authority text is escaped.
-function zatca_debug_summary(value) {
+function zatca_debug_succeeded(response) {
+    return response && response.status === "success" && response.message === "Debug XML attached successfully." &&
+        typeof response.file_name === "string" && response.file_name.length > 0;
+}
+
+function zatca_debug_summary(value, context) {
     const response = value && typeof value === "object" ? value : {};
     const escape = text => frappe.utils.escape_html(String(text ?? ""));
     const messages = new Map([
@@ -98,10 +103,15 @@ function zatca_debug_summary(value) {
         ["You do not have permission to create a debug XML attachment for this invoice.",
             __("You do not have permission to create a debug XML attachment for this invoice.")],
         ["Debug XML attachment could not be confirmed. Review the source and existing files before retrying.",
-            __("Debug XML attachment could not be confirmed. Review the source and existing files before retrying.")]
+            __("Debug XML attachment could not be confirmed. Review the source and existing files before retrying.")],
+        ["The debug attachment was created for the saved invoice. Your unsaved changes were kept.",
+            __("The debug attachment was created for the saved invoice. Your unsaved changes were kept.")],
+        ["The debug result belongs to another form. The current form was not refreshed.",
+            __("The debug result belongs to another form. The current form was not refreshed.")],
+        ["Debug XML was created, but its attachment list could not be refreshed. Review attachments manually; do not generate again just to refresh.",
+            __("Debug XML was created, but its attachment list could not be refreshed. Review attachments manually; do not generate again just to refresh.")]
     ]);
-    const success = response.status === "success" && response.message === "Debug XML attached successfully." &&
-        typeof response.file_name === "string" && response.file_name.length > 0;
+    const success = zatca_debug_succeeded(response);
     const skipped = response.status === "skipped" && [
         "Debug XML was skipped for an intra-company transfer. The invoice was not changed.",
         "ZATCA E-Invoicing is disabled for this Company. No debug XML was generated."
@@ -117,7 +127,9 @@ function zatca_debug_summary(value) {
         title: __("Debug XML Result"),
         indicator: success ? (notices.length ? "orange" : "green") : (skipped ? "orange" : "red"),
         wide: true,
-        message: '<p>' + escape(text) + '</p><p>' +
+        message: (context ? '<p><strong>' + escape(__("Document")) + ':</strong> ' +
+            escape(context.doctype === "POS Invoice" ? __("POS Invoice") : __("Sales Invoice")) +
+            ' / ' + escape(context.name) + '</p>' : '') + '<p>' + escape(text) + '</p><p>' +
             escape(__("This is a local debug operation, not a ZATCA submission.")) + '</p>' +
             (success ? '<p><strong>' + escape(__("File")) + ':</strong> ' + escape(response.file_name) + '</p>' : '') +
             notices.filter(item => messages.has(item)).map(item => '<p>' + escape(messages.get(item)) + '</p>').join('') +
@@ -125,4 +137,82 @@ function zatca_debug_summary(value) {
                 '</summary><pre style="white-space:pre-wrap" dir="auto">' +
                 escape(Array.from(new Set(details)).join('\n\n')) + '</pre></details>' : '')
     });
+}
+
+// One pending Debug operation per form. No durable retry/idempotency assertion.
+const zatca_debug_pending = new WeakMap();
+
+function zatca_run_debug(frm) {
+    if (zatca_debug_pending.has(frm)) return zatca_debug_pending.get(frm);
+    const methods = {
+        "Sales Invoice": "zatca_erpgulf.zatca_erpgulf.debug_xml.debug_call",
+        "POS Invoice": "zatca_erpgulf.zatca_erpgulf.pos_debug_xml.debug_call"
+    };
+    const doc = frm && frm.doc;
+    const context = doc && { doctype: doc.doctype, name: doc.name };
+    const sameView = () => {
+        const route = typeof frappe.get_route === "function" ? frappe.get_route() : null;
+        return frm.doc === doc && doc.doctype === context.doctype && doc.name === context.name &&
+            Array.isArray(route) && route.length === 3 && route[0] === "Form" &&
+            route[1] === context.doctype && route[2] === context.name &&
+            (typeof cur_frm === "undefined" || cur_frm === frm);
+    };
+    if (!context || !Object.prototype.hasOwnProperty.call(methods, context.doctype) || !context.name || !sameView()) {
+        frappe.msgprint({ title: __("Debug XML Result"), indicator: "orange",
+            message: __("The invoice form is no longer active. Reopen it before generating Debug XML.") });
+        return Promise.resolve();
+    }
+    if (doc.__islocal || typeof frm.is_dirty !== "function" || frm.is_dirty()) {
+        frappe.msgprint({ title: __("Debug XML Result"), indicator: "orange",
+            message: __("Save the invoice before generating Debug XML. No request was sent.") });
+        return Promise.resolve();
+    }
+    const task = (async () => {
+        try {
+            const r = await frappe.call({ method: methods[context.doctype],
+                args: { invoice_number: context.name }, freeze: true,
+                freeze_message: __("Generating Debug XML...") });
+            if (r && r.exc) return;
+            const response = r && r.message;
+            const notices = Array.isArray(response && response.notices) ? [...response.notices] : [];
+            if (zatca_debug_succeeded(response)) {
+                if (!sameView()) {
+                    notices.push("The debug result belongs to another form. The current form was not refreshed.");
+                } else {
+                    if (frm.is_dirty()) notices.push("The debug attachment was created for the saved invoice. Your unsaved changes were kept.");
+                    const attachment = response.attachment;
+                    // The stock attachment renderer embeds File IDs in a link.
+                    const valid = attachment && typeof attachment.name === "string" &&
+                        attachment.name.length > 0 && attachment.name.length <= 140 &&
+                        !/[^A-Za-z0-9_-]/.test(attachment.name) &&
+                        attachment.file_name === response.file_name && attachment.is_private === 1 &&
+                        attachment.attached_to_doctype === context.doctype && attachment.attached_to_name === context.name &&
+                        typeof attachment.file_url === "string" && attachment.file_url.length <= 2048 &&
+                        !/\s/.test(attachment.file_url) &&
+                        /^\/private\/files\/[A-Za-z0-9_.-]+$/.test(attachment.file_url) &&
+                        ![".", ".."].includes(attachment.file_url.split("/").pop());
+                    try {
+                        if (!valid || !frm.attachments || typeof frm.attachments.update_attachment !== "function" ||
+                            typeof frm.get_docinfo !== "function" || !Array.isArray(frm.get_docinfo().attachments)) {
+                            throw new Error("debug_attachment_view_unavailable");
+                        }
+                        // Update only attachment metadata through the standard API.
+                        // Never call attachment_uploaded (it can set invoice fields).
+                        await frm.attachments.update_attachment({ name: attachment.name, file_name: attachment.file_name,
+                            file_url: attachment.file_url, is_private: 1 });
+                    } catch (error) {
+                        notices.push("Debug XML was created, but its attachment list could not be refreshed. Review attachments manually; do not generate again just to refresh.");
+                    }
+                }
+            }
+            // UI-only copy: English server payload and raw diagnostics stay intact.
+            zatca_debug_summary(response && typeof response === "object" ? { ...response, notices } : response, context);
+            return response;
+        } catch (error) {
+            zatca_operation_client_error(error, "Debug XML Result",
+                __("The Debug request did not complete visibly. Review existing attachments before trying again."));
+        }
+    })().finally(() => zatca_debug_pending.delete(frm));
+    zatca_debug_pending.set(frm, task);
+    return task;
 }

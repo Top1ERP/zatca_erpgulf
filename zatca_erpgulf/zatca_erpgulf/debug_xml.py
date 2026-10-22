@@ -1,5 +1,5 @@
 import frappe
-from zatca_erpgulf.zatca_erpgulf.debug_artifact import DebugArtifactError, prepare_debug_source, save_debug_artifact
+from zatca_erpgulf.zatca_erpgulf.debug_artifact import DebugArtifactError, prepare_debug_source, save_debug_attachment
 from zatca_erpgulf.zatca_erpgulf.operation_messages import (
     DEBUG_CREATED, DEBUG_FAILED, DEBUG_SKIPPED,
     DEBUG_LOCAL_ONLY, DEBUG_EXISTING, mute_operation_messages,
@@ -257,9 +257,9 @@ def _debug_call(
             # Attach the same formatted bytes without writing, replacing, or
             # unlinking an intermediate file that a live worker may be using.
             xml_data = format_zatca_signed_xml(updated_xml_string)
-            debug_filename = save_debug_artifact(frappe, debug_source, xml_data)
+            attachment = save_debug_attachment(frappe, debug_source, xml_data)
             return {"status": "success", "message": DEBUG_CREATED,
-                    "file_name": debug_filename, "notices": notices}
+                    **attachment, "notices": notices}
 
         # --- Determine handle_b2c_simplified flag ---
         handle_b2c_simplified = False  # default

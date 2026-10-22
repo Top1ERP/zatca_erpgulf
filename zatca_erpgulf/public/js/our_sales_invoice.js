@@ -782,21 +782,7 @@ frappe.ui.form.on('Sales Invoice', {
         if (!frm.is_new()) {
             // Add menu item like Print PDF-A3
             frm.page.add_menu_item(__('Create XML for Debug'), function() {
-                frappe.call({
-                    method: "zatca_erpgulf.zatca_erpgulf.debug_xml.debug_call",
-                    args: {
-                        invoice_number: frm.doc.name
-                    },
-                    freeze: true,
-                    freeze_message: __("Generating Debug XML..."),
-                    callback: function(r) {
-                        if (r.exc) return;
-                        zatca_debug_summary(r.message);
-                        if (r.message && r.message.status === "success") {
-                            frm.reload_doc();
-                        }
-                    }
-                });
+                return zatca_run_debug(frm);
             });
 
             // Read-only assessment. Missing originals never trigger regeneration.

@@ -7,7 +7,7 @@ from unittest.mock import Mock
 import pytest
 
 from zatca_erpgulf.zatca_erpgulf.debug_artifact import (
-    DebugArtifactError, prepare_debug_source, save_debug_artifact,
+    DebugArtifactError, prepare_debug_source, save_debug_artifact, save_debug_attachment,
 )
 from zatca_erpgulf.zatca_erpgulf.operation_messages import DEBUG_ACCESS_DENIED, DEBUG_ATTACHMENT_REVIEW
 
@@ -254,3 +254,105 @@ def test_mismatched_source_binding_never_constructs_a_file(model, changed):
     with pytest.raises(DebugArtifactError):
         save_debug_artifact(model.app, binding, b"SYNTHETIC XML")
     assert not model.docs
+
+
+def test_attachment_projection_is_private_read_authorized_and_bounded(model):
+    binding = prepare(model)
+    model.save_hook = lambda doc: setattr(doc, "file_url", "/private/files/DEBUG_MOCK.xml")
+    result = save_debug_attachment(model.app, binding, b"PRIVATE XML NOT EXPORTED")
+    doc = model.docs[0]
+    assert result == {"file_name": doc.file_name, "attachment": {
+        "name": doc.name, "file_name": doc.file_name, "file_url": doc.file_url,
+        "is_private": 1, "attached_to_doctype": binding.doctype, "attached_to_name": binding.name,
+    }}
+    assert ("File", "read", doc, binding.user) in model.calls
+    assert "PRIVATE XML" not in str(result)
+    doc.save.assert_called_once_with()
+    assert_no_cleanup(model)
+
+
+@pytest.mark.parametrize("verdict", [False, None, 1, "yes"])
+def test_attachment_read_denial_after_creation_requires_review_not_retry(model, verdict):
+    binding = prepare(model)
+    model.acl[("File", "read")] = verdict
+    with pytest.raises(DebugArtifactError) as raised:
+        save_debug_attachment(model.app, binding, "SYNTHETIC XML")
+    assert str(raised.value) == DEBUG_ATTACHMENT_REVIEW
+    assert len(model.docs) == 1
+    model.docs[0].save.assert_called_once_with()
+    assert_no_cleanup(model)
+
+
+@pytest.mark.parametrize("url", [None, "", "/files/a.xml", "https://example.invalid/a.xml",
+    "javascript:alert(1)", "/private/files/../a.xml", "/private/files/..", "/private/files/.",
+    "/private/files/a.xml?secret=hidden", "/private/files/ملف.xml", "/private/files/" + "a" * 2048])
+def test_nonstandard_storage_url_returns_success_without_automatic_link(model, url):
+    binding = prepare(model)
+    model.save_hook = lambda doc: setattr(doc, "file_url", url)
+    result = save_debug_attachment(model.app, binding, "SYNTHETIC XML")
+    assert result == {"file_name": model.docs[0].file_name, "attachment": None}
+    assert len(model.docs) == 1
+    model.docs[0].save.assert_called_once_with()
+    assert_no_cleanup(model)
+
+
+@pytest.mark.parametrize("file_id", ["../OTHER", 'BAD"><img src=x>', "ملف"])
+def test_nonstandard_file_id_is_not_projected_into_stock_attachment_link(model, file_id):
+    binding = prepare(model)
+
+    def save(doc):
+        doc.name = file_id
+        doc.file_url = "/private/files/DEBUG_MOCK.xml"
+
+    model.save_hook = save
+    result = save_debug_attachment(model.app, binding, "SYNTHETIC XML")
+    assert result == {"file_name": model.docs[0].file_name, "attachment": None}
+    model.docs[0].save.assert_called_once_with()
+    assert_no_cleanup(model)
+
+
+@pytest.mark.parametrize("drift", ["source-revision", "company-revision", "write", "create", "actor"])
+def test_file_hook_observed_source_drift_after_save_is_not_confirmed(model, drift):
+    binding = prepare(model)
+
+    def hook(doc):
+        if drift == "source-revision":
+            model.source.modified = "2026-10-23 10:00:00"
+        elif drift == "company-revision":
+            model.company.modified = "2026-10-23 10:00:00"
+        elif drift == "actor":
+            model.app.session.user = "another.operator"
+        else:
+            model.acl[(model.source.doctype, "write") if drift == "write" else ("File", "create")] = False
+
+    model.save_hook = hook
+    with pytest.raises(DebugArtifactError) as raised:
+        save_debug_attachment(model.app, binding, "SYNTHETIC XML")
+    assert str(raised.value) == DEBUG_ATTACHMENT_REVIEW
+    assert len(model.docs) == 1
+    model.docs[0].save.assert_called_once_with()
+    assert_no_cleanup(model)
+
+
+@pytest.mark.parametrize("field,value", [("doctype", "Other"), ("__islocal", True), ("name", "OTHER"),
+    ("file_url", "/private/files/OTHER.xml"), ("file_name", "OTHER.xml"), ("is_private", 0),
+    ("attached_to_doctype", "Company"), ("attached_to_name", "OTHER"), ("attached_to_field", "qr")])
+def test_read_permission_hook_cannot_mutate_projected_attachment(model, field, value):
+    from functools import wraps
+
+    binding = prepare(model)
+    original = model.app.has_permission
+
+    @wraps(original)
+    def altered(*args, **kwargs):
+        result = original(*args, **kwargs)
+        if args[:2] == ("File", "read"):
+            setattr(kwargs["doc"], field, value)
+        return result
+
+    model.app.has_permission = altered
+    with pytest.raises(DebugArtifactError) as raised:
+        save_debug_attachment(model.app, binding, "SYNTHETIC XML")
+    assert str(raised.value) == DEBUG_ATTACHMENT_REVIEW
+    model.docs[0].save.assert_called_once_with()
+    assert_no_cleanup(model)

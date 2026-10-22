@@ -688,6 +688,24 @@ plus **168 synthetic Node VM UI cases** (108 Company + 60 Debug). The fixed
 manifest adds only the reviewed Debug attachment suite; no network/site/SQL
 ownership guard is loosened. No authority acceptance or deployment is inferred.
 
+Increment72 removes full invoice reload from Sales/POS Debug; one shared runner
+guards unsaved/inactive forms, coalesces pending same-form clicks and projects
+only normal READ-authorized private File metadata from the original creation.
+The normal attachment-list API preserves invoice edits and history. Moved forms
+are not updated; missing/unsafe metadata or a refresh fault requires manual
+review without another RPC/generation. Post-save observed source/ACL drift also
+requires review, never cleanup or retry. UI notices are translated on a copy,
+not in the English server payload. See [DEBUG_UI_LIFECYCLE.md](DEBUG_UI_LIFECYCLE.md).
+File/Comment/reload sources were inspected read-only; there was no installed
+File/browser/physical-storage execution and no site/SQL/network guard change.
+
+Increment72 final guarded combined: **11,293 local + 1,800 private SQL = 13,093
+passed in 141.30 seconds**, across the same twelve owned-private SQL suites,
+plus **332 synthetic Node VM cases** (108 Company + 60 menu/message + 164 Debug
+lifecycle). The fixed manifest and all resource guards are unchanged. All new
+ERP/crypto/File/transport observations are mocked; there is no acceptance claim
+for actual Desk, installed v16, custom hooks, physical storage or the authority.
+
 Full development and real v15/v16/application/crypto/advance acceptance remain
 unfinished. Remote authority acceptance is a separate unverified gate and cannot
 be inferred or marked complete while actual requests remain prohibited.

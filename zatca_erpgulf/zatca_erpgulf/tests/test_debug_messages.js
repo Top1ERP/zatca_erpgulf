@@ -29,6 +29,7 @@ const cases = [
 ];
 let count = 0;
 
+async function main() {
 for (const [doctype, file, method] of [
     ["Sales Invoice", "our_sales_invoice.js", "zatca_erpgulf.zatca_erpgulf.debug_xml.debug_call"],
     ["POS Invoice", "our_pos_invoice.js", "zatca_erpgulf.zatca_erpgulf.pos_debug_xml.debug_call"]
@@ -39,12 +40,22 @@ for (const [doctype, file, method] of [
     const anchor = source.lastIndexOf("frappe.ui.form.on('" + doctype + "', {");
     assert.ok(anchor >= 0);
     for (const lang of ["en", "ar"]) {
-        for (const [response, indicator] of cases) {
+        for (const [original, indicator] of cases) {
+            const response = original && typeof original === "object" ? { ...original } : original;
+            if (response && response.status === "success" && response.file_name) {
+                response.attachment = { name: "MOCK-FILE", file_name: response.file_name,
+                    file_url: "/private/files/DEBUG_INVOICE_MOCK.xml", is_private: 1,
+                    attached_to_doctype: doctype, attached_to_name: "MOCK-INVOICE" };
+            }
             const b = browser(lang);
             let refresh, menu, calls = 0;
             const before = JSON.stringify(response);
             b.frm.doc = { name: "MOCK-INVOICE", doctype };
             b.frm.is_new = () => false;
+            b.context.cur_frm = b.frm;
+            b.context.frappe.get_route = () => ["Form", doctype, "MOCK-INVOICE"];
+            b.frm.get_docinfo = () => ({ attachments: [] });
+            b.frm.attachments = { update_attachment() { b.events.push("attachment"); } };
             b.frm.page = { add_menu_item(label, callback) { menu = callback; } };
             b.context.frappe.ui.form.on = (registered, handlers) => {
                 assert.equal(registered, doctype);
@@ -56,15 +67,18 @@ for (const [doctype, file, method] of [
                 assert.equal(options.method, method);
                 assert.equal(options.args.invoice_number, "MOCK-INVOICE");
                 assert.equal(options.freeze, true);
-                options.callback({ message: response });
+                return Promise.resolve({ message: response });
             };
             vm.runInContext(source.slice(anchor), b.context, { timeout: 1000 });
             refresh(b.frm);
             assert.equal(typeof menu, "function");
-            menu();
+            await menu();
             assert.equal(calls, 1);
             assert.equal(b.dialogs.length, 1);
             assert.equal(b.dialogs[0].indicator, indicator);
+            assert.ok(!b.events.includes("reload"), "Debug never reloads the invoice");
+            assert.equal(b.events.filter(event => event === "attachment").length,
+                response && response.status === "success" && response.file_name ? 1 : 0);
             assert.equal(b.dialogs[0].title, lang === "ar" ? "نتيجة إنشاء XML للفحص التقني" : "Debug XML Result");
             assert.equal(JSON.stringify(response), before, "Display does not translate/mutate stored values");
             assert.ok(!b.translated.includes(raw));
@@ -89,18 +103,23 @@ for (const [doctype, file, method] of [
             count++;
         }
         const b = browser(lang);
+        b.frm.doc = { name: "MOCK-INVOICE", doctype };
+        b.context.cur_frm = b.frm;
+        b.context.frappe.get_route = () => ["Form", doctype, "MOCK-INVOICE"];
         b.context.frappe.msgprint({ message: "Framework-owned validation/session error" });
         b.context.frappe.ui.form.on = (registered, handlers) => { b.refresh = handlers.refresh; };
         b.frm.is_new = () => false;
         b.frm.page = { add_menu_item(label, callback) { b.menu = callback; } };
         b.context.frappe.call = options => {
-            if (!options.method.endsWith("get_qr_regeneration_state")) options.callback({ exc: "mock server error" });
+            if (!options.method.endsWith("get_qr_regeneration_state")) return Promise.resolve({ exc: "mock server error" });
         };
         vm.runInContext(source.slice(anchor), b.context, { timeout: 1000 });
         b.refresh(b.frm);
-        b.menu();
+        await b.menu();
         assert.equal(b.dialogs.length, 1, "Framework error must not add an unconfirmed summary");
         count++;
     }
 }
 console.log("Debug messages: " + count + " synthetic cases passed");
+}
+main().catch(error => { console.error(error); process.exitCode = 1; });

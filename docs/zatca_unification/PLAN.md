@@ -44,6 +44,13 @@ normal saved-source/Company/File ACLs and non-destructive, uniquely named privat
 Debug attachments. Full File/physical rollback, retention and framework lifecycle
 review remain adoption gates; observed rechecks are not atomic isolation.
 See [DEBUG_ATTACHMENT_ACCESS.md](DEBUG_ATTACHMENT_ACCESS.md).
+Increment 72 removes invoice reload from both Debug menus, uses one shared
+saved/active-form runner, and returns normal READ-authorized private attachment
+metadata from the same creation request. A sidebar-only update preserves edits;
+missing metadata/refresh faults require manual review, never automatic generation.
+Concurrent clicks share only the pending form request, not durable idempotency.
+See [DEBUG_UI_LIFECYCLE.md](DEBUG_UI_LIFECYCLE.md). Actual browser/File/custom-hook
+and installed v15/v16 lifecycle rehearsal remains a separately approved gate.
 See [POS_DEBUG_LOCAL_ROUTING.md](POS_DEBUG_LOCAL_ROUTING.md).
 See [MESSAGE_PRESENTATION.md](MESSAGE_PRESENTATION.md).
 

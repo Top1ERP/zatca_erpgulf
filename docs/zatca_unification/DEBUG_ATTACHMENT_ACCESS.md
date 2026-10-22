@@ -69,6 +69,14 @@ physical storage. This increment does not override storage hooks or dedup rules.
 Real File/physical rollback, retention, UI reload, scoped log access, isolated
 v15/v16 application rehearsal and cryptographic/SDK acceptance remain gates.
 
+Increment 72 removes the planned full invoice reload instead of guarding it.
+Creation now also rechecks source/Company/actor/ACL after File/comment hooks;
+normal File READ gates a bounded private attachment projection for sidebar-only
+display. Unsupported storage URLs do not trigger generation again. These remain
+observed checks, not atomic File-hook or physical rollback guarantees. See
+[DEBUG_UI_LIFECYCLE.md](DEBUG_UI_LIFECYCLE.md) for client state, failure policy
+and remaining actual framework/browser/custom-hook gates.
+
 ## Offline verification
 
 The fixed manifest adds `test_debug_artifact.py`: explicit v15/v16-signature and
