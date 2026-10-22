@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and sixty-three bounded increments (Compliance outcomes, dedicated
+Safety preparation and sixty-four bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -54,7 +54,8 @@ and explicit caller-owned diagnostic event staging with a legacy compatibility w
 and development diagnostic status schema with read-only staged metadata preflight,
 and an explicit original-pair-bound caller-owned diagnostic bridge,
 and saved-source/create-ACL diagnostic access with fresh source drift checks,
-and bounded/rechecked owned-session lock waits in the optional concrete provider)
+and bounded/rechecked owned-session lock waits in the optional concrete provider,
+and caller database-owner/raw-handle continuity checks for explicit diagnostic staging)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -1217,6 +1218,31 @@ Guarded combined rerun: **8,972 local + 1,228 private SQL = 10,200 passed in
 123.72 seconds**, including real registration/source contention and unchanged
 control-session/GLOBAL values. No production or authority action occurred.
 
+## Increment 64: diagnostic caller-handle continuity, not transaction isolation
+
+- Explicit staging pins the existing database owner/raw handle before metadata
+  loading, resolves a Werkzeug context-local proxy to its current owner and
+  checks identity (not equality) after metadata and around each source callback
+  and diagnostic insert. Missing/lazy/unbound or observably replaced/detached
+  contexts require static translated review, not implicit initialization or repair.
+- No parent SQL, connect/reconnect, cleanup, savepoint, fallback/retry or commit
+  is introduced. Late refusal acknowledges that a diagnostic row may already
+  exist. The saved-source facade preserves its static RuntimeError review and
+  original request/envelope; the legacy logger is not gated or rewired.
+- This is NOT transaction identity or isolation: same-handle commits/rollbacks,
+  temporary switch-and-restore between checks, hooks and context changes before
+  the staging boundary are not certified away. Source-neutral parent/worker
+  lifecycle, provenance/races and source/Company-scoped log read/export/retention
+  remain gates. No installed v16, ORM/hooks, remote acceptance or activation claim.
+- Development code, synthetic tests and translations only; no working application,
+  site/schema/config/Bench/worker/customer or authority change.
+- Final guarded combined: **9,028 local + 1,244 private SQL = 10,272 passed in
+  130.84 seconds**, across the same twelve private suites (56 local + 16 private
+  additions). Real parent work/optional diagnostic rows remain pending until the
+  test owner decides, and the independent original pair remains unchanged.
+  Initial reproduction and fixture/structural-check corrections are documented
+  in [EVENT_LOG_TRANSACTION.md](EVENT_LOG_TRANSACTION.md); no guard was waived.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -1712,7 +1738,9 @@ provider registration. Increment62 adds source WRITE/related READ/create-ACL
 checks and fresh owned source comparisons around diagnostic insertion, not
 atomic locking across hooks or rollback of possible event writes. Increment63
 bounds/rechecks individual row/metadata waits only in the optional concrete Unix
-provider, not all factories or complete transaction deadlines. Next complete
+provider, not all factories or complete transaction deadlines. Increment64 detects
+observed diagnostic database-owner/raw-handle drift at explicit boundaries, not
+same-handle commits or complete transaction isolation. Next complete
 source-neutral parent/race/provenance, log read/export/retention and whole-worker integration for caller-owned event logging only
 with original receipt custody, schema review, caller exception boundaries and intentional rejection/parent lifecycle
 together, continue lost/late/unbound and partial-write policy, and audit source/namespace/key/

@@ -6,6 +6,7 @@ receipt retention and transaction lifecycle can be migrated safely.
 """
 
 from enum import Enum
+from werkzeug.local import LocalProxy
 
 from frappe.utils import now_datetime
 import frappe
@@ -23,6 +24,7 @@ RETAINED_EVENT_REVIEW = "Retained ZATCA response requires custody review. No dia
 RETAINED_EVENT_TITLE = "Retained ZATCA response diagnostic"
 RETAINED_EVENT_STATUS = "HTTP {0} (retained observation)"
 EVENT_LOG_SOURCE_REVIEW = "Diagnostic source access changed. Review the retained response and any staged event before trying again."
+EVENT_LOG_PARENT_REVIEW = "Diagnostic database context changed or is unavailable. Review the retained response and any staged event. Do not resend automatically."
 EVENT_LOG_FIELD_TYPES = {
     "title": "Data", "invoice_number": "Data", "time": "Data",
     "api_response": "Long Text", "custom_uuid": "Data", "status": "Data",
@@ -39,6 +41,53 @@ class RetainedEventLogError(RuntimeError):
 
 class EventLogSourceError(RuntimeError):
     """A late source check may follow insertion; never claim nothing was written."""
+
+
+class EventLogParentError(RuntimeError):
+    """Observed caller-handle drift, not a rollback or authority rejection."""
+
+
+def _event_parent_identity():
+    """Resolve the current owner, not the stable context-local proxy object.
+
+    Read only: never initialize/connect, query, commit, rollback or close the
+    caller's database. Unknown/lazy contexts must be reviewed, not repaired.
+    """
+    parent = frappe.db
+    if issubclass(type(parent), LocalProxy):
+        parent = parent._get_current_object()
+    raw = getattr(parent, "_conn", None)
+    if parent is None or raw is None:
+        raise ValueError("event_log_parent_unavailable")
+    return parent, raw
+
+
+def _pin_event_parent():
+    """Observe owner/raw identity at explicit boundaries, NOT a SQL sandbox.
+
+    Identical handles do not prove an unchanged transaction: hooks can commit,
+    rollback, write or temporarily switch and restore the context between checks.
+    The caller still owns pending/uncertain work and exact original custody.
+    """
+    try:
+        parent, raw = _event_parent_identity()
+    except Exception:
+        invalid = True
+    else:
+        invalid = False
+    if invalid:
+        raise EventLogParentError(_(EVENT_LOG_PARENT_REVIEW))
+
+    def check():
+        try:
+            current, connection = _event_parent_identity()
+            valid = current is parent and connection is raw
+        except Exception:
+            valid = False
+        if not valid:
+            raise EventLogParentError(_(EVENT_LOG_PARENT_REVIEW))
+        return True
+    return check
 
 
 def _recheck_event_source(check):
@@ -125,10 +174,22 @@ def stage_zatca_event(invoice_number, response_text, status, uuid=None, title=No
     An optional trusted source callback must return literal True immediately
     before/after insertion. Its own effects are not sandboxed; late denial does
     not undo an insert/hook commit. No callback is inferred from browser input.
+
+    An existing caller database owner/raw handle is pinned before metadata is
+    loaded and rechecked around source callbacks and insertion. Observed context
+    drift fails with static translated review, never parent cleanup/reconnect.
+    This does not detect same-handle commits or guarantee hook/transaction isolation.
     """
+    parent_check = _pin_event_parent()
     require_event_log_schema(frappe.get_meta(EVENT_LOG_DOCTYPE))
+    parent_check()
+    def source_and_parent_check():
+        parent_check()
+        _recheck_event_source(source_recheck)
+        parent_check()
+        return True
     _insert_zatca_event(invoice_number, response_text, status, uuid, title,
-        ignore_permissions=False, source_recheck=source_recheck)
+        ignore_permissions=False, source_recheck=source_and_parent_check)
     return EventLogWriteResult.INSERT_RETURNED
 
 

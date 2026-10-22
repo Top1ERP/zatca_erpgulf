@@ -1,4 +1,4 @@
-# Explicit diagnostic event staging — increments 59–63
+# Explicit diagnostic event staging — increments 59–64
 
 Development only, 2026-10-16. No tenant/site initialization, working application
 change or authority request. This contract is not wired into invoice submission.
@@ -326,3 +326,73 @@ are not atomic across those hooks. The source Event Log still permits the
 System Manager role read/export/share/write; these permissions were inspected,
 not changed. A Company/source-scoped log read/retention strategy and legacy-row
 migration policy remain gates before adoption, not an automatic global ACL change.
+
+## Caller database-handle continuity — increment 64 (2026-10-22)
+
+The explicit `stage_zatca_event` boundary now pins its existing caller database
+owner and raw `_conn` BEFORE loading metadata. A Werkzeug `LocalProxy` is resolved
+to the current owner, not compared as a stable proxy: local Frappe15 source exposes
+`frappe.db` through `local("db")`. Identity checks deliberately use `is`, not
+value equality. A replacement wrapper sharing the same raw connection is still
+a changed owner. Missing/detached raw handles, unbound contexts and ordinary
+identity-read failures raise static English/Arabic `EventLogParentError`, outside
+the identity exception handler, without leaking driver/site/body/context details.
+The writer does not initialize a lazy connection or infer one from settings.
+
+The pinned identity is checked after metadata loading and before/after each trusted
+source callback bracketing Document insertion. A clock/normalizer/get_doc side
+effect therefore cannot silently redirect the subsequent insert; source callback
+drift fails before insertion, and insertion/post-source drift denies even the
+`INSERT_RETURNED` observation. The saved-source facade retains its existing static
+diagnostic review error and original request/envelope semantics. Interruptions
+propagate unchanged. Schema and source policy remain separate gates; ordinary
+Document errors are not globally rewritten. The legacy ignored-permission logger
+does NOT acquire this guard or change its commit/fallback/None behavior.
+
+No SQL, parent commit/rollback/close, connect/reconnect, savepoint, compensation or
+retry is added. An error after insertion must not say that nothing was written.
+The real pending work still belongs to its explicit owner, including any staged
+diagnostic row. Exact original pair custody is independent and is not modified.
+
+This is **boundary identity observation**, NOT SQL transaction identity, connection
+provenance attestation, a sandbox or a source-neutral worker design. Same-handle
+commits/rollbacks, a closed or internally reconnected handle retaining its identity, and a temporary context
+switch restored before the next check are not detected by identity alone. Earlier
+hooks may already have committed unrelated work; no compensation is attempted.
+Context changes before this staging boundary and all unreviewed factories/hook
+effects remain outside its guarantee. Existing hook-commit characterizations must
+continue to pass rather than being reclassified as isolated transactions.
+
+Synthetic cases cover metadata, clock, normalizer, document construction, both
+source callbacks and insertion, replacing the wrapper/raw handle, detaching it
+and retargeting a stable local proxy. Additional cases exercise unavailable owners,
+unchanged proxies, interruption propagation, Arabic late review and unchanged
+legacy policy. Saved Sales/POS cases preserve the exact matched pair and static
+non-authorizing failure. Native temporary-SQL cases keep unrelated pending parent
+work and optional diagnostic rows invisible until the test's explicit decision,
+while refusing success after wrapper/raw drift and preserving the original pair.
+These fixtures are not real tenant ORM/hook/worker or installed Frappe16 evidence.
+
+Source-neutral caller lifecycle, whole-worker deadlines, provenance/ACL/races and
+Company/source-scoped plaintext-log read/export/retention remain adoption gates.
+No site, schema, working app, worker, customer, authority request or live provider
+registration is changed. The owned lock-wait policy remains one second.
+
+The initial guarded local characterization reproduced **28 failures and 8,973
+passes in 63.83 seconds** on the unchanged writer (29 new cases at that point).
+The first combined implementation run produced **55 failures and 10,217 passes
+in 130.02 seconds**: one old source-only assertion counted exactly three staging
+calls before the new guard, and 54 older private-SQL diagnostic cases did not
+declare their existing parent `_conn`. In 30 of those cases the resulting review
+also reached an unmocked translator; the offline guard blocked its logging path.
+The fix explicitly binds those synthetic bridges to their already owned private
+transaction, keeps translations local and replaces the old count with the exact
+eight-call allowlist plus helper-level forbidden transaction/connection operations.
+No missing-parent rejection, guard, source/custody or ownership assertion is waived.
+
+Final guarded combined evidence: **9,028 local + 1,244 private SQL = 10,272 passed
+in 130.84 seconds**, across the same twelve private suites (56 local + 16 private
+additions). The offline guard remained active: external network and site
+initialization denied, fixture-owned Unix SQL only. Native existing hook-commit
+cases still demonstrate that identity continuity is not transaction isolation.
+No installed application, customer data or authority action occurred.

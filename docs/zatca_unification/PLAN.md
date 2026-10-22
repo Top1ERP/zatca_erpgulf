@@ -137,6 +137,13 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 64 pins the caller's diagnostic database owner/raw identity before
+  metadata loading and rechecks it around source callbacks and insertion. It
+  resolves a context-local proxy to its current owner; observed drift/unavailable
+  contexts fail with translated review and no parent cleanup/reconnect. This is
+  boundary detection, not transaction identity, hook isolation or runtime adoption.
+  Same-handle commits, ABA changes, source-neutral worker lifecycle and scoped
+  log read/export/retention remain gates. See [EVENT_LOG_TRANSACTION.md](EVENT_LOG_TRANSACTION.md).
 - Increment 63 adds [owned-session bounded lock waits](PRIMARY_RECEIPT_PROVIDER.md)
   to the optional Unix provider only: fixed SESSION row/metadata waits, verified
   before registration locks and every cursor/commit, rejecting drift without

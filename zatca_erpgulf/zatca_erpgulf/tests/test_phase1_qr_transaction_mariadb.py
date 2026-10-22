@@ -381,6 +381,8 @@ def test_diagnostic_writer_exact_sql_visibility_and_parent_commit_ownership(qr_s
     namespace, monkeypatch, staged, failure, parent_commit, body, expected):
     b = boundary
     doc, transaction, key = response_sql_case(b, connections, namespace, sign_invoice)
+    b.frappe.db._conn = transaction  # Existing owned parent, never site initialization.
+    monkeypatch.setattr(event_log, "_", lambda message: message)
     event_doc = bind_actual_event_logger(b, sign_invoice, monkeypatch)
     b.frappe.get_meta = Mock(return_value=source_event_meta())
     get_doc = b.frappe.get_doc.side_effect
@@ -442,6 +444,7 @@ def test_diagnostic_schema_review_cannot_commit_or_discard_pending_parent_sql(qr
     namespace, monkeypatch, defect, tuple_fields, parent_commit):
     b = boundary
     doc, transaction, key = response_sql_case(b, connections, namespace, sign_invoice)
+    b.frappe.db._conn = transaction
     event_doc = bind_actual_event_logger(b, sign_invoice, monkeypatch)
     meta = source_event_meta()
     field = meta.get_field("status")
@@ -490,6 +493,7 @@ def test_retained_diagnostic_uses_independent_exact_pair_and_never_changes_it(qr
         assert stored.state == "PAIR_STORED_OBSERVATION_NO_REPLAY"
     before = read_primary_pair(case, connections, namespace)
     doc, parent, key = response_sql_case(b, connections, namespace, sign_invoice)
+    b.frappe.db._conn = parent
     event_doc = bind_actual_event_logger(b, sign_invoice, monkeypatch)
     b.frappe.get_meta = Mock(return_value=source_event_meta())
     monkeypatch.setattr(event_log, "_", lambda message: message)

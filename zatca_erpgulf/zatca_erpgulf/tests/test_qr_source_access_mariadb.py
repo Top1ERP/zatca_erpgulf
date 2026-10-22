@@ -390,6 +390,79 @@ def test_diagnostic_fresh_owned_checks_detect_sql_drift_hidden_by_ambient_saved_
     case.observer.assert_called_once()  # Fixture's original synthetic response only.
 
 
+@pytest.mark.parametrize("stage", ["before_insert", "after_insert"])
+@pytest.mark.parametrize("change", ["wrapper", "raw"])
+@pytest.mark.parametrize("parent_commit", [False, True])
+def test_diagnostic_parent_drift_preserves_real_pending_work_and_original_pair(qr_source_schema,
+    reconciliation_operator, diagnostic_operator, certificates, monkeypatch, connections, namespace,
+    isolated_server, stage, change, parent_commit):
+    op = diagnostic_operator
+    case = native_pair_access_case(reconciliation_operator, certificates[0], monkeypatch, connections,
+        namespace, isolated_server)
+    assert invoke_pair_access(case, "persist")["state"] == "PAIR_STORED_OBSERVATION_NO_REPLAY"
+    original_pair = read_primary_receipt_case(case, connections), read_custody_row(case, connections)
+    parent, alternate = connections(), connections()
+    wrapper = SimpleNamespace(_conn=parent, commit=Mock(), rollback=Mock(), close=Mock(), connect=Mock())
+    replacement = SimpleNamespace(_conn=parent, commit=Mock(), rollback=Mock(), close=Mock(), connect=Mock())
+    op.writer.runtime.db = wrapper
+    unrelated = str(uuid4())
+    def drift():
+        if change == "wrapper":
+            op.writer.runtime.db = replacement
+        else:
+            wrapper._conn = alternate
+    def make_event(payload):
+        if stage == "before_insert":
+            drift()
+        return op.writer.doc
+    op.writer.runtime.get_doc.side_effect = make_event
+    def insert(**options):
+        assert options == {"ignore_permissions": False}
+        with parent.cursor() as cursor:
+            cursor.execute("INSERT INTO diagnostic_access_test VALUES (%s,%s)",
+                (namespace, json.dumps(op.writer.runtime.get_doc.call_args.args[0])))
+        drift()
+    op.writer.doc.insert.side_effect = insert
+    def count_rows():
+        probe = connections()
+        try:
+            with probe.cursor() as cursor:
+                cursor.execute("SELECT COUNT(*) FROM diagnostic_access_test WHERE namespace IN (%s,%s)", (namespace, unrelated))
+                return cursor.fetchone()[0]
+        finally:
+            probe.rollback()
+            probe.close()
+    try:
+        with parent.cursor() as cursor:
+            cursor.execute("INSERT INTO diagnostic_access_test VALUES (%s,%s)", (unrelated, "UNRELATED-PENDING"))
+        with pytest.raises(pair_access.PrimaryDiagnosticReviewError) as raised:
+            invoke_pair_access(case, "stage_diagnostic")
+        assert str(raised.value) == pair_access.DIAGNOSTIC_FAILED
+        assert raised.value.__context__ is raised.value.__cause__ is None and not vars(raised.value)
+        assert op.writer.doc.insert.call_count == (stage == "after_insert")
+        assert parent.open and alternate.open
+        assert count_rows() == 0  # Neither pending row was implicitly committed.
+        with parent.cursor() as cursor:
+            cursor.execute("SELECT payload FROM diagnostic_access_test WHERE namespace=%s", (unrelated,))
+            assert cursor.fetchone() == ("UNRELATED-PENDING",)  # No borrowed rollback.
+        assert (read_primary_receipt_case(case, connections), read_custody_row(case, connections)) == original_pair
+        assert all(owned.closed for owned in case.pinned_opened)
+        for database in (wrapper, replacement, op.source.runtime.db):
+            database.commit.assert_not_called()
+            database.rollback.assert_not_called()
+        for database in (wrapper, replacement):
+            database.close.assert_not_called()
+            database.connect.assert_not_called()
+        case.observer.assert_called_once()
+        (parent.commit if parent_commit else parent.rollback)()
+        assert count_rows() == (1 + (stage == "after_insert") if parent_commit else 0)
+    finally:
+        parent.rollback()
+        parent.close()
+        alternate.rollback()
+        alternate.close()
+
+
 def assert_pair_access_missing(case, connections):
     assert read_primary_receipt_case(case, connections) == case.request.started
     with pytest.raises(PrimaryReceiptCustodyError, match="receipt_custody_missing"):

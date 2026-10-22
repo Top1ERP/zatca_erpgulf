@@ -161,6 +161,49 @@ def test_late_static_review_is_not_a_legacy_validation_error_and_is_arabic(diagn
     assert isinstance(raised.value, RuntimeError) and raised.value.__context__ is None
 
 
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("late", [False, True])
+@pytest.mark.parametrize("change", ["wrapper", "raw"])
+def test_saved_diagnostic_parent_drift_keeps_originals_and_static_review(diagnostic_operator, certificates,
+    monkeypatch, doctype, late, change):
+    op = diagnostic_operator
+    case = scenario(op.source, certificates[0], monkeypatch, mode="matched", doctype=doctype)
+    original_request, original_sealed = case.request, case.sealed
+    parent = op.writer.runtime.db
+    replacement = SimpleNamespace(_conn=parent._conn, commit=Mock(), rollback=Mock(), close=Mock())
+    def drift():
+        if change == "wrapper":
+            op.writer.runtime.db = replacement
+        else:
+            parent._conn = object()
+    if late:
+        op.writer.doc.insert.side_effect = lambda **options: drift()
+    else:
+        def construct(payload):
+            drift()
+            return op.writer.doc
+        op.writer.runtime.get_doc.side_effect = construct
+    with pytest.raises(access.PrimaryDiagnosticReviewError) as raised:
+        invoke(case, "stage_diagnostic")
+    assert str(raised.value) == access.DIAGNOSTIC_FAILED
+    assert raised.value.__context__ is raised.value.__cause__ is None and not vars(raised.value)
+    assert case.request is original_request and case.sealed is original_sealed
+    assert case.cipher.open(case.sealed) == case.corecase.captured.receipt
+    assert (case.corecase.core.journal, case.corecase.core.sealed) == case.corecase.before_state
+    assert all(owned.closed for owned in case.corecase.core.connections)
+    if late:
+        op.writer.doc.insert.assert_called_once_with(ignore_permissions=False)
+    else:
+        op.writer.doc.insert.assert_not_called()
+    for database in (parent, replacement, op.source.runtime.db):
+        database.commit.assert_not_called()
+        database.rollback.assert_not_called()
+    replacement.close.assert_not_called()
+    op.writer.runtime.log_error.assert_not_called()
+    case.corecase.core.observer.assert_called_once()
+    case.cipher.seal.assert_not_called()
+
+
 @pytest.mark.parametrize("actor", ["guest", "role", "site"])
 def test_diagnostic_actor_denial_precedes_permission_engine_and_source_reads(diagnostic_operator, certificates, monkeypatch, actor):
     op = diagnostic_operator
