@@ -1,4 +1,4 @@
-# Post-response error boundaries — increments 45, 57, 58 and 65
+# Post-response error boundaries — increments 45, 57, 58, 65 and 67
 
 ## Existing-XML presentation/logging boundary — increment 65 (2026-10-22)
 
@@ -71,6 +71,13 @@ in 132.45 seconds**, across the same twelve private suites (416 local + 64 priva
 additions). The fixed manifest and offline guard remain unchanged: external
 network/site initialization denied, fixture-owned Unix SQL only. This is not an
 installed v16/ORM/worker/SDK or remote-acceptance result.
+
+Increment67 subsequently extends selected [existing-XML reported/PIH/logging boundaries](EXISTING_XML_REPORTED_WRITES.md)
+to the actual pinned-owner callback, shared reported writer and success/trailing
+error logging. Its transaction-free `received_response_text_step` keeps lazy log
+payload reads inside the guard and forwards the original callback result without
+classification. This does not turn legacy labels/loggers into acceptance/custody,
+undo prior commits or activate whole-worker receipt/hold integration.
 
 ## Original bounded change — increment 45
 

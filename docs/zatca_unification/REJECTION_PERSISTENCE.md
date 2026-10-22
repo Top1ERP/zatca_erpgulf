@@ -75,6 +75,10 @@ lifecycle/provenance/holds, source/Company-scoped plaintext-log access/retention
 installed v15/v16 and SDK/crypto/authority acceptance. No working source/config/
 schema/Bench/worker/customer or authority action occurs in this development increment.
 
+Increment67 subsequently supplies selected [existing-XML reported/PIH/logging boundaries](EXISTING_XML_REPORTED_WRITES.md)
+and a shared reported writer. It does not remove the custody/worker/provenance/log-
+access gates above or change this rejection writer's UUID/commit policy.
+
 Final guarded combined evidence: **9,950 local + 1,528 private SQL = 11,478 passed
 in 137.49 seconds**, across the same twelve private suites (506 local + 220 private
 additions). External network/site initialization remained denied; only fixture-

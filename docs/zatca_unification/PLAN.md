@@ -137,6 +137,12 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 67 extends [existing-XML reported-label writer boundaries](EXISTING_XML_REPORTED_WRITES.md).
+  Eight duplicate reported-write blocks share one named adapter, while pinned-owner
+  PIH/notification, response persistence, lazy success-log payload and legacy trailing
+  error logging run through received-step guards. Original order/commits/409 labels
+  remain; known faults add no generic post-fault persistence, not atomicity or custody.
+  Other generated writers, whole-worker lifecycle and scoped log access remain gates.
 - Increment 66 unifies fourteen [existing-XML rejection persistence blocks](REJECTION_PERSISTENCE.md)
   behind one named writer through the received-step guard. It preserves explicit
   UUID commit/assignment policy, including Sales simplified 404 versus POS 404.

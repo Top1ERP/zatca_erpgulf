@@ -62,3 +62,12 @@ def received_response_text(response):
     normalization to POS paths that previously displayed the raw response text.
     """
     return response.text
+
+
+def received_response_text_step(step, response, *args, **kwargs):
+    """Call THROUGH the guard so lazy log-payload reads stay inside the step.
+
+    Forward the original text/arguments/result; do not normalize, store, inspect
+    truthiness or classify success-log output as authority acceptance evidence.
+    """
+    return step(response.text, *args, **kwargs)

@@ -8,9 +8,12 @@ import frappe
 import requests
 from lxml import etree
 from zatca_erpgulf.zatca_erpgulf.event_log import log_zatca_event
-from zatca_erpgulf.zatca_erpgulf.legacy_xml_persistence import persist_existing_xml_rejection
+from zatca_erpgulf.zatca_erpgulf.legacy_xml_persistence import (
+    persist_existing_xml_rejection, persist_existing_xml_reported,
+)
 from zatca_erpgulf.zatca_erpgulf.response_processing import (
     LocalResponseProcessingError, run_received_response_step, received_response_text,
+    received_response_text_step,
 )
 from zatca_erpgulf.zatca_erpgulf.submission_context import (
     get_submission_context, record_submission_owner_success,
@@ -155,6 +158,10 @@ def reporting_api_xml_sales_invoice_simplified(
                 run_received_response_step, validation_error_type=frappe.ValidationError
             )
             render_response = partial(response_step, received_response_text)
+            persist_reported = partial(
+                response_step, persist_existing_xml_reported, frappe,
+                "POS Invoice", invoice_number, response, uuid1,
+            )
             persist_rejection = partial(
                 response_step, persist_existing_xml_rejection, frappe,
                 "POS Invoice", invoice_number, response,
@@ -246,19 +253,15 @@ def reporting_api_xml_sales_invoice_simplified(
                 )
 
                 # Update PIH
-                record_submission_owner_success(
+                response_step(
+                    record_submission_owner_success,
                     submission, encoded_hash, pos_invoice_doc, msg
                 )
 
-                invoice_doc = frappe.get_doc(SALES_INVOICE, invoice_number)
-                invoice_doc.custom_zatca_full_response = response.text
-                invoice_doc.custom_uuid = uuid1
-                invoice_doc.custom_zatca_status = "REPORTED"
-                invoice_doc.save(ignore_permissions=True)
-                frappe.db.commit()
+                persist_reported()
                 
 
-                success_log(response.text, uuid1, invoice_number)
+                response_step(received_response_text_step, success_log, response, uuid1, invoice_number)
             # else:
 
             #     error_log()
@@ -289,21 +292,17 @@ def reporting_api_xml_sales_invoice_simplified(
                     f"Status Code: {response.status_code}<br><br> "
                     f"ZATCA Response: {render_response(response)}<br><br>"
                 )
-                record_submission_owner_success(
+                response_step(
+                    record_submission_owner_success,
                     submission, encoded_hash, pos_invoice_doc, msg
                 )
 
-                invoice_doc = frappe.get_doc(SALES_INVOICE, invoice_number)
-                invoice_doc.custom_zatca_full_response = response.text
-                invoice_doc.custom_uuid = uuid1
-                invoice_doc.custom_zatca_status = "REPORTED"
-                invoice_doc.save(ignore_permissions=True)
-                frappe.db.commit()
+                persist_reported()
 
-                success_log(response.text, uuid1, invoice_number)
+                response_step(received_response_text_step, success_log, response, uuid1, invoice_number)
             else:
 
-                error_log()
+                response_step(error_log)
             
         except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
             frappe.throw(_(f"Error in reporting API-2 reporting simplified : {str(e)}"))

@@ -547,7 +547,7 @@ def test_shared_xml_rejection_writer_has_no_fallback_transport_or_cleanup():
     source = inspect.getsource(legacy_xml_persistence)
     calls = [node for node in ast.walk(ast.parse(source)) if isinstance(node, ast.Call)]
     attributes = [node.func.attr for node in calls if isinstance(node.func, ast.Attribute)]
-    assert sorted(attributes) == ["commit", "db_set", "get_doc", "save"]
+    assert sorted(attributes) == ["commit", "commit", "db_set", "get_doc", "get_doc", "save", "save"]
     assert "@frappe.whitelist" not in source
     assert "import frappe" not in source  # Explicit runtime, no hidden site initialization.
 
@@ -567,3 +567,231 @@ def test_existing_xml_rejection_write_review_keeps_arabic_through_public_wrapper
     assert len(observed) == 1 and snapshot(b, doc) == observed[0][0]
     assert raised.value.__context__ is raised.value.__cause__ is None and not vars(raised.value)
     b.post.assert_called_once()
+
+
+XML_REPORTED_STAGES = tuple((adapter, status, stage) for adapter in ADAPTERS for status in (200, 202, 409)
+    for stage in ("owner_get_doc", "owner_save_before", "owner_save_after", "get_doc", "text",
+                  "save_before", "save_after", "commit_before", "commit_after", "success_log_text", "success_log")) + tuple(
+    (adapter, 409, "error_log") for adapter in ADAPTERS)
+
+
+def xml_reported_snapshot(b, adapter):
+    return (snapshot(b, getattr(b, adapter[3])),
+        tuple((owner.custom_pih, owner.save.call_count) for owner in (b.company, b.device, b.linked)),
+        b.frappe.msgprint.call_count, getattr(adapter[0], "success_log").call_count,
+        getattr(adapter[0], "error_log").call_count)
+
+
+def fail_xml_reported_step(b, adapter, monkeypatch, stage, error_type, *, observe=None):
+    """Observe the actual PIH/save/commit order, including effects before failure."""
+    doc, owner = getattr(b, adapter[3]), b.linked
+    observed = []
+    def fail(*args, **kwargs):
+        observed.append((xml_reported_snapshot(b, adapter), observe() if observe else None))
+        raise error_type("PRIVATE existing XML reported processing failure")
+    if stage in ("get_doc", "owner_get_doc"):
+        original = b.frappe.get_doc.side_effect
+        target = (doc.doctype, doc.name) if stage == "get_doc" else (owner.doctype, owner.name)
+        def get_doc(doctype, name=None):
+            if b.post.call_count and (doctype, name) == target:
+                fail()
+            return original(doctype, name)
+        b.frappe.get_doc.side_effect = get_doc
+    elif stage in ("text", "success_log_text"):
+        response = b.response
+        class LazyResponse:
+            status_code = response.status_code
+            reads = 0
+            @property
+            def text(self):
+                self.reads += 1
+                # Event, success message, invoice response, success log payload.
+                if self.reads == (3 if stage == "text" else 4):
+                    fail()
+                return response.text
+        b.post.return_value = LazyResponse()
+    elif stage in ("success_log", "error_log"):
+        monkeypatch.setattr(adapter[0], stage, Mock(side_effect=fail))
+    else:
+        target, timing = stage.rsplit("_", 1)
+        callback = owner.save if target == "owner_save" else doc.save if target == "save" else b.frappe.db.commit
+        original = callback.side_effect
+        def write(*args, **kwargs):
+            if timing == "before":
+                fail()
+            result = original(*args, **kwargs) if callable(original) else callback.return_value
+            if timing == "after":
+                fail()
+            return result
+        callback.side_effect = write
+    return doc, observed
+
+
+@pytest.mark.parametrize("adapter,status,stage", XML_REPORTED_STAGES)
+@pytest.mark.parametrize("error_type", LOCAL_ERRORS)
+def test_existing_xml_reported_fault_cannot_add_generic_write_or_rewind_owner(legacy_boundary, monkeypatch,
+    adapter, status, stage, error_type):
+    b = legacy_boundary
+    select_owner(b, getattr(b, adapter[3]), "linked")
+    b.response.status_code = status
+    _, observed = fail_xml_reported_step(b, adapter, monkeypatch, stage, error_type)
+    with pytest.raises(processing.LocalResponseProcessingError) as raised:
+        call_adapter(b, adapter)
+    assert len(observed) == 1 and xml_reported_snapshot(b, adapter) == observed[0][0]
+    assert str(raised.value) == processing.LOCAL_RESPONSE_REVIEW
+    assert raised.value.__context__ is raised.value.__cause__ is None and not vars(raised.value)
+    b.post.assert_called_once()
+    b.frappe.log_error.assert_not_called()
+    assert_artifacts_unchanged(b)
+
+
+@pytest.mark.parametrize("adapter", ADAPTERS)
+@pytest.mark.parametrize("status", [200, 202, 409])
+@pytest.mark.parametrize("stage", ["owner_save_after", "save_after", "commit_after", "success_log"])
+def test_existing_xml_wrapper_keeps_reported_local_review(legacy_boundary, monkeypatch, adapter, status, stage):
+    b = legacy_boundary
+    select_owner(b, getattr(b, adapter[3]), "linked")
+    b.response.status_code = status
+    _, observed = fail_xml_reported_step(b, adapter, monkeypatch, stage, ValidationError)
+    with pytest.raises(processing.LocalResponseProcessingError) as raised:
+        call_adapter(b, adapter, wrapper=True)
+    assert len(observed) == 1 and xml_reported_snapshot(b, adapter) == observed[0][0]
+    assert raised.value.__context__ is raised.value.__cause__ is None and not vars(raised.value)
+    assert_artifacts_unchanged(b)
+    b.post.assert_called_once()
+
+
+@pytest.mark.parametrize("adapter", ADAPTERS)
+@pytest.mark.parametrize("stage", ["owner_save_after", "commit_after", "success_log"])
+@pytest.mark.parametrize("error_type", [RuntimeError, KeyboardInterrupt, SystemExit])
+def test_existing_xml_reported_unhandled_faults_keep_direct_propagation(legacy_boundary, monkeypatch,
+    adapter, stage, error_type):
+    b = legacy_boundary
+    select_owner(b, getattr(b, adapter[3]), "linked")
+    b.response.status_code = 202
+    _, observed = fail_xml_reported_step(b, adapter, monkeypatch, stage, error_type)
+    with pytest.raises(error_type) as raised:
+        call_adapter(b, adapter)
+    assert type(raised.value) is error_type
+    assert len(observed) == 1 and xml_reported_snapshot(b, adapter) == observed[0][0]
+    b.post.assert_called_once()
+    assert_artifacts_unchanged(b)
+
+
+@pytest.mark.parametrize("adapter", ADAPTERS)
+def test_existing_xml_reported_review_stays_arabic_after_commit(legacy_boundary, monkeypatch, adapter):
+    b = legacy_boundary
+    select_owner(b, getattr(b, adapter[3]), "linked")
+    b.response.status_code = 202
+    with (Path(__file__).resolve().parents[2] / "translations/ar.csv").open() as stream:
+        entries = {row[0]: row[1] for row in csv.reader(stream) if len(row) == 2}
+    monkeypatch.setattr(processing, "_", lambda message: entries[message])
+    _, observed = fail_xml_reported_step(b, adapter, monkeypatch, "commit_after", ValidationError)
+    with pytest.raises(processing.LocalResponseProcessingError) as raised:
+        call_adapter(b, adapter, wrapper=True)
+    assert str(raised.value) == entries[processing.LOCAL_RESPONSE_REVIEW]
+    assert len(observed) == 1 and xml_reported_snapshot(b, adapter) == observed[0][0]
+    assert raised.value.__context__ is None
+
+
+@pytest.mark.parametrize("adapter", ADAPTERS)
+@pytest.mark.parametrize("status", [200, 202, 409])
+def test_existing_xml_normal_reported_writer_order_is_preserved(legacy_boundary, adapter, status):
+    b = legacy_boundary
+    doc = getattr(b, adapter[3])
+    owner, _ = select_owner(b, doc, "linked")
+    b.response.status_code = status
+    order = []
+    owner.save.side_effect = lambda **options: order.append("owner_save")
+    doc.save.side_effect = lambda **options: order.append("invoice_save")
+    b.frappe.db.commit.side_effect = lambda: order.append("commit")
+    adapter[0].success_log.side_effect = lambda *args: order.append("success_log")
+    adapter[0].error_log.side_effect = lambda: order.append("error_log")
+    call_adapter(b, adapter)
+    assert order == ["owner_save", "invoice_save", "commit", "success_log"] + (["error_log"] if status == 409 else [])
+    assert owner.custom_pih == "test-hash"
+    assert doc.custom_uuid == "test-uuid" and doc.custom_zatca_status == "REPORTED"
+    assert doc.custom_zatca_full_response == b.response.text
+    doc.db_set.assert_not_called()
+    assert_artifacts_unchanged(b)
+
+
+@pytest.mark.parametrize("adapter", ADAPTERS)
+def test_existing_xml_wrapper_preserves_late_409_error_log_review(legacy_boundary, monkeypatch, adapter):
+    b = legacy_boundary
+    select_owner(b, getattr(b, adapter[3]), "linked")
+    b.response.status_code = 409
+    _, observed = fail_xml_reported_step(b, adapter, monkeypatch, "error_log", ValidationError)
+    with pytest.raises(processing.LocalResponseProcessingError):
+        call_adapter(b, adapter, wrapper=True)
+    assert len(observed) == 1 and xml_reported_snapshot(b, adapter) == observed[0][0]
+    assert_artifacts_unchanged(b)
+    b.post.assert_called_once()
+
+
+@pytest.mark.parametrize("doctype", [None, {}, True, "Company", "Purchase Invoice"])
+def test_shared_xml_reported_policy_rejects_unknown_doctype_before_any_io(doctype):
+    from zatca_erpgulf.zatca_erpgulf.legacy_xml_persistence import persist_existing_xml_reported
+    runtime = SimpleNamespace(get_doc=Mock(), db=SimpleNamespace(commit=Mock()))
+    with pytest.raises(ValueError, match="^legacy_xml_reported_policy$"):
+        persist_existing_xml_reported(runtime, doctype, "TEST", object(), "UUID")
+    runtime.get_doc.assert_not_called()
+    runtime.db.commit.assert_not_called()
+
+
+@pytest.mark.parametrize("invoice_attr", ["sales", "pos"])
+@pytest.mark.parametrize("text", [' \n{"unchanged":true}\n ', None, b"\x00\xff"])
+def test_shared_xml_reported_callback_preserves_raw_values_and_write_order(legacy_boundary, invoice_attr, text):
+    from zatca_erpgulf.zatca_erpgulf.legacy_xml_persistence import persist_existing_xml_reported
+    b = legacy_boundary
+    doc = getattr(b, invoice_attr)
+    order = []
+    original = b.frappe.get_doc.side_effect
+    def load(*args):
+        order.append("load")
+        return original(*args)
+    b.frappe.get_doc.side_effect = load
+    def save(**options):
+        order.append((doc.custom_zatca_full_response, doc.custom_uuid, doc.custom_zatca_status, options))
+    doc.save.side_effect = save
+    b.frappe.db.commit.side_effect = lambda: order.append("commit")
+    assert persist_existing_xml_reported(b.frappe, doc.doctype, doc.name, SimpleNamespace(text=text), "ARCHIVED-UUID") is None
+    assert order == ["load", (text, "ARCHIVED-UUID", "REPORTED", {"ignore_permissions": True}), "commit"]
+    doc.db_set.assert_not_called()
+    b.post.assert_not_called()
+    for owner in (b.company, b.device, b.linked):
+        owner.save.assert_not_called()
+        assert owner.custom_pih == "previous"
+    assert_artifacts_unchanged(b)
+
+
+@pytest.mark.parametrize("value", [None, False, 0, "unchanged", b"exact"])
+def test_guarded_response_text_callback_preserves_arguments_and_return_value(value):
+    response = SimpleNamespace(text=object())
+    callback = Mock(return_value=value)
+    assert processing.run_received_response_step(processing.received_response_text_step, callback, response,
+        "UUID", "INVOICE", named="unchanged", validation_error_type=ValidationError) is value
+    callback.assert_called_once_with(response.text, "UUID", "INVOICE", named="unchanged")
+
+
+@pytest.mark.parametrize("adapter", ADAPTERS)
+def test_existing_xml_reported_source_guards_named_steps_after_transport(adapter):
+    tree = ast.parse(inspect.getsource(getattr(adapter[0], adapter[1])))
+    calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
+    post, = [node for node in calls if isinstance(node.func, ast.Attribute) and node.func.attr == "post"]
+    binding, = [node for node in calls if isinstance(node.func, ast.Name) and node.func.id == "partial"
+        and len(node.args) > 1 and isinstance(node.args[1], ast.Name) and node.args[1].id == "persist_existing_xml_reported"]
+    assert binding.args[0].id == "response_step" and binding.args[2].id == "frappe"
+    assert binding.args[3].value == ("Sales Invoice" if adapter[3] == "sales" else "POS Invoice")
+    assert binding.args[6].id == "uuid1"
+    writes = [node for node in calls if isinstance(node.func, ast.Name) and node.func.id == "persist_reported"]
+    assert len(writes) == 2 and all(not node.args and not node.keywords for node in writes)
+    guarded = [node for node in calls if isinstance(node.func, ast.Name) and node.func.id == "response_step"
+        and node.args and isinstance(node.args[0], ast.Name)]
+    assert sum(node.args[0].id == "record_submission_owner_success" for node in guarded) == 2
+    assert sum(node.args[0].id == "error_log" for node in guarded) == 1
+    logs = [node for node in guarded if node.args[0].id == "received_response_text_step"]
+    assert len(logs) == 2 and all(node.args[1].id == "success_log" for node in logs)
+    assert all(node.lineno > post.lineno for node in (binding, *writes, *guarded))
+    assert not any(isinstance(node.func, ast.Name) and node.func.id in (
+        "record_submission_owner_success", "success_log", "error_log") for node in calls)

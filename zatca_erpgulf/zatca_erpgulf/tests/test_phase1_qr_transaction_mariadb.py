@@ -30,6 +30,7 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_event_log_contract import source_eve
 from zatca_erpgulf.zatca_erpgulf.tests.test_legacy_submission_context import (
     legacy_boundary, ADAPTERS as XML_ADAPTERS, call_adapter as call_xml_adapter, assert_artifacts_unchanged,
     XML_REJECTION_STAGES, fail_xml_rejection_step, xml_rejection_commits_uuid,
+    XML_REPORTED_STAGES, fail_xml_reported_step, xml_reported_snapshot,
 )
 from zatca_erpgulf.zatca_erpgulf.tests.test_submission_context import select_owner
 from zatca_erpgulf.zatca_erpgulf.tests.test_certificate_evidence import certificates
@@ -61,6 +62,7 @@ def qr_schema(isolated_server):
                 "PRIMARY KEY(namespace,doctype,name)) ENGINE=InnoDB")
             cursor.execute("CREATE TABLE event_diagnostic_test (namespace VARCHAR(36),name VARCHAR(140),payload TEXT,diagnostic_status VARCHAR(140),"
                 "PRIMARY KEY(namespace,name)) ENGINE=InnoDB")
+            cursor.execute("CREATE TABLE xml_reported_owner_test (namespace VARCHAR(36) PRIMARY KEY,pih TEXT) ENGINE=InnoDB")
     finally:
         connection.close()
 
@@ -252,6 +254,83 @@ def test_existing_xml_rejection_fault_preserves_exact_sql_and_parent_decision(qr
         transaction.rollback()
         transaction.close()
     assert read_response_sql(connections, key) == (pending if parent_commit else visible)
+
+
+def read_xml_reported_owner(connections, namespace):
+    reader = connections("READ COMMITTED")
+    try:
+        with reader.cursor() as cursor:
+            cursor.execute("SELECT pih FROM xml_reported_owner_test WHERE namespace=%s", (namespace,))
+            return cursor.fetchone()[0]
+    finally:
+        reader.rollback()
+        reader.close()
+
+
+def xml_reported_sql_expectations(stage):
+    """PIH may be pending before response save, or committed before log failure."""
+    stored = stage in ("save_after", "commit_before", "commit_after", "success_log_text", "success_log", "error_log")
+    committed = stage in ("commit_after", "success_log_text", "success_log", "error_log")
+    pih_staged = stage not in ("owner_get_doc", "owner_save_before")
+    initial = ("ORIGINAL-RECEIPT", "ORIGINAL-STATUS", "test-existing-uuid", "ORIGINAL-BUSINESS")
+    complete = ("TEST RESPONSE", "REPORTED", "test-uuid", "PARENT-PENDING")
+    visible = complete if committed else initial
+    pending = complete if stored else (*initial[:3], "PARENT-PENDING")
+    return (visible, "test-hash" if committed else "previous"), (pending, "test-hash" if pih_staged else "previous")
+
+
+@pytest.mark.parametrize("adapter,status,stage", XML_REPORTED_STAGES)
+@pytest.mark.parametrize("parent_commit", [False, True])
+def test_existing_xml_reported_fault_preserves_exact_pih_response_and_parent_history(qr_schema, legacy_boundary,
+    connections, namespace, monkeypatch, adapter, status, stage, parent_commit):
+    b = legacy_boundary
+    doc = getattr(b, adapter[3])
+    owner, _ = select_owner(b, doc, "linked")
+    primary_module = sign_invoice if adapter[3] == "sales" else pos_sign
+    _, transaction, key = response_sql_case(b, connections, namespace, primary_module)
+    seed = connections()
+    try:
+        with seed.cursor() as cursor:
+            cursor.execute("INSERT INTO xml_reported_owner_test VALUES (%s,%s)", (namespace, "previous"))
+        seed.commit()
+    finally:
+        seed.close()
+    def save_owner(**options):
+        assert options == {"ignore_permissions": True}
+        with transaction.cursor() as cursor:
+            cursor.execute("UPDATE xml_reported_owner_test SET pih=%s WHERE namespace=%s", (owner.custom_pih, namespace))
+            assert cursor.rowcount == 1
+    owner.save.side_effect = save_owner
+    b.response.status_code = status
+    b.frappe.db.rollback = Mock(side_effect=AssertionError("Never clean the parent"))
+    b.frappe.db.close = Mock(side_effect=AssertionError("Never close the parent"))
+    read = lambda: (read_response_sql(connections, key), read_xml_reported_owner(connections, namespace))
+    selected, observed = fail_xml_reported_step(b, adapter, monkeypatch, stage, BoundaryError, observe=read)
+    assert selected is doc
+    visible, pending = xml_reported_sql_expectations(stage)
+    try:
+        with pytest.raises(response_processing.LocalResponseProcessingError) as raised:
+            call_xml_adapter(b, adapter)
+        assert str(raised.value) == response_processing.LOCAL_RESPONSE_REVIEW
+        assert raised.value.__context__ is raised.value.__cause__ is None and not vars(raised.value)
+        assert len(observed) == 1 and xml_reported_snapshot(b, adapter) == observed[0][0]
+        assert observed[0][1] == read() == visible
+        with transaction.cursor() as cursor:
+            cursor.execute("SELECT receipt,status,uuid,business_value FROM response_processing_test WHERE namespace=%s AND doctype=%s AND name=%s", key)
+            row = cursor.fetchone()
+            cursor.execute("SELECT pih FROM xml_reported_owner_test WHERE namespace=%s", (namespace,))
+            assert (row, cursor.fetchone()[0]) == pending
+        assert transaction.open
+        b.frappe.db.rollback.assert_not_called()
+        b.frappe.db.close.assert_not_called()
+        b.frappe.log_error.assert_not_called()
+        assert_artifacts_unchanged(b)
+        b.post.assert_called_once()
+        (transaction.commit if parent_commit else transaction.rollback)()
+    finally:
+        transaction.rollback()
+        transaction.close()
+    assert read() == (pending if parent_commit else visible)
 
 
 def read_response_sql(connections, key):
