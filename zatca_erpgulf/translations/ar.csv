@@ -326,6 +326,7 @@ A company address is required before running the automatic ZATCA onboarding test
 Company Tax ID is required for the automatic ZATCA onboarding test.,الرقم الضريبي للشركة مطلوب لتشغيل اختبار الربط التلقائي مع ZATCA.
 Already completed by ZATCA; treated as PASS.,اكتمل مسبقًا لدى ZATCA؛ وسيُعامل كنجاح.
 Completed successfully.,اكتمل بنجاح.
+Completed with warnings. See technical details.,اكتمل الفحص مع وجود تحذيرات. راجع التفاصيل الفنية.
 "Select a valid ZATCA environment: Sandbox, Simulation, or Production.",اختر بيئة صحيحة لهيئة الزكاة: Sandbox أو Simulation أو Production.
 Unsupported ZATCA API operation.,عملية واجهة الربط مع هيئة الزكاة غير مدعومة.
 This operation is not part of ZATCA onboarding.,هذه العملية ليست من عمليات إعداد الربط مع هيئة الزكاة.
@@ -696,3 +697,18 @@ Diagnostic source access changed. Review the retained response and any staged ev
 You do not have permission to stage diagnostics for retained ZATCA responses.,ليس لديك صلاحية إدراج سجلات تشخيصية لردود زاتكا المحفوظة.
 Retained ZATCA diagnostic staging requires review. Keep the original request and sealed receipt and review any staged event. Do not resend automatically.,إدراج السجل التشخيصي لرد زاتكا يحتاج إلى مراجعة. احتفظ بالطلب الأصلي ونسخة الرد المشفّرة وراجع أي حدث أُدرج. لا تُعد الإرسال تلقائيًا.
 Diagnostic database context changed or is unavailable. Review the retained response and any staged event. Do not resend automatically.,تغيّر سياق اتصال قاعدة بيانات السجل التشخيصي أو أنه غير متاح. راجع الرد الأصلي وأي حدث أُدرج. لا تُعد الإرسال تلقائيًا.
+Simplified Invoice,فاتورة مبسطة
+Standard Invoice,فاتورة ضريبية
+Simplified Credit Note,إشعار دائن مبسط
+Standard Credit Note,إشعار دائن ضريبي
+Simplified Debit Note,إشعار مدين مبسط
+Standard Debit Note,إشعار مدين ضريبي
+PASS,ناجح
+FAIL,فشل
+Technical details,التفاصيل الفنية
+Status,الحالة
+Message,الرسالة
+Passed,ناجح
+Compliance check failed. See technical details.,فشل فحص الامتثال. راجع التفاصيل الفنية.
+No compliance results were returned. Completion has not been confirmed.,لم تصل نتائج فحص الامتثال. لم يتم تأكيد اكتمال الفحص.
+The operation could not be completed. Reload the form and try again.,تعذّر إكمال العملية. أعد تحميل النموذج وحاول مجددًا.

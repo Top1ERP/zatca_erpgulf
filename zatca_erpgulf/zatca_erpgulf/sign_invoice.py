@@ -24,7 +24,7 @@ from zatca_erpgulf.zatca_erpgulf.compliance_dispatch import (
 )
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 from zatca_erpgulf.zatca_erpgulf.api_settings import get_company_api_route
-from zatca_erpgulf.zatca_erpgulf.compliance_result import compliance_result_status
+from zatca_erpgulf.zatca_erpgulf.compliance_messages import collect_compliance_results
 from zatca_erpgulf.zatca_erpgulf.compliance_types import COMPLIANCE_TYPES, resolve_compliance_type
 from zatca_erpgulf.zatca_erpgulf.nonproduction import temporary_compliance_xml
 from zatca_erpgulf.zatca_erpgulf.issue_timestamp import issue_timestamp_from_datetime
@@ -2021,35 +2021,17 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
 
 @frappe.whitelist()
 def run_all_compliance_summary(company_name: str, invoice_number: str):
-    """Run all types without temporarily changing shared Company settings."""
+    """Return one English summary, without child popups or Company mutations."""
     company_doc = frappe.get_doc("Company", company_name)
-    results = []
-    for validation_type in COMPLIANCE_TYPES:
-        try:
-            response = zatca_call_compliance(
-                invoice_number=invoice_number,
-                company_abbr=company_doc.abbr,
-                source_doc=json.dumps({"doctype": company_doc.doctype, "name": company_doc.name}),
-                validation_type=validation_type,
-            )
-            outcome = compliance_result_status(response)
-            if outcome is None:
-                frappe.throw(
-                    _("ZATCA did not confirm compliance. This check cannot be marked as passed.")
-                )
-            message_text = (
-                _("Already completed by ZATCA; treated as PASS.")
-                if outcome == "ALREADY_COMPLETED"
-                else json.dumps(response, ensure_ascii=False)
-            )
-            results.append({
-                "type": validation_type,
-                "status": "PASS",
-                "compliance_status": outcome,
-                "message": message_text,
-            })
-        except Exception as error:
-            results.append({"type": validation_type, "status": "FAIL", "message": str(error)})
+    results = collect_compliance_results(
+        frappe, COMPLIANCE_TYPES,
+        lambda validation_type: zatca_call_compliance(
+            invoice_number=invoice_number,
+            company_abbr=company_doc.abbr,
+            source_doc=json.dumps({"doctype": company_doc.doctype, "name": company_doc.name}),
+            validation_type=validation_type,
+        ),
+    )
     return {"results": results}
 
 
@@ -2411,35 +2393,10 @@ def run_automatic_zatca_onboarding_checks(company_name: str):
     """Run all six ZATCA compliance checks using temporary synthetic documents."""
     validation_types = COMPLIANCE_TYPES
     company_doc = frappe.get_doc("Company", company_name)
-    results = []
-    for validation_type in validation_types:
-        try:
-            response = _submit_onboarding_document(company_doc, validation_type)
-            outcome = compliance_result_status(response)
-            if outcome is None:
-                frappe.throw(
-                    _("ZATCA did not confirm compliance. This check cannot be marked as passed.")
-                )
-            results.append(
-                {
-                    "type": validation_type,
-                    "status": "PASS",
-                    "compliance_status": outcome,
-                    "message": _(
-                        "Already completed by ZATCA; treated as PASS."
-                        if outcome == "ALREADY_COMPLETED"
-                        else "Completed successfully."
-                    ),
-                }
-            )
-        except Exception as error:
-            results.append(
-                {
-                    "type": validation_type,
-                    "status": "FAIL",
-                    "message": str(error),
-                }
-            )
+    results = collect_compliance_results(
+        frappe, validation_types,
+        lambda validation_type: _submit_onboarding_document(company_doc, validation_type),
+    )
 
     passed = sum(result["status"] == "PASS" for result in results)
     return {

@@ -1,3 +1,83 @@
+// Presentation only: never translate or rewrite a raw authority diagnostic.
+function zatca_compliance_summary(response, automatic) {
+    const escape = value => frappe.utils.escape_html(String(value ?? ""));
+    // Explicit keys are discoverable by Frappe's translation extractor.
+    const labels = {
+        "Simplified Invoice": __("Simplified Invoice"),
+        "Standard Invoice": __("Standard Invoice"),
+        "Simplified Credit Note": __("Simplified Credit Note"),
+        "Standard Credit Note": __("Standard Credit Note"),
+        "Simplified Debit Note": __("Simplified Debit Note"),
+        "Standard Debit Note": __("Standard Debit Note")
+    };
+    const messages = new Map([
+        ["Completed successfully.", __("Completed successfully.")],
+        ["Completed with warnings. See technical details.", __("Completed with warnings. See technical details.")],
+        ["Already completed by ZATCA; treated as PASS.", __("Already completed by ZATCA; treated as PASS.")],
+        ["Compliance check failed. See technical details.", __("Compliance check failed. See technical details.")]
+    ]);
+    const results = Array.isArray(response.results) ? response.results.map(row =>
+        row && typeof row === "object" ? row : {}) : [];
+    const details = new Map();
+    let passed = 0;
+    const rows = results.map(row => {
+        const ok = row.status === "PASS";
+        if (ok) passed += 1;
+        const label = Object.prototype.hasOwnProperty.call(labels, row.type) ? labels[row.type] : row.type;
+        const message = messages.get(row.message) || __("Compliance check failed. See technical details.");
+        // Group identical original diagnostics, not translated or parsed variants.
+        // JSON below is only a view of parsed validation fields, not a raw log.
+        const raw = typeof row.technical_details === "string" ? row.technical_details :
+            (row.validation_details && typeof row.validation_details === "object" ? JSON.stringify(row.validation_details, null, 2) :
+            (!messages.has(row.message) && typeof row.message === "string" ? row.message : ""));
+        if (raw) {
+            if (!details.has(raw)) details.set(raw, []);
+            details.get(raw).push(label);
+        }
+        return '<tr><td>' + escape(label) + '</td><td><strong class="' +
+            (ok ? 'text-success' : 'text-danger') + '">' + escape(ok ? __("PASS") : __("FAIL")) +
+            '</strong></td><td>' + escape(message) + '</td></tr>';
+    }).join("");
+    const complete = results.length === 6 && passed === 6 &&
+        new Set(results.map(row => row.type)).size === 6 &&
+        results.every(row => Object.prototype.hasOwnProperty.call(labels, row.type)) &&
+        (!automatic || response.all_passed === true);
+    const technical = Array.from(details, ([raw, types]) =>
+        '<details><summary>' + escape(__("Technical details")) + ': ' +
+        types.map(escape).join(', ') + '</summary><pre style="white-space:pre-wrap" dir="auto">' +
+        escape(raw) + '</pre></details>').join("");
+    const note = automatic ? '<p>' + escape(__("This alternative test uses temporary documents only; no customer or sales invoice was created.")) + '</p>' : '';
+    const empty = results.length ? '' : '<p>' + escape(__("No compliance results were returned. Completion has not been confirmed.")) + '</p>';
+    frappe.msgprint({
+        title: automatic ?
+            (complete ? __("Automatic ZATCA Onboarding Test Passed") : __("Automatic ZATCA Onboarding Test Failed")) :
+            __("Compliance Results Summary"),
+        indicator: complete ? (results.some(row => row.message === "Completed with warnings. See technical details.") ? "orange" : "green") : "red",
+        wide: true,
+        message: note + '<p><strong>' + escape(__("Passed")) + ':</strong> ' + passed +
+            ' &nbsp; <strong>' + escape(__("Failed")) + ':</strong> ' + (results.length - passed) + '</p>' +
+            empty + '<div style="max-height:450px;overflow:auto"><table class="table table-bordered"><thead><tr><th>' +
+            escape(__("Validation Type")) + '</th><th>' + escape(__("Status")) + '</th><th>' +
+            escape(__("Message")) + '</th></tr></thead><tbody>' + rows + '</tbody></table>' + technical + '</div>' +
+            (automatic && complete ? '<p><strong>' +
+                escape(__("You may now use Generate Final CSID. Do not run both onboarding methods for the same compliance setup.")) +
+                '</strong></p>' : '')
+    });
+}
+
+function zatca_compliance_client_error(error, title) {
+    // Frappe owns HTTP/permission/session/validation dialogs. Do not display a
+    // second dialog on rejection. Never stringify an XHR as "[object Object]".
+    const frameworkStatuses = [401, 403, 404, 413, 500, 502, 504, 508];
+    if (error && (frameworkStatuses.includes(error.status) || error._server_messages ||
+        (error.responseJSON && error.responseJSON._server_messages))) return;
+    frappe.msgprint({
+        title: __(title),
+        message: __("The operation could not be completed. Reload the form and try again."),
+        indicator: "red"
+    });
+}
+
 frappe.realtime.on('hide_gif', () => {
     $('#custom-gif-overlay').remove();
 });
@@ -127,11 +207,7 @@ frappe.ui.form.on("Company", {
                 await frm.reload_doc();
             }
         } catch (e) {
-            frappe.msgprint({
-                title: __('Compliance CSID Generation Failed'),
-                message: frappe.utils.escape_html(e.message || String(e)),
-                indicator: 'red'
-            });
+            zatca_compliance_client_error(e, "Compliance CSID Generation Failed");
         }
     },
 
@@ -175,20 +251,7 @@ frappe.ui.form.on("Company", {
             frappe.msgprint(__('Please enter Sample Invoice Number to Test first.'));
             return;
         }
-
-        const validationTypes = [
-            "Simplified Invoice",
-            "Standard Invoice",
-            "Simplified Credit Note",
-            "Standard Credit Note",
-            "Simplified Debit Note",
-            "Standard Debit Note"
-        ];
-
-        const originalValidationType = frm.doc.custom_validation_type || "";
-
         frappe.dom.freeze(__('Running all compliance checks...'));
-
         try {
             const r = await frappe.call({
                 method: "zatca_erpgulf.zatca_erpgulf.sign_invoice.run_all_compliance_summary",
@@ -197,64 +260,12 @@ frappe.ui.form.on("Company", {
                     invoice_number: frm.doc.custom_sample_invoice_number_to_test
                 }
             });
-
-            // Restore original value visually and in DB only once
-            await frm.set_value("custom_validation_type", originalValidationType);
-            await frm.save();
-
-            const results = (r && r.message && r.message.results) ? r.message.results : [];
-
-            let html = `
-                <div style="max-height: 450px; overflow:auto;">
-                    <table class="table table-bordered">
-                        <thead>
-                            <tr>
-                                <th style="width: 30%;">Validation Type</th>
-                                <th style="width: 12%;">Status</th>
-                                <th>Message</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
-
-            results.forEach(row => {
-                const color = row.status === "PASS" ? "green" : "red";
-                html += `
-                    <tr>
-                        <td>${frappe.utils.escape_html(row.type || "")}</td>
-                        <td><strong style="color:${color};">${frappe.utils.escape_html(row.status || "")}</strong></td>
-                        <td>${frappe.utils.escape_html(row.message || "")}</td>
-                    </tr>
-                `;
-            });
-
-            html += `
-                        </tbody>
-                    </table>
-                </div>
-            `;
-
-            const passed = results.filter(x => x.status === "PASS").length;
-            const failed = results.filter(x => x.status === "FAIL").length;
-
-            frappe.msgprint({
-                title: __('Compliance Results Summary'),
-                message: `
-                    <p><strong>Passed:</strong> ${passed}</p>
-                    <p><strong>Failed:</strong> ${failed}</p>
-                    ${html}
-                `,
-                wide: true
-            });
-
-            await frm.reload_doc();
-
-        } catch (e) {
-            frappe.msgprint({
-                title: __('Run All Compliance Failed'),
-                message: frappe.utils.escape_html(e.message || String(e)),
-                indicator: 'red'
-            });
+            if (r.exc) return; // The framework already presents the server error.
+            // No Company setting is changed here. Avoid a restore/save/reload
+            // that could overwrite server values or discard dirty form edits.
+            zatca_compliance_summary(r.message || {}, false);
+        } catch (error) {
+            zatca_compliance_client_error(error, "Run All Compliance Failed");
         } finally {
             frappe.dom.unfreeze();
         }
@@ -268,69 +279,17 @@ frappe.ui.form.on("Company", {
                 () => resolve(false)
             );
         });
-
-        if (!confirmed) {
-            return;
-        }
-
+        if (!confirmed) return;
         frappe.dom.freeze(__('Running the automatic ZATCA onboarding test...'));
-
         try {
             const r = await frappe.call({
                 method: "zatca_erpgulf.zatca_erpgulf.sign_invoice.run_automatic_zatca_onboarding_checks",
-                args: {
-                    company_name: frm.doc.name
-                }
+                args: { company_name: frm.doc.name }
             });
-
-            const response = (r && r.message) || {};
-            const results = response.results || [];
-            let html = `
-                <div style="max-height: 450px; overflow:auto;">
-                    <table class="table table-bordered">
-                        <thead>
-                            <tr>
-                                <th style="width: 30%;">${__('Validation Type')}</th>
-                                <th style="width: 12%;">${__('Status')}</th>
-                                <th>${__('Message')}</th>
-                            </tr>
-                        </thead>
-                        <tbody>`;
-
-            results.forEach(row => {
-                const color = row.status === "PASS" ? "green" : "red";
-                html += `
-                    <tr>
-                        <td>${frappe.utils.escape_html(row.type || "")}</td>
-                        <td><strong style="color:${color};">${frappe.utils.escape_html(row.status || "")}</strong></td>
-                        <td>${frappe.utils.escape_html(row.message || "")}</td>
-                    </tr>`;
-            });
-
-            html += `</tbody></table></div>`;
-
-            const passed = Number(response.passed || 0);
-            const failed = Number(response.failed || 0);
-            const all_passed = response.all_passed === true;
-
-            frappe.msgprint({
-                title: all_passed ? __('Automatic ZATCA Onboarding Test Passed') : __('Automatic ZATCA Onboarding Test Failed'),
-                indicator: all_passed ? 'green' : 'red',
-                message: `
-                    <p>${__('This alternative test uses temporary documents only; no customer or sales invoice was created.')}</p>
-                    <p><strong>${__('Passed')}:</strong> ${passed}</p>
-                    <p><strong>${__('Failed')}:</strong> ${failed}</p>
-                    ${html}
-                    ${all_passed ? `<p><strong>${__('You may now use Generate Final CSID. Do not run both onboarding methods for the same compliance setup.')}</strong></p>` : ''}
-                `,
-                wide: true
-            });
-        } catch (e) {
-            frappe.msgprint({
-                title: __('Automatic ZATCA Onboarding Test Failed'),
-                message: frappe.utils.escape_html(e.message || String(e)),
-                indicator: 'red'
-            });
+            if (r.exc) return;
+            zatca_compliance_summary(r.message || {}, true);
+        } catch (error) {
+            zatca_compliance_client_error(error, "Automatic ZATCA Onboarding Test Failed");
         } finally {
             frappe.dom.unfreeze();
         }

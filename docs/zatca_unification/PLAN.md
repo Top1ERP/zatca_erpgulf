@@ -29,6 +29,14 @@ the database, commit transactions, attach files, or send HTTP requests. Services
 own those side effects explicitly. English docstrings explain invariants and
 regulatory rule references; UI messages use translation keys with Arabic entries.
 
+Operation messaging policy: collect related outcomes into one comprehensive
+user-facing summary, translate only app-owned display labels for the user's UI
+language, and keep generated diagnostic storage English. Original authority
+payloads/codes/identifiers remain unchanged. Increment 68 adopts this policy for
+the two Company batch checks and retained-event labels; the remaining invoice,
+POS, debug, CSID and background boundaries require explicit staged adoption.
+See [MESSAGE_PRESENTATION.md](MESSAGE_PRESENTATION.md).
+
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |
 | Phase 1 | Local QR for supported Sales/POS documents | No Phase-2 API or production hash-chain mutation |

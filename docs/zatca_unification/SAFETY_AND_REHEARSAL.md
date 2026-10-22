@@ -620,6 +620,20 @@ work remains the explicit owner's decision. Network/site initialization stayed
 denied and no runtime/ownership rule was waived. This is not installed v16 or
 authority acceptance evidence.
 
+Increment68 adopts one operation summary for the two Company batch checks and
+English stored retained-event labels. Nested messages are request-locally muted
+without swallowing exceptions, clearing parent notifications, forcing a language,
+adding persistence/commits or changing compliance acceptance. Display translations
+never replace raw responses; warning details stay visible. This is not migration
+of all invoice/POS/debug/background/CSID messages or a historical log rewrite.
+No installed source/assets/schema, Bench/worker, customer or authority action.
+
+Increment68 guarded combined: **10,643 local + 1,800 private SQL = 12,443 passed
+in 140.86 seconds**, plus **84 independent synthetic Node VM UI cases**. The
+fixed Python manifest adds only the reviewed message suite; no transport/site
+guard is loosened. Real v15/v16 browser/ORM lifecycle and authority acceptance
+remain unverified. See [MESSAGE_PRESENTATION.md](MESSAGE_PRESENTATION.md).
+
 Full development and real v15/v16/application/crypto/advance acceptance remain
 unfinished. Remote authority acceptance is a separate unverified gate and cannot
 be inferred or marked complete while actual requests remain prohibited.

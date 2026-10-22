@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and sixty-seven bounded increments (Compliance outcomes, dedicated
+Safety preparation and sixty-eight bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -58,7 +58,8 @@ and bounded/rechecked owned-session lock waits in the optional concrete provider
 and caller database-owner/raw-handle continuity checks for explicit diagnostic staging,
 and received local-step isolation across existing-XML Sales/POS APIs and their public wrappers,
 and shared guarded existing-XML rejection persistence with exact legacy UUID policy,
-and guarded shared existing-XML reported writes with pinned-owner PIH/logging boundaries)
+and guarded shared existing-XML reported writes with pinned-owner PIH/logging boundaries,
+and Company batch message aggregation/display-only translation with English retained-event labels)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -1319,6 +1320,28 @@ additions). All 136 native route/status/fault points preserve exact independent
 and pending-owner PIH/response/UUID/status/business values under both owner decisions.
 Initial characterization and callback-double correction are documented in
 [EXISTING_XML_REPORTED_WRITES.md](EXISTING_XML_REPORTED_WRITES.md); no guard was waived.
+
+## Increment 68: Company batch summaries and English diagnostic labels
+
+- One shared collector/presenter for the two Company batch compliance methods;
+  child messages are request-locally muted without swallowing exceptions or
+  clearing parent messages. Original flag state is restored even on interrupts.
+- One translated summary with per-type outcomes/counts and grouped expandable
+  escaped technical details; warnings remain visible with unchanged acceptance.
+  Arabic is presentation-only. App-generated summary fields and retained-event
+  stored title/status remain English; original response content is untouched.
+- Avoid a second client catch dialog when the framework owns the error. Remove
+  the batch's unnecessary Company type restore/save/reload; dirty form values
+  are not discarded and server settings are unchanged.
+- This is not general invoice/POS/debug/background/CSID wrapper migration, a
+  historical log rewrite, a raw certificate redaction fix or real v16/browser
+  verification. No live source/config/schema/Bench/worker/authority action.
+  See [MESSAGE_PRESENTATION.md](MESSAGE_PRESENTATION.md).
+
+Final guarded combined: **10,643 local + 1,800 private SQL = 12,443 passed in
+140.86 seconds**, across the same twelve private suites (25 new local cases).
+The separate mocked Node VM adds **84 English/Arabic UI cases**. The fixed
+offline guard remains active; no live/site/authority/v16 acceptance is inferred.
 
 ## Verification
 

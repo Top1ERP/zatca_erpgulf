@@ -152,15 +152,15 @@ def test_invalid_or_unrelated_protected_inputs_do_not_reach_diagnostic_writer(wr
     writer.runtime.get_doc.assert_not_called()
 
 
-def test_retained_event_labels_and_review_use_arabic_catalog_without_translating_body(writer, prepared, monkeypatch):
+def test_retained_event_labels_stay_english_under_arabic_without_translating_body(writer, prepared, monkeypatch):
     with (Path(event_log.__file__).parents[1] / "translations/ar.csv").open() as stream:
         entries = {row[0]: row[1] for row in csv.reader(stream) if len(row) == 2}
     monkeypatch.setattr(event_log, "_", lambda message: entries[message])
     case = scenario(monkeypatch, prepared, "matched", response={"body": b'{"message":"UNCHANGED"}'})
     invoke(case)
     payload = writer.runtime.get_doc.call_args.args[0]
-    assert payload["title"] == entries[event_log.RETAINED_EVENT_TITLE]
-    assert payload["status"] == entries[event_log.RETAINED_EVENT_STATUS].format(case.captured.receipt.response_event.http_status)
+    assert payload["title"] == event_log.RETAINED_EVENT_TITLE
+    assert payload["status"] == event_log.RETAINED_EVENT_STATUS.format(case.captured.receipt.response_event.http_status)
     assert payload["api_response"] == '{"message":"UNCHANGED"}'
 
 

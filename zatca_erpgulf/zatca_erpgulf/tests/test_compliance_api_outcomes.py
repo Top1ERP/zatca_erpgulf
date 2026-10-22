@@ -55,6 +55,7 @@ def boundary(monkeypatch):
         custom_select="Production", db_set=Mock(),
     )
     frappe = SimpleNamespace(
+        flags={"mute_messages": False},
         get_doc=Mock(return_value=company),
         db=SimpleNamespace(get_value=Mock(return_value=company.name)),
         throw=raise_validation, ValidationError=LocalValidationError, msgprint=Mock(),
@@ -254,3 +255,31 @@ def test_new_error_messages_have_arabic_translations():
         "The ZATCA URL does not match the selected environment.",
     ):
         assert any("\u0600" <= char <= "\u06ff" for char in translations[message])
+
+
+@pytest.mark.parametrize("automatic", [False, True])
+@pytest.mark.parametrize("previous", [False, True])
+def test_company_batches_own_child_popups_but_not_language_or_parent_messages(boundary, monkeypatch, automatic, previous):
+    company, app, _ = boundary
+    app.flags["mute_messages"] = previous
+    app.message_log = [{"message": "Parent-owned message"}]
+    original = 'Mock original {"code":"QRCODE_INVALID","request_id":"unchanged"}'
+
+    def submit(*args, **kwargs):
+        assert app.flags["mute_messages"] is True
+        # Frappe throws even when mute_messages suppresses enqueueing.
+        if not app.flags["mute_messages"]:
+            app.message_log.append({"message": original})
+        raise LocalValidationError(original)
+
+    monkeypatch.setattr(buttons, "zatca_call_compliance", submit)
+    monkeypatch.setattr(buttons, "_submit_onboarding_document", submit)
+    monkeypatch.setattr(buttons, "_", lambda message: "ترجمة العرض فقط")
+    result = run_button(company, automatic)
+    assert app.flags == {"mute_messages": previous}
+    assert app.message_log == [{"message": "Parent-owned message"}]
+    assert len(result["results"]) == 6
+    assert all(row["status"] == "FAIL" and row["message"] == "Compliance check failed. See technical details."
+               and row["technical_details"] == original for row in result["results"])
+    company.db_set.assert_not_called()
+    app.msgprint.assert_not_called()

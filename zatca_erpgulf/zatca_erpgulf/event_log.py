@@ -237,8 +237,9 @@ def stage_retained_primary_event(request, sealed, *, reconciliation, cipher, sou
         invalid = False
     if invalid:
         raise RetainedEventLogError(_(RETAINED_EVENT_REVIEW))
-    return stage_zatca_event(invoice, text, _(RETAINED_EVENT_STATUS).format(status),
-        uuid=uuid, title=_(RETAINED_EVENT_TITLE), source_recheck=source_recheck)
+    # Stored diagnostics are canonical English; localize labels only in a view.
+    return stage_zatca_event(invoice, text, RETAINED_EVENT_STATUS.format(status),
+        uuid=uuid, title=RETAINED_EVENT_TITLE, source_recheck=source_recheck)
 
 
 def log_zatca_event(invoice_number, response_text, status, uuid=None, title=None):

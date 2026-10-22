@@ -65,6 +65,7 @@ def isolated(monkeypatch, tmp_path):
                 "Company": company, "Customer": customer}[doctype]
 
     frappe = SimpleNamespace(
+        flags={"mute_messages": False},
         get_doc=Mock(side_effect=get_doc),
         db=SimpleNamespace(
             exists=Mock(return_value=True), get_value=Mock(return_value=company.name),
