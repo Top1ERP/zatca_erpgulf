@@ -33,8 +33,12 @@ Operation messaging policy: collect related outcomes into one comprehensive
 user-facing summary, translate only app-owned display labels for the user's UI
 language, and keep generated diagnostic storage English. Original authority
 payloads/codes/identifiers remain unchanged. Increment 68 adopts this policy for
-the two Company batch checks and retained-event labels; the remaining invoice,
-POS, debug, CSID and background boundaries require explicit staged adoption.
+the two Company batch checks and retained-event labels. Increment 69 adds the
+Company single-check wrapper and Sales/POS Debug menus with a shared presenter.
+Ordinary invoice/POS submission, legacy direct calls, CSR/CSID and background
+boundaries still require staged adoption; original diagnostic details remain
+unchanged, even when a legacy exception is localized. Debug POS/Background's
+existing undefined bypass selector remains a generation gate, not a message fix.
 See [MESSAGE_PRESENTATION.md](MESSAGE_PRESENTATION.md).
 
 | Mode | Intended output | Side-effect boundary to enforce |

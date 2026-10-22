@@ -386,6 +386,7 @@ fixtures = [
 
 app_include_css = "/assets/zatca_erpgulf/css/tooltip.css"
 app_include_js = [
+    "/assets/zatca_erpgulf/js/operation_messages.js",
     "/assets/zatca_erpgulf/js/country.js",
     "/assets/zatca_erpgulf/js/tooltip.js",
 ]

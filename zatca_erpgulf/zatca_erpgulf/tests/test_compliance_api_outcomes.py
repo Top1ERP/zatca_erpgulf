@@ -283,3 +283,59 @@ def test_company_batches_own_child_popups_but_not_language_or_parent_messages(bo
                and row["technical_details"] == original for row in result["results"])
     company.db_set.assert_not_called()
     app.msgprint.assert_not_called()
+
+
+@pytest.mark.parametrize("selection", [*buttons.COMPLIANCE_TYPES, "", "legacy-unknown"])
+@pytest.mark.parametrize("failed", [False, True])
+def test_single_summary_uses_saved_selection_and_runs_exactly_once(boundary, monkeypatch, selection, failed):
+    company, app, _ = boundary
+    company.custom_validation_type = selection
+    company.check_permission = Mock()
+    invoice = Document(doctype="Sales Invoice", name="MOCK-INVOICE", company=company.name, check_permission=Mock())
+    app.get_doc.side_effect = lambda doctype, name: company if doctype == "Company" else invoice
+    original = 'Original {"code":"mock-failure","request_id":"unchanged"}'
+
+    def submit(**kwargs):
+        assert app.flags["mute_messages"] is True
+        if failed:
+            raise LocalValidationError(original)
+        return success_response()
+
+    submitted = Mock(side_effect=submit)
+    monkeypatch.setattr(buttons, "zatca_call_compliance", submitted)
+    monkeypatch.setattr(buttons, "_", lambda message: "ترجمة العرض فقط")
+    result = inspect.unwrap(buttons.run_single_compliance_summary)(company.name, invoice.name)
+    expected_type = selection if selection in buttons.COMPLIANCE_TYPES else "Simplified Invoice"
+    assert result["single_check"] is True
+    assert len(result["results"]) == 1
+    row = result["results"][0]
+    assert row["type"] == expected_type
+    assert row["status"] == ("FAIL" if failed else "PASS")
+    if failed:
+        assert row["technical_details"] == original
+        assert row["message"] == "Compliance check failed. See technical details."
+    submitted.assert_called_once_with(
+        invoice_number=invoice.name, company_name=company.name, company_abbr=company.abbr,
+        source_doc=json.dumps({"doctype": company.doctype, "name": company.name}),
+        validation_type=expected_type, compliance_type="1",
+    )
+    company.check_permission.assert_called_once_with("read")
+    invoice.check_permission.assert_called_once_with("read")
+    assert app.flags == {"mute_messages": False}
+    company.db_set.assert_not_called()
+
+
+@pytest.mark.parametrize("denied", ["Company", "Sales Invoice"])
+def test_single_summary_refuses_denied_source_reads_before_any_submission(boundary, monkeypatch, denied):
+    company, app, _ = boundary
+    company.check_permission = Mock()
+    invoice = Document(check_permission=Mock())
+    app.get_doc.side_effect = lambda doctype, name: company if doctype == "Company" else invoice
+    source = company if denied == "Company" else invoice
+    source.check_permission.side_effect = LocalValidationError("Mock permission denial")
+    submit = Mock(side_effect=AssertionError("Unauthorized submission"))
+    monkeypatch.setattr(buttons, "zatca_call_compliance", submit)
+    with pytest.raises(LocalValidationError, match="Mock permission denial"):
+        inspect.unwrap(buttons.run_single_compliance_summary)(company.name, "MOCK-INVOICE")
+    submit.assert_not_called()
+    assert app.flags == {"mute_messages": False}

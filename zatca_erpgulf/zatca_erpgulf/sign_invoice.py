@@ -2019,6 +2019,35 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
 
 
 
+@frappe.whitelist(allow_guest=False)
+def run_single_compliance_summary(company_name: str, invoice_number: str):
+    """Present one saved Company-selected check without nested message dialogs.
+
+Require normal source READ access before preparing a sample. Keep the existing
+single-button numeric fallback, never accept a client-supplied credential or
+validation selector, and do not mutate the saved Company or invoice settings.
+The legacy API remains available unchanged for existing non-UI callers.
+"""
+    company_doc = frappe.get_doc("Company", company_name)
+    company_doc.check_permission("read")
+    invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
+    invoice_doc.check_permission("read")
+    code = resolve_compliance_type(company_doc.custom_validation_type, fallback="1")
+    selected_type = next(label for label, value in COMPLIANCE_TYPES.items() if value == code)
+    results = collect_compliance_results(
+        frappe, (selected_type,),
+        lambda validation_type: zatca_call_compliance(
+            invoice_number=invoice_number,
+            company_name=company_doc.name,
+            company_abbr=company_doc.abbr,
+            source_doc=json.dumps({"doctype": company_doc.doctype, "name": company_doc.name}),
+            validation_type=validation_type,
+            compliance_type="1",
+        ),
+    )
+    return {"results": results, "single_check": True}
+
+
 @frappe.whitelist()
 def run_all_compliance_summary(company_name: str, invoice_number: str):
     """Return one English summary, without child popups or Company mutations."""

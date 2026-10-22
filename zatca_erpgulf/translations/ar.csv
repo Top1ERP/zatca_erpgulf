@@ -712,3 +712,14 @@ Passed,ناجح
 Compliance check failed. See technical details.,فشل فحص الامتثال. راجع التفاصيل الفنية.
 No compliance results were returned. Completion has not been confirmed.,لم تصل نتائج فحص الامتثال. لم يتم تأكيد اكتمال الفحص.
 The operation could not be completed. Reload the form and try again.,تعذّر إكمال العملية. أعد تحميل النموذج وحاول مجددًا.
+Compliance Check Result,نتيجة فحص الامتثال
+Compliance Check Failed,فشل فحص الامتثال
+Running compliance check...,جارٍ تنفيذ فحص الامتثال...
+Debug XML Result,نتيجة إنشاء XML للفحص التقني
+Debug XML attached successfully.,تم إرفاق XML للفحص التقني بنجاح.
+Debug XML generation failed. See technical details.,فشل إنشاء XML للفحص التقني. راجع التفاصيل الفنية.
+ZATCA E-Invoicing is disabled for this Company. No debug XML was generated.,الفوترة الإلكترونية عبر زاتكا غير مفعلة لهذه الشركة. لم يتم إنشاء XML للفحص التقني.
+Existing XML/QR was found. A separate debug XML will be generated.,يوجد ملف XML أو رمز QR سابق. سيتم إنشاء XML مستقل للفحص التقني.
+No confirmed Debug XML result was returned. Review before trying again.,لم تصل نتيجة مؤكدة لإنشاء XML للفحص التقني. راجع الحالة قبل إعادة المحاولة.
+"This is a local debug operation, not a ZATCA submission.",هذه عملية فحص تقني محلية وليست إرسالًا إلى زاتكا.
+File,الملف

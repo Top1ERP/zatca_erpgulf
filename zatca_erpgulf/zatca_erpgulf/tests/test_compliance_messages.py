@@ -1,5 +1,6 @@
 """Synthetic, request-local presentation contracts; no site or HTTP transport."""
 
+import ast
 import csv
 from pathlib import Path
 from types import SimpleNamespace
@@ -8,8 +9,10 @@ import pytest
 
 from zatca_erpgulf.zatca_erpgulf.compliance_messages import (
     ALREADY_COMPLETED, COMPLETED, WITH_WARNINGS, FAILED, UNCONFIRMED,
-    _mute_nested_messages, collect_compliance_results,
+    collect_compliance_results,
 )
+from zatca_erpgulf.zatca_erpgulf import operation_messages
+from zatca_erpgulf.zatca_erpgulf.operation_messages import mute_operation_messages
 from zatca_erpgulf.zatca_erpgulf.compliance_types import COMPLIANCE_TYPES
 
 
@@ -71,7 +74,7 @@ def test_interrupts_propagate_without_leaving_request_muted(stop):
 
 def test_nested_batches_restore_the_outer_mute_without_clearing_messages():
     app = runtime({})
-    with _mute_nested_messages(app):
+    with mute_operation_messages(app):
         rows = collect_compliance_results(app, COMPLIANCE_TYPES, lambda kind: confirmed())
         assert app.flags == {"mute_messages": True}
         assert all(row["status"] == "PASS" for row in rows)
@@ -105,3 +108,27 @@ def test_warnings_remain_visible_and_do_not_change_the_existing_acceptance_rule(
     assert all(row["status"] == "PASS" and row["message"] == WITH_WARNINGS for row in rows)
     assert all(row["validation_details"] is validation for row in rows)
     assert validation == {"status": status, "warningMessages": [{"code": "mock-warning", "message": "UNCHANGED تحذير"}]}
+
+
+def test_debug_and_single_message_keys_have_arabic_display_entries():
+    path = Path(__file__).parents[2] / "translations/ar.csv"
+    with path.open(encoding="utf-8", newline="") as source:
+        translations = {row[0]: row[1] for row in csv.reader(source) if len(row) >= 2}
+    keys = [getattr(operation_messages, name) for name in vars(operation_messages) if name.startswith("DEBUG_")]
+    for key in (*keys, "Debug XML Result", "Compliance Check Result", "Compliance Check Failed",
+                "Running compliance check...", "This is a local debug operation, not a ZATCA submission.",
+                "No confirmed Debug XML result was returned. Review before trying again."):
+        assert any("\u0600" <= char <= "\u06ff" for char in translations[key])
+
+
+def test_shared_presenter_is_declared_once_in_development_desk_assets():
+    root = Path(__file__).parents[2]
+    tree = ast.parse((root / "hooks.py").read_text(encoding="utf-8"))
+    assignment = next(node for node in tree.body if isinstance(node, ast.Assign)
+                      and any(isinstance(target, ast.Name) and target.id == "app_include_js" for target in node.targets))
+    asset = "/assets/zatca_erpgulf/js/operation_messages.js"
+    assert ast.literal_eval(assignment.value).count(asset) == 1
+    shared = root / "public/js/operation_messages.js"
+    assert "function zatca_compliance_summary" in shared.read_text(encoding="utf-8")
+    assert "function zatca_debug_summary" in shared.read_text(encoding="utf-8")
+    assert "function zatca_compliance_summary" not in (root / "public/js/company.js").read_text(encoding="utf-8")

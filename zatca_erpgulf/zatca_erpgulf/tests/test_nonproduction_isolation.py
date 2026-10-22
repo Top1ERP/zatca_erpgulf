@@ -19,6 +19,10 @@ from zatca_erpgulf.zatca_erpgulf import (
 )
 from zatca_erpgulf.zatca_erpgulf.compliance_types import COMPLIANCE_TYPES, resolve_compliance_type
 from zatca_erpgulf.zatca_erpgulf.nonproduction import preview_invoice_uuid, temporary_compliance_xml
+from zatca_erpgulf.zatca_erpgulf.operation_messages import (
+    DEBUG_CREATED, DEBUG_FAILED, DEBUG_SKIPPED, DEBUG_POS_DISABLED,
+    DEBUG_LOCAL_ONLY, DEBUG_EXISTING,
+)
 
 
 class Document(SimpleNamespace):
@@ -226,6 +230,11 @@ def test_debug_attaches_from_memory_without_touching_live_file(isolated, monkeyp
     assert "sample" in files[0]["content"]
     assert files[0]["is_private"] == 1
     assert metadata.call_args.kwargs["purpose"] == "debug"
+    assert result["message"] == DEBUG_CREATED
+    assert result["file_name"] == f"DEBUG_INVOICE_{invoice.name}.xml"
+    assert result["notices"] == []
+    assert frappe.flags == {"mute_messages": False}
+    frappe.msgprint.assert_not_called()
     invoice.save.assert_not_called()
     invoice.db_set.assert_not_called()
     frappe.db.commit.assert_not_called()
@@ -237,11 +246,128 @@ def test_intra_company_debug_does_not_change_invoice_status(isolated, monkeypatc
     invoice, company, customer, frappe, _ = isolated
     customer.tax_id = company.tax_id
     monkeypatch.setattr(module, "is_zatca_invoice_enabled", lambda *args: True)
-    inspect.unwrap(module.debug_call)(invoice.name)
+    result = inspect.unwrap(module.debug_call)(invoice.name)
+    assert result == {"status": "skipped", "message": DEBUG_SKIPPED, "notices": []}
+    frappe.msgprint.assert_not_called()
     invoice.save.assert_not_called()
     frappe.db.commit.assert_not_called()
     assert invoice.custom_zatca_status == "REPORTED"
     assert invoice.custom_zatca_full_response == "live-response"
+
+
+def prepare_debug_messages(isolated, monkeypatch, module):
+    invoice, _, _, app, _ = isolated
+    if module is pos_debug_xml:
+        invoice.doctype = "POS Invoice"
+    stub_pipeline(monkeypatch, module, invoice)
+    monkeypatch.setattr(module, "is_zatca_invoice_enabled", lambda *args: True)
+    monkeypatch.setattr(module, "resolve_zatca_phase", lambda *args: "Phase-1")
+    monkeypatch.setattr(module, "get_alias_value", lambda *args: 1)
+    if hasattr(module, "is_advance_payment_invoice"):
+        monkeypatch.setattr(module, "is_advance_payment_invoice", lambda *args: False)
+    monkeypatch.setattr(module, "compliance_api_call", Mock(side_effect=AssertionError("Debug attempted HTTP")))
+    app.local.lang = "ar"
+    monkeypatch.setattr(module, "_", lambda message: "ترجمة العرض فقط")
+
+
+@pytest.mark.parametrize("module", [debug_xml, pos_debug_xml])
+@pytest.mark.parametrize("flags", [{}, {"mute_messages": False}, {"mute_messages": True}])
+def test_debug_failure_keeps_english_summary_original_details_and_parent_state(isolated, monkeypatch, module, flags):
+    invoice, _, _, app, files = isolated
+    prepare_debug_messages(isolated, monkeypatch, module)
+    app.flags = dict(flags)
+    app.message_log = ["Parent-owned message"]
+    original = 'Synthetic original هيئة {"code":"mock-failure","request_id":"unchanged"}'
+
+    def fail_locally(*args):
+        assert app.flags["mute_messages"] is True
+        raise ValidationError(original)
+
+    monkeypatch.setattr(module, "removetags", fail_locally)
+    result = inspect.unwrap(module.debug_call)(invoice.name)
+    assert result == {"status": "error", "message": DEBUG_FAILED, "technical_details": original, "notices": []}
+    assert app.flags == flags and app.local.lang == "ar"
+    assert app.message_log == ["Parent-owned message"]
+    app.msgprint.assert_not_called()
+    assert app.log_error.call_count == 1
+    traceback_text, title = app.log_error.call_args.args
+    assert original in traceback_text
+    assert title == f"Debug XML Error for invoice {invoice.name}"
+    assert not files
+    invoice.db_set.assert_not_called()
+    invoice.save.assert_not_called()
+    app.db.commit.assert_not_called()
+    module.compliance_api_call.assert_not_called()
+
+
+@pytest.mark.parametrize("module", [debug_xml, pos_debug_xml])
+def test_debug_disabled_setting_keeps_each_existing_generation_policy(isolated, monkeypatch, module):
+    invoice, _, _, app, files = isolated
+    prepare_debug_messages(isolated, monkeypatch, module)
+    monkeypatch.setattr(module, "is_zatca_invoice_enabled", lambda *args: False)
+    if module is pos_debug_xml:
+        monkeypatch.setattr(module, "xml_tags", Mock(side_effect=AssertionError("Disabled POS must not generate XML")))
+    result = inspect.unwrap(module.debug_call)(invoice.name)
+    if module is pos_debug_xml:
+        assert result == {"status": "skipped", "message": DEBUG_POS_DISABLED, "notices": []}
+        assert not files
+        module.xml_tags.assert_not_called()
+    else:
+        assert result["status"] == "success" and result["message"] == DEBUG_CREATED
+        assert result["notices"] == [DEBUG_LOCAL_ONLY]
+        assert len(files) == 1
+    app.msgprint.assert_not_called()
+    app.db.commit.assert_not_called()
+    invoice.save.assert_not_called()
+    module.compliance_api_call.assert_not_called()
+
+
+@pytest.mark.parametrize("module", [debug_xml, pos_debug_xml])
+def test_debug_existing_artifact_notice_does_not_skip_or_replace_generation_policy(isolated, monkeypatch, module):
+    invoice, _, _, app, files = isolated
+    prepare_debug_messages(isolated, monkeypatch, module)
+    monkeypatch.setattr(module, "resolve_zatca_phase", lambda *args: "Phase-2")
+    monkeypatch.setattr(module, "is_qr_and_xml_attached", lambda *args: True)
+    result = inspect.unwrap(module.debug_call)(invoice.name)
+    assert result["status"] == "success"
+    assert result["notices"] == [DEBUG_EXISTING]
+    assert len(files) == 1 and files[0]["file_name"].startswith("DEBUG_INVOICE_")
+    app.msgprint.assert_not_called()
+    module.compliance_api_call.assert_not_called()
+
+
+@pytest.mark.parametrize("module", [debug_xml, pos_debug_xml])
+@pytest.mark.parametrize("stop", [KeyboardInterrupt, SystemExit, GeneratorExit])
+def test_debug_cancellation_restores_flags_without_logging_or_conversion(isolated, monkeypatch, module, stop):
+    invoice, _, _, app, files = isolated
+    prepare_debug_messages(isolated, monkeypatch, module)
+    interrupt = stop("synthetic cancellation")
+    monkeypatch.setattr(module, "removetags", Mock(side_effect=interrupt))
+    with pytest.raises(stop) as raised:
+        inspect.unwrap(module.debug_call)(invoice.name)
+    assert raised.value is interrupt
+    assert app.flags == {"mute_messages": False}
+    assert not files
+    app.log_error.assert_not_called()
+    module.compliance_api_call.assert_not_called()
+
+
+def test_pos_debug_background_existing_selector_error_is_visible_not_a_success(isolated, monkeypatch):
+    """Known generation defect remains an adoption gate, NOT an accepted result."""
+    invoice, company, _, app, files = isolated
+    prepare_debug_messages(isolated, monkeypatch, pos_debug_xml)
+    company.custom_send_invoice_to_zatca = "Background"
+    monkeypatch.setattr(pos_debug_xml, "resolve_zatca_phase", lambda *args: "Phase-2")
+    monkeypatch.setattr(pos_debug_xml, "is_qr_and_xml_attached", lambda *args: False)
+    monkeypatch.delattr(pos_debug_xml, "bypass_background_check", raising=False)
+    result = inspect.unwrap(pos_debug_xml.debug_call)(invoice.name)
+    assert result["status"] == "error" and result["message"] == DEBUG_FAILED
+    assert "bypass_background_check" in result["technical_details"]
+    assert not files
+    assert app.flags == {"mute_messages": False}
+    invoice.save.assert_not_called()
+    app.db.commit.assert_not_called()
+    pos_debug_xml.compliance_api_call.assert_not_called()
 
 
 @pytest.mark.parametrize("module", [sign_invoice, pos_sign])
@@ -322,6 +448,37 @@ def test_invalid_explicit_type_is_not_replaced_by_legacy_default(isolated, monke
             invoice.name, company_abbr="TC", compliance_type="1", validation_type="invalid",
         )
     module.salesinvoice_data.assert_not_called()
+
+
+@pytest.mark.parametrize("wrong_company", [False, True])
+def test_single_summary_integrates_with_the_existing_isolated_generator(isolated, monkeypatch, wrong_company):
+    invoice, company, _, app, _ = isolated
+    company.check_permission = Mock()
+    invoice.check_permission = Mock()
+    stub_pipeline(monkeypatch, sign_invoice, invoice)
+    # Skip only the nested Frappe HTTP type wrapper, which needs request-local
+    # framework flags. Keep the real generator body and all its source checks.
+    monkeypatch.setattr(sign_invoice, "zatca_call_compliance", inspect.unwrap(sign_invoice.zatca_call_compliance))
+    api = Mock(return_value={"validationResults": {"status": "PASS"}})
+    monkeypatch.setattr(sign_invoice, "compliance_api_call", api)
+    if wrong_company:
+        invoice.company = "OTHER FICTIONAL COMPANY"
+    result = inspect.unwrap(sign_invoice.run_single_compliance_summary)(company.name, invoice.name)
+    row = result["results"][0]
+    assert row["type"] == "Standard Invoice"
+    if wrong_company:
+        assert row["status"] == "FAIL" and "belongs to Company" in row["technical_details"]
+        api.assert_not_called()
+        sign_invoice.digital_signature.assert_not_called()
+    else:
+        assert row["status"] == "PASS"
+        api.assert_called_once()
+        assert sign_invoice.invoice_typecode_compliance.call_args.args[1] == "2"
+    assert app.flags == {"mute_messages": False}
+    invoice.db_set.assert_not_called()
+    invoice.save.assert_not_called()
+    company.db_set.assert_not_called()
+    app.db.commit.assert_not_called()
 
 
 def test_batch_passes_types_without_mutating_company(isolated, monkeypatch):

@@ -1,6 +1,6 @@
 # Operation summaries and display-only translation
 
-Increment 68 implements the user's message policy in the development worktree.
+Increments 68/69 implement the user's message policy in the development worktree.
 It is not an installed asset change or a deployment authorization.
 
 ## Adopted boundaries
@@ -9,6 +9,24 @@ It is not an installed asset change or a deployment authorization.
   `custom_run_zatca_onboarding_checks` use one server-side result collector and
   one client-side summary presenter. Each requested document type keeps its own
   outcome; one failure does not erase the other five results.
+- Increment 69 adds Company `custom_check_compliance` through
+  `run_single_compliance_summary`. It checks normal Company/Sales Invoice READ
+  permissions before sample preparation, reads the saved Company selection,
+  preserves the existing numeric `1` fallback, and executes exactly one check.
+  The Company identity, not the entire unsaved form/credential fields, is
+  supplied to the existing generator. No type setting is written. The legacy
+  Sales/POS compliance entry points and their current callers remain available.
+- Increment 69 adds the existing Sales/POS `Create XML for Debug` menus. Public
+  signatures are preserved; request-local muting encloses the original local
+  generation/logging behavior. App-owned notices become canonical English
+  fields instead of separate server popups. Both menus now render skipped and
+  failed results too, instead of silently ignoring returned error dictionaries.
+  Existing success attachment reload remains; framework-owned infrastructure
+  errors are not globally intercepted or suppressed.
+- Shared display functions now live in `public/js/operation_messages.js`,
+  declared once in development `app_include_js`. The request-local context is
+  shared by compliance and Debug in Python `operation_messages.py`. This is
+  source-only; no installed assets/cache/build/Bench change was performed.
 - The collector temporarily mutes only nested Frappe messages in this request.
   Frappe exceptions still raise and are recorded as failed rows. The previous
   mute flag is restored exactly, including absent flags, nested calls and
@@ -40,6 +58,15 @@ the dialog is explicitly a *view of parsed fields*, not the original HTTP body.
 Neither field is used to overwrite invoice responses or diagnostic response
 logs. No new database log write or commit is added by the collector.
 
+Debug returns `status` (success/skipped/error), English `message`, English
+`notices`, a separate `file_name` on success, and original `technical_details`
+on failure. In particular, disabled POS Debug now returns a structured skipped
+result instead of None plus a misleading submission popup: it still does not
+generate XML. Disabled Sales Debug still generates locally with a notice. This
+does not align or change the two existing settings policies. Same-taxpayer
+intra-company transfers still skip generation. An existing issued XML/QR notice
+does not silently skip the current separate Debug generation/replacement path.
+
 The presenter translates only known app-owned keys through Frappe `__`, using
 the current user's UI language. Arabic entries are in `translations/ar.csv`.
 Unknown/raw authority text, codes and request IDs are not translated. Neither
@@ -62,8 +89,9 @@ batch, and the automatic route also requires the existing `all_passed` flag.
 Empty/malformed results never enable the final-CSID instruction.
 
 This is initial adoption, not application-wide notification consolidation.
-Single-check, invoice/POS submit/debug, background/retry, CSR/CSID server wrappers
-and all other diagnostic writers still require explicit migration. In
+Ordinary invoice/POS submission, direct legacy single-check calls,
+background/retry, CSR/CSID server wrappers and other diagnostic writers still
+require explicit migration. In
 particular, an existing certificate-generation success popup containing a raw
 certificate response is not changed or certified safe by this increment; a
 separate redacted onboarding-result contract is still required. Legacy localized
@@ -72,20 +100,32 @@ reverse-translated. Other legacy logging calls are not claimed to be English.
 Do not globally intercept `frappe.msgprint`, force English for a whole request,
 clear unrelated notifications, or reuse translated display HTML as log content.
 
-No new endpoint, transport call, credential selection, retry, certificate
-issuance, signed XML/QR/PIH/ICV, accounting/advance, schema or live change is made.
-Tests stub every submission; the agent does not invoke either real button.
+Increment 69 adds one authenticated presentation endpoint around the existing
+single-check operation, not a new transport path. No new transport call,
+credential-selection policy, retry, certificate issuance, signed XML/QR/PIH/ICV,
+accounting/advance, schema or live change is made. Tests stub every submission;
+the agent does not invoke any real button or authority endpoint.
+
+Existing Debug generation/attachment policies are not certified safe by message
+consolidation: ignored-permission file replacement and the ordinary reload
+lifecycle still need review. Source inspection also found the old POS Phase-2
+Background branch refers to undefined `bypass_background_check`. The new
+presenter makes this existing returned error visible; it is NOT repaired or
+waived here. POS/Background generation consistency remains an adoption gate.
 
 ## Verification
 
-The fixed-manifest Python runner includes synthetic collector, both real button
-boundaries, flag restoration, interruption, unchanged raw diagnostics, warning
-visibility, English labels under Arabic, and existing acceptance regressions.
+The fixed-manifest Python runner includes the collector, both batch buttons,
+the real single-summary boundary and generator integration, READ-denial and
+cross-Company refusal, both real Debug bodies with mocked ERP/signing/I/O,
+flag restoration/interruption, unchanged raw diagnostics, warnings, English
+labels under Arabic, settings policies and existing acceptance regressions.
 The independent Node VM test exposes only mocked Frappe calls, not a network or
 site API inside the VM:
 
 ```sh
 node zatca_erpgulf/zatca_erpgulf/tests/test_company_compliance_messages.js
+node zatca_erpgulf/zatca_erpgulf/tests/test_debug_messages.js
 PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py --private-sql
 ```
 
@@ -93,10 +133,30 @@ This verifies synthetic behavior, not actual browser rendering, an installed
 v16 runtime, real authority acceptance or deployment readiness. Actual isolated
 v15/v16 browser/language rehearsal remains a separately approved gate.
 
-Final evidence: **12,443 guarded Python cases passed in 140.86 seconds**
+Increment 68 evidence: **12,443 guarded Python cases passed in 140.86 seconds**
 (10,643 local + 1,800 private SQL in the existing twelve owned-private suites),
 plus **84 standalone synthetic Node VM cases**. Network/site initialization
 remained denied by the unchanged rehearsal guard. An initial UI assertion
 incorrectly expected a PASS label in an all-failed table and another used a
 different Arabic word than the catalog; both assertions were corrected without
 weakening the message, outcome, raw-data or no-network contracts.
+
+Increment 69's UI evidence is **108 Company cases + 52 Sales/POS Debug cases =
+160 synthetic VM cases**. The actual menu callbacks are evaluated with a mocked
+framework, while full invoice script sources are syntax-compiled without
+executing unrelated callbacks. Both languages, one app-owned summary, literal
+original diagnostics, HTML escaping, warnings/skips/failures and unchanged
+payloads are covered. This is not browser/Desk/framework lifecycle proof.
+An initial disabled-POS test incorrectly called Mock assertions on a real
+function; a fail-if-called mock now checks that generation is actually avoided.
+No application safety assertion or offline guard was weakened.
+
+Final increment 69 combined evidence: **10,682 local + 1,800 private SQL =
+12,482 Python cases passed in 142.98 seconds**, with the same twelve owned-private
+SQL suites and the fixed offline guard. There are 39 additional local cases.
+An intermediate complete run passed 12,479 before three final integration/
+characterization cases. The added integration first failed because its nested
+Frappe HTTP type wrapper required request-local framework flags; the fixture
+now unwraps only that decorator, just as the outer site-free boundary tests do.
+The real generator body, source-company refusal and all acceptance/ACL checks
+remain exercised. No site was initialized or guard bypassed to make it pass.

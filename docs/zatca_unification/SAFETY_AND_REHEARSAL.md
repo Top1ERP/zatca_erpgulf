@@ -634,6 +634,26 @@ fixed Python manifest adds only the reviewed message suite; no transport/site
 guard is loosened. Real v15/v16 browser/ORM lifecycle and authority acceptance
 remain unverified. See [MESSAGE_PRESENTATION.md](MESSAGE_PRESENTATION.md).
 
+Increment69 moves the existing presenter/context into shared development
+sources and extends it to Company single-check and Sales/POS Debug. Single-check
+requires normal Company/invoice READ access before sample preparation and keeps
+saved selection/fallback. Debug keeps each adapter's current settings, signing,
+file replacement, invoice identity/status and logging policy; only app message
+ownership/data/presentation changes. An authenticated summary endpoint wraps the
+existing Compliance path, not new transport. All submissions are mocked; no
+installed assets/build/cache/schema/Bench/worker/customer or authority action.
+The existing POS/Background undefined selector is characterized as an unresolved
+generation gate, not fixed or accepted by these message tests. Broader Debug
+file/permission/reload, CSID redaction, ordinary submission/background and real
+v15/v16 framework lifecycle gates remain. See [MESSAGE_PRESENTATION.md](MESSAGE_PRESENTATION.md).
+
+Increment69 final guarded combined: **10,682 local + 1,800 private SQL = 12,482
+passed in 142.98 seconds**, plus **160 synthetic Node VM cases** (108 Company,
+52 Debug). All transport/ERP and new source ACL observations are synthetic;
+the nested Frappe HTTP type decorator alone is skipped in the site-free generator
+integration fixture. Actual source/generator/acceptance checks remain. No runtime
+guard, permission rule, installed environment or authority request was changed.
+
 Full development and real v15/v16/application/crypto/advance acceptance remain
 unfinished. Remote authority acceptance is a separate unverified gate and cannot
 be inferred or marked complete while actual requests remain prohibited.

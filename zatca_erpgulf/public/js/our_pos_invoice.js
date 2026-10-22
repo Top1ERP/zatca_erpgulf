@@ -347,8 +347,9 @@ frappe.ui.form.on('POS Invoice', {
                     freeze: true,
                     freeze_message: __("Generating Debug XML..."),
                     callback: function(r) {
+                        if (r.exc) return;
+                        zatca_debug_summary(r.message);
                         if (r.message && r.message.status === "success") {
-                            frappe.msgprint(__('✅ Debug XML attached successfully!'));
                             frm.reload_doc();
                         }
                     }

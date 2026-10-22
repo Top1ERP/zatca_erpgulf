@@ -5,6 +5,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const source = fs.readFileSync(path.resolve(__dirname, "../../public/js/company.js"), "utf8");
+const shared = fs.readFileSync(path.resolve(__dirname, "../../public/js/operation_messages.js"), "utf8");
 const csv = fs.readFileSync(path.resolve(__dirname, "../../translations/ar.csv"), "utf8");
 // CSV quoted commas/escaped quotes/newlines must not break translation lookup.
 function parseCSV(text) {
@@ -53,7 +54,7 @@ function browser(lang = "en") {
         translated.push(key);
         return lang === "ar" ? catalog.get(key) || key : key;
     }});
-    vm.runInContext(source, context, { timeout: 1000 });
+    vm.runInContext(shared + "\n" + source, context, { timeout: 1000 });
     const frm = {
         doc: { name: "FICTIONAL COMPANY", doctype: "Company", abbr: "FC",
             custom_sample_invoice_number_to_test: "SYNTHETIC-INVOICE" },
@@ -102,7 +103,7 @@ async function main() {
             }
         }
         for (const status of [401, 403, 404, 413, 417, 500, 502, 504, 508]) {
-            for (const action of ["custom_run_all_compliance", "custom_run_zatca_onboarding_checks", "custom_generate_compliance_csid"]) {
+            for (const action of ["custom_run_all_compliance", "custom_run_zatca_onboarding_checks", "custom_generate_compliance_csid", "custom_check_compliance"]) {
                 const b = browser(lang);
                 b.reject({ status, responseJSON: { _server_messages: '["Original error"]' } }, true);
                 await b.handlers[action](b.frm);
@@ -154,6 +155,30 @@ async function main() {
         assert.ok(!b.translated.includes(raw));
         count++;
     }
+    for (const lang of ["en", "ar"]) {
+        for (const failed of [false, true]) {
+            const b = browser(lang);
+            const response = { single_check: true, results: [{ type: "Standard Invoice", status: failed ? "FAIL" : "PASS",
+                message: failed ? "Compliance check failed. See technical details." : "Completed successfully.",
+                ...(failed ? { technical_details: raw } : {}) }] };
+            b.reply(response);
+            await b.handlers.custom_check_compliance(b.frm);
+            assert.equal(b.dialogs.length, 1);
+            assert.equal(b.dialogs[0].indicator, failed ? "red" : "green");
+            assert.equal(b.dialogs[0].title, lang === "ar" ? "نتيجة فحص الامتثال" : "Compliance Check Result");
+            assert.deepEqual(Object.keys(b.calls[0].args).sort(), ["company_name", "invoice_number"]);
+            assert.ok(!b.events.includes("reload"));
+            assert.ok(!b.dialogs[0].message.includes("You may now use Generate Final CSID"));
+            assert.ok(!b.translated.includes(raw));
+            count++;
+        }
+        const b = browser(lang);
+        b.frm.doc.custom_sample_invoice_number_to_test = "";
+        await b.handlers.custom_check_compliance(b.frm);
+        assert.equal(b.dialogs.length, 1);
+        assert.equal(b.calls.length, 0);
+        count++;
+    }
     const b = browser();
     b.reply({ results: kinds.map(type => ({ type, status: "PASS", message: "Completed successfully." })) });
     b.reloadFail();
@@ -165,4 +190,7 @@ async function main() {
     console.log("Company compliance messages: " + count + " synthetic cases passed");
 }
 
-main().catch(error => { console.error(error); process.exitCode = 1; });
+module.exports = { browser, catalog, escape };
+if (require.main === module) {
+    main().catch(error => { console.error(error); process.exitCode = 1; });
+}

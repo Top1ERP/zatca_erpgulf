@@ -6,6 +6,10 @@ import json
 import requests
 from frappe import _
 import frappe
+from zatca_erpgulf.zatca_erpgulf.operation_messages import (
+    DEBUG_CREATED, DEBUG_FAILED, DEBUG_SKIPPED, DEBUG_POS_DISABLED,
+    DEBUG_EXISTING, mute_operation_messages,
+)
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import PHASE_1_VALUE, PHASE_2_VALUE, resolve_zatca_phase, is_zatca_invoice_enabled
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 import traceback
@@ -96,8 +100,25 @@ def debug_call(
     company_abbr=None,
     source_doc=None,
 ):
+    """Return one English Debug result; the browser owns its localized dialog."""
+    with mute_operation_messages(frappe):
+        return _debug_call(
+            invoice_number, compliance_type=compliance_type,
+            any_item_has_tax_template=any_item_has_tax_template,
+            company_abbr=company_abbr, source_doc=source_doc,
+        )
+
+
+def _debug_call(
+    invoice_number,
+    compliance_type="0",
+    any_item_has_tax_template=False,
+    company_abbr=None,
+    source_doc=None,
+):
 
     """Function for ZATCA debug XML generation and attachment"""
+    notices = []
     try:
         # --- Fetch POS Invoice ---
         pos_invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
@@ -109,8 +130,7 @@ def debug_call(
         company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
 
         if not is_zatca_invoice_enabled(company_doc):
-            frappe.msgprint("ZATCA Invoice is not enabled. Submitting the document.")
-            return
+            return {"status": "skipped", "message": DEBUG_POS_DISABLED, "notices": notices}
 
         # --- Fetch Customer ---
         customer_doc = frappe.get_doc("Customer", pos_invoice_doc.customer)
@@ -118,9 +138,7 @@ def debug_call(
         # Intra-company transfer
         if company_doc.tax_id and customer_doc.tax_id:
             if company_doc.tax_id.strip() == customer_doc.tax_id.strip():
-                message = _("Debug XML was skipped for an intra-company transfer. The invoice was not changed.")
-                frappe.msgprint(message)
-                return {"status": "skipped", "message": message}
+                return {"status": "skipped", "message": DEBUG_SKIPPED, "notices": notices}
 
         if not get_alias_value("customer_buyer_id_type", customer_doc, "") and get_alias_value("customer_buyer_id", customer_doc, ""):
             frappe.throw(_("Buyer ID must be blank if Buyer ID Type is not set."))
@@ -231,9 +249,8 @@ def debug_call(
                 "is_private": 1,
             })
             file_doc.save(ignore_permissions=True)
-            frappe.msgprint(f"✅ Debug XML attached as {debug_filename}")
-
-            return {"status": "success", "message": f"XML attached: {debug_filename}"}
+            return {"status": "success", "message": DEBUG_CREATED,
+                    "file_name": debug_filename, "notices": notices}
 
         # --- Determine handle_b2c_simplified flag ---
         handle_b2c_simplified = False
@@ -244,12 +261,12 @@ def debug_call(
                     frappe.throw(_("POS name is required"))
 
                 if is_gpos_installed and getattr(pos_invoice_doc, "custom_xml", None):
-                    frappe.msgprint("✅ XML already attached for this POS invoice")
+                    notices.append(DEBUG_EXISTING)
                 else:
                     handle_b2c_simplified = True
             else:
                 if is_qr_and_xml_attached(pos_invoice_doc):
-                    frappe.msgprint("✅ XML/QR already attached")
+                    notices.append(DEBUG_EXISTING)
                 elif settings.custom_send_invoice_to_zatca == "Background" and not bypass_background_check:
                     handle_b2c_simplified = True
                 else:
@@ -259,4 +276,5 @@ def debug_call(
 
     except Exception as e:
         frappe.log_error(traceback.format_exc(), f"Debug XML Error for invoice {invoice_number}")
-        return {"status": "error", "message": f"Error generating debug XML: {str(e)}"}
+        return {"status": "error", "message": DEBUG_FAILED,
+                "technical_details": str(e), "notices": notices}

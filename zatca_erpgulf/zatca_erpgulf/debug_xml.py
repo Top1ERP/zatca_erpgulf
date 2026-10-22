@@ -1,4 +1,8 @@
 import frappe
+from zatca_erpgulf.zatca_erpgulf.operation_messages import (
+    DEBUG_CREATED, DEBUG_FAILED, DEBUG_SKIPPED,
+    DEBUG_LOCAL_ONLY, DEBUG_EXISTING, mute_operation_messages,
+)
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 import json
 import base64
@@ -93,12 +97,31 @@ def debug_call(
     source_doc=None,
     bypass_background_check=False
 ):
+    """Return one English Debug result; the browser owns its localized dialog."""
+    with mute_operation_messages(frappe):
+        return _debug_call(
+            invoice_number, compliance_type=compliance_type,
+            any_item_has_tax_template=any_item_has_tax_template,
+            company_abbr=company_abbr, source_doc=source_doc,
+            bypass_background_check=bypass_background_check,
+        )
+
+
+def _debug_call(
+    invoice_number,
+    compliance_type="0",
+    any_item_has_tax_template=False,
+    company_abbr=None,
+    source_doc=None,
+    bypass_background_check=False
+):
     """
     Generate ZATCA-compliant debug XML for a Sales Invoice and attach as a private file.
     Handles Phase-2, B2C simplified, GPOS, TLV, QR, signing, and fallback logic.
     """
+    notices = []
     try:
-    # Load Sales Invoice
+        # Load Sales Invoice
         sales_invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
         source_doc = sales_invoice_doc
         # if source_doc:
@@ -112,12 +135,7 @@ def debug_call(
         # live ZATCA submission is disabled for the Company.  It never submits
         # or sends the generated XML.
         if not is_zatca_invoice_enabled(company_doc):
-            frappe.msgprint(
-                _(
-                    "ZATCA E-Invoicing is disabled for this Company. "
-                    "Debug XML will be generated locally only; no submission will be performed."
-                )
-            )
+            notices.append(DEBUG_LOCAL_ONLY)
 
         # Resolve the actual invoice rows instead of trusting the optional JS flag.
         any_item_has_tax_template = any(
@@ -127,9 +145,7 @@ def debug_call(
         customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
         if company_doc.tax_id and customer_doc.tax_id:
             if company_doc.tax_id.strip() == customer_doc.tax_id.strip():
-                message = _("Debug XML was skipped for an intra-company transfer. The invoice was not changed.")
-                frappe.msgprint(message)
-                return {"status": "skipped", "message": message}
+                return {"status": "skipped", "message": DEBUG_SKIPPED, "notices": notices}
         # Check if GPOS installed & custom fields exist
         is_gpos_installed = "gpos" in frappe.get_installed_apps()
         field_exists = frappe.get_meta(SALES_INVOICE).has_field("custom_unique_id")
@@ -272,9 +288,8 @@ def debug_call(
                 "is_private": 1,
             })
             file_doc.save(ignore_permissions=True)
-            frappe.msgprint(f"✅ Debug XML attached as {debug_filename}")
-
-            return {"status": "success", "message": f"XML attached: {debug_filename}"}
+            return {"status": "success", "message": DEBUG_CREATED,
+                    "file_name": debug_filename, "notices": notices}
 
         # --- Determine handle_b2c_simplified flag ---
         handle_b2c_simplified = False  # default
@@ -283,16 +298,16 @@ def debug_call(
             if field_exists and getattr(sales_invoice_doc, "custom_unique_id", None):
                 if is_gpos_installed and getattr(sales_invoice_doc, "custom_xml", None):
                     
-                    # Already processed, do nothing
-                    frappe.msgprint("Already the xml attached")
+                    # Preserve this branch, then generate a separate Debug copy.
+                    notices.append(DEBUG_EXISTING)
                     pass
                 else:
                     # Phase-2 + custom_unique_id + no XML yet => B2C simplified
                     handle_b2c_simplified = True
             else:
                 if is_qr_and_xml_attached(sales_invoice_doc):
-                    # Already has QR & XML => do 
-                    frappe.msgprint("✅ XML/QR already attached")
+                    # Existing issued artifacts do not replace the Debug copy.
+                    notices.append(DEBUG_EXISTING)
                     pass
                 elif settings.custom_send_invoice_to_zatca == "Background" and not bypass_background_check:
                     # Background sending => B2C simplified
@@ -304,7 +319,7 @@ def debug_call(
         # --- Generate and attach XML ---
         return generate_and_attach_xml(sales_invoice_doc, handle_b2c_simplified=handle_b2c_simplified)
     except Exception as e:
-            # Log full traceback in Frappe
-            frappe.log_error(traceback.format_exc(), f"Debug XML Error for invoice {invoice_number}")
-            # Return a proper JSON response to JS
-            return {"status": "error", "message": f"Error generating debug XML: {str(e)}"}
+        # Keep the original traceback; only the app-owned label is English.
+        frappe.log_error(traceback.format_exc(), f"Debug XML Error for invoice {invoice_number}")
+        return {"status": "error", "message": DEBUG_FAILED,
+                "technical_details": str(e), "notices": notices}

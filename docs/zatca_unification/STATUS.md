@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and sixty-eight bounded increments (Compliance outcomes, dedicated
+Safety preparation and sixty-nine bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -59,7 +59,8 @@ and caller database-owner/raw-handle continuity checks for explicit diagnostic s
 and received local-step isolation across existing-XML Sales/POS APIs and their public wrappers,
 and shared guarded existing-XML rejection persistence with exact legacy UUID policy,
 and guarded shared existing-XML reported writes with pinned-owner PIH/logging boundaries,
-and Company batch message aggregation/display-only translation with English retained-event labels)
+and Company batch message aggregation/display-only translation with English retained-event labels,
+and shared presentation for Company single-check and Sales/POS Debug results)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -1342,6 +1343,33 @@ Final guarded combined: **10,643 local + 1,800 private SQL = 12,443 passed in
 140.86 seconds**, across the same twelve private suites (25 new local cases).
 The separate mocked Node VM adds **84 English/Arabic UI cases**. The fixed
 offline guard remains active; no live/site/authority/v16 acceptance is inferred.
+
+## Increment 69: single-check/Debug summaries, not ordinary submission migration
+
+- One shared development Desk presenter for Company and Sales/POS Debug, with a
+  shared request-local Python message context. No installed asset build/change.
+- Company single-check uses a new authenticated thin summary wrapper with saved
+  Company selection, the existing fallback and normal Company/invoice READ ACL.
+  Exactly one existing check runs; it does not imply all six steps are complete.
+- Debug public signatures and generation/attachment/signing/settings behavior
+  remain. App notices/results are English data, localized in the view only.
+  Both menus now display success, skipped and error results once with escaped
+  technical details. Original tracebacks and existing English log titles remain.
+- Disabled Sales still creates local Debug XML; disabled POS still does not,
+  now returning a structured skipped result rather than a misleading popup/None.
+  Same-taxpayer skip and separate Debug artifact replacement policy are unchanged.
+- No authority/live/schema/config/Bench/worker/customer action. No new transport,
+  accounting/advance/QR/hash/retry/credential policy or general permission retrofit.
+  The old POS/Background undefined `bypass_background_check`, ignored-permission
+  Debug file replacement and broader worker/notification/CSID boundaries remain
+  explicit gates. See [MESSAGE_PRESENTATION.md](MESSAGE_PRESENTATION.md).
+
+Final guarded combined: **10,682 local + 1,800 private SQL = 12,482 passed in
+142.98 seconds**, across the unchanged twelve private suites (39 new local
+cases), plus **160 standalone synthetic VM UI cases** (108 Company + 52 Debug).
+Real generator integration skips only the Frappe HTTP type wrapper in the
+site-free fixture; source checks and the existing generator body execute.
+No offline/permission/acceptance guard or deployment restriction was waived.
 
 ## Verification
 
