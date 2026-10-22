@@ -1,8 +1,8 @@
-# Implementation status — 2026-10-22
+# Implementation status — 2026-10-23
 
 ## Scope delivered in this increment
 
-Safety preparation and seventy bounded increments (Compliance outcomes, dedicated
+Safety preparation and seventy-one bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -61,7 +61,8 @@ and shared guarded existing-XML rejection persistence with exact legacy UUID pol
 and guarded shared existing-XML reported writes with pinned-owner PIH/logging boundaries,
 and Company batch message aggregation/display-only translation with English retained-event labels,
 and shared presentation for Company single-check and Sales/POS Debug results,
-and POS Debug generation independent of the unused live-scheduling selector)
+and POS Debug generation independent of the unused live-scheduling selector,
+and permissioned/non-destructive shared Sales/POS Debug attachment creation)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -1393,6 +1394,30 @@ Final guarded combined: **10,873 local + 1,800 private SQL = 12,673 passed in
 cases plus the repaired former defect observation), with the same **160
 synthetic English/Arabic UI cases**. No transport/site/ownership guard or normal
 preflight was waived. This is not installed ERPNext 16 or authority acceptance.
+
+## Increment 71: Debug source ACL and history, not full File-hook isolation
+
+- Shared explicit-runtime saved invoice READ/WRITE, linked Company READ and File
+  CREATE preflight; direct quiet v15/v16-signature checks, literal True, no
+  Document ignore-permission bypass. Unknown/changed contexts require review.
+- Recheck actor, identities and observed source/Company revisions around new
+  File construction; reject observed metadata/ownership redirection before save
+  and validate private parent metadata after normal File.save.
+- Remove both prefix-query/delete loops and ignored-permission saves. New opaque
+  filenames preserve prior files, with ordinary attachment limits. Return the
+  actual framework filename. No invoice/Company save, helper commit/rollback,
+  retry, field relink, or authority request. Partial hook effects are not erased.
+- English diagnostic fields and Arabic presentation; unknown private faults stay
+  out of the UI while original causes reach the existing server logger.
+- No live source/assets/config/schema/Bench/worker/customer action. This is not
+  atomic locking, physical File/rollback/provider provenance, real v16 framework
+  or cryptographic/authority acceptance. See [DEBUG_ATTACHMENT_ACCESS.md](DEBUG_ATTACHMENT_ACCESS.md).
+
+Final guarded combined: **11,153 local + 1,800 private SQL = 12,953 passed in
+141.65 seconds**, across the same twelve owned-private suites (280 new local
+cases), plus **168 synthetic UI cases** (108 Company + 60 Debug). The first
+local pass was 11,109 in 71.30 seconds before the final cause/cancellation and
+entry-boundary additions. No offline/ACL/ownership/acceptance guard was waived.
 
 ## Verification
 

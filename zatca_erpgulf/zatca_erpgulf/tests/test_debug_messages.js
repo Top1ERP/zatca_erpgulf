@@ -12,6 +12,8 @@ const skipped = "Debug XML was skipped for an intra-company transfer. The invoic
 const disabled = "ZATCA E-Invoicing is disabled for this Company. No debug XML was generated.";
 const local = "ZATCA E-Invoicing is disabled for this Company. Debug XML will be generated locally only; no submission will be performed.";
 const existing = "Existing XML/QR was found. A separate debug XML will be generated.";
+const denied = "You do not have permission to create a debug XML attachment for this invoice.";
+const review = "Debug XML attachment could not be confirmed. Review the source and existing files before retrying.";
 const cases = [
     [{ status: "success", message: created, file_name: "DEBUG_INVOICE_MOCK.xml", notices: [] }, "green"],
     [{ status: "success", message: created, file_name: "DEBUG_INVOICE_<img>.xml", notices: [local, local, existing] }, "orange"],
@@ -19,6 +21,8 @@ const cases = [
     [{ status: "skipped", message: disabled, notices: [] }, "orange"],
     [{ status: "error", message: failed, technical_details: raw, notices: [] }, "red"],
     [{ status: "error", message: failed, technical_details: raw, notices: [raw, raw, existing] }, "red"],
+    [{ status: "error", message: failed, technical_details: denied, notices: [denied] }, "red"],
+    [{ status: "error", message: failed, technical_details: review, notices: [review] }, "red"],
     [null, "red"], [undefined, "red"], [{}, "red"], ["unexpected", "red"],
     [{ status: "success", message: created }, "red"],
     [{ status: "skipped", message: raw }, "red"]
@@ -68,12 +72,18 @@ for (const [doctype, file, method] of [
             assert.ok(!b.dialogs[0].message.includes("<img>"));
             if (response && response.technical_details) {
                 assert.equal((b.dialogs[0].message.match(/<details>/g) || []).length, 1);
-                assert.ok(b.dialogs[0].message.includes(escape(raw)));
+                assert.ok(b.dialogs[0].message.includes(escape(response.technical_details)));
             }
             if (lang === "ar") {
                 assert.ok(b.dialogs[0].message.includes("عملية فحص تقني محلية"));
                 if (response && response.message === created && response.file_name) {
                     assert.ok(b.dialogs[0].message.includes(catalog.get(created)));
+                }
+                if (response && response.notices && response.notices.includes(denied)) {
+                    assert.ok(b.dialogs[0].message.includes(catalog.get(denied)));
+                }
+                if (response && response.notices && response.notices.includes(review)) {
+                    assert.ok(b.dialogs[0].message.includes(catalog.get(review)));
                 }
             }
             count++;

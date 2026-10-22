@@ -22,7 +22,7 @@ from zatca_erpgulf.zatca_erpgulf.compliance_types import COMPLIANCE_TYPES, resol
 from zatca_erpgulf.zatca_erpgulf.nonproduction import preview_invoice_uuid, temporary_compliance_xml
 from zatca_erpgulf.zatca_erpgulf.operation_messages import (
     DEBUG_CREATED, DEBUG_FAILED, DEBUG_SKIPPED, DEBUG_POS_DISABLED,
-    DEBUG_LOCAL_ONLY, DEBUG_EXISTING,
+    DEBUG_LOCAL_ONLY, DEBUG_EXISTING, DEBUG_ACCESS_DENIED, DEBUG_ATTACHMENT_REVIEW,
 )
 
 
@@ -43,6 +43,7 @@ def fail(message, *args, **kwargs):
 def isolated(monkeypatch, tmp_path):
     invoice = Document(
         doctype="Sales Invoice", name="TEST-INVOICE", company="TEST COMPANY",
+        modified="2026-10-23 09:00:00",
         customer="TEST CUSTOMER", currency="SAR", is_return=0, is_debit_note=0,
         custom_uuid="b05809d9-7851-4767-b7e9-47af44c80cb9", custom_zatca_icv=77,
         custom_zatca_issuing_unit="live-unit", custom_zatca_status="REPORTED",
@@ -53,23 +54,29 @@ def isolated(monkeypatch, tmp_path):
     )
     company = Document(
         doctype="Company", name=invoice.company, abbr="TC", tax_id="SELLER",
+        modified="2026-10-23 08:00:00",
         custom_validation_type="Standard Invoice", custom_send_invoice_to_zatca="Live",
         db_set=Mock(),
     )
     customer = Document(tax_id="BUYER")
-    attachment = Document(save=Mock())
     files = []
 
     def get_doc(doctype, name=None):
         if isinstance(doctype, dict):
             if doctype["doctype"] == "File":
                 files.append(doctype)
+                attachment = Document(**doctype, flags={})
+                attachment.save = Mock(side_effect=lambda: setattr(attachment, "name", f"MOCK-FILE-{len(files)}"))
                 return attachment
             return company
         return {"Sales Invoice": invoice, "POS Invoice": invoice,
                 "Company": company, "Customer": customer}[doctype]
 
+    def has_permission(doctype, ptype="read", doc=None, user=None, raise_exception=True):
+        return True
+
     frappe = SimpleNamespace(
+        session=SimpleNamespace(user="mock.operator"), has_permission=has_permission,
         flags={"mute_messages": False},
         get_doc=Mock(side_effect=get_doc),
         db=SimpleNamespace(
@@ -232,7 +239,7 @@ def test_debug_attaches_from_memory_without_touching_live_file(isolated, monkeyp
     assert files[0]["is_private"] == 1
     assert metadata.call_args.kwargs["purpose"] == "debug"
     assert result["message"] == DEBUG_CREATED
-    assert result["file_name"] == f"DEBUG_INVOICE_{invoice.name}.xml"
+    assert result["file_name"] == files[0]["file_name"]
     assert result["notices"] == []
     assert frappe.flags == {"mute_messages": False}
     frappe.msgprint.assert_not_called()
@@ -246,6 +253,8 @@ def test_debug_attaches_from_memory_without_touching_live_file(isolated, monkeyp
 def test_intra_company_debug_does_not_change_invoice_status(isolated, monkeypatch, module):
     invoice, company, customer, frappe, _ = isolated
     customer.tax_id = company.tax_id
+    if module is pos_debug_xml:
+        invoice.doctype = "POS Invoice"
     monkeypatch.setattr(module, "is_zatca_invoice_enabled", lambda *args: True)
     result = inspect.unwrap(module.debug_call)(invoice.name)
     assert result == {"status": "skipped", "message": DEBUG_SKIPPED, "notices": []}
@@ -254,6 +263,77 @@ def test_intra_company_debug_does_not_change_invoice_status(isolated, monkeypatc
     frappe.db.commit.assert_not_called()
     assert invoice.custom_zatca_status == "REPORTED"
     assert invoice.custom_zatca_full_response == "live-response"
+
+
+@pytest.mark.parametrize("module", [debug_xml, pos_debug_xml])
+@pytest.mark.parametrize("version", [15, 16])
+@pytest.mark.parametrize("denied", ["invoice-read", "invoice-write", "company-read", "file-create"])
+def test_debug_entry_requires_saved_source_and_create_acl_before_generation(isolated, monkeypatch, module, version, denied):
+    invoice, _, _, app, files = isolated
+    prepare_debug_messages(isolated, monkeypatch, module)
+
+    def allowed(dt, op):
+        key = ("company-read" if dt == "Company" else "file-create" if dt == "File" else "invoice-" + op)
+        return key != denied
+
+    def v15(dt, op, doc=None, user=None, raise_exception=True):
+        assert raise_exception is False
+        return allowed(dt, op)
+
+    def v16(dt, op, doc=None, user=None, *, print_logs=True):
+        assert print_logs is False
+        return allowed(dt, op)
+
+    app.has_permission = v15 if version == 15 else v16
+    result = inspect.unwrap(module.debug_call)(invoice.name)
+    assert result == {"status": "error", "message": DEBUG_FAILED,
+                      "technical_details": DEBUG_ACCESS_DENIED, "notices": [DEBUG_ACCESS_DENIED]}
+    assert not files
+    module.salesinvoice_data.assert_not_called()
+    module.digital_signature.assert_not_called()
+    app.delete_doc.assert_not_called()
+    app.db.commit.assert_not_called()
+
+
+@pytest.mark.parametrize("module", [debug_xml, pos_debug_xml])
+@pytest.mark.parametrize("drift", ["source", "company", "actor"])
+def test_debug_entry_rechecks_source_before_creating_attachment(isolated, monkeypatch, module, drift):
+    invoice, company, _, app, files = isolated
+    prepare_debug_messages(isolated, monkeypatch, module)
+    formatter = module.format_zatca_signed_xml
+
+    def changed(value):
+        result = formatter(value)
+        if drift == "actor":
+            app.session.user = "another.operator"
+        else:
+            (invoice if drift == "source" else company).modified = "2026-10-23 11:00:00"
+        return result
+
+    monkeypatch.setattr(module, "format_zatca_signed_xml", changed)
+    result = inspect.unwrap(module.debug_call)(invoice.name)
+    assert result["status"] == "error" and result["technical_details"] == DEBUG_ATTACHMENT_REVIEW
+    assert not files
+    app.delete_doc.assert_not_called()
+    app.db.commit.assert_not_called()
+    assert app.flags == {"mute_messages": False}
+
+
+@pytest.mark.parametrize("module", [debug_xml, pos_debug_xml])
+def test_debug_private_engine_fault_is_logged_but_not_returned_to_ui(isolated, monkeypatch, module):
+    invoice, _, _, app, files = isolated
+    prepare_debug_messages(isolated, monkeypatch, module)
+
+    def faulty(dt, op, doc=None, user=None, raise_exception=True):
+        raise TypeError("PRIVATE diagnostic engine fault")
+
+    app.has_permission = faulty
+    result = inspect.unwrap(module.debug_call)(invoice.name)
+    assert result == {"status": "error", "message": DEBUG_FAILED,
+                      "technical_details": DEBUG_ATTACHMENT_REVIEW, "notices": [DEBUG_ATTACHMENT_REVIEW]}
+    assert "PRIVATE diagnostic engine fault" in app.log_error.call_args.args[0]
+    assert not files
+    module.salesinvoice_data.assert_not_called()
 
 
 def prepare_debug_messages(isolated, monkeypatch, module):
@@ -363,7 +443,7 @@ def test_pos_debug_background_generates_only_a_local_artifact(isolated, monkeypa
     monkeypatch.delattr(pos_debug_xml, "bypass_background_check", raising=False)
     result = inspect.unwrap(pos_debug_xml.debug_call)(invoice.name)
     assert result["status"] == "success" and result["message"] == DEBUG_CREATED
-    assert len(files) == 1 and files[0]["file_name"] == f"DEBUG_INVOICE_{invoice.name}.xml"
+    assert len(files) == 1 and files[0]["file_name"] == result["file_name"]
     assert files[0]["is_private"] == 1
     assert app.flags == {"mute_messages": False}
     invoice.save.assert_not_called()
@@ -404,7 +484,7 @@ def test_pos_debug_type_selection_is_independent_of_live_scheduling(
     else:
         assert result["status"] == "success" and result["message"] == DEBUG_CREATED
         assert result["notices"] == []
-        assert len(files) == 1 and files[0]["file_name"] == f"DEBUG_INVOICE_{invoice.name}.xml"
+        assert len(files) == 1 and files[0]["file_name"] == result["file_name"]
         assert files[0]["is_private"] == 1 and files[0]["attached_to_doctype"] == "POS Invoice"
         if compliance_type == "0":
             pos_debug_xml.invoice_typecode_simplified.assert_called_once()

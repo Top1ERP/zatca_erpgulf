@@ -1,4 +1,5 @@
 import frappe
+from zatca_erpgulf.zatca_erpgulf.debug_artifact import DebugArtifactError, prepare_debug_source, save_debug_artifact
 from zatca_erpgulf.zatca_erpgulf.operation_messages import (
     DEBUG_CREATED, DEBUG_FAILED, DEBUG_SKIPPED,
     DEBUG_LOCAL_ONLY, DEBUG_EXISTING, mute_operation_messages,
@@ -121,16 +122,10 @@ def _debug_call(
     """
     notices = []
     try:
-        # Load Sales Invoice
-        sales_invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
+        sales_invoice_doc, settings, debug_source = prepare_debug_source(frappe, SALES_INVOICE, invoice_number)
         source_doc = sales_invoice_doc
-        # if source_doc:
-        #         source_doc = frappe.get_doc(json.loads(source_doc))
-        sales_invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
-        company_name = sales_invoice_doc.company
-        settings = frappe.get_doc("Company", company_name)
         company_abbr = settings.abbr
-        company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
+        company_doc = settings
         # Debug XML is a local simulation and must remain available even when
         # live ZATCA submission is disabled for the Company.  It never submits
         # or sends the generated XML.
@@ -262,32 +257,7 @@ def _debug_call(
             # Attach the same formatted bytes without writing, replacing, or
             # unlinking an intermediate file that a live worker may be using.
             xml_data = format_zatca_signed_xml(updated_xml_string)
-            debug_filename = f"DEBUG_INVOICE_{invoice_doc.name}.xml"
-            existing_files = frappe.get_all(
-                "File",
-                filters={
-                    "attached_to_doctype": SALES_INVOICE,
-                    "attached_to_name": invoice_doc.name,
-                    "file_name": ["like", "DEBUG_INVOICE_%"],
-                },
-                order_by="creation desc",
-                fields=["name", "file_name"]
-            )
-
-            # Debug is a replace-on-run artifact: remove every previous file
-            # attached to this invoice, then create one fresh canonical file.
-            for file in existing_files:
-                frappe.delete_doc("File", file.name, ignore_permissions=True)
-
-            file_doc = frappe.get_doc({
-                "doctype": "File",
-                "file_name": debug_filename,
-                "attached_to_doctype": SALES_INVOICE,
-                "attached_to_name": invoice_doc.name,
-                "content": xml_data,
-                "is_private": 1,
-            })
-            file_doc.save(ignore_permissions=True)
+            debug_filename = save_debug_artifact(frappe, debug_source, xml_data)
             return {"status": "success", "message": DEBUG_CREATED,
                     "file_name": debug_filename, "notices": notices}
 
@@ -319,6 +289,8 @@ def _debug_call(
         # --- Generate and attach XML ---
         return generate_and_attach_xml(sales_invoice_doc, handle_b2c_simplified=handle_b2c_simplified)
     except Exception as e:
+        if isinstance(e, DebugArtifactError):
+            notices.append(str(e))
         # Keep the original traceback; only the app-owned label is English.
         frappe.log_error(traceback.format_exc(), f"Debug XML Error for invoice {invoice_number}")
         return {"status": "error", "message": DEBUG_FAILED,

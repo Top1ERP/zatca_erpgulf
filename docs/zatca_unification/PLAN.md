@@ -39,8 +39,11 @@ Ordinary invoice/POS submission, legacy direct calls, CSR/CSID and background
 boundaries still require staged adoption; original diagnostic details remain
 unchanged, even when a legacy exception is localized. Increment 70 fixes Debug
 POS/Background's undefined bypass read by removing an unused private selector,
-without changing its actual type selection or Sales Debug. Debug File access/
-replacement and full framework lifecycle review remain adoption gates.
+without changing its actual type selection or Sales Debug. Increment 71 adds
+normal saved-source/Company/File ACLs and non-destructive, uniquely named private
+Debug attachments. Full File/physical rollback, retention and framework lifecycle
+review remain adoption gates; observed rechecks are not atomic isolation.
+See [DEBUG_ATTACHMENT_ACCESS.md](DEBUG_ATTACHMENT_ACCESS.md).
 See [POS_DEBUG_LOCAL_ROUTING.md](POS_DEBUG_LOCAL_ROUTING.md).
 See [MESSAGE_PRESENTATION.md](MESSAGE_PRESENTATION.md).
 

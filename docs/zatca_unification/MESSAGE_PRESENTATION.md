@@ -106,14 +106,16 @@ credential-selection policy, retry, certificate issuance, signed XML/QR/PIH/ICV,
 accounting/advance, schema or live change is made. Tests stub every submission;
 the agent does not invoke any real button or authority endpoint.
 
-Existing Debug generation/attachment policies are not certified safe by message
-consolidation: ignored-permission file replacement and the ordinary reload
-lifecycle still need review. Source inspection also found the old POS Phase-2
+Message consolidation did not certify Debug attachment safety. Increment 71
+replaces ignored-permission deletion/save with normal ACLs and non-destructive
+uniquely named private attachments; physical File/hooks/rollback, retention and
+reload remain adoption gates. See [DEBUG_ATTACHMENT_ACCESS.md](DEBUG_ATTACHMENT_ACCESS.md).
+Source inspection also found the old POS Phase-2
 Background branch referred to undefined `bypass_background_check`. Increment 69
 made this existing returned error visible but did not repair it. Increment 70
 removes the unused POS selector and its undefined read, preserving the actual
-type/preflight rules; Sales Debug is unchanged. Debug File access/replacement,
-reload and installed framework lifecycle still need review before adoption.
+type/preflight rules; Sales Debug type selection is unchanged. Real File/reload
+and installed framework lifecycle still need review before adoption.
 See [POS_DEBUG_LOCAL_ROUTING.md](POS_DEBUG_LOCAL_ROUTING.md).
 
 ## Verification
@@ -163,3 +165,11 @@ Frappe HTTP type wrapper required request-local framework flags; the fixture
 now unwraps only that decorator, just as the outer site-free boundary tests do.
 The real generator body, source-company refusal and all acceptance/ACL checks
 remain exercised. No site was initialized or guard bypassed to make it pass.
+
+Increment 71 adds canonical English deny/review notices with Arabic display
+entries and normal saved-source/Company/File ACLs. It deliberately replaces old
+Debug-file deletion with uniquely named private attachments preserving history;
+the message contract otherwise remains. Evidence: **12,953 guarded Python
+cases in 141.65 seconds** and **168 synthetic UI cases**. Actual File hooks,
+physical rollback, retention, UI reload and installed v15/v16 remain separate
+gates; see [DEBUG_ATTACHMENT_ACCESS.md](DEBUG_ATTACHMENT_ACCESS.md).

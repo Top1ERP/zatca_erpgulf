@@ -670,6 +670,24 @@ transport observations are mocked; original synthetic artifacts and invoice
 values remain. No guard or preflight was waived, and no real v16/framework/
 cryptographic/authority acceptance is inferred.
 
+Increment71 requires normal saved invoice READ/WRITE, invoice Company READ and
+File CREATE for Debug, using direct quiet v15/v16-signature-compatible checks.
+Actor/identity/revision rechecks surround File construction; normal File.save
+has no ignored permissions and observed private-parent metadata is checked.
+Old prefix-query/delete loops are removed; each run has a fresh opaque filename
+and preserves history. No helper commit/rollback/retry, invoice field relink or
+guessed cleanup after partial hook effects. Fault details remain server-side,
+with canonical English data and Arabic display notices. No site/live/source/
+assets/config/schema/Bench/worker/customer/authority action. This is not atomic
+isolation, File hook/storage authenticity, full rollback/retention/reload or
+installed v16 proof. See [DEBUG_ATTACHMENT_ACCESS.md](DEBUG_ATTACHMENT_ACCESS.md).
+
+Increment71 final guarded combined: **11,153 local + 1,800 private SQL = 12,953
+passed in 141.65 seconds**, across the same twelve owned-private SQL suites,
+plus **168 synthetic Node VM UI cases** (108 Company + 60 Debug). The fixed
+manifest adds only the reviewed Debug attachment suite; no network/site/SQL
+ownership guard is loosened. No authority acceptance or deployment is inferred.
+
 Full development and real v15/v16/application/crypto/advance acceptance remain
 unfinished. Remote authority acceptance is a separate unverified gate and cannot
 be inferred or marked complete while actual requests remain prohibited.

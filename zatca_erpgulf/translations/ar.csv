@@ -723,3 +723,5 @@ Existing XML/QR was found. A separate debug XML will be generated.,يوجد مل
 No confirmed Debug XML result was returned. Review before trying again.,لم تصل نتيجة مؤكدة لإنشاء XML للفحص التقني. راجع الحالة قبل إعادة المحاولة.
 "This is a local debug operation, not a ZATCA submission.",هذه عملية فحص تقني محلية وليست إرسالًا إلى زاتكا.
 File,الملف
+You do not have permission to create a debug XML attachment for this invoice.,ليست لديك صلاحية إنشاء مرفق XML للفحص التقني لهذه الفاتورة.
+Debug XML attachment could not be confirmed. Review the source and existing files before retrying.,تعذّر تأكيد إرفاق XML للفحص التقني. راجع بيانات المصدر والملفات الموجودة قبل إعادة المحاولة.

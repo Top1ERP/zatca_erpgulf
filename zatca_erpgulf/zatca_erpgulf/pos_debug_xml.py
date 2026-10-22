@@ -6,6 +6,7 @@ import json
 import requests
 from frappe import _
 import frappe
+from zatca_erpgulf.zatca_erpgulf.debug_artifact import DebugArtifactError, prepare_debug_source, save_debug_artifact
 from zatca_erpgulf.zatca_erpgulf.operation_messages import (
     DEBUG_CREATED, DEBUG_FAILED, DEBUG_SKIPPED, DEBUG_POS_DISABLED,
     DEBUG_EXISTING, mute_operation_messages,
@@ -121,13 +122,10 @@ def _debug_call(
     notices = []
     try:
         # --- Fetch POS Invoice ---
-        pos_invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
+        pos_invoice_doc, settings, debug_source = prepare_debug_source(frappe, "POS Invoice", invoice_number)
         source_doc = pos_invoice_doc
-
-        company_name = pos_invoice_doc.company
-        settings = frappe.get_doc("Company", company_name)
         company_abbr = settings.abbr
-        company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
+        company_doc = settings
 
         if not is_zatca_invoice_enabled(company_doc):
             return {"status": "skipped", "message": DEBUG_POS_DISABLED, "notices": notices}
@@ -223,32 +221,7 @@ def _debug_call(
 
             # Never share the live submission artifact's filename with Debug.
             xml_data = format_zatca_signed_xml(updated_xml_string)
-            debug_filename = f"DEBUG_INVOICE_{invoice_doc.name}.xml"
-
-            # Delete older debug files
-            existing_files = frappe.get_all(
-                "File",
-                filters={
-                    "attached_to_doctype": "POS Invoice",
-                    "attached_to_name": invoice_doc.name,
-                    "file_name": ["like", "DEBUG_INVOICE_%"],
-                },
-                order_by="creation desc",
-                fields=["name", "file_name"]
-            )
-
-            for file in existing_files:
-                frappe.delete_doc("File", file.name, ignore_permissions=True)
-
-            file_doc = frappe.get_doc({
-                "doctype": "File",
-                "file_name": debug_filename,
-                "attached_to_doctype": "POS Invoice",
-                "attached_to_name": invoice_doc.name,
-                "content": xml_data,
-                "is_private": 1,
-            })
-            file_doc.save(ignore_permissions=True)
+            debug_filename = save_debug_artifact(frappe, debug_source, xml_data)
             return {"status": "success", "message": DEBUG_CREATED,
                     "file_name": debug_filename, "notices": notices}
 
@@ -269,6 +242,8 @@ def _debug_call(
         return generate_and_attach_xml(pos_invoice_doc)
 
     except Exception as e:
+        if isinstance(e, DebugArtifactError):
+            notices.append(str(e))
         frappe.log_error(traceback.format_exc(), f"Debug XML Error for invoice {invoice_number}")
         return {"status": "error", "message": DEBUG_FAILED,
                 "technical_details": str(e), "notices": notices}

@@ -16,6 +16,8 @@ DEBUG_LOCAL_ONLY = (
     "Debug XML will be generated locally only; no submission will be performed."
 )
 DEBUG_EXISTING = "Existing XML/QR was found. A separate debug XML will be generated."
+DEBUG_ACCESS_DENIED = "You do not have permission to create a debug XML attachment for this invoice."
+DEBUG_ATTACHMENT_REVIEW = "Debug XML attachment could not be confirmed. Review the source and existing files before retrying."
 
 
 @contextmanager

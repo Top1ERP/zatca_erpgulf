@@ -94,7 +94,11 @@ function zatca_debug_summary(value) {
         ["ZATCA E-Invoicing is disabled for this Company. Debug XML will be generated locally only; no submission will be performed.",
             __("ZATCA E-Invoicing is disabled for this Company. Debug XML will be generated locally only; no submission will be performed.")],
         ["Existing XML/QR was found. A separate debug XML will be generated.",
-            __("Existing XML/QR was found. A separate debug XML will be generated.")]
+            __("Existing XML/QR was found. A separate debug XML will be generated.")],
+        ["You do not have permission to create a debug XML attachment for this invoice.",
+            __("You do not have permission to create a debug XML attachment for this invoice.")],
+        ["Debug XML attachment could not be confirmed. Review the source and existing files before retrying.",
+            __("Debug XML attachment could not be confirmed. Review the source and existing files before retrying.")]
     ]);
     const success = response.status === "success" && response.message === "Debug XML attached successfully." &&
         typeof response.file_name === "string" && response.file_name.length > 0;
