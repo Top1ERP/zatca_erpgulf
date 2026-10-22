@@ -37,9 +37,13 @@ def scenario(monkeypatch):
     raw._sock = SimpleNamespace(family=socket.AF_UNIX, getpeername=Mock(return_value=selected.unix_socket),
         getsockopt=Mock(return_value=struct.pack("iII", 42, 1000, 1000)))
     case = SimpleNamespace(binding=selected, raw=raw, cursor=cursor, target=(selected.database, 1, 0, 123),
-        registration=(SCOPE.site, REGISTRATION))
+        registration=(SCOPE.site, REGISTRATION), waits=(2, 2))
     def execute(sql, values=None):
-        if sql.startswith("SELECT DATABASE()"):
+        if sql in ("SET SESSION innodb_lock_wait_timeout=2", "SET SESSION lock_wait_timeout=2"):
+            pass  # Read-back result is independently supplied for drift/error tests.
+        elif sql == "SELECT @@session.innodb_lock_wait_timeout,@@session.lock_wait_timeout":
+            cursor.fetchone.return_value = case.waits
+        elif sql.startswith("SELECT DATABASE()"):
             cursor.fetchone.return_value = case.target
         elif sql.startswith("SELECT site,registration_id"):
             assert values == (SCOPE.storage_namespace,)
@@ -256,3 +260,67 @@ def test_no_automatic_installation_dispatch_or_framework_config_discovery():
     calls = {node.func.attr for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)}
     assert not calls.intersection({"post", "get_site_config", "get_doc", "get_password", "ping", "execute_many"})
     assert "CREATE TABLE" not in source and "frappe.db" not in source
+
+
+def test_session_waits_are_set_before_any_registration_lock_and_never_committed(scenario):
+    owned = scenario.service(SCOPE)
+    statements = [call.args[0] for call in scenario.cursor.execute.call_args_list]
+    assert statements[:3] == ["SET SESSION innodb_lock_wait_timeout=2", "SET SESSION lock_wait_timeout=2",
+        "SELECT @@session.innodb_lock_wait_timeout,@@session.lock_wait_timeout"]
+    assert all("GLOBAL" not in sql for sql in statements)
+    assert statements.index("SELECT @@session.innodb_lock_wait_timeout,@@session.lock_wait_timeout") < next(
+        index for index, sql in enumerate(statements) if "FOR UPDATE" in sql)
+    scenario.raw.commit.assert_not_called()
+    owned.close()
+
+
+@pytest.mark.parametrize("waits", [None, (), (2,), [2, 2], (True, 2), (2, False), ("2", 2), (2.0, 2), (0, 2), (2, 0), (3, 2), (2, 3)])
+def test_incorrect_or_unreadable_lock_wait_policy_fails_acquisition_with_owned_cleanup(scenario, waits):
+    scenario.waits = waits
+    with pytest.raises(provider.ReceiptProviderError, match="^receipt_provider_acquisition$") as raised:
+        scenario.service(SCOPE)
+    assert raised.value.__context__ is None
+    scenario.raw.rollback.assert_called_once()
+    scenario.raw.close.assert_called_once()
+    scenario.raw.commit.assert_not_called()
+    assert not any("FOR UPDATE" in call.args[0] for call in scenario.cursor.execute.call_args_list)
+
+
+@pytest.mark.parametrize("operation", ["cursor", "commit"])
+@pytest.mark.parametrize("waits", [(0, 2), (2, 0), (5, 2), (2, 5)])
+def test_changed_waits_poison_owned_handle_without_reset_reconnect_or_retry(scenario, operation, waits):
+    owned = scenario.service(SCOPE)
+    before_sets = sum(call.args[0].startswith("SET SESSION") for call in scenario.cursor.execute.call_args_list)
+    scenario.waits = waits
+    with pytest.raises(provider.ReceiptProviderError, match="^receipt_provider_check$"):
+        getattr(owned, operation)()
+    scenario.raw.commit.assert_not_called()
+    scenario.connect.assert_called_once()
+    assert sum(call.args[0].startswith("SET SESSION") for call in scenario.cursor.execute.call_args_list) == before_sets == 2
+    with pytest.raises(provider.ReceiptProviderError, match="^receipt_provider_unusable$"):
+        owned.cursor()
+    owned.rollback()
+    owned.close()
+
+
+@pytest.mark.parametrize("statement", ["SET SESSION innodb_lock_wait_timeout=2", "SET SESSION lock_wait_timeout=2",
+    "SELECT @@session.innodb_lock_wait_timeout,@@session.lock_wait_timeout"])
+@pytest.mark.parametrize("error_type", [RuntimeError, KeyboardInterrupt, SystemExit])
+def test_wait_configuration_or_probe_error_always_cleans_owned_acquisition(scenario, statement, error_type):
+    execute = scenario.cursor.execute.side_effect
+    error = error_type("PRIVATE SQL wait error")
+    def fail(sql, values=None):
+        if sql == statement:
+            raise error
+        return execute(sql, values)
+    scenario.cursor.execute.side_effect = fail
+    expected = provider.ReceiptProviderError if error_type is RuntimeError else error_type
+    with pytest.raises(expected) as raised:
+        scenario.service(SCOPE)
+    if error_type is RuntimeError:
+        assert str(raised.value) == "receipt_provider_acquisition" and raised.value.__context__ is None
+    else:
+        assert raised.value is error
+    scenario.raw.rollback.assert_called_once()
+    scenario.raw.close.assert_called_once()
+    scenario.raw.commit.assert_not_called()

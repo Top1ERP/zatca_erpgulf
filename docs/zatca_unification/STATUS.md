@@ -1,8 +1,8 @@
-# Implementation status — 2026-10-21
+# Implementation status — 2026-10-22
 
 ## Scope delivered in this increment
 
-Safety preparation and sixty-two bounded increments (Compliance outcomes, dedicated
+Safety preparation and sixty-three bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -53,7 +53,8 @@ and selected primary rejection-persistence local-failure isolation,
 and explicit caller-owned diagnostic event staging with a legacy compatibility wrapper,
 and development diagnostic status schema with read-only staged metadata preflight,
 and an explicit original-pair-bound caller-owned diagnostic bridge,
-and saved-source/create-ACL diagnostic access with fresh source drift checks)
+and saved-source/create-ACL diagnostic access with fresh source drift checks,
+and bounded/rechecked owned-session lock waits in the optional concrete provider)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -1185,6 +1186,30 @@ branches and credential-context differences are recorded in
   release or invoice/advance/accounting/QR/PIH/ICV change. See
   [EVENT_LOG_TRANSACTION.md](EVENT_LOG_TRANSACTION.md).
 
+## Increment 63: owned-session lock waits, not completed diagnostic isolation
+
+- The optional concrete Unix provider validates its peer and sets fixed two-second
+  SESSION row/metadata lock waits before registration locking. Exact read-back is
+  required before every cursor/commit. Drift/unreadable settings reject/poison
+  rather than reset/reconnect; acquisition errors attempt owned rollback/close.
+  Existing five-second driver I/O timeouts remain. No GLOBAL or ambient setting
+  is changed; arbitrary injected factories are not globally constrained.
+- Actual temporary SQL contention tests show registration acquisition cleanup
+  and diagnostic source-row timeout 1205 without clearing/committing the blocking
+  parent's pending work or modifying the committed original pair. No second
+  observer/HTTP call occurs. Individual lock waits are not a whole-transaction
+  deadline or permission to retry after uncertainty.
+- Final guarded combined: **8,972 local + 1,228 private SQL = 10,200 passed in
+  132.20 seconds**, across the same twelve private suites (30 local + 16 private
+  additions). Local-only passed 8,972 in 61.78 seconds. No failing guard was waived.
+- Source-neutral diagnostic transaction isolation, all-factory enforcement,
+  whole-worker/SQL deadline/race/provenance and source/Company-scoped plaintext
+  log read/export/retention remain gates. Existing System Manager log permissions
+  were inspected, not silently changed; there is no legacy row backfill/migration.
+- No installed source/config/schema/assets/Bench/worker/customer/authority action,
+  including Sandbox/Simulation; no invoice/advance/GL/VAT/PIH/ICV/QR/crypto or
+  acceptance/replay policy change. See [PRIMARY_RECEIPT_PROVIDER.md](PRIMARY_RECEIPT_PROVIDER.md).
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -1678,8 +1703,10 @@ physical schema guarantee. Increment61 adds an internal exact-original matched-p
 diagnostic adapter with separate transaction ownership, not a live caller or
 provider registration. Increment62 adds source WRITE/related READ/create-ACL
 checks and fresh owned source comparisons around diagnostic insertion, not
-atomic locking across hooks or rollback of possible event writes. Next complete
-source-neutral parent/lock-wait/race/provenance and whole-worker integration for caller-owned event logging only
+atomic locking across hooks or rollback of possible event writes. Increment63
+bounds/rechecks individual row/metadata waits only in the optional concrete Unix
+provider, not all factories or complete transaction deadlines. Next complete
+source-neutral parent/race/provenance, log read/export/retention and whole-worker integration for caller-owned event logging only
 with original receipt custody, schema review, caller exception boundaries and intentional rejection/parent lifecycle
 together, continue lost/late/unbound and partial-write policy, and audit source/namespace/key/
 lookup custody and transport-source-epoch/response evidence before

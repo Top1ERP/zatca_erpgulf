@@ -1,4 +1,4 @@
-# Explicit diagnostic event staging — increments 59–62
+# Explicit diagnostic event staging — increments 59–63
 
 Development only, 2026-10-16. No tenant/site initialization, working application
 change or authority request. This contract is not wired into invoice submission.
@@ -302,3 +302,27 @@ tests; no runtime or ownership/ACL/custody check was weakened. The 36 native cas
 cover both signature-shaped engines, three SQL drift targets, three insertion
 timings and two explicit parent decisions. Installed application/hooks/v16 and
 authority acceptance remain unverified; no working environment was changed.
+
+## Bounded owned lock waits, not completed isolation — increment 63
+
+The optional [concrete Unix provider](PRIMARY_RECEIPT_PROVIDER.md) now sets and
+rechecks SESSION-only row/metadata lock waits of two seconds on each freshly
+owned handle before any registration lock. Wrong or changed settings fail closed,
+without GLOBAL changes, reconnect or automatic reset. Other injected factories
+are not globally constrained; this provider is still not registered in runtime.
+
+Actual private SQL tests hold a source row with a pending unrelated parent
+change, then invoke the saved diagnostic facade through the concrete provider.
+Server lock timeout 1205 yields static local review, owned cleanup and no diagnostic
+insert. Parent work remains pending until that test owner commits/rolls back;
+the already stored original pair and original observer remain unchanged. A
+separate test holds the registration row during acquisition and confirms owned
+failure cleanup without touching the blocking connection or registration.
+
+This bounds individual waits, not total transaction time, all SQL factories or
+post-commit/worker lifecycle. Source-neutral diagnostic transaction isolation is
+NOT complete. Hooks/callbacks may still affect ambient work and source/ACL changes
+are not atomic across those hooks. The source Event Log still permits the
+System Manager role read/export/share/write; these permissions were inspected,
+not changed. A Company/source-scoped log read/retention strategy and legacy-row
+migration policy remain gates before adoption, not an automatic global ACL change.

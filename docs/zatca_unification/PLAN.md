@@ -137,6 +137,13 @@ be reserialized during cleanup.
 
 ### 4. XML, cryptography, and QR core
 
+- Increment 63 adds [owned-session bounded lock waits](PRIMARY_RECEIPT_PROVIDER.md)
+  to the optional Unix provider only: fixed SESSION row/metadata waits, verified
+  before registration locks and every cursor/commit, rejecting drift without
+  repair/reconnect or GLOBAL changes. Actual private source/registration locks
+  demonstrate failure/owned cleanup without changing parent work or originals.
+  Source-neutral diagnostic transaction isolation, arbitrary factory policy and
+  Company/source-scoped log read/export/retention remain unfinished gates.
 - Increment 62 adds [saved-source diagnostic access and fresh drift checks](EVENT_LOG_TRANSACTION.md).
   Source WRITE/related READ plus Event Log CREATE precede keys/owned SQL. Exact
   request/envelope binding and fresh source-only owned reads bracket insertion;

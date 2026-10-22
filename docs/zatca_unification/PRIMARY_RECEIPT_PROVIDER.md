@@ -1,4 +1,4 @@
-# Explicit local primary receipt connection provider — increment 48
+# Explicit local primary receipt connection provider — increments 48 and 63
 
 ## Scope and non-activation
 
@@ -33,6 +33,8 @@ reject pickle. These are protected internal Python dependencies, not web JSON.
    timeouts, local infile disabled and no default-file discovery. There is no
    arbitrary raw connection factory, ambient Frappe handle, DSN discovery,
    TCP/TLS fallback, ping or reconnect.
+   Increment63 validates the owned peer and sets fixed SESSION-only two-second
+   row/metadata lock waits before the first registration lock; details below.
 4. On the owned connection it rechecks the socket, AF_UNIX peer pathname and
    Linux SO_PEERCRED process/UID, then reads DATABASE(), server ID, session
    autocommit and positive connection ID. The exact site/namespace/registration
@@ -102,3 +104,56 @@ then durable local review holds before considering primary API integration.
 Legacy partial commits and later scheduler retries remain unresolved. Full
 isolated v15/v16, SDK/crypto/accounting/browser tests and separately approved
 fictional-client acceptance still precede any active-client adoption.
+
+## Owned session lock waits — increment 63 (2026-10-22)
+
+The optional concrete Unix provider now sets `innodb_lock_wait_timeout=2` and
+`lock_wait_timeout=2` ONLY on its directly created fresh owned connection, after
+kernel peer validation and BEFORE the first registration `FOR UPDATE`. It reads
+back both session variables and requires an exact two-int (2,2) result before
+continuing to SQL target/session/registration checks. No GLOBAL setting, ambient
+Frappe handle, configured site, operational service or server policy is changed.
+The fixed connect/read/write timeouts remain five seconds.
+
+Before each cursor acquisition and commit, peer/session/target checks now also
+verify these session settings. A changed/disabled/unreadable policy rejects and
+poisons that handle; it is not silently reset, retried or reconnected. Failure
+during configuration/read-back/registration acquisition attempts BOTH owned
+rollback and close, and propagates interruptions after cleanup. No SQL commit,
+schema provisioning, key discovery, invoice state write or authority request is
+introduced. Input binding/API signatures and existing permission gates are unchanged.
+
+MariaDB documents row-lock waits separately from metadata-lock waits, and a row
+lock timeout ordinarily rolls back the statement, not the entire transaction.
+Metadata waits can occur multiple times within one statement. See the primary
+[InnoDB variable reference](https://mariadb.com/docs/server/server-usage/storage-engines/innodb/innodb-system-variables)
+and [server variable reference](https://mariadb.com/docs/server/server-management/variables-and-modes/server-system-variables).
+Thus two seconds is NOT an overall transaction/wall-clock deadline, universal
+statement cancellation or proof that an earlier write did not occur. Existing
+reviewed service owners must still rollback/close after failure and retain the
+exact original recovery input. No automatic replay is added.
+
+This is NOT a SQL sandbox. An error on a returned raw cursor is still the reviewed
+caller's cleanup responsibility; identity/policy-check errors poison the wrapper.
+Arbitrary injected factories in other staged services are NOT globally forced to
+use this provider/policy. Installed source-neutral diagnostic transaction design,
+scope/provenance, hook effects, row/metadata contention coverage across all writers
+and whole-worker lifecycle remain adoption gates. A parent holding a source row
+now causes bounded failure through this provider, not successful isolation or
+permission to drop locks, commit or rollback that parent.
+
+Added thirty synthetic local tests for setup-before-lock ordering, typed exact
+read-back, no GLOBAL SQL, setup/probe errors/interruptions and post-handoff drift
+without repair/reconnect. Sixteen private SQL cases verify real session/global
+separation, drift on both variables, registration-row acquisition contention and
+source-row contention through permissioned diagnostics. The source contention
+case requires server error 1205, never a socket-read failure, leaves the blocking
+parent's pending change under its own explicit commit/rollback, and preserves
+the independent exact original pair without a new observer. Metadata settings
+are read-back/drift tested; this is not a complete metadata-lock/DDL race matrix.
+
+Final guarded combined evidence: **8,972 local + 1,228 private SQL = 10,200 passed
+in 132.20 seconds**, across the same twelve private suites. The local-only run
+passed 8,972 in 61.78 seconds. No failed guard/ownership assertion was relaxed.
+All SQL is on newly owned temporary servers with synthetic data. No installed
+v16/ORM/hook/SDK/authority acceptance or working environment change is established.

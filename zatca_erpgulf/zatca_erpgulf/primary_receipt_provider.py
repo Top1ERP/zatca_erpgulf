@@ -18,6 +18,9 @@ from .credential_bundle_access import CredentialStorageScope
 from .issuance_candidate import _canonical_uuid
 
 
+LOCK_WAIT_SECONDS = 2
+
+
 class ReceiptProviderError(ValueError):
     """Static internal code only; never expose credentials/paths/driver errors."""
 
@@ -98,12 +101,8 @@ def _check_socket(binding):
         raise ReceiptProviderError("receipt_provider_socket")
 
 
-def _check_connection(raw, binding):
-    """Check kernel peer, SQL target and locked site/namespace registration.
-
-    Fixed read-only probes; never create/repair registration. A matching marker
-    is only as trustworthy as its provisioning/custody, not a remote receipt.
-    """
+def _peer_pid(raw, binding):
+    """Validate the owned local peer BEFORE setting any SQL session options."""
     _check_socket(binding)
     peer = raw._sock  # Provider owns a directly created PyMySQL connection.
     if peer.family != socket.AF_UNIX or peer.getpeername() != binding.unix_socket:
@@ -111,7 +110,35 @@ def _check_connection(raw, binding):
     pid, uid, _gid = struct.unpack("iII", peer.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
     if pid <= 0 or uid != binding.socket_uid:
         raise ReceiptProviderError("receipt_provider_peer")
+    return pid
+
+
+def _set_owned_lock_waits(raw, binding):
+    """Set fixed SESSION-only waits on a newly created owned connection.
+
+    Never change GLOBAL variables or an ambient handle. This bounds individual
+    row/metadata lock waits, not total transaction time or statement cancellation.
+    Rejection after handoff poisons the handle rather than silently repairing it.
+    """
+    _peer_pid(raw, binding)
     with raw.cursor() as cursor:
+        cursor.execute("SET SESSION innodb_lock_wait_timeout=2")
+        cursor.execute("SET SESSION lock_wait_timeout=2")
+
+
+def _check_connection(raw, binding):
+    """Check owned peer, bounded waits, target and locked registration.
+
+    Fixed read-only probes; never repair registration or changed wait settings.
+    A matching marker does not attest authority response or tenant provenance.
+    """
+    pid = _peer_pid(raw, binding)
+    with raw.cursor() as cursor:
+        cursor.execute("SELECT @@session.innodb_lock_wait_timeout,@@session.lock_wait_timeout")
+        waits = cursor.fetchone()
+        if (type(waits) is not tuple or len(waits) != 2
+                or any(type(value) is not int or value != LOCK_WAIT_SECONDS for value in waits)):
+            raise ReceiptProviderError("receipt_provider_lock_waits")
         cursor.execute("SELECT DATABASE(),@@server_id,@@session.autocommit,CONNECTION_ID()")
         row = cursor.fetchone()
         if (type(row) is not tuple or len(row) != 4 or row[:3] != (binding.database, binding.server_id, 0)
@@ -220,6 +247,7 @@ class UnixPrimaryReceiptProvider:
                 user=credentials.user, password=credentials.password, autocommit=False, charset="utf8mb4",
                 connect_timeout=5, read_timeout=5, write_timeout=5, local_infile=False, read_default_file=None)
             owned = _OwnedReceiptConnection(raw, self._binding)
+            _set_owned_lock_waits(raw, self._binding)
             owned._check()
             return owned
         except BaseException as error:

@@ -714,6 +714,154 @@ def pinned_receipt_provider(case, isolated_server, connections, *, register=True
     return case
 
 
+def session_and_global_waits(connection):
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT @@session.innodb_lock_wait_timeout,@@session.lock_wait_timeout,"
+            "@@global.innodb_lock_wait_timeout,@@global.lock_wait_timeout")
+        return cursor.fetchone()
+
+
+def test_provider_sets_only_owned_waits_and_never_global_or_control_session(qr_source_schema, receipt_operator,
+    certificates, monkeypatch, connections, namespace, isolated_server):
+    case = native_receipt_case(receipt_operator, certificates[0], monkeypatch, connections, namespace)
+    pinned_receipt_provider(case, isolated_server, connections)
+    control = connections()
+    before = session_and_global_waits(control)
+    owned = case.provider(case.scope)
+    try:
+        assert session_and_global_waits(owned) == (2, 2, *before[2:])
+        assert session_and_global_waits(control) == before
+    finally:
+        owned.rollback()
+        owned.close()
+        control.rollback()
+        control.close()
+    assert read_primary_receipt_case(case, connections) == case.before
+    case.credentials.assert_called_once()
+
+
+@pytest.mark.parametrize("variable", ["innodb_lock_wait_timeout", "lock_wait_timeout"])
+@pytest.mark.parametrize("operation", ["cursor", "commit"])
+def test_actual_wait_drift_is_rejected_without_repair_or_reconnect(qr_source_schema, receipt_operator,
+    certificates, monkeypatch, connections, namespace, isolated_server, variable, operation):
+    case = native_receipt_case(receipt_operator, certificates[0], monkeypatch, connections, namespace)
+    pinned_receipt_provider(case, isolated_server, connections)
+    owned = case.provider(case.scope)
+    try:
+        with owned._raw.cursor() as cursor:  # Trusted fault injection on owned temporary SQL only.
+            cursor.execute("SET SESSION " + variable + "=7")
+        with pytest.raises(receipt_provider.ReceiptProviderError, match="^receipt_provider_check$"):
+            getattr(owned, operation)()
+        with pytest.raises(receipt_provider.ReceiptProviderError, match="^receipt_provider_unusable$"):
+            owned.cursor()
+        with owned._raw.cursor() as cursor:
+            cursor.execute("SELECT @@session." + variable)
+            assert cursor.fetchone() == (7,)  # Reject, do NOT silently reset/repair.
+    finally:
+        owned.rollback()
+        owned.close()
+    case.credentials.assert_called_once()
+    assert read_primary_receipt_case(case, connections) == case.before
+
+
+def test_registration_lock_times_out_during_acquisition_with_owned_cleanup_only(qr_source_schema, receipt_operator,
+    certificates, monkeypatch, connections, namespace, isolated_server):
+    case = native_receipt_case(receipt_operator, certificates[0], monkeypatch, connections, namespace)
+    pinned_receipt_provider(case, isolated_server, connections)
+    parent = connections()
+    opened = []
+    original_connect = receipt_provider.pymysql.connect
+    def connect(**kwargs):
+        raw = original_connect(**kwargs)
+        raw.rollback = Mock(wraps=raw.rollback)
+        raw.close = Mock(wraps=raw.close)
+        raw.commit = Mock(wraps=raw.commit)
+        opened.append(raw)
+        return raw
+    try:
+        before_waits = session_and_global_waits(parent)
+        with parent.cursor() as cursor:
+            cursor.execute("SELECT site FROM zatca_receipt_storage_binding_v1 WHERE storage_namespace=%s FOR UPDATE", (namespace,))
+            assert cursor.fetchone() == (case.scope.site,)
+        with monkeypatch.context() as patch:
+            patch.setattr(receipt_provider.pymysql, "connect", connect)
+            with pytest.raises(receipt_provider.ReceiptProviderError, match="^receipt_provider_acquisition$") as raised:
+                case.provider(case.scope)
+        assert raised.value.__context__ is None
+        assert len(opened) == 1 and not opened[0].open
+        opened[0].rollback.assert_called_once()
+        opened[0].close.assert_called_once()
+        opened[0].commit.assert_not_called()
+        assert parent.open and session_and_global_waits(parent) == before_waits
+        with parent.cursor() as cursor:
+            cursor.execute("SELECT site FROM zatca_receipt_storage_binding_v1 WHERE storage_namespace=%s", (namespace,))
+            assert cursor.fetchone() == (case.scope.site,)
+    finally:
+        parent.rollback()
+        parent.close()
+    case.credentials.assert_called_once()
+    assert read_primary_receipt_case(case, connections) == case.before
+
+
+@pytest.mark.parametrize("parent_commit", [False, True])
+def test_diagnostic_source_contention_times_out_without_parent_or_original_pair_mutation(qr_source_schema,
+    reconciliation_operator, diagnostic_operator, certificates, monkeypatch, connections, namespace, isolated_server,
+    parent_commit):
+    op = diagnostic_operator
+    assert op.source is reconciliation_operator
+    case = native_pair_access_case(reconciliation_operator, certificates[0], monkeypatch, connections, namespace,
+        isolated_server, owner="linked")
+    assert invoke_pair_access(case, "persist")["state"] == "PAIR_STORED_OBSERVATION_NO_REPLAY"
+    before_journal, before_sealed = read_primary_receipt_case(case, connections), read_custody_row(case, connections)
+    case.factory.reset_mock()
+    case.credentials.reset_mock()
+    parent = connections()
+    original_verify = pair_access._verify_rows
+    codes = []
+    def verify(connection, rows):
+        try:
+            return original_verify(connection, rows)
+        except Exception as error:
+            codes.append(error.args[0] if error.args else None)
+            raise
+    monkeypatch.setattr(pair_access, "_verify_rows", verify)
+    try:
+        before_waits = session_and_global_waits(parent)
+        with parent.cursor() as cursor:
+            cursor.execute("SELECT custom_zatca_status FROM `tabSales Invoice` WHERE name=%s FOR UPDATE", (case.invoice.name,))
+            original_status, = cursor.fetchone()
+            cursor.execute("UPDATE `tabSales Invoice` SET custom_zatca_status=%s WHERE name=%s", ("PARENT-PENDING", case.invoice.name))
+        with pytest.raises(pair_access.PrimaryDiagnosticReviewError) as raised:
+            invoke_pair_access(case, "stage_diagnostic")
+        assert raised.value.__context__ is None and not vars(raised.value)
+        assert codes == [1205]  # Server lock timeout, NOT socket-read timeout/reconnect.
+        case.factory.assert_called_once_with(case.scope)
+        case.credentials.assert_called_once_with(case.scope)
+        op.writer.doc.insert.assert_not_called()
+        assert all(owned.closed for owned in case.pinned_opened)
+        assert read_primary_receipt_case(case, connections) == before_journal
+        assert read_custody_row(case, connections) == before_sealed
+        assert parent.open and session_and_global_waits(parent) == before_waits
+        with parent.cursor() as cursor:
+            cursor.execute("SELECT custom_zatca_status FROM `tabSales Invoice` WHERE name=%s", (case.invoice.name,))
+            assert cursor.fetchone() == ("PARENT-PENDING",)  # No borrowed rollback/commit.
+        (parent.commit if parent_commit else parent.rollback)()
+    finally:
+        parent.rollback()
+        parent.close()
+    probe = connections()
+    try:
+        with probe.cursor() as cursor:
+            cursor.execute("SELECT custom_zatca_status FROM `tabSales Invoice` WHERE name=%s", (case.invoice.name,))
+            assert cursor.fetchone() == ("PARENT-PENDING" if parent_commit else original_status,)
+    finally:
+        probe.rollback()
+        probe.close()
+    case.observer.assert_called_once()  # Initial synthetic setup only; never a new request.
+    op.writer.runtime.db.commit.assert_not_called()
+    op.writer.runtime.db.rollback.assert_not_called()
+
+
 @pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
 @pytest.mark.parametrize("indicator", ["0100000", "0200000"])
 @pytest.mark.parametrize("owner", ["company", "device", "linked"])
