@@ -12,7 +12,7 @@ import requests
 
 from zatca_erpgulf.zatca_erpgulf import sign_invoice_first as client
 from zatca_erpgulf.zatca_erpgulf.operation_messages import (
-    CSIDProgress, CSID_PROGRESS_REVIEW, csid_local_failure, csid_request_rejection,
+    CSIDProgress, CSID_PROGRESS_REVIEW, CSID_FORM_REVIEW, csid_local_failure, csid_request_rejection,
 )
 from zatca_erpgulf.zatca_erpgulf.tests.test_credential_lifecycle import csid_writer, pair
 from zatca_erpgulf.zatca_erpgulf.tests.test_credential_selection import boundary, materials, ValidationError
@@ -304,4 +304,22 @@ def test_presentation_hook_partial_message_effect_is_not_erased_or_retried(displ
     assert len(b.visible) == 2
     assert "PRIVATE" not in repr(b.visible)
     assert b.post.call_count == 1 and b.company.save.call_count == 1
+    assert_no_cleanup(b)
+
+
+@pytest.mark.parametrize("source", ["company", "device"])
+@pytest.mark.parametrize("purpose", ["compliance", "production"])
+@pytest.mark.parametrize("lang", ["en", "ar"])
+def test_success_guidance_is_in_the_same_popup_without_changing_english_result(display, source, purpose, lang):
+    b = display
+    b.frappe.local.lang = lang
+    result = json.loads(invoke(b, source, purpose))
+    assert len(b.visible) == 1
+    assert b.visible[0]["message"] == b.text(result["message"]) + "<br>" + b.text(CSID_FORM_REVIEW)
+    assert b.visible[0]["indicator"] == "green"
+    assert result["message"].isascii() and CSID_FORM_REVIEW.isascii()
+    if lang == "ar":
+        assert b.text(CSID_FORM_REVIEW) != CSID_FORM_REVIEW
+    assert set(result) == {"status", "purpose", "message"}
+    assert b.post.call_count == 1 and getattr(b, source).save.call_count == 1
     assert_no_cleanup(b)

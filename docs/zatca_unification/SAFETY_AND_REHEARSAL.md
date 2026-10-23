@@ -762,6 +762,24 @@ ownership guard or normal acceptance policy is waived. Actual installed
 framework/browser/credential lifecycle, logs and authority acceptance remain
 unverified; the suite does not authorize retry, activation or deployment.
 
+Increment76 removes implicit Company/device CSID save/reload through shared clean/
+active-form and in-memory pending/review guards. Device reads only the exact
+linked Company's abbreviation/environment, using ordinary API permissions. Source
+changes during that lookup cancel before credential creation. The same server
+success popup adds translated guidance with unchanged English results. This is
+not durable idempotency, source provenance, a manual-save override or protection
+for CSR/configuration/other checks. Server access, epochs/storage, complete logs
+and installed browser/framework lifecycle remain gates. No installed source/
+assets/config/schema/worker/site/credential/authority action. See
+[CSID_FORM_LIFECYCLE.md](CSID_FORM_LIFECYCLE.md).
+
+Increment76 guarded combined: **11,664 local + 1,800 private SQL = 13,464 passed
+in 161.29 seconds**, across the same twelve owned-private suites, plus **724
+standalone Node VM cases** (312 new CSID form cases). Eight new Python cases
+verify the shared success guidance. No manifest, normal permission, acceptance
+or network/site/SQL ownership guard is loosened. There is no real tenant,
+credential operation, authority request, browser or v16 acceptance assertion.
+
 Full development and real v15/v16/application/crypto/advance acceptance remain
 unfinished. Remote authority acceptance is a separate unverified gate and cannot
 be inferred or marked complete while actual requests remain prohibited.

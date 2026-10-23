@@ -21,7 +21,7 @@ from zatca_erpgulf.zatca_erpgulf.credential_material import CredentialOwner
 from zatca_erpgulf.zatca_erpgulf.credential_snapshot import CredentialSnapshotError, authentication_certificate_der
 from zatca_erpgulf.zatca_erpgulf.api_routing import ApiConfigurationError
 from zatca_erpgulf.zatca_erpgulf.operation_messages import (
-    csid_creation_result, csid_request_rejection, CSIDRequestRejected,
+    csid_creation_result, csid_request_rejection, CSIDRequestRejected, CSID_FORM_REVIEW,
 )
 from zatca_erpgulf.zatca_erpgulf.tests.test_api_route_contract import settings
 from zatca_erpgulf.zatca_erpgulf.tests.test_credential_snapshot import basic
@@ -424,7 +424,7 @@ def test_csid_success_exports_only_english_metadata_after_save(csid_writer, pair
     assert type(result) is str and json.loads(result) == canonical
     prefix = "DISPLAY:" if arabic else ""
     b.frappe.msgprint.assert_called_once_with({"title": prefix + "CSID Generation Result",
-        "message": prefix + canonical["message"], "indicator": "green"})
+        "message": prefix + canonical["message"] + "<br>" + prefix + CSID_FORM_REVIEW, "indicator": "green"})
     exported = result + repr(b.frappe.msgprint.call_args_list)
     for private in (b.raw_body, b.data["binarySecurityToken"], b.data["secret"], b.data["requestID"],
                     doc.custom_otp, doc.custom_csr_data, doc.custom_private_key):

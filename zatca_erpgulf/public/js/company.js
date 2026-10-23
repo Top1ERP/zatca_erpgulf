@@ -82,53 +82,11 @@ frappe.ui.form.on("Company", {
     },
 
     custom_generate_production_csids: function (frm) {
-        frappe.call({
-            method: "zatca_erpgulf.zatca_erpgulf.sign_invoice_first.production_csid",
-            args: {
-                "zatca_doc": {
-                    "doctype": frm.doc.doctype,
-                    "name": frm.doc.name
-                },
-                "company_abbr": frm.doc.abbr
-            },
-            callback: function (r) {
-                if (!r.exc) {
-                    frm.save();
-                }
-            },
-        });
+        return zatca_run_csid(frm, true);
     },
 
-    custom_generate_compliance_csid: async function (frm) {
-        try {
-            // OTP and environment changes are held in the form until Save.
-            // Persist them before the server reads Company from the database.
-            if (frm.is_dirty()) {
-                await frm.save();
-            }
-
-            const r = await frappe.call({
-                method: "zatca_erpgulf.zatca_erpgulf.sign_invoice_first.create_csid",
-                args: {
-                    "zatca_doc": {
-                        "doctype": frm.doc.doctype,
-                        "name": frm.doc.name
-                    },
-                    "portal_type": frm.doc.custom_select,
-                    "company_abbr": frm.doc.abbr
-                },
-                freeze: true,
-                freeze_message: __('Generating Compliance CSID...')
-            });
-
-            if (!r.exc) {
-                // The server stores the returned certificate and request ID.
-                // Reload instead of saving the stale client copy over them.
-                await frm.reload_doc();
-            }
-        } catch (e) {
-            zatca_operation_client_error(e, "Compliance CSID Generation Failed");
-        }
+    custom_generate_compliance_csid: function (frm) {
+        return zatca_run_csid(frm, false);
     },
 
     custom_create_csr: function (frm) {

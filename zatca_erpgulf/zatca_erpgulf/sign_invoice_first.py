@@ -34,7 +34,7 @@ from zatca_erpgulf.zatca_erpgulf.compliance_result import (
 from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
 from zatca_erpgulf.zatca_erpgulf.operation_messages import (
     csid_creation_result, CSIDRequestRejected, CSIDProgress, csid_local_failure,
-    CSID_PROGRESS_REVIEW, mute_operation_messages,
+    CSID_PROGRESS_REVIEW, CSID_FORM_REVIEW, mute_operation_messages,
 )
 
 SUPPORTED_INVOICES = ["Sales Invoice", "POS Invoice"]
@@ -332,7 +332,7 @@ def _csid_creation_success(purpose):
     result = csid_creation_result(purpose)
     frappe.msgprint({
         "title": _("CSID Generation Result"),
-        "message": _(result["message"]),
+        "message": _(result["message"]) + "<br>" + _(CSID_FORM_REVIEW),
         "indicator": "green",
     })
     return json.dumps(result, ensure_ascii=False)

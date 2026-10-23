@@ -133,6 +133,7 @@ node zatca_erpgulf/zatca_erpgulf/tests/test_company_compliance_messages.js
 node zatca_erpgulf/zatca_erpgulf/tests/test_debug_messages.js
 node zatca_erpgulf/zatca_erpgulf/tests/test_debug_ui_lifecycle.js
 node zatca_erpgulf/zatca_erpgulf/tests/test_csid_messages.js
+node zatca_erpgulf/zatca_erpgulf/tests/test_csid_form_lifecycle.js
 PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py --private-sql
 ```
 
@@ -207,3 +208,10 @@ error. Arabic is display only; raw exceptions are never stringified by the new
 boundary. Partial custom-hook output cannot be erased, and complete framework
 logging/client lifecycle is not certified. See
 [CSID_LOCAL_OUTCOMES.md](CSID_LOCAL_OUTCOMES.md).
+
+Increment 76 adds clean/active-form and pending/review guards to the four CSID
+buttons, no automatic save/reload and field-only device Company lookup. Guards
+and review notices are translated for display. The server success popup adds
+guidance without changing English results or adding a second success popup.
+Standalone UI checks now total 724 cases; actual Desk and broader CSID/CSR/log
+lifecycle remain gates. See [CSID_FORM_LIFECYCLE.md](CSID_FORM_LIFECYCLE.md).

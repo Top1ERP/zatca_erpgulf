@@ -57,11 +57,14 @@ function browser(lang = "en") {
     vm.runInContext(shared + "\n" + source, context, { timeout: 1000 });
     const frm = {
         doc: { name: "FICTIONAL COMPANY", doctype: "Company", abbr: "FC",
+            modified: "2026-10-23 09:00:00", custom_select: "Production",
             custom_sample_invoice_number_to_test: "SYNTHETIC-INVOICE" },
         is_dirty() { return false; },
         async save() { throw new Error("Batch must not save Company"); },
         async reload_doc() { events.push("reload"); if (reloadError) throw reloadError; }
     };
+    frappe.get_route = () => ["Form", frm.doc.doctype, frm.doc.name];
+    context.cur_frm = frm;
     return { context, dialogs, translated, calls, events, frm, handlers,
         reply(value) { reply = value; },
         reject(error, framework = false) { rejection = { error, framework }; },
@@ -108,6 +111,7 @@ async function main() {
                 b.reject({ status, responseJSON: { _server_messages: '["Original error"]' } }, true);
                 await b.handlers[action](b.frm);
                 assert.equal(b.dialogs.length, 1, "Do not duplicate the framework dialog");
+                assert.equal(b.calls.length, 1, "Exercise the RPC, not a form guard");
                 count++;
             }
         }

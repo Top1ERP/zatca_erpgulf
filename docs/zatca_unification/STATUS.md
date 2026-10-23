@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and seventy-five bounded increments (Compliance outcomes, dedicated
+Safety preparation and seventy-six bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -66,7 +66,8 @@ and permissioned/non-destructive shared Sales/POS Debug attachment creation,
 and attachment-only Debug UI updates with saved-form/concurrent-click guards,
 and auth-free CSID success results with display-only wizard result fields,
 and allowlisted single-popup CSID HTTP-failure diagnostics,
-and explicit CSID local/transport outcome presentation with progress cleanup)
+and explicit CSID local/transport outcome presentation with progress cleanup,
+and shared CSID form guards without implicit save/reload or full Company reads)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been deployed to the running application or sent to ZATCA. Increment 16 uses
@@ -1539,6 +1540,32 @@ two already-emitted presentation effects. The earlier compatibility-only local
 run passed 11,467 cases in 73.41 seconds. Node checks remain **412 synthetic
 cases**. The fixed manifest adds only this reviewed suite; no ownership/network/
 site/permission or transport guard is weakened.
+
+## Increment 76: CSID form guards and explicit saved-settings workflow
+
+- Both Company and both device CSID buttons share a runner requiring an active
+  saved clean form. Users save OTP/environment manually before creation. Remove
+  automatic pre/post-save and full reload, without bypassing timestamp guards.
+- Device metadata lookup asks only for the linked Company's abbreviation and
+  environment through the normal permissioned API. Recheck captured source/
+  revision/link/routing fields and clean/active state before credential creation.
+- Coalesce pending cross-button clicks and mark an attempted document for review
+  even after uncertainty/rejection. Review precedes dirty save guidance. This is
+  in-memory UI policy, not durable/cross-tab idempotency or source provenance.
+- Add display-only guidance to the same server success popup. Keep English JSON
+  results, credential writes, routing/auth/acceptance and public signatures.
+  No source writes, credential sync or extra success popup from the client runner.
+- CSR/configuration/other check paths, manual/programmatic saves, server access/
+  lifecycle and complete log/read/export/retention controls remain gates. No
+  installed/live assets/source/config/schema/worker/site/credential or authority
+  action. See [CSID_FORM_LIFECYCLE.md](CSID_FORM_LIFECYCLE.md).
+
+Final guarded combined: **11,664 local + 1,800 private SQL = 13,464 passed in
+161.29 seconds**, across the same twelve owned-private suites. Eight new Python
+cases verify the single English/Arabic notice and unchanged result. Node passed
+**724 synthetic cases**, including 312 actual CSID form handler cases. Existing
+Company framework-error tests also require reaching the RPC, not a guard-only
+pass. No fixed manifest or runtime/resource guard is changed.
 
 ## Verification
 

@@ -1,21 +1,122 @@
-// Presentation only: never translate or rewrite a raw authority diagnostic.
+// Shared UI boundaries: translate display text, never raw authority diagnostics.
+// Request helpers keep explicit routing and never mutate client credential fields.
+function zatca_csid_succeeded(value, production) {
+    let result;
+    try { result = typeof value === "string" ? JSON.parse(value) : value; }
+    catch (error) { return false; }
+    return !!(result && typeof result === "object" && !Array.isArray(result) && result.status === "SUCCESS" &&
+        result.purpose === (production ? "production" : "compliance") &&
+        result.message === (production ? "Final CSID generated and saved successfully." :
+            "Compliance CSID generated and saved successfully."));
+}
+
 function zatca_csid_result_message(value, production) {
     const purpose = production ? "production" : "compliance";
     const messages = {
-        compliance: ["Compliance CSID generated and saved successfully.",
-            __("Compliance CSID generated and saved successfully.")],
-        production: ["Final CSID generated and saved successfully.",
-            __("Final CSID generated and saved successfully.")]
+        compliance: __("Compliance CSID generated and saved successfully."),
+        production: __("Final CSID generated and saved successfully.")
     };
     // Do not copy an old/raw response into a wizard credential field. Parsing
     // does not authorize progression or replace the server's saved settings.
-    let result;
-    try { result = typeof value === "string" ? JSON.parse(value) : value; }
-    catch (error) { result = null; }
-    const expected = messages[purpose];
-    return result && typeof result === "object" && result.status === "SUCCESS" &&
-        result.purpose === purpose && result.message === expected[0] ? expected[1] :
+    return zatca_csid_succeeded(value, production) ? messages[purpose] :
         __("CSID creation was not confirmed. Review saved settings before trying again.");
+}
+
+// UI-only click/review guards, not durable idempotency or server access control.
+const zatca_csid_pending = new WeakMap();
+const zatca_csid_review = new WeakSet();
+
+function zatca_run_csid(frm, production) {
+    if (zatca_csid_pending.has(frm)) return zatca_csid_pending.get(frm);
+    const doc = frm && frm.doc;
+    const fields = ["doctype", "name", "modified", "abbr", "custom_select", "custom_linked_doctype"];
+    const snapshot = doc && fields.map(field => doc[field]);
+    const company = doc && doc.doctype === "Company";
+    const active = () => {
+        try {
+            const route = typeof frappe.get_route === "function" ? frappe.get_route() : null;
+            return doc && frm.doc === doc && Array.isArray(route) && route.length === 3 &&
+                route[0] === "Form" && route[1] === snapshot[0] && route[2] === snapshot[1] &&
+                (typeof cur_frm === "undefined" || cur_frm === frm) &&
+                fields.every((field, index) => doc[field] === snapshot[index]);
+        } catch (error) { return false; }
+    };
+    const clean = () => {
+        try {
+            return !doc.__islocal && !(typeof frm.is_new === "function" && frm.is_new()) &&
+                typeof frm.is_dirty === "function" && frm.is_dirty() === false;
+        } catch (error) { return false; }
+    };
+    const name = value => typeof value === "string" && value.length > 0 && value.length <= 140 &&
+        value === value.trim() && !/[\u0000-\u001f\u007f]/.test(value);
+    const environment = value => typeof value === "string" &&
+        ["Sandbox", "Simulation", "Production"].includes(value.trim());
+    const guard = message => {
+        frappe.msgprint({ title: __("CSID Generation Result"), indicator: "orange", message });
+        return Promise.resolve();
+    };
+    if (!doc || !["Company", "ZATCA Multiple Setting"].includes(doc.doctype) || !name(doc.name) || !active()) {
+        return guard(__("The CSID settings form is no longer active. Reopen it before starting the operation."));
+    }
+    // Review takes precedence over dirty-input guidance: never recommend saving
+    // a stale form after the server may have changed credential fields.
+    if (zatca_csid_review.has(doc)) {
+        return guard(__("Review saved CSID settings before saving an already-open form or starting another CSID operation. Preserve unsaved changes before reloading."));
+    }
+    if (!clean()) {
+        return guard(__("Save the Company or device settings, including OTP and environment, before generating CSID. No CSID request was sent."));
+    }
+    if (typeof doc.modified !== "string" || !doc.modified.trim() ||
+        (company ? !name(doc.abbr) || !environment(doc.custom_select) : !name(doc.custom_linked_doctype))) {
+        return guard(__("Saved CSID source settings are incomplete. Review the Company link and selected environment. No CSID request was sent."));
+    }
+    let attempted = false;
+    const task = (async () => {
+        try {
+            let abbr = doc.abbr, portal = doc.custom_select;
+            if (!company) {
+                // Read only routing metadata, never a full Company with secrets.
+                const lookup = await frappe.call({ method: "frappe.client.get_value",
+                    args: { doctype: "Company", filters: doc.custom_linked_doctype,
+                        fieldname: ["abbr", "custom_select"] } });
+                if (lookup && lookup.exc) return;
+                if (!active() || !clean()) {
+                    return guard(__("CSID generation was cancelled because the form changed while reading saved settings. Preserve edits and review the active form. No CSID request was sent."));
+                }
+                const selected = lookup && lookup.message;
+                if (!selected || !name(selected.abbr) || !environment(selected.custom_select)) {
+                    return guard(__("Saved CSID source settings are incomplete. Review the Company link and selected environment. No CSID request was sent."));
+                }
+                abbr = selected.abbr;
+                portal = selected.custom_select;
+            }
+            const args = { zatca_doc: { doctype: snapshot[0], name: snapshot[1] }, company_abbr: abbr };
+            if (!production) args.portal_type = portal;
+            // Entering this RPC is not proof of remote issuance. Keep the old
+            // document on review even after rejection, malformed reply or loss.
+            zatca_csid_review.add(doc);
+            attempted = true;
+            const r = await frappe.call({
+                method: production ? "zatca_erpgulf.zatca_erpgulf.sign_invoice_first.production_csid" :
+                    "zatca_erpgulf.zatca_erpgulf.sign_invoice_first.create_csid",
+                args, freeze: true,
+                freeze_message: production ? __("Generating Final CSID...") : __("Generating Compliance CSID...")
+            });
+            if (r && r.exc) return;
+            if (!zatca_csid_succeeded(r && r.message, production)) {
+                return guard(__("CSID creation was not confirmed. Review saved settings before trying again."));
+            }
+            // The server owns the one success notice, including review guidance.
+            // Never save, reload, sync credentials or overwrite source fields.
+            return;
+        } catch (error) {
+            zatca_operation_client_error(error, "CSID Generation Failed", attempted ?
+                __("The CSID request outcome is not confirmed in this form. Preserve edits and review saved settings and the onboarding status before another request.") :
+                __("Saved Company settings could not be read. No CSID request was sent."));
+        }
+    })().finally(() => zatca_csid_pending.delete(frm));
+    zatca_csid_pending.set(frm, task);
+    return task;
 }
 
 function zatca_compliance_summary(response, automatic, single = false) {

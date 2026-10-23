@@ -20,6 +20,7 @@ DEBUG_LOCAL_ONLY = (
 DEBUG_EXISTING = "Existing XML/QR was found. A separate debug XML will be generated."
 DEBUG_ACCESS_DENIED = "You do not have permission to create a debug XML attachment for this invoice."
 DEBUG_ATTACHMENT_REVIEW = "Debug XML attachment could not be confirmed. Review the source and existing files before retrying."
+CSID_FORM_REVIEW = "Review saved CSID settings before saving an already-open form or starting another CSID operation. Preserve unsaved changes before reloading."
 
 
 def csid_creation_result(purpose):

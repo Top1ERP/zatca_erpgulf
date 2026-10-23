@@ -70,6 +70,11 @@ the public result; partial save/commit/output and unknown outcomes require revie
 not retry or rollback. Client save/reload, ignored-permission writers, protected
 receipts and full framework log/snapshot/access/lifecycle remain gates. See
 [CSID_LOCAL_OUTCOMES.md](CSID_LOCAL_OUTCOMES.md).
+Increment 76 replaces automatic CSID pre/post-save/reload with explicit clean
+saved-form input and shared in-memory pending/review guards. Device metadata
+lookup is field-limited; the same server success popup includes review guidance.
+Manual saves, CSR/configuration/other checks, source/access/epochs and full log
+lifecycle remain gates. See [CSID_FORM_LIFECYCLE.md](CSID_FORM_LIFECYCLE.md).
 
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |

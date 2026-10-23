@@ -113,3 +113,8 @@ Final guarded result: **11,656 local + 1,800 private SQL = 13,456 passed in
 local cases require only that explicit manifest addition; no runtime guard or
 permission policy is relaxed. Standalone Node checks remain 412 cases. The prior
 compatibility-only local run passed 11,467 cases in 73.41 seconds.
+
+Increment 76 separately removes implicit save/reload from Company/device CSID
+handlers and adds in-memory clean/pending/review guards and a display-only note.
+CSR/configuration/other checks, manual saves, server access and full log/credential
+lifecycle remain gates. See [CSID_FORM_LIFECYCLE.md](CSID_FORM_LIFECYCLE.md).
