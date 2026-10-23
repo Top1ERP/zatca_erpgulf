@@ -90,22 +90,7 @@ frappe.ui.form.on("Company", {
     },
 
     custom_create_csr: function (frm) {
-        frappe.call({
-            method: "zatca_erpgulf.zatca_erpgulf.sign_invoice_first.create_csr",
-            args: {
-                "zatca_doc": {
-                    "doctype": frm.doc.doctype,
-                    "name": frm.doc.name
-                },
-                "portal_type": frm.doc.custom_select,
-                "company_abbr": frm.doc.abbr
-            },
-            callback: function (r) {
-                if (!r.exc) {
-                    frm.save();
-                }
-            },
-        });
+        return zatca_run_csr(frm);
     },
 
     custom_create_csr_configuration: function (frm) {

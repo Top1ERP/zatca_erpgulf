@@ -56,8 +56,10 @@ custom hooks/partial output are not an atomic one-dialog guarantee.
 
 ## Deliberate limits
 
-Only the four Company/device CSID handlers are covered. CSR creation/configuration,
-device single-check and broader wizard/form save/read/log behavior remain gates.
+Increment 76 covers the four Company/device CSID handlers. Increment 77 extends
+their shared runner to both CSR handlers with key-replacement consent; see
+[CSR_FORM_LIFECYCLE.md](CSR_FORM_LIFECYCLE.md). CSR configuration, device
+single-check and broader wizard/form save/read/log behavior remain gates.
 The guard does not override manual/programmatic saves, disable a form, clear
 messages or bypass timestamps. Fields may remain stale until deliberate reload;
 users must preserve wanted edits first. A later manual reload is not protected

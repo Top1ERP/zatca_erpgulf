@@ -783,3 +783,14 @@ credential operation, authority request, browser or v16 acceptance assertion.
 Full development and real v15/v16/application/crypto/advance acceptance remain
 unfinished. Remote authority acceptance is a separate unverified gate and cannot
 be inferred or marked complete while actual requests remain prohibited.
+
+Increment77 extends the same UI-only credential-action boundary to both CSR
+buttons, adds private-key replacement consent and removes implicit saves/reloads
+and selected device console dumps. Its UI tests do not generate keys or call a
+real CSR RPC. It does not fix backend key rotation or sanitize all framework logs. Configuration
+draft staging and device single Compliance remain separate gates. **176 new
+Node VM cases** bring standalone UI checks to **900**; no manifest/permission/
+network/site/SQL ownership guard is weakened. See
+[CSR_FORM_LIFECYCLE.md](CSR_FORM_LIFECYCLE.md).
+Increment77 guarded combined passed **11,664 local + 1,800 private SQL = 13,464
+cases in 143.64 seconds**, with the same twelve owned-private SQL suites.

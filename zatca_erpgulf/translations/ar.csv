@@ -764,3 +764,15 @@ CSID generation was cancelled because the form changed while reading saved setti
 Generating Final CSID...,جارٍ إنشاء شهادة CSID النهائية...
 The CSID request outcome is not confirmed in this form. Preserve edits and review saved settings and the onboarding status before another request.,لم تتأكد نتيجة طلب CSID في هذا النموذج. احتفظ بتعديلاتك وراجع الإعدادات المحفوظة وحالة الربط قبل أي طلب آخر.
 Saved Company settings could not be read. No CSID request was sent.,تعذّرت قراءة إعدادات الشركة المحفوظة. لم يُرسل أي طلب CSID.
+CSR Generation Result,نتيجة إنشاء طلب الشهادة CSR
+CSR Generation Failed,تعذّر إنشاء طلب الشهادة CSR
+The CSR settings form is no longer active. Reopen it before starting the operation.,نموذج إعدادات CSR لم يعد نشطًا. أعد فتحه قبل بدء العملية.
+Review saved CSR and private-key settings before saving an already-open form or generating another CSR or CSID. Preserve unsaved changes before reloading.,راجع إعدادات CSR والمفتاح الخاص المحفوظة قبل حفظ نموذج مفتوح سابقًا أو إنشاء CSR أو CSID آخر. احتفظ بتعديلاتك غير المحفوظة قبل إعادة التحميل.
+Save the Company or device settings and CSR configuration before generating CSR. No CSR generation request was sent.,احفظ إعدادات الشركة أو الجهاز وإعداد CSR قبل إنشاء الطلب. لم يُرسل أي طلب لإنشاء CSR.
+Saved CSR source settings are incomplete. Review the Company link and selected environment. No CSR generation request was sent.,إعدادات مصدر CSR المحفوظة غير مكتملة. راجع رابط الشركة والبيئة المحددة. لم يُرسل أي طلب لإنشاء CSR.
+CSR generation was cancelled because the form changed. Preserve edits and review saved settings. No CSR generation request was sent.,أُلغي إنشاء CSR لأن النموذج تغيّر. احتفظ بتعديلاتك وراجع الإعدادات المحفوظة. لم يُرسل أي طلب لإنشاء CSR.
+Generating CSR replaces the saved private key and may make existing certificates unusable. Continue only for an intentional onboarding or renewal operation.,يستبدل إنشاء CSR المفتاح الخاص المحفوظ وقد يجعل الشهادات الحالية غير قابلة للاستخدام. تابع فقط إذا كنت تقصد إجراء الربط أو التجديد.
+Generating CSR...,جارٍ إنشاء طلب الشهادة CSR...
+The CSR generation call returned. Review saved CSR and private-key settings before any further operation; this does not confirm certificate issuance. Preserve unsaved changes before reloading.,انتهى استدعاء إنشاء CSR. راجع إعدادات CSR والمفتاح الخاص المحفوظة قبل أي عملية أخرى؛ هذا لا يؤكد إصدار شهادة. احتفظ بتعديلاتك غير المحفوظة قبل إعادة التحميل.
+CSR generation could not be confirmed. The saved private key may have changed. Preserve edits and review saved settings before another CSR or CSID operation.,لم يتأكد إنشاء CSR. قد يكون المفتاح الخاص المحفوظ قد تغيّر. احتفظ بتعديلاتك وراجع الإعدادات المحفوظة قبل إجراء CSR أو CSID آخر.
+CSR preparation could not be completed. No CSR generation request was sent.,تعذّر إكمال تجهيز CSR. لم يُرسل أي طلب لإنشاء CSR.

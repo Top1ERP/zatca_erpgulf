@@ -215,3 +215,12 @@ and review notices are translated for display. The server success popup adds
 guidance without changing English results or adding a second success popup.
 Standalone UI checks now total 724 cases; actual Desk and broader CSID/CSR/log
 lifecycle remain gates. See [CSID_FORM_LIFECYCLE.md](CSID_FORM_LIFECYCLE.md).
+
+Increment 77 shares credential-form guards with both CSR buttons. Translate
+private-key replacement consent and static returned-call/unknown-outcome review
+notices, never the encoded CSR or raw exception. Do not claim certificate issuance
+or persisted-key/CSR validity from a returned call. Device no longer dumps full
+Company/CSR responses to console through this handler. Backend exception/log
+policy and the separate configuration popup/draft workflow are unchanged gates.
+Node VM checks now total **900 cases**, including 176 new CSR cases. See
+[CSR_FORM_LIFECYCLE.md](CSR_FORM_LIFECYCLE.md).

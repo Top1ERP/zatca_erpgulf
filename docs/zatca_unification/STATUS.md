@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and seventy-six bounded increments (Compliance outcomes, dedicated
+Safety preparation and seventy-seven bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -1566,6 +1566,29 @@ cases verify the single English/Arabic notice and unchanged result. Node passed
 **724 synthetic cases**, including 312 actual CSID form handler cases. Existing
 Company framework-error tests also require reaching the RPC, not a guard-only
 pass. No fixed manifest or runtime/resource guard is changed.
+
+## Increment 77: CSR form consent and shared credential-action guards
+
+- Both Company/device CSR buttons share the existing CSID clean/active form,
+  limited metadata, pending and review boundary. No automatic save/reload/model
+  sync and no device Company/CSR console dumps in these two handlers.
+- Require translated confirmation before replacing the saved private key;
+  recheck observed source/configuration after consent and device lookup. Coalesce
+  pending CSR/CSID clicks and require review after any entered credential RPC.
+- Treat legacy CSR returns only as returned calls requiring review, never proof
+  of persistence, CSR validation or certificate issuance. Static messages never
+  echo the return/unknown exception. Normal framework error ownership remains.
+- Do not change server key/CSR writes, cryptography, public signatures, routing
+  or permissions. Configuration draft staging, device single Compliance, active
+  key rotation, backend access/log lifecycle and installed v15/v16 remain gates.
+  See [CSR_FORM_LIFECYCLE.md](CSR_FORM_LIFECYCLE.md).
+
+Standalone Node checks: **900 synthetic cases**, including **176 new CSR cases**
+and all previous 724. Python fixed-manifest/resource guards are unchanged. No
+tenant site, customer key/credential change or authority operation is used.
+Final guarded combined: **11,664 local + 1,800 private SQL = 13,464 passed in
+143.64 seconds**, across the same twelve owned-private SQL suites. This is
+offline regression evidence, not installed v15/v16 or authority acceptance.
 
 ## Verification
 

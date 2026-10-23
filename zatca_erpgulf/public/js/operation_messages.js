@@ -23,13 +23,24 @@ function zatca_csid_result_message(value, production) {
 }
 
 // UI-only click/review guards, not durable idempotency or server access control.
-const zatca_csid_pending = new WeakMap();
-const zatca_csid_review = new WeakSet();
+const zatca_credential_pending = new WeakMap();
+const zatca_credential_review = new WeakSet();
 
 function zatca_run_csid(frm, production) {
-    if (zatca_csid_pending.has(frm)) return zatca_csid_pending.get(frm);
+    return zatca_run_credential_form(frm, production ? "production" : "compliance");
+}
+
+function zatca_run_csr(frm) {
+    return zatca_run_credential_form(frm, "csr");
+}
+
+function zatca_run_credential_form(frm, operation) {
+    if (zatca_credential_pending.has(frm)) return zatca_credential_pending.get(frm);
+    const csr = operation === "csr";
+    const production = operation === "production";
     const doc = frm && frm.doc;
     const fields = ["doctype", "name", "modified", "abbr", "custom_select", "custom_linked_doctype"];
+    if (csr) fields.push("custom_csr_config");
     const snapshot = doc && fields.map(field => doc[field]);
     const company = doc && doc.doctype === "Company";
     const active = () => {
@@ -52,27 +63,43 @@ function zatca_run_csid(frm, production) {
     const environment = value => typeof value === "string" &&
         ["Sandbox", "Simulation", "Production"].includes(value.trim());
     const guard = message => {
-        frappe.msgprint({ title: __("CSID Generation Result"), indicator: "orange", message });
+        frappe.msgprint({ title: csr ? __("CSR Generation Result") : __("CSID Generation Result"), indicator: "orange", message });
         return Promise.resolve();
     };
     if (!doc || !["Company", "ZATCA Multiple Setting"].includes(doc.doctype) || !name(doc.name) || !active()) {
-        return guard(__("The CSID settings form is no longer active. Reopen it before starting the operation."));
+        return guard(csr ? __("The CSR settings form is no longer active. Reopen it before starting the operation.") :
+            __("The CSID settings form is no longer active. Reopen it before starting the operation."));
     }
     // Review takes precedence over dirty-input guidance: never recommend saving
     // a stale form after the server may have changed credential fields.
-    if (zatca_csid_review.has(doc)) {
-        return guard(__("Review saved CSID settings before saving an already-open form or starting another CSID operation. Preserve unsaved changes before reloading."));
+    if (zatca_credential_review.has(doc)) {
+        return guard(csr ? __("Review saved CSR and private-key settings before saving an already-open form or generating another CSR or CSID. Preserve unsaved changes before reloading.") :
+            __("Review saved CSID settings before saving an already-open form or starting another CSID operation. Preserve unsaved changes before reloading."));
     }
     if (!clean()) {
-        return guard(__("Save the Company or device settings, including OTP and environment, before generating CSID. No CSID request was sent."));
+        return guard(csr ? __("Save the Company or device settings and CSR configuration before generating CSR. No CSR generation request was sent.") :
+            __("Save the Company or device settings, including OTP and environment, before generating CSID. No CSID request was sent."));
     }
     if (typeof doc.modified !== "string" || !doc.modified.trim() ||
         (company ? !name(doc.abbr) || !environment(doc.custom_select) : !name(doc.custom_linked_doctype))) {
-        return guard(__("Saved CSID source settings are incomplete. Review the Company link and selected environment. No CSID request was sent."));
+        return guard(csr ? __("Saved CSR source settings are incomplete. Review the Company link and selected environment. No CSR generation request was sent.") :
+            __("Saved CSID source settings are incomplete. Review the Company link and selected environment. No CSID request was sent."));
     }
+    const changed = () => guard(csr ?
+        __("CSR generation was cancelled because the form changed. Preserve edits and review saved settings. No CSR generation request was sent.") :
+        __("CSID generation was cancelled because the form changed while reading saved settings. Preserve edits and review the active form. No CSID request was sent."));
     let attempted = false;
     const task = (async () => {
         try {
+            if (csr) {
+                // CSR generation replaces the saved private key. This consent
+                // is not credential activation or proof that rotation is safe.
+                const confirmed = await new Promise(resolve => frappe.confirm(
+                    __("Generating CSR replaces the saved private key and may make existing certificates unusable. Continue only for an intentional onboarding or renewal operation."),
+                    () => resolve(true), () => resolve(false)));
+                if (!confirmed) return;
+                if (!active() || !clean()) return changed();
+            }
             let abbr = doc.abbr, portal = doc.custom_select;
             if (!company) {
                 // Read only routing metadata, never a full Company with secrets.
@@ -81,28 +108,36 @@ function zatca_run_csid(frm, production) {
                         fieldname: ["abbr", "custom_select"] } });
                 if (lookup && lookup.exc) return;
                 if (!active() || !clean()) {
-                    return guard(__("CSID generation was cancelled because the form changed while reading saved settings. Preserve edits and review the active form. No CSID request was sent."));
+                    return changed();
                 }
                 const selected = lookup && lookup.message;
                 if (!selected || !name(selected.abbr) || !environment(selected.custom_select)) {
-                    return guard(__("Saved CSID source settings are incomplete. Review the Company link and selected environment. No CSID request was sent."));
+                    return guard(csr ? __("Saved CSR source settings are incomplete. Review the Company link and selected environment. No CSR generation request was sent.") :
+                        __("Saved CSID source settings are incomplete. Review the Company link and selected environment. No CSID request was sent."));
                 }
                 abbr = selected.abbr;
                 portal = selected.custom_select;
             }
             const args = { zatca_doc: { doctype: snapshot[0], name: snapshot[1] }, company_abbr: abbr };
             if (!production) args.portal_type = portal;
-            // Entering this RPC is not proof of remote issuance. Keep the old
+            // Entering this RPC proves neither saved state nor issuance. Keep the old
             // document on review even after rejection, malformed reply or loss.
-            zatca_csid_review.add(doc);
+            zatca_credential_review.add(doc);
             attempted = true;
             const r = await frappe.call({
-                method: production ? "zatca_erpgulf.zatca_erpgulf.sign_invoice_first.production_csid" :
+                method: csr ? "zatca_erpgulf.zatca_erpgulf.sign_invoice_first.create_csr" :
+                    production ? "zatca_erpgulf.zatca_erpgulf.sign_invoice_first.production_csid" :
                     "zatca_erpgulf.zatca_erpgulf.sign_invoice_first.create_csid",
                 args, freeze: true,
-                freeze_message: production ? __("Generating Final CSID...") : __("Generating Compliance CSID...")
+                freeze_message: csr ? __("Generating CSR...") :
+                    production ? __("Generating Final CSID...") : __("Generating Compliance CSID...")
             });
             if (r && r.exc) return;
+            if (csr) {
+                // Legacy CSR returns encoded material, not a structured commit
+                // receipt. Never display/copy it or claim validated issuance.
+                return guard(__("The CSR generation call returned. Review saved CSR and private-key settings before any further operation; this does not confirm certificate issuance. Preserve unsaved changes before reloading."));
+            }
             if (!zatca_csid_succeeded(r && r.message, production)) {
                 return guard(__("CSID creation was not confirmed. Review saved settings before trying again."));
             }
@@ -110,12 +145,18 @@ function zatca_run_csid(frm, production) {
             // Never save, reload, sync credentials or overwrite source fields.
             return;
         } catch (error) {
+            if (csr) {
+                zatca_operation_client_error(error, "CSR Generation Failed", attempted ?
+                    __("CSR generation could not be confirmed. The saved private key may have changed. Preserve edits and review saved settings before another CSR or CSID operation.") :
+                    __("CSR preparation could not be completed. No CSR generation request was sent."));
+                return;
+            }
             zatca_operation_client_error(error, "CSID Generation Failed", attempted ?
                 __("The CSID request outcome is not confirmed in this form. Preserve edits and review saved settings and the onboarding status before another request.") :
                 __("Saved Company settings could not be read. No CSID request was sent."));
         }
-    })().finally(() => zatca_csid_pending.delete(frm));
-    zatca_csid_pending.set(frm, task);
+    })().finally(() => zatca_credential_pending.delete(frm));
+    zatca_credential_pending.set(frm, task);
     return task;
 }
 

@@ -76,6 +76,12 @@ lookup is field-limited; the same server success popup includes review guidance.
 Manual saves, CSR/configuration/other checks, source/access/epochs and full log
 lifecycle remain gates. See [CSID_FORM_LIFECYCLE.md](CSID_FORM_LIFECYCLE.md).
 
+Increment 77 extends shared pending/review and clean/active-source checks to both
+CSR form buttons, with explicit private-key replacement consent and no automatic
+save/reload or raw device console dumps. CSR replies require review, not issuance
+success. Server key writes/rotation/access/logs and configuration draft staging
+remain separate gates. See [CSR_FORM_LIFECYCLE.md](CSR_FORM_LIFECYCLE.md).
+
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |
 | Phase 1 | Local QR for supported Sales/POS documents | No Phase-2 API or production hash-chain mutation |
