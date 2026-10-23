@@ -90,6 +90,14 @@ becoming a credential attempt. Legacy API, server key rotation/access, device
 single check and installed/whole-lifecycle gates remain. See
 [CSR_CONFIGURATION_DRAFT.md](CSR_CONFIGURATION_DRAFT.md).
 
+Increment 79 adopts one saved-device single Compliance facade with exact source
+READ checks, device comparison revision and cross-Company refusal. It replaces
+full Company reads/full device RPC payloads/automatic saves with a shared guarded
+one-request summary runner. Pure comparison validation and form snapshot policy
+are reused. Legacy generator/technical details, source/credential concurrency,
+durable attempt custody/duplicate prevention and full installed lifecycle remain
+gates. See [DEVICE_SINGLE_COMPLIANCE.md](DEVICE_SINGLE_COMPLIANCE.md).
+
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |
 | Phase 1 | Local QR for supported Sales/POS documents | No Phase-2 API or production hash-chain mutation |

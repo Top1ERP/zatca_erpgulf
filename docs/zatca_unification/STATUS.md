@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and seventy-eight bounded increments (Compliance outcomes, dedicated
+Safety preparation and seventy-nine bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -1612,6 +1612,30 @@ Final guarded combined: **11,766 local + 1,800 private SQL = 13,566 passed in
 adds only 102 reviewed synthetic CSR configuration cases. All seven Node VM
 scripts passed **1,024 cases**, including 124 new configuration form cases.
 These are offline checks, not installed ERPNext/Desk or authority acceptance.
+
+## Increment 79: saved-device single Compliance facade and shared form policy
+
+- Replace full Company read/full device payload/automatic device save with one
+  identity-and-revision API and one localized single-check summary. No automatic
+  reload/model write/retry; observed changes during the RPC require review.
+- Read exact saved device/linked Company/sample Sales Invoice, check saved-row
+  READ permissions and device revision, and refuse cross-Company samples before
+  one legacy Compliance delegation. Keep Company label/numeric fallback, saved
+  credential-owner policy and established acceptance/technical-detail semantics.
+- Share pure comparison revision/name validation and UI saved-form policy with
+  CSR configuration/credential runners. Coalesce pending actions across device
+  Compliance and CSR/CSID; credential review precedes dirty save guidance.
+- This is not six-step completion, source/credential epoch pinning, durable
+  duplicate prevention or complete legacy log/redaction/ACL adoption. No authority
+  request, live source/assets/config/schema/credential/site or worker operation.
+  See [DEVICE_SINGLE_COMPLIANCE.md](DEVICE_SINGLE_COMPLIANCE.md).
+
+Final guarded combined: **11,909 local + 1,800 private SQL = 13,709 passed in
+146.69 seconds**, across the same twelve owned-private SQL suites. The fixed
+manifest adds only **143 reviewed synthetic device cases**. All eight Node VM
+scripts passed **1,152 cases**, including **128 new device form cases**. Existing
+CSR/configuration shared-policy regressions remain covered. No actual site,
+framework/Desk v16, key/SDK validation or authority acceptance is asserted.
 
 ## Verification
 

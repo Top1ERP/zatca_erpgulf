@@ -233,3 +233,12 @@ notice, never a certificate-valid/issued or persisted claim. The retained legacy
 string API's separate popup is HTML-escaped. No logger or translated stored
 payload is introduced; complete framework/custom-hook log/output remains a gate.
 See [CSR_CONFIGURATION_DRAFT.md](CSR_CONFIGURATION_DRAFT.md).
+
+Increment 79 brings the device single check to the shared single-summary renderer,
+with no automatic save or full Company read/device payload. New source/changed/
+unknown-outcome guard text uses actual Arabic translations. Raw preparation
+errors are not stringified by the new facade, parent popup state is restored,
+and source changes after entering the request are not falsely called unsent.
+Delegated legacy collection technical details remain original/escaped, not a
+complete credential/traceback/log redaction guarantee. See
+[DEVICE_SINGLE_COMPLIANCE.md](DEVICE_SINGLE_COMPLIANCE.md).

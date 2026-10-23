@@ -26,6 +26,75 @@ function zatca_csid_result_message(value, production) {
 const zatca_credential_pending = new WeakMap();
 const zatca_credential_review = new WeakSet();
 
+function zatca_saved_form_context(frm, fields, draftField = null) {
+    const doc = frm && frm.doc;
+    const snapshot = doc && fields.map(field => doc[field]);
+    const active = (staged = false) => {
+        try {
+            const route = typeof frappe.get_route === "function" ? frappe.get_route() : null;
+            return doc && frm.doc === doc && Array.isArray(route) && route.length === 3 &&
+                route[0] === "Form" && route[1] === doc.doctype && route[2] === doc.name &&
+                (typeof cur_frm === "undefined" || cur_frm === frm) &&
+                fields.every((field, index) => (staged && draftField && field === draftField) ||
+                    doc[field] === snapshot[index]);
+        } catch (error) { return false; }
+    };
+    const clean = () => {
+        try {
+            return !doc.__islocal && !(typeof frm.is_new === "function" && frm.is_new()) &&
+                typeof frm.is_dirty === "function" && frm.is_dirty() === false;
+        } catch (error) { return false; }
+    };
+    const name = value => typeof value === "string" && value.length > 0 && value.length <= 140 &&
+        value === value.trim() && !/[\u0000-\u001f\u007f]/.test(value);
+    return { doc, snapshot, active, clean, name };
+}
+
+function zatca_run_device_compliance(frm) {
+    if (zatca_credential_pending.has(frm)) return zatca_credential_pending.get(frm);
+    const { doc, active, clean, name } = zatca_saved_form_context(frm,
+        ["doctype", "name", "modified", "custom_linked_doctype", "custom_sample_invoice_number_to_test"]);
+    const guard = message => {
+        frappe.msgprint({ title: __("Compliance Check Result"), indicator: "orange", message });
+        return Promise.resolve();
+    };
+    if (!doc || doc.doctype !== "ZATCA Multiple Setting" || !name(doc.name) || !active()) {
+        return guard(__("The device settings form is no longer active. Reopen it before starting Compliance."));
+    }
+    if (zatca_credential_review.has(doc)) {
+        return guard(__("Review saved CSR and private-key settings before saving an already-open form or generating another CSR or CSID. Preserve unsaved changes before reloading."));
+    }
+    if (!clean()) {
+        return guard(__("Save the device settings before running Compliance. No Compliance request was sent."));
+    }
+    if (!name(doc.custom_linked_doctype) || !name(doc.custom_sample_invoice_number_to_test) ||
+        typeof doc.modified !== "string" || !doc.modified.trim()) {
+        return guard(__("Saved device Company, sample invoice or revision is missing. Review the settings before running Compliance."));
+    }
+    const task = (async () => {
+        try {
+            // The server reloads the saved device, Company and invoice. Never
+            // fetch a full Company or send the device's credential fields.
+            const r = await frappe.call({
+                method: "zatca_erpgulf.zatca_erpgulf.device_compliance.run_device_compliance_summary",
+                args: { device_name: doc.name, expected_modified: doc.modified },
+                freeze: true, freeze_message: __("Running compliance check...")
+            });
+            if (r && r.exc) return;
+            if (!active() || !clean()) {
+                return guard(__("The device form changed while Compliance was running. The request may have completed. Preserve edits and review the original device outcome before another request."));
+            }
+            zatca_compliance_summary(r && r.message || {}, false, true);
+            // No automatic save/reload, source assignment or retry on return.
+        } catch (error) {
+            zatca_operation_client_error(error, "Compliance Check Failed",
+                __("The device Compliance request outcome is not confirmed. Preserve edits and review the outcome before another request; no automatic retry was performed."));
+        }
+    })().finally(() => zatca_credential_pending.delete(frm));
+    zatca_credential_pending.set(frm, task);
+    return task;
+}
+
 function zatca_run_csid(frm, production) {
     return zatca_run_credential_form(frm, production ? "production" : "compliance");
 }
@@ -57,31 +126,13 @@ function zatca_run_credential_form(frm, operation) {
     const csr = operation === "csr";
     const configuration = operation === "configuration";
     const production = operation === "production";
-    const doc = frm && frm.doc;
     const fields = ["doctype", "name", "modified", "abbr", "custom_select", "custom_linked_doctype"];
     if (csr || configuration) fields.push("custom_csr_config");
     if (configuration) fields.push("company_name", "tax_id",
         "custom_zatca__location_for_csr_configuratoin", "custom_zatca__company_category_for_csr_configuration");
-    const snapshot = doc && fields.map(field => doc[field]);
+    const { doc, snapshot, active, clean, name } = zatca_saved_form_context(frm, fields,
+        configuration ? "custom_csr_config" : null);
     const company = doc && doc.doctype === "Company";
-    const active = (staged = false) => {
-        try {
-            const route = typeof frappe.get_route === "function" ? frappe.get_route() : null;
-            return doc && frm.doc === doc && Array.isArray(route) && route.length === 3 &&
-                route[0] === "Form" && route[1] === snapshot[0] && route[2] === snapshot[1] &&
-                (typeof cur_frm === "undefined" || cur_frm === frm) &&
-                fields.every((field, index) => (staged && configuration && field === "custom_csr_config") ||
-                    doc[field] === snapshot[index]);
-        } catch (error) { return false; }
-    };
-    const clean = () => {
-        try {
-            return !doc.__islocal && !(typeof frm.is_new === "function" && frm.is_new()) &&
-                typeof frm.is_dirty === "function" && frm.is_dirty() === false;
-        } catch (error) { return false; }
-    };
-    const name = value => typeof value === "string" && value.length > 0 && value.length <= 140 &&
-        value === value.trim() && !/[\u0000-\u001f\u007f]/.test(value);
     const environment = value => typeof value === "string" &&
         ["Sandbox", "Simulation", "Production"].includes(value.trim());
     const guard = message => {

@@ -795,3 +795,13 @@ Tax ID (VAT number) is required.,الرقم الضريبي (ضريبة القي�
 Location for CSR configuration is required.,موقع إعداد CSR مطلوب.
 Company category for CSR configuration is required.,فئة الشركة لإعداد CSR مطلوبة.
 Company name is required.,اسم الشركة مطلوب.
+The device settings form is no longer active. Reopen it before starting Compliance.,نموذج إعدادات الجهاز لم يعد نشطًا. أعد فتحه قبل بدء فحص الامتثال.
+Save the device settings before running Compliance. No Compliance request was sent.,احفظ إعدادات الجهاز قبل فحص الامتثال. لم يُرسل أي طلب امتثال.
+"Saved device Company, sample invoice or revision is missing. Review the settings before running Compliance.",شركة الجهاز أو فاتورة العينة أو بيانات النسخة المحفوظة مفقودة. راجع الإعدادات قبل فحص الامتثال.
+The device form changed while Compliance was running. The request may have completed. Preserve edits and review the original device outcome before another request.,تغيّر نموذج الجهاز أثناء فحص الامتثال. ربما اكتمل الطلب. احتفظ بتعديلاتك وراجع نتيجة الجهاز الأصلي قبل أي طلب آخر.
+The device Compliance request outcome is not confirmed. Preserve edits and review the outcome before another request; no automatic retry was performed.,لم تتأكد نتيجة طلب امتثال الجهاز. احتفظ بتعديلاتك وراجع النتيجة قبل أي طلب آخر؛ لم تُنفّذ إعادة محاولة تلقائية.
+You do not have permission to run the saved device Compliance check.,ليست لديك صلاحية فحص امتثال الجهاز المحفوظ.
+Saved device settings changed. Review the device before running Compliance again.,تغيّرت إعدادات الجهاز المحفوظة. راجع الجهاز قبل فحص الامتثال مجددًا.
+The sample invoice must belong to the device's linked Company. No Compliance call was started.,يجب أن تنتمي فاتورة العينة إلى الشركة المرتبطة بالجهاز. لم يبدأ أي استدعاء امتثال.
+"Device Compliance preparation failed. Review saved device, Company and sample invoice settings. No Compliance call was started.",تعذّر تجهيز فحص امتثال الجهاز. راجع إعدادات الجهاز والشركة وفاتورة العينة المحفوظة. لم يبدأ أي استدعاء امتثال.
+The device Compliance outcome could not be confirmed. Review the outcome before another request; no automatic retry was performed.,لم تتأكد نتيجة امتثال الجهاز. راجع النتيجة قبل أي طلب آخر؛ لم تُنفّذ إعادة محاولة تلقائية.

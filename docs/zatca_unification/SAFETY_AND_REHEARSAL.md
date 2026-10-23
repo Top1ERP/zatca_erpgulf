@@ -807,3 +807,17 @@ Final increment78 guarded verification: **11,766 local + 1,800 private SQL =
 13,566 passed in 147.74 seconds**, across twelve owned-private SQL suites;
 all seven standalone Node VM scripts passed **1,024 cases**. New evidence is
 102 synthetic Python cases and 124 form cases, not actual site/authority acceptance.
+
+Increment79 replaces the device's full Company read/full form payload/automatic
+save with an identity/revision-only saved-source facade and one guarded summary.
+The reviewed synthetic suite mocks ERP, ACL and all delegated submissions; no
+tenant, key, file, authority or installed-source operation is performed by it.
+Normal READ permissions, acceptance and offline/private-SQL guards remain intact.
+Device/Company/credential races, durable attempts/receipt custody and full legacy
+output/ACL/log lifecycle remain unverified adoption gates. The no-authority-send
+ban and completion-first fictional-Company rehearsal order remain unchanged.
+See [DEVICE_SINGLE_COMPLIANCE.md](DEVICE_SINGLE_COMPLIANCE.md).
+Final increment79 guarded verification: **11,909 local + 1,800 private SQL =
+13,709 passed in 146.69 seconds**, across the same twelve owned-private SQL
+suites, plus **1,152 standalone Node VM cases**. This adds 143 reviewed synthetic
+device Python cases and 128 UI cases, not installed/authority acceptance.

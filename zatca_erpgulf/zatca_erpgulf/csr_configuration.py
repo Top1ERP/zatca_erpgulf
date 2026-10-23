@@ -1,8 +1,6 @@
 """Build CSR configuration drafts without saving settings or generating keys."""
 
 import random
-import re
-from datetime import datetime
 from html import escape
 import frappe
 from frappe import _
@@ -10,6 +8,7 @@ from frappe.permissions import has_permission
 
 from zatca_erpgulf.zatca_erpgulf.operation_messages import mute_operation_messages
 from zatca_erpgulf.zatca_erpgulf.permission_compat import saved_row_has_permission
+from zatca_erpgulf.zatca_erpgulf.saved_form_source import saved_form_revision, SavedFormSourceError
 
 
 DRAFT_FAILED = "CSR configuration preparation failed. No configuration was saved or key generated."
@@ -35,15 +34,10 @@ class CSRConfigurationError(ValueError):
 
 def _revision(value):
     """Normalize naive saved DATETIME markers, not issuance times or epochs."""
-    if type(value) is datetime and value.tzinfo is None:
-        return value
-    if type(value) is str and re.fullmatch(
-            r"[0-9]{4}-[0-9]{2}-[0-9]{2}[ T][0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?", value):
-        try:
-            return datetime.fromisoformat(value)
-        except ValueError:
-            pass
-    raise CSRConfigurationError(DRAFT_INVALID)
+    try:
+        return saved_form_revision(value)
+    except SavedFormSourceError:
+        raise CSRConfigurationError(DRAFT_INVALID) from None
 
 
 def _build_csr_config(company_doc):

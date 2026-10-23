@@ -84,37 +84,8 @@ frappe.ui.form.on("ZATCA Multiple Setting", {
     },
     custom_create_csr: function (frm) {
         return zatca_run_csr(frm);
-    } ,
+    },
     custom_check_compliance: function (frm) {
-        if (!frm.doc.custom_linked_doctype) {
-            frappe.msgprint(__('Please select a linked doctype.'));
-            return;
-        }
-
-        frappe.call({
-            method: "frappe.client.get",
-            args: {
-                doctype: "Company",
-                name: frm.doc.custom_linked_doctype
-            },
-            callback: function (data) {
-                if (data.message) {
-                    frappe.call({
-                        method: "zatca_erpgulf.zatca_erpgulf.sign_invoice.zatca_call_compliance",
-                        args: {
-                            "invoice_number": frm.doc.custom_sample_invoice_number_to_test,
-                            "compliance_type": "1",
-                            "company_abbr": data.message.abbr,
-                            "source_doc": frm.doc,
-                        },
-                        callback: function (r) {
-                            if (!r.exc) {
-                                frm.save();
-                            }
-                        },
-                    });
-                }
-            }
-        });
+        return zatca_run_device_compliance(frm);
     }
 });
