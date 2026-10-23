@@ -41,7 +41,7 @@ function browser(lang = "en") {
         dom: { freeze() { events.push("freeze"); }, unfreeze() { events.push("unfreeze"); } },
         confirm(message, yes) { yes(); },
         async call(options) {
-            assert.match(options.method, /^zatca_erpgulf\.zatca_erpgulf\.sign_invoice(?:_first)?\./);
+            assert.match(options.method, /^zatca_erpgulf\.zatca_erpgulf\.(?:company_compliance\.run_company_compliance_summary$|sign_invoice(?:_first)?\.)/);
             calls.push(options);
             if (rejection) {
                 if (rejection.framework) dialogs.push({ message: "Framework-owned error" });
@@ -91,7 +91,8 @@ async function main() {
                 assert.equal(b.calls.length, 1);
                 assert.equal(b.dialogs[0].indicator, failures ? "red" : "green");
                 assert.equal(JSON.stringify(response), original, "Presentation never rewrites English/raw data");
-                assert.equal(b.events.at(-1), "unfreeze");
+                assert.equal(b.calls[0].freeze, true, "Frappe owns RPC freeze/unfreeze");
+                assert.equal(b.events.length, 0, "No separate global freeze lifecycle");
                 assert.ok(!b.events.includes("reload"), "Batch must not discard unsaved Company fields");
                 assert.equal((b.dialogs[0].message.match(/<details>/g) || []).length, failures ? 1 : 0);
                 assert.ok(!b.translated.includes(raw));
@@ -122,7 +123,7 @@ async function main() {
             assert.equal(b.dialogs.length, 1);
             assert.ok(!b.dialogs[0].message.includes("[object Object]"));
             assert.ok(!b.dialogs[0].message.includes("raw internal failure"));
-            if (lang === "ar") assert.ok(b.dialogs[0].message.includes("تعذّر إكمال العملية"));
+            if (lang === "ar") assert.ok(b.dialogs[0].message.includes("لم تتأكد نتيجة طلب امتثال الشركة"));
             count++;
         }
         const b = browser(lang);
@@ -170,7 +171,8 @@ async function main() {
             assert.equal(b.dialogs.length, 1);
             assert.equal(b.dialogs[0].indicator, failed ? "red" : "green");
             assert.equal(b.dialogs[0].title, lang === "ar" ? "نتيجة فحص الامتثال" : "Compliance Check Result");
-            assert.deepEqual(Object.keys(b.calls[0].args).sort(), ["company_name", "invoice_number"]);
+            assert.deepEqual(Object.keys(b.calls[0].args).sort(), ["company_name", "expected_modified", "mode"]);
+            assert.equal(b.calls[0].args.mode, "single");
             assert.ok(!b.events.includes("reload"));
             assert.ok(!b.dialogs[0].message.includes("You may now use Generate Final CSID"));
             assert.ok(!b.translated.includes(raw));

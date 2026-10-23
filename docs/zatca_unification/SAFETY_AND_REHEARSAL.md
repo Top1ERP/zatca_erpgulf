@@ -821,3 +821,18 @@ Final increment79 guarded verification: **11,909 local + 1,800 private SQL =
 13,709 passed in 146.69 seconds**, across the same twelve owned-private SQL
 suites, plus **1,152 standalone Node VM cases**. This adds 143 reviewed synthetic
 device Python cases and 128 UI cases, not installed/authority acceptance.
+
+Increment80 coordinates all three Company Compliance buttons with saved/clean/
+active source checks and shared credential/config pending/review. The new exact
+saved-Company/revision/mode facade checks READ permissions and invoice ownership
+before one legacy delegation. Synthetic delegates/ERP/ACL are fully mocked in
+the reviewed new suite. Consent distinguishes Compliance sending from local
+preview; this does not relax the user's actual-send prohibition. No live source/
+assets/config/schema/credential/site/worker or authority change is authorized.
+Source/credential races, durable outcomes/duplicates and full legacy ACL/log/
+installed v15/v16 acceptance remain gates. See
+[COMPANY_COMPLIANCE_FORMS.md](COMPANY_COMPLIANCE_FORMS.md).
+Final increment80 guarded verification: **12,069 local + 1,800 private SQL =
+13,869 passed in 147.73 seconds**, across twelve owned-private SQL suites,
+plus **1,444 standalone Node VM cases**. This adds 160 reviewed synthetic Python
+cases and 292 form cases, not installed/authority acceptance.

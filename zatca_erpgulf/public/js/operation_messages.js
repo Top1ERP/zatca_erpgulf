@@ -95,6 +95,68 @@ function zatca_run_device_compliance(frm) {
     return task;
 }
 
+function zatca_run_company_compliance(frm, mode) {
+    if (zatca_credential_pending.has(frm)) return zatca_credential_pending.get(frm);
+    const { doc, snapshot, active, clean, name } = zatca_saved_form_context(frm,
+        ["doctype", "name", "modified", "abbr", "custom_select", "custom_validation_type",
+            "custom_sample_invoice_number_to_test"]);
+    const automatic = mode === "automatic";
+    const guard = message => {
+        frappe.msgprint({ title: __("Compliance Results Summary"), indicator: "orange", message });
+        return Promise.resolve();
+    };
+    if (!doc || doc.doctype !== "Company" || !name(doc.name) || !active() ||
+        !["single", "all", "automatic"].includes(mode)) {
+        return guard(__("The Company settings form is no longer active. Reopen it before starting Compliance."));
+    }
+    // Never recommend saving a stale credential-bearing form just to run tests.
+    if (zatca_credential_review.has(doc)) {
+        return guard(__("Review saved CSR and private-key settings before saving an already-open form or generating another CSR or CSID. Preserve unsaved changes before reloading."));
+    }
+    if (!clean()) {
+        return guard(__("Save the Company settings before running Compliance. No Compliance request was sent."));
+    }
+    if (typeof doc.modified !== "string" || !doc.modified.trim() || !name(doc.abbr)) {
+        return guard(__("Saved Company identity or revision is incomplete. Review settings before running Compliance."));
+    }
+    if (!automatic && !name(doc.custom_sample_invoice_number_to_test)) {
+        return guard(__("Please enter Sample Invoice Number to Test first."));
+    }
+    let attempted = false;
+    const task = (async () => {
+        try {
+            if (automatic) {
+                const confirmed = await new Promise(resolve => frappe.confirm(
+                    __("This alternative submits temporary samples for ZATCA Compliance in the saved Company environment. It is not a local-only preview. No customer or sales invoice is created and no certificate is issued by this test. Choose this method or Run All Compliance, not both. Continue?"),
+                    () => resolve(true), () => resolve(false)));
+                if (!confirmed) return;
+                if (!active() || !clean()) {
+                    return guard(__("The Company form changed before Compliance started. Preserve edits and review saved settings. No Compliance request was sent."));
+                }
+            }
+            attempted = true;
+            const r = await frappe.call({
+                method: "zatca_erpgulf.zatca_erpgulf.company_compliance.run_company_compliance_summary",
+                args: { company_name: snapshot[1], expected_modified: snapshot[2], mode },
+                freeze: true, freeze_message: automatic ? __("Running the automatic ZATCA onboarding test...") :
+                    mode === "single" ? __("Running compliance check...") : __("Running all compliance checks...")
+            });
+            if (r && r.exc) return;
+            if (!active() || !clean()) {
+                return guard(__("The Company form changed while Compliance was running. The request may have completed. Preserve edits and review the original Company outcome before another request."));
+            }
+            zatca_compliance_summary(r && r.message || {}, automatic, mode === "single");
+            // Completion never saves/reloads, merges fields or queues a retry.
+        } catch (error) {
+            zatca_operation_client_error(error, "Compliance Check Failed", attempted ?
+                __("The Company Compliance request outcome is not confirmed. Preserve edits and review the outcome before another request; no automatic retry was performed.") :
+                __("Company Compliance preparation could not be completed. No Compliance request was sent."));
+        }
+    })().finally(() => zatca_credential_pending.delete(frm));
+    zatca_credential_pending.set(frm, task);
+    return task;
+}
+
 function zatca_run_csid(frm, production) {
     return zatca_run_credential_form(frm, production ? "production" : "compliance");
 }

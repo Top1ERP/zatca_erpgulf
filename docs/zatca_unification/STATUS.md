@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and seventy-nine bounded increments (Compliance outcomes, dedicated
+Safety preparation and eighty bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -1636,6 +1636,30 @@ manifest adds only **143 reviewed synthetic device cases**. All eight Node VM
 scripts passed **1,152 cases**, including **128 new device form cases**. Existing
 CSR/configuration shared-policy regressions remain covered. No actual site,
 framework/Desk v16, key/SDK validation or authority acceptance is asserted.
+
+## Increment 80: coordinated Company Compliance forms and saved-source facade
+
+- All three Company check buttons use one saved-clean-active form runner,
+  shared CSR/CSID/configuration pending/review policy and one limited RPC. No
+  automatic save/reload/model merge or separate manual global freeze lifecycle.
+- New exact Company/revision/mode facade checks ordinary source READ ACLs and
+  saved revision, reads the saved sample for invoice modes and refuses cross-
+  Company samples before one legacy delegation. Automatic requires no sample.
+- Recheck source after automatic consent and before presenting returned results.
+  Changed forms preserve edits and review a possibly completed request; no
+  automatic retry or false unsent claim. Framework errors keep their owner.
+- Clarify temporary Compliance submission versus local-only preview in the
+  translated alternative consent. Add the missing Arabic sample-number prompt.
+- Retain legacy result/acceptance/generation/routing/technical-detail contracts.
+  Durable duplicates/method choice, source/credential races, related dependencies,
+  broader legacy ACL/log custody and installed v15/v16 remain gates. No live or
+  authority operation. See [COMPANY_COMPLIANCE_FORMS.md](COMPANY_COMPLIANCE_FORMS.md).
+
+Final guarded combined: **12,069 local + 1,800 private SQL = 13,869 passed in
+147.73 seconds**, across the same twelve owned-private SQL suites. The manifest
+adds only **160 reviewed synthetic Company cases**. All nine Node VM scripts
+passed **1,444 cases**, including **292 new Company form cases**. No actual
+site, ERPNext 16/Desk, SDK or authority acceptance is asserted.
 
 ## Verification
 

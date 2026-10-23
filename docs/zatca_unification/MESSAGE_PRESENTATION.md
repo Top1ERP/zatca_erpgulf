@@ -242,3 +242,12 @@ and source changes after entering the request are not falsely called unsent.
 Delegated legacy collection technical details remain original/escaped, not a
 complete credential/traceback/log redaction guarantee. See
 [DEVICE_SINGLE_COMPLIANCE.md](DEVICE_SINGLE_COMPLIANCE.md).
+
+Increment 80 brings Company single/all/automatic forms under one shared pending/
+review and saved-form runner. Static source/unknown-outcome notices translate at
+display; changed forms are not told an entered request was unsent. One existing
+summary is retained. Automatic consent now explicitly distinguishes remote
+Compliance samples from local-only preview and certificate issuance. The missing
+sample-number Arabic prompt is added. The facade preserves parent message state
+and original English result contracts; broader legacy details/log redaction
+remain gates. See [COMPANY_COMPLIANCE_FORMS.md](COMPANY_COMPLIANCE_FORMS.md).

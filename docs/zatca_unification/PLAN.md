@@ -98,6 +98,14 @@ are reused. Legacy generator/technical details, source/credential concurrency,
 durable attempt custody/duplicate prevention and full installed lifecycle remain
 gates. See [DEVICE_SINGLE_COMPLIANCE.md](DEVICE_SINGLE_COMPLIANCE.md).
 
+Increment 80 coordinates all three Company check buttons with credential/config
+pending/review and saved-form policy. One exact saved-Company/revision/mode
+facade checks normal source READ and invoice ownership before existing workflow
+delegation. Automatic consent distinguishes Compliance sending from local preview;
+automatic mode needs no sample. Legacy direct APIs, source/credential concurrency,
+related dependencies/ACL/log custody and installed acceptance remain gates. See
+[COMPANY_COMPLIANCE_FORMS.md](COMPANY_COMPLIANCE_FORMS.md).
+
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |
 | Phase 1 | Local QR for supported Sales/POS documents | No Phase-2 API or production hash-chain mutation |

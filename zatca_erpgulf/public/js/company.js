@@ -97,74 +97,15 @@ frappe.ui.form.on("Company", {
         return zatca_run_csr_configuration(frm);
     },
 
-    custom_run_all_compliance: async function (frm) {
-        if (!frm.doc.custom_sample_invoice_number_to_test) {
-            frappe.msgprint(__('Please enter Sample Invoice Number to Test first.'));
-            return;
-        }
-        frappe.dom.freeze(__('Running all compliance checks...'));
-        try {
-            const r = await frappe.call({
-                method: "zatca_erpgulf.zatca_erpgulf.sign_invoice.run_all_compliance_summary",
-                args: {
-                    company_name: frm.doc.name,
-                    invoice_number: frm.doc.custom_sample_invoice_number_to_test
-                }
-            });
-            if (r.exc) return; // The framework already presents the server error.
-            // No Company setting is changed here. Avoid a restore/save/reload
-            // that could overwrite server values or discard dirty form edits.
-            zatca_compliance_summary(r.message || {}, false);
-        } catch (error) {
-            zatca_operation_client_error(error, "Run All Compliance Failed");
-        } finally {
-            frappe.dom.unfreeze();
-        }
+    custom_run_all_compliance: function (frm) {
+        return zatca_run_company_compliance(frm, "all");
     },
 
-    custom_run_zatca_onboarding_checks: async function (frm) {
-        const confirmed = await new Promise(resolve => {
-            frappe.confirm(
-                __('This is an alternative to Run All Compliance. It creates temporary documents and does not create customers or sales invoices. Choose one method only before generating the Production CSID. Continue?'),
-                () => resolve(true),
-                () => resolve(false)
-            );
-        });
-        if (!confirmed) return;
-        frappe.dom.freeze(__('Running the automatic ZATCA onboarding test...'));
-        try {
-            const r = await frappe.call({
-                method: "zatca_erpgulf.zatca_erpgulf.sign_invoice.run_automatic_zatca_onboarding_checks",
-                args: { company_name: frm.doc.name }
-            });
-            if (r.exc) return;
-            zatca_compliance_summary(r.message || {}, true);
-        } catch (error) {
-            zatca_operation_client_error(error, "Automatic ZATCA Onboarding Test Failed");
-        } finally {
-            frappe.dom.unfreeze();
-        }
+    custom_run_zatca_onboarding_checks: function (frm) {
+        return zatca_run_company_compliance(frm, "automatic");
     },
 
-    custom_check_compliance: async function (frm) {
-        if (!frm.doc.custom_sample_invoice_number_to_test) {
-            frappe.msgprint(__('Please enter Sample Invoice Number to Test first.'));
-            return;
-        }
-        try {
-            const r = await frappe.call({
-                method: "zatca_erpgulf.zatca_erpgulf.sign_invoice.run_single_compliance_summary",
-                args: {
-                    invoice_number: frm.doc.custom_sample_invoice_number_to_test,
-                    company_name: frm.doc.name
-                },
-                freeze: true,
-                freeze_message: __("Running compliance check...")
-            });
-            if (r.exc) return;
-            zatca_compliance_summary(r.message || {}, false, true);
-        } catch (error) {
-            zatca_operation_client_error(error, "Compliance Check Failed");
-        }
+    custom_check_compliance: function (frm) {
+        return zatca_run_company_compliance(frm, "single");
     }
 });
