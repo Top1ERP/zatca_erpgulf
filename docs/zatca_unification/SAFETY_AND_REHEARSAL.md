@@ -836,3 +836,15 @@ Final increment80 guarded verification: **12,069 local + 1,800 private SQL =
 13,869 passed in 147.73 seconds**, across twelve owned-private SQL suites,
 plus **1,444 standalone Node VM cases**. This adds 160 reviewed synthetic Python
 cases and 292 form cases, not installed/authority acceptance.
+
+Increment81 adds exact saved-source binding, ordinary READ/WRITE target ACLs and
+non-bypassed saves to selected CSR/key/CSID writer paths. Negative fixtures require
+no key/HTTP/save effects. Later CSR access loss preserves an uncertain partial key
+replacement; post-response save denial is storage-unconfirmed, not retry approval.
+Other writers, field custody/epochs/rotation and installed v15/v16 remain gates.
+No live source/assets/config/schema/site/worker/customer credential or authority
+action is authorized. See [CREDENTIAL_WRITER_ACCESS.md](CREDENTIAL_WRITER_ACCESS.md).
+Final guarded verification: **12,300 local + 1,800 private SQL = 14,100 passed in
+148.48 seconds**, across twelve owned-private SQL suites, including 231 new
+synthetic cases, plus **1,444 Node VM cases**. The fixed manifest adds only the
+reviewed writer-access suite; no offline/resource/normal-permission guard is waived.

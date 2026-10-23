@@ -106,6 +106,14 @@ automatic mode needs no sample. Legacy direct APIs, source/credential concurrenc
 related dependencies/ACL/log custody and installed acceptance remain gates. See
 [COMPANY_COMPLIANCE_FORMS.md](COMPANY_COMPLIANCE_FORMS.md).
 
+Increment 81 adds exact saved-source READ+WRITE authorization to the selected
+CSR/key/CSID writers, READ-only linked Company dependency, source/abbreviation
+binding and ordinary saves. CSR reads authorized saved configuration and rechecks
+final access; late key/save/HTTP partial effects are not retried or speculatively
+undone. Field custody, epochs/rotation, remaining cache/direct writers, broad CSR
+error/log lifecycle and installed acceptance remain gates. See
+[CREDENTIAL_WRITER_ACCESS.md](CREDENTIAL_WRITER_ACCESS.md).
+
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |
 | Phase 1 | Local QR for supported Sales/POS documents | No Phase-2 API or production hash-chain mutation |

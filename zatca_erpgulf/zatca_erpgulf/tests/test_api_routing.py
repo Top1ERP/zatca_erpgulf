@@ -62,6 +62,12 @@ def routing(monkeypatch):
     for module in (*MODULES, api_settings, credential_settings):
         monkeypatch.setattr(module, "frappe", frappe)
         monkeypatch.setattr(module, "_", lambda message: message)
+    # Routing cases explicitly authorize the synthetic saved source so an
+    # earlier ACL failure cannot masquerade as environment/transport evidence.
+    def writer_permission(doctype, ptype, *, doc, user, raise_exception=True):
+        assert raise_exception is False
+        return True
+    monkeypatch.setattr(sign_invoice_first, "has_permission", writer_permission)
     return company, frappe
 
 

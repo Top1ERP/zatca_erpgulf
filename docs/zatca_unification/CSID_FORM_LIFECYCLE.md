@@ -1,5 +1,9 @@
 # CSID forms without implicit save/reload
 
+Increment 81 adds saved-source row authorization and ordinary saves to selected
+backend writers; see [CREDENTIAL_WRITER_ACCESS.md](CREDENTIAL_WRITER_ACCESS.md).
+UI guards below remain distinct from server ACLs and durable credential custody.
+
 Increment 76, 2026-10-23. Development only. No installed source/assets, site,
 schema, Company/credential data, Bench/worker or authority action.
 

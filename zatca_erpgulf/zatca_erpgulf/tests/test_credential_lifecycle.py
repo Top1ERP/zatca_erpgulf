@@ -414,7 +414,7 @@ def test_csid_success_exports_only_english_metadata_after_save(csid_writer, pair
     doc = getattr(b, source)
 
     def saved(**kwargs):
-        assert kwargs == {"ignore_permissions": True}, "Legacy persistence is characterized, not approved"
+        assert kwargs == {}, "Credential saves must use ordinary ORM permission/timestamp checks"
         b.frappe.msgprint.assert_not_called()
 
     doc.save.side_effect = saved
@@ -438,7 +438,7 @@ def test_csid_success_exports_only_english_metadata_after_save(csid_writer, pair
         field = "custom_basic_auth_from_production" if source == "company" else "custom_final_auth_csid"
         assert getattr(doc, field) == basic(pair[0])
         assert b.post.call_args.kwargs["json"] == {"compliance_request_id": "PRIVATE-ORIGINAL-REQUEST"}
-    doc.save.assert_called_once_with(ignore_permissions=True)
+    doc.save.assert_called_once_with()
     assert b.post.call_count == 1
     b.frappe.db.commit.assert_not_called()
 
@@ -572,7 +572,7 @@ def test_legacy_key_generation_overwrites_shared_key_without_rotating_auth(bound
     assert doc.custom_basic_auth_from_csid == basic(material)
     report = adapter.capture_credential_lifecycle_assessment("TC", doc, observed_at=NOW)
     assert all(item.error_code == "snapshot_key_mismatch" for item in report.purposes)
-    doc.save.assert_called_once_with(ignore_permissions=True)
+    doc.save.assert_called_once_with()
     b.frappe.db.commit.assert_not_called()
     b.request.assert_not_called()
 

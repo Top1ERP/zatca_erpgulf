@@ -1,5 +1,9 @@
 # CSR form lifecycle — increment 77 (development only)
 
+Increment 81 adds saved-source row authorization and ordinary saves to selected
+CSR/key/CSID backend writers; see [CREDENTIAL_WRITER_ACCESS.md](CREDENTIAL_WRITER_ACCESS.md).
+The key-before-CSR partial-effect/active-rotation risks described below still apply.
+
 ## Inspected behavior and bounded change
 
 Both Company/device `custom_create_csr` buttons previously saved the open form

@@ -251,3 +251,11 @@ Compliance samples from local-only preview and certificate issuance. The missing
 sample-number Arabic prompt is added. The facade preserves parent message state
 and original English result contracts; broader legacy details/log redaction
 remain gates. See [COMPANY_COMPLIANCE_FORMS.md](COMPANY_COMPLIANCE_FORMS.md).
+
+Increment 81 adds static translated CSR/key source-access guards and local
+CSID_SOURCE_ACCESS_DENIED PermissionError classification, not a remote HTTP
+403/401 claim. Parent state is preserved; raw ACL errors are not stringified by
+the new boundary. Post-response ordinary-save denial remains storage-unconfirmed.
+Canonical CSID metadata stays English. Full legacy CSR crypto/local error and
+framework log redaction remain gates. See
+[CREDENTIAL_WRITER_ACCESS.md](CREDENTIAL_WRITER_ACCESS.md).

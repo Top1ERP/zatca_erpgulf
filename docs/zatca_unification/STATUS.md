@@ -1,8 +1,8 @@
-# Implementation status — 2026-10-23
+# Implementation status — 2026-10-24
 
 ## Scope delivered in this increment
 
-Safety preparation and eighty bounded increments (Compliance outcomes, dedicated
+Safety preparation and eighty-one bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -1660,6 +1660,27 @@ Final guarded combined: **12,069 local + 1,800 private SQL = 13,869 passed in
 adds only **160 reviewed synthetic Company cases**. All nine Node VM scripts
 passed **1,444 cases**, including **292 new Company form cases**. No actual
 site, ERPNext 16/Desk, SDK or authority acceptance is asserted.
+
+## Increment 81: direct CSR/key/CSID writer authorization and ordinary saves
+
+- Share exact saved Company/device loading and explicit READ+WRITE target ACLs,
+  with READ-only linked Company dependency for devices. Reject source/abbreviation
+  mismatch and ignore caller credential fields/permission flags.
+- Stop selecting a different write target by abbreviation and remove selected
+  ignored-permission saves. CSR uses authorized saved configuration and rechecks
+  before key generation and final CSR save, without retry/commit/rollback.
+- Local preflight denial uses a static translated PermissionError; CSID late-save
+  denial preserves the existing storage-unconfirmed stage. Never infer safe retry.
+- Preserve signatures/returns, routing/crypto/field selection. Active-key conflicts,
+  field/source/epoch concurrency, full CSR error/log ownership and remaining cache
+  writers are still gates. No live/installed/authority operation. See
+  [CREDENTIAL_WRITER_ACCESS.md](CREDENTIAL_WRITER_ACCESS.md).
+
+Final guarded combined: **12,300 local + 1,800 private SQL = 14,100 passed in
+148.48 seconds**, across twelve owned-private SQL suites, including **231 new
+synthetic writer-access cases**. All nine Node VM scripts passed **1,444 cases**.
+Allowed routing/lifecycle fixtures now explicitly grant synthetic ACL and assert
+ordinary saves. No actual site, ERPNext 16/Desk, SDK or authority acceptance claim.
 
 ## Verification
 

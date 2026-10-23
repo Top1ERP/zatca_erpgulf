@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "credential_write_access",
     "company_compliance",
     "device_compliance",
     "csr_configuration",

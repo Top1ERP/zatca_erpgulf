@@ -93,12 +93,20 @@ def boundary(monkeypatch, materials):
 
     frappe = SimpleNamespace(
         flags={},
+        session=SimpleNamespace(user="test-operator@example.invalid"),
+        PermissionError=ValidationError,
         get_doc=Mock(side_effect=get_doc), throw=fail, ValidationError=ValidationError,
         db=SimpleNamespace(get_value=Mock(return_value="A"), commit=Mock()), msgprint=Mock(),
     )
     for module in (settings, client, invoices):
         monkeypatch.setattr(module, "frappe", frappe)
         monkeypatch.setattr(module, "_", lambda message: message)
+    # Synthetic allowed writer ACL only; real permission helpers are not
+    # bypassed. Dedicated writer-access cases override this explicit engine.
+    def writer_permission(doctype, ptype, *, doc, user, raise_exception=True):
+        assert raise_exception is False
+        return True
+    monkeypatch.setattr(client, "has_permission", writer_permission)
     request = Mock(return_value=SimpleNamespace(
         status_code=200, json=lambda: {"validationResults": {"status": "PASS", "errorMessages": []}},
     ))
