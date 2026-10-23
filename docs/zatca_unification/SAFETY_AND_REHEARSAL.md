@@ -848,3 +848,20 @@ Final guarded verification: **12,300 local + 1,800 private SQL = 14,100 passed i
 148.48 seconds**, across twelve owned-private SQL suites, including 231 new
 synthetic cases, plus **1,444 Node VM cases**. The fixed manifest adds only the
 reviewed writer-access suite; no offline/resource/normal-permission guard is waived.
+
+Increment82 adds one local key/CSR failure owner, literal request-local progress
+classification, static English metadata and display-only Arabic translation.
+Private crypto/ORM errors are deliberately not stringified or logged by this
+boundary. Late source/save failure requires partial-key review, not retry or
+speculative restore/rollback. Active-key/certificate preservation, epoch/rotation,
+full framework custody and installed v15/v16 acceptance remain gates. No working
+source/assets/config/schema/credential/site/worker or authority action is made.
+See [CSR_LOCAL_OUTCOMES.md](CSR_LOCAL_OUTCOMES.md).
+
+Final guarded verification: **12,582 local + 1,800 private SQL = 14,382 passed
+in 150.68 seconds**, across twelve owned-private SQL suites, including **282 new
+synthetic cases**, plus **1,444 Node VM cases**. Four initial local missing-notice
+failures were fixed without weakening assertions. A subsequent run passed all
+local cases but had temporary-server readiness setup errors; the same fixed
+runner passed with reviewed subprocess execution permission. No network/site/
+SQL-ownership/normal-permission guard was relaxed or tenant fallback attempted.

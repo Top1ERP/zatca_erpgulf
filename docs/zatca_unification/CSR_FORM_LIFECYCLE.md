@@ -2,7 +2,9 @@
 
 Increment 81 adds saved-source row authorization and ordinary saves to selected
 CSR/key/CSID backend writers; see [CREDENTIAL_WRITER_ACCESS.md](CREDENTIAL_WRITER_ACCESS.md).
-The key-before-CSR partial-effect/active-rotation risks described below still apply.
+Increment 82 adds a single stage-aware local key/CSR failure owner; see
+[CSR_LOCAL_OUTCOMES.md](CSR_LOCAL_OUTCOMES.md). The key-before-CSR partial-effect/
+active-rotation risks described below still apply.
 
 ## Inspected behavior and bounded change
 

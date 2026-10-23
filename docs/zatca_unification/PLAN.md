@@ -114,6 +114,13 @@ undone. Field custody, epochs/rotation, remaining cache/direct writers, broad CS
 error/log lifecycle and installed acceptance remain gates. See
 [CREDENTIAL_WRITER_ACCESS.md](CREDENTIAL_WRITER_ACCESS.md).
 
+Increment 82 gives the local key/CSR paths one stage-aware failure boundary,
+with display-only translation and no raw crypto/ORM exception projection. Late
+source/save failure explicitly requires partial-key review without retry/restore.
+Legacy return shapes and algorithms remain; active-bundle preservation/rotation,
+epochs/concurrency, full framework diagnostic custody and installed v15/v16
+acceptance remain gates. See [CSR_LOCAL_OUTCOMES.md](CSR_LOCAL_OUTCOMES.md).
+
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |
 | Phase 1 | Local QR for supported Sales/POS documents | No Phase-2 API or production hash-chain mutation |

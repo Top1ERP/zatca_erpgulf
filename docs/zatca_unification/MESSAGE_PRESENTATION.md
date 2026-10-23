@@ -1,5 +1,12 @@
 # Operation summaries and display-only translation
 
+Increment 82 additionally covers local key/CSR failure presentation through one
+stage-aware owner. Private crypto/ORM diagnostics are deliberately not stringified
+or logged there; canonical metadata remains English and only final display keys
+are translated. Partial-key review does not authorize retry or active rotation.
+See [CSR_LOCAL_OUTCOMES.md](CSR_LOCAL_OUTCOMES.md); historical scope limits below
+describe their original increments, not a whole-application guarantee.
+
 Increments 68/69 implement the user's message policy in the development worktree.
 It is not an installed asset change or a deployment authorization.
 

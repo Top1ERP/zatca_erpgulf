@@ -39,6 +39,7 @@ from zatca_erpgulf.zatca_erpgulf.credential_write_access import (
 from zatca_erpgulf.zatca_erpgulf.operation_messages import (
     csid_creation_result, CSIDRequestRejected, CSIDProgress, csid_local_failure,
     CSID_PROGRESS_REVIEW, CSID_FORM_REVIEW, mute_operation_messages,
+    CSRProgress, csr_local_failure,
 )
 
 SUPPORTED_INVOICES = ["Sales Invoice", "POS Invoice"]
@@ -134,146 +135,132 @@ def get_csr_data(company_abbr):
         return None
 
 
-def _require_credential_write_source(company_abbr, zatca_doc):
-    """CSR/key entry guard with one static display error outside child scope."""
+def _load_csr_write_source(company_abbr, zatca_doc):
+    """Keep unknown source faults distinct from crypto/ORM write faults."""
+    try:
+        return load_credential_write_source(frappe, has_permission, company_abbr, zatca_doc)
+    except CredentialWriteAccessError:
+        raise
+    except Exception:
+        raise CredentialWriteAccessError("source") from None
+
+
+def _run_csr_operation(purpose, worker, *args):
+    """Own one translated failure; retain the legacy encoded-CSR/PEM success.
+
+    Child crypto/ORM errors are deliberately not stringified or logged: their
+    diagnostics may contain private key material. Never retry, restore, commit
+    or roll back here. A save returning does not prove durable completion.
+    """
+    progress = CSRProgress()
+    failure = None
     denied = False
     try:
         with mute_operation_messages(frappe):
-            return load_credential_write_source(frappe, has_permission, company_abbr, zatca_doc)
+            result = worker(*args, progress)
     except CredentialWriteAccessError as error:
         denied = error.code == "permission"
+        failure = csr_local_failure(purpose, progress)
+        access_message = ACCESS_DENIED if denied else ACCESS_UNCONFIRMED
+        if not progress.key_save_started:
+            failure.update(code="CSR_SOURCE_ACCESS_DENIED" if denied else "CSR_SOURCE_UNCONFIRMED",
+                           message=access_message)
+        else:
+            failure["notice"] = access_message
     except Exception:
-        pass
-    frappe.throw(_(ACCESS_DENIED if denied else ACCESS_UNCONFIRMED),
-                 exc=frappe.PermissionError if denied else frappe.ValidationError)
+        failure = csr_local_failure(purpose, progress)
+    if failure is None and not (progress.key_save_completed if purpose == "key" else progress.csr_save_completed):
+        failure = csr_local_failure(purpose, progress)
+    if failure is not None:
+        # Outside the catch: no private child exception becomes implicit context.
+        message = _(failure["message"])
+        if "notice" in failure:
+            message += "\n\n" + _(failure["notice"])
+        frappe.throw(message, exc=frappe.PermissionError if denied else frappe.ValidationError)
+    return result
 
 
 def create_private_keys(company_abbr, zatca_doc):
     """Replace a permitted saved target's key; active-key rotation is not solved."""
-    doc = _require_credential_write_source(company_abbr, zatca_doc).target
-    try:
-        private_key = ec.generate_private_key(ec.SECP256K1(), backend=default_backend())
-        private_key_pem = private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.TraditionalOpenSSL,
-            encryption_algorithm=serialization.NoEncryption(),
-        )
-        doc.custom_private_key = private_key_pem.decode("utf-8")
-        doc.save()
+    return _run_csr_operation("key", _write_private_key, company_abbr, zatca_doc)
 
-        return private_key_pem
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(
-            _(
-                "error while creating the private key for company {company_abbr} "
-                + str(e)
-            )
-        )
-        return None
+
+def _write_private_key(company_abbr, zatca_doc, progress):
+    """Shared worker, not another public error boundary or rotation policy."""
+    doc = _load_csr_write_source(company_abbr, zatca_doc).target
+    private_key = ec.generate_private_key(ec.SECP256K1(), backend=default_backend())
+    private_key_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+    progress.key_save_started = True
+    doc.custom_private_key = private_key_pem.decode("utf-8")
+    doc.save()
+    progress.key_save_completed = True
+    return private_key_pem
 
 
 @frappe.whitelist(allow_guest=False)
 def create_csr(zatca_doc, portal_type, company_abbr):
-    """
-    Function defining the create csr method with the config csr data
-    """
-    doc = _require_credential_write_source(company_abbr, zatca_doc).target
+    """Create local CSR with one error owner; preserve the encoded-string API."""
+    return _run_csr_operation("csr", _create_csr, zatca_doc, portal_type, company_abbr)
+
+
+def _create_csr(zatca_doc, portal_type, company_abbr, progress):
+    """Keep existing OIDs, signing and key-before-CSR ordering explicit."""
+    doc = _load_csr_write_source(company_abbr, zatca_doc).target
     identity = {"doctype": doc.doctype, "name": doc.name}
-    try:
-        # Read configuration from the authorized saved target, not an unrelated
-        # Company selected by a second abbreviation lookup or client fields.
-        if not doc.custom_csr_config:
-            frappe.throw(_("No CSR config found in company settings"))
-        csr_values = parse_csr_config(doc.custom_csr_config)
-
-        company_csr_data = csr_values
-
-        csr_common_name = company_csr_data.get("csr.common.name")
-        csr_serial_number = company_csr_data.get("csr.serial.number")
-        csr_organization_identifier = company_csr_data.get(
-            "csr.organization.identifier"
-        )
-        csr_organization_unit_name = company_csr_data.get("csr.organization.unit.name")
-        csr_organization_name = company_csr_data.get("csr.organization.name")
-        csr_country_name = company_csr_data.get("csr.country.name")
-        csr_invoice_type = company_csr_data.get("csr.invoice.type")
-        csr_location_address = company_csr_data.get("csr.location.address")
-        csr_industry_business_category = company_csr_data.get(
-            "csr.industry.business.category"
-        )
-
-        if portal_type == "Sandbox":
-            customoid = encode_customoid("TESTZATCA-Code-Signing")
-        elif portal_type == "Simulation":
-            customoid = encode_customoid("PREZATCA-Code-Signing")
-        else:
-            customoid = encode_customoid("ZATCA-Code-Signing")
-        private_key_pem = create_private_keys(company_abbr, identity)
-
-        private_key = serialization.load_pem_private_key(
-            private_key_pem, password=None, backend=default_backend()
-        )
-
-        custom_oid_string = "1.3.6.1.4.1.311.20.2"
-        oid = ObjectIdentifier(custom_oid_string)
-        custom_extension = x509.extensions.UnrecognizedExtension(oid, customoid)
-
-        dn = x509.Name(
-            [
-                x509.NameAttribute(NameOID.COUNTRY_NAME, csr_country_name),
-                x509.NameAttribute(
-                    NameOID.ORGANIZATIONAL_UNIT_NAME, csr_organization_unit_name
-                ),
-                x509.NameAttribute(NameOID.ORGANIZATION_NAME, csr_organization_name),
-                x509.NameAttribute(NameOID.COMMON_NAME, csr_common_name),
-            ]
-        )
-        alt_name = x509.SubjectAlternativeName(
-            [
-                x509.DirectoryName(
-                    x509.Name(
-                        [
-                            x509.NameAttribute(NameOID.SURNAME, csr_serial_number),
-                            x509.NameAttribute(
-                                NameOID.USER_ID, csr_organization_identifier
-                            ),
-                            x509.NameAttribute(NameOID.TITLE, csr_invoice_type),
-                            x509.NameAttribute(
-                                ObjectIdentifier("2.5.4.26"), csr_location_address
-                            ),
-                            x509.NameAttribute(
-                                NameOID.BUSINESS_CATEGORY,
-                                csr_industry_business_category,
-                            ),
-                        ]
-                    )
-                ),
-            ]
-        )
-
-        csr = (
-            x509.CertificateSigningRequestBuilder()
-            .subject_name(dn)
-            .add_extension(custom_extension, critical=False)
-            .add_extension(alt_name, critical=False)
-            .sign(private_key, hashes.SHA256(), backend=default_backend())
-        )
-        mycsr = csr.public_bytes(serialization.Encoding.PEM)
-        base64csr = base64.b64encode(mycsr)
-        encoded_string = base64csr.decode("utf-8")
-    except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
-        frappe.throw(
-            _("error occurred while creating csr for company {company_abbr} " + str(e))
-        )
-        return None
-
-    # Keep final access denial outside the crypto exception wrapper: one
-    # framework-owned failure, even if the private key was already saved.
-    # Never roll back hooks speculatively or generate a replacement key to retry.
-    target = _require_credential_write_source(company_abbr, identity).target
+    # Keep construction in a separate worker so child exceptions reach only the
+    # outer owner, never a nested public key helper with its own popup.
+    encoded_string = _build_csr(doc, portal_type, company_abbr, identity, progress)
+    target = _load_csr_write_source(company_abbr, identity).target
+    progress.csr_save_started = True
     target.custom_csr_data = encoded_string.strip()
     target.save()
+    progress.csr_save_completed = True
     return encoded_string
+
+
+def _build_csr(doc, portal_type, company_abbr, identity, progress):
+    """Construct the legacy CSR; this is not an active-key rotation safeguard."""
+    # Use authorized saved configuration, not caller-supplied credential fields.
+    if not doc.custom_csr_config:
+        raise ValueError("Missing saved CSR configuration.")
+    values = parse_csr_config(doc.custom_csr_config)
+    if portal_type == "Sandbox":
+        customoid = encode_customoid("TESTZATCA-Code-Signing")
+    elif portal_type == "Simulation":
+        customoid = encode_customoid("PREZATCA-Code-Signing")
+    else:
+        customoid = encode_customoid("ZATCA-Code-Signing")
+    private_key_pem = _write_private_key(company_abbr, identity, progress)
+    private_key = serialization.load_pem_private_key(
+        private_key_pem, password=None, backend=default_backend()
+    )
+    oid = ObjectIdentifier("1.3.6.1.4.1.311.20.2")
+    custom_extension = x509.extensions.UnrecognizedExtension(oid, customoid)
+    dn = x509.Name([
+        x509.NameAttribute(NameOID.COUNTRY_NAME, values.get("csr.country.name")),
+        x509.NameAttribute(NameOID.ORGANIZATIONAL_UNIT_NAME, values.get("csr.organization.unit.name")),
+        x509.NameAttribute(NameOID.ORGANIZATION_NAME, values.get("csr.organization.name")),
+        x509.NameAttribute(NameOID.COMMON_NAME, values.get("csr.common.name")),
+    ])
+    alt_name = x509.SubjectAlternativeName([x509.DirectoryName(x509.Name([
+        x509.NameAttribute(NameOID.SURNAME, values.get("csr.serial.number")),
+        x509.NameAttribute(NameOID.USER_ID, values.get("csr.organization.identifier")),
+        x509.NameAttribute(NameOID.TITLE, values.get("csr.invoice.type")),
+        x509.NameAttribute(ObjectIdentifier("2.5.4.26"), values.get("csr.location.address")),
+        x509.NameAttribute(NameOID.BUSINESS_CATEGORY, values.get("csr.industry.business.category")),
+    ]))])
+    csr = (
+        x509.CertificateSigningRequestBuilder()
+        .subject_name(dn)
+        .add_extension(custom_extension, critical=False)
+        .add_extension(alt_name, critical=False)
+        .sign(private_key, hashes.SHA256(), backend=default_backend())
+    )
+    return base64.b64encode(csr.public_bytes(serialization.Encoding.PEM)).decode("utf-8")
 
 
 def get_api_url(company_abbr, base_url):

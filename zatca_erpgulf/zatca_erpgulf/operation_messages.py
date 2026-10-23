@@ -106,6 +106,49 @@ class CSIDProgress:
 CSID_PROGRESS_REVIEW = "The progress display could not be cleared. Review the form before starting another operation."
 
 
+@dataclass
+class CSRProgress:
+    """Local observations only: a returning save is not a committed revision."""
+
+    key_save_started: bool = False
+    key_save_completed: bool = False
+    csr_save_started: bool = False
+    csr_save_completed: bool = False
+
+
+def csr_local_failure(purpose, progress):
+    """Classify local key/CSR failure without copying an exception or material.
+
+    This does not decide rotation, restore previous credentials, infer a commit,
+    or authorize another attempt. No HTTP request is part of these operations.
+    """
+    if type(purpose) is not str or purpose not in ("key", "csr"):
+        raise ValueError("Unsupported CSR purpose.")
+    if type(progress) is not CSRProgress or any(type(value) is not bool for value in vars(progress).values()):
+        raise ValueError("Invalid CSR progress.")
+    if ((progress.key_save_completed and not progress.key_save_started)
+            or (progress.csr_save_started and not progress.key_save_completed)
+            or (progress.csr_save_completed and not progress.csr_save_started)
+            or (purpose == "key" and (progress.csr_save_started or progress.csr_save_completed))):
+        raise ValueError("Invalid CSR progress.")
+    if progress.csr_save_completed or (purpose == "key" and progress.key_save_completed):
+        code = "CSR_LOCAL_COMPLETION_UNCONFIRMED"
+        message = "The key or CSR save returned, but local completion could not be confirmed. Review saved key, CSR and certificate settings before another operation."
+    elif progress.csr_save_started:
+        code = "CSR_STORAGE_UNCONFIRMED"
+        message = "CSR storage could not be confirmed after the private-key save returned. Changes may already exist. Review saved key, CSR and certificate settings before another operation; no automatic retry was performed."
+    elif progress.key_save_completed:
+        code = "CSR_BUILD_UNCONFIRMED"
+        message = "The private-key save returned, but CSR creation did not complete. Review saved key, CSR and certificate settings before another operation; no automatic retry was performed."
+    elif progress.key_save_started:
+        code = "CSR_KEY_STORAGE_UNCONFIRMED"
+        message = "Private-key storage could not be confirmed. Changes may already exist. Review saved key, CSR and certificate settings before another operation; no automatic retry was performed."
+    else:
+        code = "CSR_PREPARATION_FAILED"
+        message = "Local key/CSR preparation failed before a key or CSR save was started. Review saved permissions and CSR configuration."
+    return {"status": "ERROR", "purpose": purpose, "code": code, "message": message}
+
+
 def csid_local_failure(purpose, progress):
     """Classify observed execution stage without accepting any raw exception.
 

@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and eighty-one bounded increments (Compliance outcomes, dedicated
+Safety preparation and eighty-two bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -1681,6 +1681,39 @@ Final guarded combined: **12,300 local + 1,800 private SQL = 14,100 passed in
 synthetic writer-access cases**. All nine Node VM scripts passed **1,444 cases**.
 Allowed routing/lifecycle fixtures now explicitly grant synthetic ACL and assert
 ordinary saves. No actual site, ERPNext 16/Desk, SDK or authority acceptance claim.
+
+## Increment 82: one stage-aware local key/CSR failure owner
+
+- Local CSR and internal key generation share one error owner and a private key
+  worker, not nested public failure wrappers. Canonical stage metadata is English;
+  the final single popup translates known keys, including actual Arabic entries.
+- Distinguish preparation, uncertain key storage, key-save-returned/CSR-incomplete,
+  uncertain CSR storage and unconfirmed local completion. Late source denial adds
+  its access notice to the same partial-key review message, retaining native
+  PermissionError. Unknown source faults do not masquerade as crypto failures.
+- Do not stringify/log private crypto/ORM diagnostics, clear parent notifications,
+  retry, restore keys, commit, roll back or introduce an authority call. Preserve
+  cancellation, ordinary saves, three source checks, legacy successful return
+  shapes and cryptographic/environment labels.
+- Active bundle preservation, staged epoch/rotation, field custody/concurrency,
+  broad framework diagnostics and installed v15/v16 acceptance remain gates.
+  The existing key-before-CSR replacement risk is not solved by error aggregation.
+  See [CSR_LOCAL_OUTCOMES.md](CSR_LOCAL_OUTCOMES.md).
+
+The first guarded local run exposed four missing late unknown-source notices
+in the new suite (**4 failed, 12,578 passed in 75.95 seconds**). The source adapter
+was corrected without weakening assertions, access rules or resource guards.
+The next combined run passed all **12,582 local cases**, but all **1,800 private
+SQL cases** had fixture setup errors because the new MariaDB process exited before
+readiness (**156.80 seconds**). No tenant/server fallback or guard relaxation was
+used; the same fixed runner was rerun with reviewed execution permission for the
+owned temporary SQL subprocess.
+
+Final guarded combined: **12,582 local + 1,800 private SQL = 14,382 passed in
+150.68 seconds**, across the same twelve private suites, including **282 new
+synthetic key/CSR cases**. All nine Node VM scripts passed **1,444 cases**. No
+offline/resource/normal-permission guard was waived. No installed v15/v16,
+SDK, browser/Desk or authority acceptance is claimed.
 
 ## Verification
 
