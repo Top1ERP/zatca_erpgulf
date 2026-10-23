@@ -794,3 +794,16 @@ network/site/SQL ownership guard is weakened. See
 [CSR_FORM_LIFECYCLE.md](CSR_FORM_LIFECYCLE.md).
 Increment77 guarded combined passed **11,664 local + 1,800 private SQL = 13,464
 cases in 143.64 seconds**, with the same twelve owned-private SQL suites.
+
+Increment78 replaces automatic Company configuration save with an exact-name/
+revision, READ/WRITE-authorized draft API and one-field unsaved staging. It shares
+CSR/CSID in-memory pending/review guards without making a credential request or
+authorizing retry/activation. Backend key rotation, legacy access, other writers,
+full log lifecycle and installed v15/v16 remain gates. Only the reviewed synthetic
+CSR configuration suite is added to the fixed manifest; all resource guards are
+retained. No working/production site, schema, configuration, credentials, worker
+or authority action is authorized. See [CSR_CONFIGURATION_DRAFT.md](CSR_CONFIGURATION_DRAFT.md).
+Final increment78 guarded verification: **11,766 local + 1,800 private SQL =
+13,566 passed in 147.74 seconds**, across twelve owned-private SQL suites;
+all seven standalone Node VM scripts passed **1,024 cases**. New evidence is
+102 synthetic Python cases and 124 form cases, not actual site/authority acceptance.

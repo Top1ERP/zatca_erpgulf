@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and seventy-seven bounded increments (Compliance outcomes, dedicated
+Safety preparation and seventy-eight bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -1589,6 +1589,29 @@ tenant site, customer key/credential change or authority operation is used.
 Final guarded combined: **11,664 local + 1,800 private SQL = 13,464 passed in
 143.64 seconds**, across the same twelve owned-private SQL suites. This is
 offline regression evidence, not installed v15/v16 or authority acceptance.
+
+## Increment 78: exact-source CSR configuration draft without automatic save
+
+- Company configuration action now prepares an unsaved draft only. It shares
+  pending/review guards with CSR/CSID, rechecks observed source/active/clean state,
+  and stages only the configuration field; never saves/reloads the Company.
+- New exact-name/revision API checks saved-row READ and WRITE with the existing
+  quiet permission-signature helper. Shared legacy-format builder reads bounded
+  single-line values; no configuration/credential write, key generation or HTTP.
+- A single translated display summary distinguishes draft preparation/staging
+  from persistence or issuance. Raw draft values remain unchanged in the field,
+  not displayed as HTML. Static errors preserve parent messages/flag ownership.
+- Keep the legacy abbreviation/string API as a distinct compatibility surface;
+  escape its popup HTML. Backend key/CSR rotation/access, device single check,
+  complete log lifecycle, concurrent source ownership and installed v15/v16/
+  fictional-Company adoption remain gates. No live or authority operation.
+  See [CSR_CONFIGURATION_DRAFT.md](CSR_CONFIGURATION_DRAFT.md).
+
+Final guarded combined: **11,766 local + 1,800 private SQL = 13,566 passed in
+147.74 seconds**, across the same twelve owned-private SQL suites. The manifest
+adds only 102 reviewed synthetic CSR configuration cases. All seven Node VM
+scripts passed **1,024 cases**, including 124 new configuration form cases.
+These are offline checks, not installed ERPNext/Desk or authority acceptance.
 
 ## Verification
 

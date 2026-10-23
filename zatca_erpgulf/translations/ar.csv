@@ -776,3 +776,22 @@ Generating CSR...,جارٍ إنشاء طلب الشهادة CSR...
 The CSR generation call returned. Review saved CSR and private-key settings before any further operation; this does not confirm certificate issuance. Preserve unsaved changes before reloading.,انتهى استدعاء إنشاء CSR. راجع إعدادات CSR والمفتاح الخاص المحفوظة قبل أي عملية أخرى؛ هذا لا يؤكد إصدار شهادة. احتفظ بتعديلاتك غير المحفوظة قبل إعادة التحميل.
 CSR generation could not be confirmed. The saved private key may have changed. Preserve edits and review saved settings before another CSR or CSID operation.,لم يتأكد إنشاء CSR. قد يكون المفتاح الخاص المحفوظ قد تغيّر. احتفظ بتعديلاتك وراجع الإعدادات المحفوظة قبل إجراء CSR أو CSID آخر.
 CSR preparation could not be completed. No CSR generation request was sent.,تعذّر إكمال تجهيز CSR. لم يُرسل أي طلب لإنشاء CSR.
+CSR Configuration Result,نتيجة إعداد CSR
+CSR Configuration Failed,تعذّر إعداد CSR
+Save the Company settings before preparing CSR configuration. No draft was requested or saved.,احفظ إعدادات الشركة قبل تجهيز إعداد CSR. لم تُطلب أي مسودة أو تُحفظ.
+Saved Company revision is missing. Review the Company before preparing CSR configuration.,بيانات نسخة الشركة المحفوظة مفقودة. راجع الشركة قبل تجهيز إعداد CSR.
+Preparing CSR configuration...,جارٍ تجهيز إعداد CSR...
+The Company form changed while preparing CSR configuration. The draft was not applied. Preserve edits and review the active form.,تغيّر نموذج الشركة أثناء تجهيز إعداد CSR. لم تُوضع المسودة في النموذج. احتفظ بتعديلاتك وراجع النموذج النشط.
+No confirmed CSR configuration draft was returned. No draft was applied or saved.,لم تُستلم مسودة إعداد CSR مؤكدة. لم تُوضع أي مسودة في النموذج أو تُحفظ.
+CSR configuration staging could not be confirmed. Review the form before saving; no automatic save was performed.,لم يتأكد وضع مسودة إعداد CSR في النموذج. راجع النموذج قبل الحفظ؛ لم يُنفّذ حفظ تلقائي.
+CSR configuration was placed in the form as an unsaved draft. Review it and save manually. No private key or certificate was generated.,وُضع إعداد CSR في النموذج كمسودة غير محفوظة. راجعه واحفظه يدويًا. لم يُنشأ مفتاح خاص أو شهادة.
+CSR configuration preparation could not be completed. No draft was applied or saved.,تعذّر إكمال تجهيز إعداد CSR. لم تُوضع أي مسودة في النموذج أو تُحفظ.
+CSR configuration preparation failed. No configuration was saved or key generated.,تعذّر تجهيز إعداد CSR. لم يُحفظ إعداد أو يُنشأ مفتاح.
+You do not have permission to prepare CSR configuration for this Company.,ليست لديك صلاحية تجهيز إعداد CSR لهذه الشركة.
+Saved Company settings changed. Review the Company before preparing CSR configuration again.,تغيّرت إعدادات الشركة المحفوظة. راجع الشركة قبل تجهيز إعداد CSR مجددًا.
+CSR configuration requires saved Company identity and revision.,يتطلب إعداد CSR هوية الشركة وبيانات نسختها المحفوظة.
+"CSR configuration values must be bounded single-line text. Review Company name, Tax ID, location and category.",يجب أن تكون قيم إعداد CSR نصوصًا محدودة الطول وفي سطر واحد. راجع اسم الشركة ورقمها الضريبي والموقع والفئة.
+Tax ID (VAT number) is required.,الرقم الضريبي (ضريبة القيمة المضافة) مطلوب.
+Location for CSR configuration is required.,موقع إعداد CSR مطلوب.
+Company category for CSR configuration is required.,فئة الشركة لإعداد CSR مطلوبة.
+Company name is required.,اسم الشركة مطلوب.

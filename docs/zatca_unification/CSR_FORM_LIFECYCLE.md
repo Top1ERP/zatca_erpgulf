@@ -51,6 +51,11 @@ framework traceback/local snapshots, custom-hook output or broader logging.
 
 ## Separate configuration and server gates
 
+Historical increment-77 findings below are now partly addressed by increment 78's
+exact-source draft API and shared form guards; see
+[CSR_CONFIGURATION_DRAFT.md](CSR_CONFIGURATION_DRAFT.md). The legacy API remains
+separate, with its popup now escaped. Server key/rotation and wider gates persist.
+
 `get_csr_config` was inspected: it builds and returns text and prints a raw HTML
 configuration popup but does **not** save the Company. Its Company handler
 assigns `custom_csr_config` and automatically saves. It is a distinct draft-input

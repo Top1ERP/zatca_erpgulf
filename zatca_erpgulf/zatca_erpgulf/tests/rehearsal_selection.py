@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "csr_configuration",
     "csid_local_outcomes",
     "debug_artifact",
     "compliance_messages",

@@ -224,3 +224,12 @@ Company/CSR responses to console through this handler. Backend exception/log
 policy and the separate configuration popup/draft workflow are unchanged gates.
 Node VM checks now total **900 cases**, including 176 new CSR cases. See
 [CSR_FORM_LIFECYCLE.md](CSR_FORM_LIFECYCLE.md).
+
+Increment 78 removes the Company's raw configuration popup and duplicate saved
+success claim by using a new read-only exact-source draft API. Child errors are
+muted with parent state restored; final server errors are static display keys.
+The form stages one raw text field and shows one translated unsaved-draft/review
+notice, never a certificate-valid/issued or persisted claim. The retained legacy
+string API's separate popup is HTML-escaped. No logger or translated stored
+payload is introduced; complete framework/custom-hook log/output remains a gate.
+See [CSR_CONFIGURATION_DRAFT.md](CSR_CONFIGURATION_DRAFT.md).

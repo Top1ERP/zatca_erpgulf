@@ -82,6 +82,14 @@ save/reload or raw device console dumps. CSR replies require review, not issuanc
 success. Server key writes/rotation/access/logs and configuration draft staging
 remain separate gates. See [CSR_FORM_LIFECYCLE.md](CSR_FORM_LIFECYCLE.md).
 
+Increment 78 replaces Company configuration's automatic full save with one-field
+unsaved draft staging. New exact saved-name/revision preparation checks READ and
+WRITE through the shared ACL compatibility helper, bounds values and shares the
+legacy text builder. It participates in credential pending/review policy without
+becoming a credential attempt. Legacy API, server key rotation/access, device
+single check and installed/whole-lifecycle gates remain. See
+[CSR_CONFIGURATION_DRAFT.md](CSR_CONFIGURATION_DRAFT.md).
+
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |
 | Phase 1 | Local QR for supported Sales/POS documents | No Phase-2 API or production hash-chain mutation |

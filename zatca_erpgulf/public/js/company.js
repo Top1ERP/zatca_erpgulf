@@ -94,19 +94,7 @@ frappe.ui.form.on("Company", {
     },
 
     custom_create_csr_configuration: function (frm) {
-        frappe.call({
-            method: "zatca_erpgulf.zatca_erpgulf.csr_configuration.get_csr_config",
-            args: {
-                company_abbr: frm.doc.abbr
-            },
-            callback: function (r) {
-                if (!r.exc && r.message) {
-                    frm.set_value("custom_csr_config", r.message);
-                    frappe.msgprint("CSR Configuration generated successfully.");
-                    frm.save();
-                }
-            },
-        });
+        return zatca_run_csr_configuration(frm);
     },
 
     custom_run_all_compliance: async function (frm) {

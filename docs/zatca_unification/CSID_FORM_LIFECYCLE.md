@@ -58,8 +58,9 @@ custom hooks/partial output are not an atomic one-dialog guarantee.
 
 Increment 76 covers the four Company/device CSID handlers. Increment 77 extends
 their shared runner to both CSR handlers with key-replacement consent; see
-[CSR_FORM_LIFECYCLE.md](CSR_FORM_LIFECYCLE.md). CSR configuration, device
-single-check and broader wizard/form save/read/log behavior remain gates.
+[CSR_FORM_LIFECYCLE.md](CSR_FORM_LIFECYCLE.md). Increment 78 adds coordinated
+Company configuration draft staging; see [CSR_CONFIGURATION_DRAFT.md](CSR_CONFIGURATION_DRAFT.md).
+Device single-check and broader wizard/form save/read/log behavior remain gates.
 The guard does not override manual/programmatic saves, disable a form, clear
 messages or bypass timestamps. Fields may remain stale until deliberate reload;
 users must preserve wanted edits first. A later manual reload is not protected

@@ -34,22 +34,44 @@ function zatca_run_csr(frm) {
     return zatca_run_credential_form(frm, "csr");
 }
 
+function zatca_run_csr_configuration(frm) {
+    return zatca_run_credential_form(frm, "configuration");
+}
+
+function zatca_csr_configuration_draft(result, name, modified) {
+    const keys = ["csr.common.name", "csr.serial.number", "csr.organization.identifier",
+        "csr.organization.unit.name", "csr.organization.name", "csr.country.name",
+        "csr.invoice.type", "csr.location.address", "csr.industry.business.category"];
+    if (!result || typeof result !== "object" || Array.isArray(result) || result.status !== "DRAFT" ||
+        result.company_name !== name || result.modified !== modified || typeof result.config !== "string" ||
+        result.config.length > 16384 || /[\u0000-\u0009\u000b-\u001f\u007f\u0085\u2028\u2029]/.test(result.config)) return false;
+    const lines = result.config.split("\n");
+    // Shape only, not certificate/CSR or authority validation. Never render
+    // this draft as HTML or translate its field contents.
+    return lines.length === keys.length && lines.every((line, index) =>
+        line.startsWith(keys[index] + "=") && line.length > keys[index].length + 1);
+}
+
 function zatca_run_credential_form(frm, operation) {
     if (zatca_credential_pending.has(frm)) return zatca_credential_pending.get(frm);
     const csr = operation === "csr";
+    const configuration = operation === "configuration";
     const production = operation === "production";
     const doc = frm && frm.doc;
     const fields = ["doctype", "name", "modified", "abbr", "custom_select", "custom_linked_doctype"];
-    if (csr) fields.push("custom_csr_config");
+    if (csr || configuration) fields.push("custom_csr_config");
+    if (configuration) fields.push("company_name", "tax_id",
+        "custom_zatca__location_for_csr_configuratoin", "custom_zatca__company_category_for_csr_configuration");
     const snapshot = doc && fields.map(field => doc[field]);
     const company = doc && doc.doctype === "Company";
-    const active = () => {
+    const active = (staged = false) => {
         try {
             const route = typeof frappe.get_route === "function" ? frappe.get_route() : null;
             return doc && frm.doc === doc && Array.isArray(route) && route.length === 3 &&
                 route[0] === "Form" && route[1] === snapshot[0] && route[2] === snapshot[1] &&
                 (typeof cur_frm === "undefined" || cur_frm === frm) &&
-                fields.every((field, index) => doc[field] === snapshot[index]);
+                fields.every((field, index) => (staged && configuration && field === "custom_csr_config") ||
+                    doc[field] === snapshot[index]);
         } catch (error) { return false; }
     };
     const clean = () => {
@@ -63,34 +85,62 @@ function zatca_run_credential_form(frm, operation) {
     const environment = value => typeof value === "string" &&
         ["Sandbox", "Simulation", "Production"].includes(value.trim());
     const guard = message => {
-        frappe.msgprint({ title: csr ? __("CSR Generation Result") : __("CSID Generation Result"), indicator: "orange", message });
+        frappe.msgprint({ title: configuration ? __("CSR Configuration Result") :
+            csr ? __("CSR Generation Result") : __("CSID Generation Result"), indicator: "orange", message });
         return Promise.resolve();
     };
-    if (!doc || !["Company", "ZATCA Multiple Setting"].includes(doc.doctype) || !name(doc.name) || !active()) {
-        return guard(csr ? __("The CSR settings form is no longer active. Reopen it before starting the operation.") :
+    if (!doc || !(configuration ? doc.doctype === "Company" :
+        ["Company", "ZATCA Multiple Setting"].includes(doc.doctype)) || !name(doc.name) || !active()) {
+        return guard(csr || configuration ? __("The CSR settings form is no longer active. Reopen it before starting the operation.") :
             __("The CSID settings form is no longer active. Reopen it before starting the operation."));
     }
     // Review takes precedence over dirty-input guidance: never recommend saving
     // a stale form after the server may have changed credential fields.
     if (zatca_credential_review.has(doc)) {
-        return guard(csr ? __("Review saved CSR and private-key settings before saving an already-open form or generating another CSR or CSID. Preserve unsaved changes before reloading.") :
+        return guard(csr || configuration ? __("Review saved CSR and private-key settings before saving an already-open form or generating another CSR or CSID. Preserve unsaved changes before reloading.") :
             __("Review saved CSID settings before saving an already-open form or starting another CSID operation. Preserve unsaved changes before reloading."));
     }
     if (!clean()) {
-        return guard(csr ? __("Save the Company or device settings and CSR configuration before generating CSR. No CSR generation request was sent.") :
+        return guard(configuration ? __("Save the Company settings before preparing CSR configuration. No draft was requested or saved.") :
+            csr ? __("Save the Company or device settings and CSR configuration before generating CSR. No CSR generation request was sent.") :
             __("Save the Company or device settings, including OTP and environment, before generating CSID. No CSID request was sent."));
     }
     if (typeof doc.modified !== "string" || !doc.modified.trim() ||
-        (company ? !name(doc.abbr) || !environment(doc.custom_select) : !name(doc.custom_linked_doctype))) {
-        return guard(csr ? __("Saved CSR source settings are incomplete. Review the Company link and selected environment. No CSR generation request was sent.") :
+        (!configuration && (company ? !name(doc.abbr) || !environment(doc.custom_select) : !name(doc.custom_linked_doctype)))) {
+        return guard(configuration ? __("Saved Company revision is missing. Review the Company before preparing CSR configuration.") :
+            csr ? __("Saved CSR source settings are incomplete. Review the Company link and selected environment. No CSR generation request was sent.") :
             __("Saved CSID source settings are incomplete. Review the Company link and selected environment. No CSID request was sent."));
     }
     const changed = () => guard(csr ?
         __("CSR generation was cancelled because the form changed. Preserve edits and review saved settings. No CSR generation request was sent.") :
         __("CSID generation was cancelled because the form changed while reading saved settings. Preserve edits and review the active form. No CSID request was sent."));
     let attempted = false;
+    let staging = false;
     const task = (async () => {
         try {
+            if (configuration) {
+                // This endpoint only reads one saved Company; no key or
+                // credential request and no server-side configuration save.
+                const r = await frappe.call({
+                    method: "zatca_erpgulf.zatca_erpgulf.csr_configuration.prepare_csr_config",
+                    args: { company_name: snapshot[1], expected_modified: snapshot[2] },
+                    freeze: true, freeze_message: __("Preparing CSR configuration...")
+                });
+                if (r && r.exc) return;
+                if (!active() || !clean()) return guard(__("The Company form changed while preparing CSR configuration. The draft was not applied. Preserve edits and review the active form."));
+                const result = r && r.message;
+                if (!zatca_csr_configuration_draft(result, snapshot[1], snapshot[2])) {
+                    return guard(__("No confirmed CSR configuration draft was returned. No draft was applied or saved."));
+                }
+                staging = true;
+                await frm.set_value("custom_csr_config", result.config);
+                // A field hook can fail or change/navigation can occur during
+                // async staging. Do not undo edits or retry the setter.
+                if (!active(true) || doc.custom_csr_config !== result.config) {
+                    return guard(__("CSR configuration staging could not be confirmed. Review the form before saving; no automatic save was performed."));
+                }
+                return guard(__("CSR configuration was placed in the form as an unsaved draft. Review it and save manually. No private key or certificate was generated."));
+            }
             if (csr) {
                 // CSR generation replaces the saved private key. This consent
                 // is not credential activation or proof that rotation is safe.
@@ -145,6 +195,12 @@ function zatca_run_credential_form(frm, operation) {
             // Never save, reload, sync credentials or overwrite source fields.
             return;
         } catch (error) {
+            if (configuration) {
+                zatca_operation_client_error(error, "CSR Configuration Failed", staging ?
+                    __("CSR configuration staging could not be confirmed. Review the form before saving; no automatic save was performed.") :
+                    __("CSR configuration preparation could not be completed. No draft was applied or saved."));
+                return;
+            }
             if (csr) {
                 zatca_operation_client_error(error, "CSR Generation Failed", attempted ?
                     __("CSR generation could not be confirmed. The saved private key may have changed. Preserve edits and review saved settings before another CSR or CSID operation.") :
