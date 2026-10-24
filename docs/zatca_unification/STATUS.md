@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and eighty-nine bounded increments (Compliance outcomes, dedicated
+Safety preparation and ninety bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -1908,6 +1908,32 @@ Final guarded combined: **13,708 local + 1,887 private SQL = 15,595 passed in
 seconds**; first combined passed **15,594 in 166.71 seconds** before the explicit
 Password-field-count preflight bound/regression case. All nine Node VM scripts
 passed **1,444 cases**. No offline resource, ordinary ACL, crypto or transport
+assertion was waived. Installed v15/v16, Desk/browser, SDK and authority acceptance
+remain unverified.
+
+## Increment 90: owned pending save with final exact guards
+
+- Add an uninstalled single-use local transaction coordinator over the existing
+  source/ACL/backing/cipher/repository path. Exclusively claim a fresh concrete
+  lease; refuse pre-used/other-owned resources without cleanup of their work.
+- Recheck exact lookup/source/permissions, locked backing state and original
+  stored envelope before ONE commit/close; then recheck visible source/lookup/
+  ACLs before metadata disclosure. Existing caller-owned stage/inspect remain.
+- Preserve unknown commit/close outcomes and late denial: no success guessing,
+  automatic retry/reseal/activation or undo claim. Attempt owned cleanup with
+  interruption priority; combine stage/guard/cleanup failure into one translated
+  display message with English contract keys and no raw private diagnostics.
+- Add only fixed-manifest synthetic and existing owned-private SQL composition.
+  No site/schema/provider/button/worker/Bench/customer/live or authority operation.
+  Observed checks are not atomic permission/epoch/provenance proof; historical
+  binding provisioning, unknown outcome reconciliation and installed v15/v16
+  remain gates. See [PENDING_CSR_TRANSACTION.md](PENDING_CSR_TRANSACTION.md).
+
+Final guarded combined: **13,771 local + 1,905 private SQL = 15,676 passed in
+163.16 seconds**, across thirteen private suites, including **81 new cases**
+(63 local + 18 native SQL). Local-only runner passed **13,771 in 83.21 seconds**.
+All nine Node VM scripts passed **1,444 cases**. Existing caller-owned transaction
+and provider behavior remain tested; no resource/ordinary-ACL/crypto/transport
 assertion was waived. Installed v15/v16, Desk/browser, SDK and authority acceptance
 remain unverified.
 

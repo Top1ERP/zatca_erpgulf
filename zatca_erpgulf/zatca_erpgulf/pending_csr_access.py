@@ -260,18 +260,28 @@ class SavedPendingCSRService:
         """Stage exact retained ciphertext; no commit, reseal or plaintext return."""
         return self._execute("stage", company_abbr, source_identity, sealed)
 
+    def _stage_for_commit(self, company_abbr, source_identity, sealed, completion):
+        """Protected owned-coordinator handoff only; never expose through RPC.
+
+        The completion receives exact resources plus locked/current rechecks.
+        Existing stage/inspect callers keep their caller-owned transaction API.
+        """
+        if not callable(completion):
+            raise PendingCSRAccessError()
+        return self._execute("stage", company_abbr, source_identity, sealed, completion=completion)
+
     def inspect(self, company_abbr, source_identity, *, draft_id):
         """Inspect one server-bound draft; no latest lookup or ciphertext export."""
         return self._execute("inspect", company_abbr, source_identity, draft_id)
 
-    def _execute(self, operation, company_abbr, identity, value):
+    def _execute(self, operation, company_abbr, identity, value, *, completion=None):
         entered = False
         try:
             if self._busy or self._failed:
                 raise PendingCSRAccessError()
             self._busy, entered = True, True
             with mute_operation_messages(frappe):
-                return self._work(operation, company_abbr, identity, value)
+                return self._work(operation, company_abbr, identity, value, completion=completion)
         except CredentialWriteAccessError as error:
             denied = error.code == "permission"
         except frappe.PermissionError:
@@ -290,12 +300,13 @@ class SavedPendingCSRService:
         frappe.throw(_(DENIED_MESSAGE if denied else FAILED_MESSAGE),
                      frappe.PermissionError if denied else frappe.ValidationError)
 
-    def _work(self, operation, company_abbr, identity, value):
+    def _work(self, operation, company_abbr, identity, value, *, completion=None):
         actor = self._actor()
         if operation == "stage":
             if type(value) is not SealedPendingCSR:
                 raise PendingCSRAccessError()
             value.__post_init__()
+            value = SealedPendingCSR(value.storage_namespace, value.manifest_bytes, value.key_id, value.nonce, value.ciphertext)
             if value.storage_namespace != self._scope.storage_namespace:
                 raise PendingCSRAccessError()
             draft_id = value.manifest.context.draft_id
@@ -318,6 +329,9 @@ class SavedPendingCSRService:
         if type(binding) is not PendingCSRSourceBinding:
             raise PendingCSRAccessError()
         binding.__post_init__()
+        # Snapshot primitive fields, not a provider-owned object's mutable view.
+        binding = PendingCSRSourceBinding(binding.scope, binding.manifest, binding.source_rows_sha256,
+                                         binding.key_id, binding.password_state_sha256)
         manifest, context = binding.manifest, binding.manifest.context
         if (binding.scope != self._scope or binding.source_rows_sha256 != _rows_sha256(rows)
                 or context.draft_id != draft_id or context.slot.owner_doctype != target.doctype
@@ -365,6 +379,36 @@ class SavedPendingCSRService:
         report.update(state="PENDING_CSR_STAGED_UNCOMMITTED" if operation == "stage" else "PENDING_CSR_INSPECTION_OBSERVATION",
                       current_source_match_observed=True, current_permissions_observed=True,
                       password_backing_state_match_observed=True)
+        if completion is not None:
+            def binding_projection(selected):
+                if type(selected) is not PendingCSRSourceBinding:
+                    raise PendingCSRAccessError()
+                selected.__post_init__()
+                return (selected.scope.site, selected.scope.storage_namespace, selected.manifest.encode(),
+                        selected.source_rows_sha256, selected.key_id, selected.password_state_sha256)
+
+            expected_binding = binding_projection(binding)
+
+            def current_guard():
+                recheck()
+                selected = self._lookup(self._scope, target.doctype, target.name, draft_id)
+                if binding_projection(selected) != expected_binding:
+                    raise PendingCSRAccessError()
+                recheck()
+
+            def locked_guard(connection):
+                if connection is not resources.connection:
+                    raise PendingCSRAccessError()
+                current_guard()
+                _verify_locked_rows(connection, rows)
+                check_password_state()
+                if repository.load(context) != sealed:
+                    raise PendingCSRAccessError()
+                _verify_locked_rows(connection, rows)
+                check_password_state()
+                current_guard()
+
+            return completion(resources, locked_guard, current_guard, report)
         return report
 
 

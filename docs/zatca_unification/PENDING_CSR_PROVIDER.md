@@ -2,6 +2,11 @@
 
 ## Bounded implementation
 
+Increment 90 adds an exclusive internal lease claim for an optional
+[owned pending save coordinator](PENDING_CSR_TRANSACTION.md). Only the matching
+owner acquires a claimed NEW lease; pre-used/other-claimed leases are not cleaned
+by that coordinator. Unclaimed direct-provider behavior is retained.
+
 Increment 89 adds [encrypted Password-state comparisons](PENDING_CSR_PASSWORD_STATE.md)
 inside the saved-source service after resource acquisition, before and after
 repository work. This provider still checks only its pinned storage domain/key ID,

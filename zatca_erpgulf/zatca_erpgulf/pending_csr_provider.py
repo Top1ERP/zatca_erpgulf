@@ -164,6 +164,7 @@ class UnixPendingCSRResourceProvider:
         binding.__post_init__()
         self._binding, self._credentials, self._keys = binding, credentials_provider, key_provider
         self._state, self._resources = "NEW", None
+        self._transaction_owner = None
 
     def __repr__(self):
         return "UnixPendingCSRResourceProvider(<single-use protected local lease>)"
@@ -179,6 +180,24 @@ class UnixPendingCSRResourceProvider:
         return self._resources
 
     def __call__(self, scope):
+        if self._transaction_owner is not None:
+            if self._state == "ACQUIRING":
+                self._state = "FAILED"
+            raise PendingCSRProviderError("unusable")
+        return self._acquire(scope)
+
+    def _claim_for_transaction(self, owner):
+        """Exclusive internal lifecycle claim; no IO or borrowed-handle cleanup."""
+        if type(owner) is not object or self._state != "NEW" or self._transaction_owner is not None:
+            raise PendingCSRProviderError("unusable")
+        self._transaction_owner = owner
+
+    def _acquire_for_transaction(self, scope, owner):
+        if owner is not self._transaction_owner or self._transaction_owner is None:
+            raise PendingCSRProviderError("unusable")
+        return self._acquire(scope)
+
+    def _acquire(self, scope):
         if self._state != "NEW":
             if self._state == "ACQUIRING":
                 self._state = "FAILED"

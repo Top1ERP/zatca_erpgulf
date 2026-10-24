@@ -1013,3 +1013,27 @@ Password-field-count preflight bound and its regression case. All nine Node VM
 scripts passed **1,444 cases**. No resource/normal-permission/crypto/transport
 guard was waived; no installed v15/v16, Desk/browser, SDK or authority acceptance
 is claimed.
+
+Increment90 adds an [owned pending save coordinator](PENDING_CSR_TRANSACTION.md)
+over the existing permissioned policy. It exclusively claims a fresh concrete
+lease; pre-used/other-owned resources are refused without cleanup of their work.
+Exact source/ACL/lookup/backing/envelope checks precede one commit/close, followed
+by visible source/ACL/lookup checks before metadata disclosure. Existing stage/
+inspect remain caller-owned; no live button/provider/schema is installed.
+
+Unknown commit/close or late denial never becomes success, automatic retry or
+an undo claim. Only the newly owned connection is cleaned, attempting rollback/
+close as applicable with interruption priority. Child stage/guard/cleanup messages
+are muted and replaced by one display-only translated failure; English contract
+keys/static metadata remain, without raw driver/key/source diagnostics.
+
+Only the reviewed local suite joins the fixed manifest. Final combined:
+**13,771 local + 1,905 private SQL = 15,676 passed in 163.16 seconds**, across
+thirteen private suites, including **81 new cases** (63 local + 18 native SQL).
+Local-only passed **13,771 in 83.21 seconds**. All nine Node VM scripts passed
+**1,444 cases**. Native commit ambiguity/late denial retain committed synthetic
+rows, not a false rollback claim. No resource/normal-permission/crypto/transport
+guard was relaxed. No live source/assets/config/schema/site/customer credential/
+worker/Bench or authority operation occurred. These observations are not atomic
+permission/history/epoch/provenance proof; installed v15/v16, binding provisioning,
+exact unknown-outcome reconciliation and issuance/activation remain gates.

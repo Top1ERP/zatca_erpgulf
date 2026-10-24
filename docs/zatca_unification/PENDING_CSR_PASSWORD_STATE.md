@@ -2,6 +2,10 @@
 
 ## Gap and bounded change
 
+Increment 90 reuses this observer in an optional [owned save coordinator](PENDING_CSR_TRANSACTION.md),
+including final pre-commit backing checks. This helper still owns no transactions,
+does not decrypt credentials and establishes no authoritative credential epoch.
+
 The pending-source comparison previously covered saved document values only.
 A Password field can retain the same mask/modified marker while its encrypted
 backing row changes. The inspected local Frappe 15 implementation stores encrypted

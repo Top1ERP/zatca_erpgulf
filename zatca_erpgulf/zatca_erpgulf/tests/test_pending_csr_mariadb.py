@@ -22,6 +22,7 @@ from zatca_erpgulf.zatca_erpgulf import primary_receipt_provider as local_sql
 from unittest.mock import Mock
 from zatca_erpgulf.zatca_erpgulf.tests.test_pending_csr_access import access_case, invoke, Denied, Failed
 from zatca_erpgulf.zatca_erpgulf.tests.test_pending_csr_password_state import configure_password_case
+from zatca_erpgulf.zatca_erpgulf.tests.test_pending_csr_transaction import configure_transaction
 
 
 pytestmark = pytest.mark.skipif(os.environ.get("ZATCA_RUN_ISOLATED_MARIADB") != "1",
@@ -683,3 +684,106 @@ def test_native_related_company_backing_rotation_invalidates_own_device_draft(pi
         invoke(case, "stage")
     case.lease.resources.connection.rollback()
     assert pending_count(connections(), case) == 0
+
+
+@pytest.mark.parametrize("kind", ["company", "multiple_setting"])
+@pytest.mark.parametrize("password", [False, True])
+def test_owned_pending_coordinator_commits_and_closes_exact_source_bound_envelope(pinned_case, connections, monkeypatch, kind, password):
+    case = password_native_case(pinned_case, connections, kind) if password else pinned_case(kind)
+    configure_transaction(case, monkeypatch)
+    result = case.transaction.save("TC", case.identity, case.sealed)
+    assert result["state"] == "PENDING_CSR_TRANSACTION_COMPLETED_OBSERVATION"
+    assert result["local_transaction_completed"] is True and result["storage_confirmed"] is False
+    assert case.lease.resources.connection.closed and case.lookup.call_count == 4
+    assert pending_count(connections(), case) == 1
+    with pytest.raises(Failed):
+        case.transaction.save("TC", case.identity, case.sealed)
+    assert pending_count(connections(), case) == 1
+
+
+@pytest.mark.parametrize("kind", ["company", "multiple_setting"])
+@pytest.mark.parametrize("fault", ["source", "password", "binding", "envelope"])
+def test_owned_coordinator_native_final_guard_rolls_back_drift_and_staged_envelope_together(pinned_case, connections, monkeypatch, kind, fault):
+    case = password_native_case(pinned_case, connections, kind)
+    configure_transaction(case, monkeypatch)
+    original, calls = case.lookup.side_effect, []
+    def drift(*args):
+        selected = original(*args)
+        calls.append(True)
+        if len(calls) == 2:
+            owned = case.lease.resources.connection
+            with owned.cursor() as cursor:
+                if fault == "source":
+                    cursor.execute("UPDATE `tab" + case.target.doctype + "` SET modified=%s WHERE name=%s",
+                                   ("2026-10-24 11:00:01", case.target.name))
+                elif fault == "password":
+                    cursor.execute("UPDATE `__Auth` SET password=%s WHERE doctype=%s AND name=%s AND fieldname=%s",
+                        ("ENCRYPTED TEST ROTATED", case.target.doctype, case.target.name, "custom_basic_auth_from_csid"))
+                elif fault == "envelope":
+                    changed = case.cipher.seal(case.draft, storage_namespace=case.scope.storage_namespace, key_id="test-only-key")
+                    cursor.execute("UPDATE zatca_pending_csr_v1 SET nonce=%s,ciphertext=%s WHERE storage_namespace=%s AND draft_id=%s",
+                        (changed.nonce, changed.ciphertext, case.scope.storage_namespace, case.draft.context.draft_id))
+                else:
+                    selected = replace(selected, source_rows_sha256="0" * 64)
+        return selected
+    case.lookup.side_effect = drift
+    with pytest.raises(Failed) as error:
+        case.transaction.save("TC", case.identity, case.sealed)
+    assert error.value.__context__ is None and case.lease.resources.connection.closed
+    assert pending_count(connections(), case) == 0
+    with connections().cursor() as cursor:
+        cursor.execute("SELECT password FROM `__Auth` WHERE doctype=%s AND name=%s AND fieldname=%s",
+            (case.target.doctype, case.target.name, "custom_basic_auth_from_csid"))
+        assert cursor.fetchone() == ("ENCRYPTED TEST ORIGINAL",)
+
+
+@pytest.mark.parametrize("fault", ["commit-before", "commit-after", "close-after", "late-denial"])
+def test_owned_coordinator_native_unknown_commit_close_or_late_denial_never_claims_success_or_undo(pinned_case, connections, monkeypatch, fault):
+    case = pinned_case()
+    configure_transaction(case, monkeypatch)
+    lookup, calls = case.lookup.side_effect, []
+    def inject(*args):
+        selected = lookup(*args)
+        calls.append(True)
+        if len(calls) == 2:
+            raw = case.lease.resources.connection._raw  # Exact owned TEST handle only.
+            if fault == "close-after":
+                original = raw.close
+                def close():
+                    original()
+                    raise RuntimeError("PRIVATE close acknowledgment lost")
+                monkeypatch.setattr(raw, "close", close)
+            else:
+                original = raw.commit
+                def commit():
+                    if fault != "commit-before":
+                        original()
+                    if fault == "late-denial":
+                        case.denied.add((case.target.doctype, case.target.name, "write"))
+                        return
+                    raise RuntimeError("PRIVATE commit acknowledgment lost")
+                monkeypatch.setattr(raw, "commit", commit)
+        return selected
+    case.lookup.side_effect = inject
+    with pytest.raises(Denied if fault == "late-denial" else Failed) as error:
+        case.transaction.save("TC", case.identity, case.sealed)
+    assert error.value.__context__ is None and case.lease.resources.connection.closed
+    assert pending_count(connections(), case) == int(fault != "commit-before")
+    assert len(case.visible) == 1
+
+
+@pytest.mark.parametrize("permission", ["read", "write"])
+def test_owned_coordinator_native_precommit_revocation_closes_and_discards_pending_only(pinned_case, connections, monkeypatch, permission):
+    case = pinned_case()
+    configure_transaction(case, monkeypatch)
+    lookup, calls = case.lookup.side_effect, []
+    def revoke(*args):
+        selected = lookup(*args)
+        calls.append(True)
+        if len(calls) == 2:
+            case.denied.add((case.target.doctype, case.target.name, permission))
+        return selected
+    case.lookup.side_effect = revoke
+    with pytest.raises(Denied):
+        case.transaction.save("TC", case.identity, case.sealed)
+    assert case.lease.resources.connection.closed and pending_count(connections(), case) == 0

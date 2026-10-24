@@ -179,6 +179,15 @@ authoritative credential epoch or source/ACL-aware commit. Historical binding
 provisioning, after-return/commit coordination, all-writer integration and installed
 v15/v16 remain gates. See [PENDING_CSR_PASSWORD_STATE.md](PENDING_CSR_PASSWORD_STATE.md).
 
+Increment 90 adds an uninstalled owned pending-save coordinator, reusing existing
+source/ACL/backing/repository policy and exclusively claiming a fresh concrete
+lease. Exact final checks precede one commit/close; post-close visible checks gate
+metadata, not already-committed history. Unknown outcomes/late denial never imply
+success, undo or automatic retry. Existing caller-owned APIs remain unchanged.
+Next provide historical binding provisioning and reviewed exact local outcome
+reconciliation before issuance/receipt/activation or runtime integration. See
+[PENDING_CSR_TRANSACTION.md](PENDING_CSR_TRANSACTION.md).
+
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |
 | Phase 1 | Local QR for supported Sales/POS documents | No Phase-2 API or production hash-chain mutation |

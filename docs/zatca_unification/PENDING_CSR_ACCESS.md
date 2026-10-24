@@ -2,6 +2,11 @@
 
 ## Internal boundary, not runtime adoption
 
+Increment 90 adds a protected completion handoff used only by an optional
+[owned transaction coordinator](PENDING_CSR_TRANSACTION.md). Ordinary `stage` and
+`inspect` still own no commit/rollback/close and return observations only; there
+is no runtime button/provider installation or arbitrary RPC completion callback.
+
 Increment 89 adds required explicit Password schema/backing-state comparison,
 without decrypting records or claiming an authoritative epoch. Source fingerprints
 are now schema 2; old bindings are not recalculated automatically. See
