@@ -188,6 +188,14 @@ Next provide historical binding provisioning and reviewed exact local outcome
 reconciliation before issuance/receipt/activation or runtime integration. See
 [PENDING_CSR_TRANSACTION.md](PENDING_CSR_TRANSACTION.md).
 
+Increment 91 adds a read-only exact-original review on a separately supplied fresh
+owned lease. It shares source/ACL/backing/binding policy, distinguishes authenticated
+exact/absent/conflict observations from failures, rechecks before rollback/close,
+and gates metadata on post-close visible checks. No automatic save/reseal/retry or
+historical-access bypass is added. Historical binding provisioning and independent
+source/key/epoch/tenant provenance still precede issuance/activation integration.
+See [PENDING_CSR_REVIEW.md](PENDING_CSR_REVIEW.md).
+
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |
 | Phase 1 | Local QR for supported Sales/POS documents | No Phase-2 API or production hash-chain mutation |

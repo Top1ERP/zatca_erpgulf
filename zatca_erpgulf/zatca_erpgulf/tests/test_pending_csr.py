@@ -298,3 +298,45 @@ def test_load_requires_exact_declared_revision_flow_and_time(sealed, cipher, cha
     with pytest.raises(pending.PendingCSRStorageError, match="^pending_csr_context$"):
         MariaDBPendingCSRRepository(connection, NAMESPACE, cipher).load(replace(sealed.manifest.context, **change))
     no_transaction_ownership(connection)
+
+
+@pytest.mark.parametrize("stored", ["absent", "exact", "resealed", "different-flow"])
+def test_repository_observation_is_select_only_and_requires_exact_ciphertext(sample, sealed, cipher, stored):
+    other = None
+    if stored != "absent":
+        draft = replace(sample, context=replace(sample.context, flow_id=OTHER)) if stored == "different-flow" else sample
+        other = sealed if stored == "exact" else cipher.seal(draft, storage_namespace=NAMESPACE, key_id="test-only-key")
+    row = None if other is None else record(other)
+    connection, cursor = database([(0,), row, (0,), row])
+    repository = MariaDBPendingCSRRepository(connection, NAMESPACE, cipher)
+    expected = "ABSENT_OBSERVED" if other is None else "EXACT_OBSERVED" if stored == "exact" else "CONFLICT_OBSERVED"
+    assert repository.observe(sealed) == expected
+    assert repository.observe(sealed) == expected  # Valid absence/conflict does not poison.
+    assert all(call.args[0].startswith("SELECT ") for call in cursor.execute.call_args_list)
+    no_transaction_ownership(connection)
+
+
+@pytest.mark.parametrize("fault", ["sql", "row", "tag", "autocommit", "input", "namespace"])
+def test_observation_never_turns_errors_into_absence_and_poisons_repository(sealed, cipher, fault):
+    row, original = record(sealed), sealed
+    if fault == "row":
+        row = ()
+    elif fault == "tag":
+        row = record(replace(sealed, ciphertext=sealed.ciphertext[:-1] + bytes([sealed.ciphertext[-1] ^ 1])))
+    elif fault == "input":
+        original = replace(sealed, ciphertext=sealed.ciphertext[:-1] + bytes([sealed.ciphertext[-1] ^ 1]))
+        row = None
+    elif fault == "namespace":
+        original = replace(sealed, storage_namespace=OTHER)
+    connection, cursor = database([(1 if fault == "autocommit" else 0,), row])
+    if fault == "sql":
+        cursor.execute.side_effect = RuntimeError("PRIVATE")
+    repository = MariaDBPendingCSRRepository(connection, NAMESPACE, cipher)
+    with pytest.raises(pending.PendingCSRStorageError) as error:
+        repository.observe(original)
+    assert error.value.__context__ is None and "PRIVATE" not in str(error.value)
+    count = cursor.execute.call_count
+    with pytest.raises(pending.PendingCSRStorageError, match="^pending_csr_transaction_unusable$"):
+        repository.observe(sealed)
+    assert cursor.execute.call_count == count
+    no_transaction_ownership(connection)

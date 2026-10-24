@@ -1,10 +1,11 @@
-"""Owned LOCAL pending-CSR save coordinator; no runtime/authority activation.
+"""Owned LOCAL pending-CSR save/review; no runtime/authority activation.
 
 The existing service still stages on caller-owned transactions. This optional
 server-only coordinator exclusively claims a fresh concrete provider lease,
 rechecks exact source/backing/binding/ciphertext before ONE commit, closes, and
-rechecks visible permissions/source before metadata disclosure. Checks observe
-state; they do not lock permission tables or establish a credential epoch.
+rechecks visible permissions/source before metadata disclosure. The optional
+read-only review shares these guards but rolls back/closes without a save or
+commit. Checks observe state; they do not lock permissions or prove an epoch.
 """
 
 import frappe
@@ -25,6 +26,15 @@ FAILED_MESSAGE = (
     "Pending ZATCA CSR storage completion could not be confirmed. Keep the original sealed draft. "
     "Review the local transaction before retrying; do not regenerate or resend automatically. "
     "No certificate was activated or request sent."
+)
+REVIEW_DENIED_MESSAGE = (
+    "You do not have permission to review pending ZATCA CSR storage. Keep the original sealed draft. "
+    "No draft was stored or replaced, certificate activated or request sent by this review."
+)
+REVIEW_FAILED_MESSAGE = (
+    "Pending ZATCA CSR storage review could not be confirmed. Keep the original sealed draft. "
+    "Do not regenerate, store again or resend automatically. "
+    "No draft was stored or replaced, certificate activated or request sent by this review."
 )
 
 
@@ -73,8 +83,22 @@ class PendingCSRStagingTransaction:
         A post-commit denial refuses success without undoing committed history.
         Cleanup tries both operations and preserves interruption priority.
         """
+        return self._run("save", company_abbr, source_identity, sealed)
+
+    def observe(self, company_abbr, source_identity, original):
+        """Read-only exact/absent/conflict observation on a NEW owned lease.
+
+        After unknown save completion, retain the original and separately supply
+        a fresh coordinator/lease. This call never invokes stage or commit and
+        never authorizes a retry, activation or authority call. Fresh source/ACL
+        drift fails closed; this is not historical binding discovery or proof of
+        a previous commit's outcome. Rollback/close must finish before disclosure.
+        """
+        return self._run("observe", company_abbr, source_identity, original)
+
+    def _run(self, operation, company_abbr, source_identity, sealed):
         entered, claimed = False, False
-        close_attempted, commit_returned = False, False
+        close_attempted, commit_returned, rollback_attempted = False, False, False
         result, failure, cleanup_failure = None, None, None
         try:
             if self._used:
@@ -90,24 +114,34 @@ class PendingCSRStagingTransaction:
                     return self._lease._acquire_for_transaction(scope, self._owner)
 
                 def complete(resources, locked_guard, current_guard, report):
-                    nonlocal close_attempted, commit_returned
+                    nonlocal close_attempted, commit_returned, rollback_attempted
                     if resources is not self._lease.resources:
                         raise PendingCSRTransactionError()
                     self._check_running()
                     locked_guard(resources.connection)
                     self._check_running()
-                    resources.connection.commit()
-                    commit_returned = True
+                    if operation == "save":
+                        resources.connection.commit()
+                        commit_returned = True
+                    else:
+                        rollback_attempted = True
+                        resources.connection.rollback()
                     close_attempted = True
                     resources.connection.close()
                     current_guard()  # No SQL/new connection after closure.
                     self._check_running()
                     result = dict(report)
-                    result.update(state="PENDING_CSR_TRANSACTION_COMPLETED_OBSERVATION", local_transaction_completed=True)
+                    if operation == "save":
+                        result.update(state="PENDING_CSR_TRANSACTION_COMPLETED_OBSERVATION", local_transaction_completed=True)
+                    else:
+                        result.update(state="PENDING_CSR_LOCAL_REVIEW_OBSERVATION", local_read_transaction_closed=True)
                     return result
 
                 policy = SavedPendingCSRService(self._scope, self._lookup, acquire)
-                result = policy._stage_for_commit(company_abbr, source_identity, sealed, complete)
+                if operation == "save":
+                    result = policy._stage_for_commit(company_abbr, source_identity, sealed, complete)
+                else:
+                    result = policy._observe_for_review(company_abbr, source_identity, sealed, complete)
                 self._check_running()
         except BaseException as error:
             failure = error
@@ -119,7 +153,7 @@ class PendingCSRStagingTransaction:
             if claimed and self._lease._state == "HANDED_OFF" and not close_attempted:
                 connection = self._lease.resources.connection
                 with mute_operation_messages(frappe):
-                    if not commit_returned:
+                    if not commit_returned and not rollback_attempted:
                         try:
                             connection.rollback()
                         except BaseException as error:
@@ -137,5 +171,7 @@ class PendingCSRStagingTransaction:
                 raise error
         denied = isinstance(failure, frappe.PermissionError)
         failure = cleanup_failure = error = None  # Do not retain private child exceptions in public error locals.
-        frappe.throw(_(DENIED_MESSAGE if denied else FAILED_MESSAGE),
+        message = ((DENIED_MESSAGE if denied else FAILED_MESSAGE) if operation == "save"
+                   else (REVIEW_DENIED_MESSAGE if denied else REVIEW_FAILED_MESSAGE))
+        frappe.throw(_(message),
                      frappe.PermissionError if denied else frappe.ValidationError)

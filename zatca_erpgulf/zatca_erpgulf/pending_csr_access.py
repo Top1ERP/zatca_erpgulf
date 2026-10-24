@@ -274,6 +274,12 @@ class SavedPendingCSRService:
         """Inspect one server-bound draft; no latest lookup or ciphertext export."""
         return self._execute("inspect", company_abbr, source_identity, draft_id)
 
+    def _observe_for_review(self, company_abbr, source_identity, original, completion):
+        """Protected read-only handoff; exact original input, no repair or replay."""
+        if not callable(completion):
+            raise PendingCSRAccessError()
+        return self._execute("observe", company_abbr, source_identity, original, completion=completion)
+
     def _execute(self, operation, company_abbr, identity, value, *, completion=None):
         entered = False
         try:
@@ -302,7 +308,9 @@ class SavedPendingCSRService:
 
     def _work(self, operation, company_abbr, identity, value, *, completion=None):
         actor = self._actor()
-        if operation == "stage":
+        if operation not in ("stage", "inspect", "observe"):
+            raise PendingCSRAccessError()
+        if operation in ("stage", "observe"):
             if type(value) is not SealedPendingCSR:
                 raise PendingCSRAccessError()
             value.__post_init__()
@@ -348,7 +356,7 @@ class SavedPendingCSRService:
                     or sealed.manifest_bytes != manifest.encode() or sealed.key_id != binding.key_id):
                 raise PendingCSRAccessError()
 
-        if operation == "stage":
+        if operation in ("stage", "observe"):
             check_envelope(value)
         recheck()
         resources = self._resources(self._scope)
@@ -370,8 +378,13 @@ class SavedPendingCSRService:
         check_password_state()
         recheck()
         repository = MariaDBPendingCSRRepository(resources.connection, self._scope.storage_namespace, resources.cipher)
-        sealed = repository.stage(value) if operation == "stage" else repository.load(context)
-        check_envelope(sealed)
+        observation = None
+        if operation == "observe":
+            observation = repository.observe(value)
+            sealed = value  # Never substitute conflicting stored ciphertext.
+        else:
+            sealed = repository.stage(value) if operation == "stage" else repository.load(context)
+            check_envelope(sealed)
         _verify_locked_rows(resources.connection, rows)
         check_password_state()
         recheck()
@@ -379,6 +392,8 @@ class SavedPendingCSRService:
         report.update(state="PENDING_CSR_STAGED_UNCOMMITTED" if operation == "stage" else "PENDING_CSR_INSPECTION_OBSERVATION",
                       current_source_match_observed=True, current_permissions_observed=True,
                       password_backing_state_match_observed=True)
+        if operation == "observe":
+            report.update(state="PENDING_CSR_REVIEW_UNCLOSED", envelope_observation=observation)
         if completion is not None:
             def binding_projection(selected):
                 if type(selected) is not PendingCSRSourceBinding:
@@ -402,7 +417,9 @@ class SavedPendingCSRService:
                 current_guard()
                 _verify_locked_rows(connection, rows)
                 check_password_state()
-                if repository.load(context) != sealed:
+                stable = (repository.observe(sealed) == observation if operation == "observe"
+                          else repository.load(context) == sealed)
+                if not stable:
                     raise PendingCSRAccessError()
                 _verify_locked_rows(connection, rows)
                 check_password_state()

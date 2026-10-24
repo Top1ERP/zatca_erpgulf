@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and ninety bounded increments (Compliance outcomes, dedicated
+Safety preparation and ninety-one bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -1936,6 +1936,31 @@ All nine Node VM scripts passed **1,444 cases**. Existing caller-owned transacti
 and provider behavior remain tested; no resource/ordinary-ACL/crypto/transport
 assertion was waived. Installed v15/v16, Desk/browser, SDK and authority acceptance
 remain unverified.
+
+## Increment 91: read-only exact-original pending outcome review
+
+- Review retained original ciphertext on a separately supplied fresh owned lease;
+  never stage, commit, reseal, discover latest, activate or request the authority.
+- Reuse saved-source/normal READ+WRITE ACL/backing/binding checks. Exact/absent/
+  conflict are bounded authenticated observations, not inferred from exceptions.
+  A resealed copy is a conflict even with identical plaintext; corrupt rows fail.
+- Recheck the classification before one rollback/close and current visible
+  permissions/source/binding before disclosure. Unknown cleanup, drift, reentry
+  and interruption withhold metadata without automatic cleanup/retry repetition.
+- Preserve English contract keys and one display-only translated failure. No new
+  runtime schema/provider/button/site/worker/customer/authority operation occurs.
+  Historical provisioning, independent provenance/epoch, conflict policy and
+  installed v15/v16 remain gates. See [PENDING_CSR_REVIEW.md](PENDING_CSR_REVIEW.md).
+
+Final guarded combined: **13,838 local + 1,925 private SQL = 15,763 passed in
+166.97 seconds**, across thirteen private suites, including **87 new cases**
+(67 local + 20 native SQL). The first local-only run passed **13,838 in 81.98
+seconds**. All nine Node VM scripts passed **1,444 cases**. Native tests extend
+actual commit-before/commit-after/close/late-denial cases with a separately owned
+exact-original read-only review, trap stage/commit during review, and verify that
+corruption, late test mutations and cleanup acknowledgment failures never produce
+a false observation or an unintended write. No guard was waived; installed
+v15/v16, Desk/browser, SDK and authority acceptance remain unverified.
 
 ## Verification
 

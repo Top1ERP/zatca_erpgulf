@@ -17,6 +17,7 @@ from zatca_erpgulf.zatca_erpgulf import primary_receipt_provider as local_sql
 from zatca_erpgulf.zatca_erpgulf.tests.test_pending_csr_access import access_case, Failed, Denied, PrivateFailure
 from zatca_erpgulf.zatca_erpgulf.tests.test_pending_csr_password_state import configure_password_case
 from zatca_erpgulf.zatca_erpgulf.tests.test_csr_draft import crypto, materials
+from zatca_erpgulf.zatca_erpgulf.tests.test_pending_csr import record
 
 
 def configure_transaction(case, monkeypatch):
@@ -315,3 +316,160 @@ def test_coordinator_repr_pickle_and_no_whitelist_transport_generation_or_schema
     source = inspect.getsource(transaction)
     for forbidden in ("@frappe.whitelist", "requests.", "CREATE TABLE", "generate_private_key", ".seal(", "get_site_config("):
         assert forbidden not in source
+
+
+def review(case):
+    return case.transaction.observe("TC", case.identity, case.original)
+
+
+def configure_observation(case, stored="exact"):
+    """Separate retained input from synthetic storage; never change runtime SQL."""
+    case.original = case.sealed
+    case.stored = (None if stored == "absent" else case.sealed if stored == "exact" else
+        case.cipher.seal(case.draft, storage_namespace=case.scope.storage_namespace, key_id="test-only-key"))
+    sql = case.cursor.execute.side_effect
+    def read_only(statement, parameters=()):
+        assert statement.startswith(("SELECT ", "SET SESSION ")), "Review must never stage/repair anything"
+        result = sql(statement, parameters)
+        if statement.startswith("SELECT slot_sha256"):
+            case.raw = None if case.stored is None else record(case.stored)
+        return result
+    case.cursor.execute.side_effect = read_only
+    return case
+
+
+@pytest.mark.parametrize("stored", ["absent", "exact", "conflict"])
+@pytest.mark.parametrize("kind", ["company", "multiple_setting"])
+@pytest.mark.parametrize("engine", ["v15", "v16"])
+@pytest.mark.parametrize("password", [False, True])
+def test_owned_review_returns_only_stable_observation_after_rollback_close_current_acl(transaction_case, stored, kind, engine, password):
+    case = configure_observation(transaction_case(kind, engine=engine, password=password), stored)
+    result = review(case)
+    assert result["state"] == "PENDING_CSR_LOCAL_REVIEW_OBSERVATION"
+    assert result["envelope_observation"] == {"absent": "ABSENT_OBSERVED", "exact": "EXACT_OBSERVED", "conflict": "CONFLICT_OBSERVED"}[stored]
+    assert result["local_read_transaction_closed"] is True and "local_transaction_completed" not in result
+    assert all(value is False for name, value in result.items() if name.endswith(("_verified", "_authorized", "_confirmed")))
+    assert case.lookup.call_count == 4
+    assert sum("SELECT slot_sha256" in call.args[0] for call in case.cursor.execute.call_args_list) == 2
+    assert "PRIVATE" not in json.dumps(result) and "TEST COMPANY" not in json.dumps(result)
+    case.database.commit.assert_not_called()
+    case.database.rollback.assert_called_once()
+    case.database.close.assert_called_once()
+    assert case.visible == []
+    no_parent_or_active_writes(case)
+    with pytest.raises(Failed):
+        save(case)  # Review cannot be followed by save on this consumed owner.
+    case.connect.assert_called_once()
+    case.database.commit.assert_not_called()
+
+
+@pytest.mark.parametrize("fault", ["permission", "revision", "binding", "password", "changed-observation"])
+@pytest.mark.parametrize("stored", ["absent", "exact", "conflict"])
+def test_review_final_guard_fails_closed_on_current_source_or_observation_drift(transaction_case, fault, stored):
+    case = configure_observation(transaction_case(password=True), stored)
+    original, calls = case.lookup.side_effect, []
+    def changed(*args):
+        selected = original(*args)
+        calls.append(True)
+        if len(calls) == 2:
+            if fault == "permission":
+                case.denied.add((case.target.doctype, case.target.name, "write"))
+            elif fault == "revision":
+                case.target.modified = "2026-10-24 11:00:01"
+            elif fault == "binding":
+                selected = replace(selected, password_state_sha256="0" * 64)
+            elif fault == "password":
+                case.password_records[(case.target.doctype, case.target.name)] = (("custom_basic_auth_from_csid", 1, "ENCRYPTED TEST ROTATED"),)
+            else:
+                case.stored = case.original if stored != "exact" else None
+        return selected
+    case.lookup.side_effect = changed
+    with pytest.raises(Denied if fault == "permission" else Failed) as error:
+        review(case)
+    assert error.value.__context__ is None and len(case.visible) == 1
+    case.database.commit.assert_not_called()
+    case.database.rollback.assert_called_once()
+    case.database.close.assert_called_once()
+
+
+@pytest.mark.parametrize("stage", ["lookup", "rollback", "close"])
+@pytest.mark.parametrize("stop", [None, KeyboardInterrupt, SystemExit, GeneratorExit])
+def test_review_uncertain_cleanup_and_interruptions_never_return_metadata_or_repeat_cleanup(transaction_case, stage, stop):
+    case = configure_observation(transaction_case())
+    original = stop("PRIVATE") if stop else PrivateFailure("PRIVATE")
+    if stage == "lookup":
+        lookup, calls = case.lookup.side_effect, []
+        def fail(*args):
+            calls.append(True)
+            if len(calls) == 2:
+                raise original
+            return lookup(*args)
+        case.lookup.side_effect = fail
+    else:
+        getattr(case.database, stage).side_effect = original
+    with pytest.raises(stop or Failed) as error:
+        review(case)
+    if stop:
+        assert error.value is original and case.visible == []
+    else:
+        assert error.value.__context__ is None and case.visible == [transaction.REVIEW_FAILED_MESSAGE]
+    case.database.commit.assert_not_called()
+    case.database.rollback.assert_called_once()
+    case.database.close.assert_called_once()
+
+
+@pytest.mark.parametrize("fault", ["permission", "revision", "binding"])
+def test_review_withholds_result_if_source_changes_after_rollback_or_close(transaction_case, fault):
+    case = configure_observation(transaction_case(), "absent")
+    def changed():
+        if fault == "permission":
+            case.denied.add((case.target.doctype, case.target.name, "write"))
+        elif fault == "revision":
+            case.target.modified = "2026-10-24 11:00:01"
+        else:
+            case.binding = replace(case.binding, source_rows_sha256="0" * 64)
+    case.database.close.side_effect = changed
+    with pytest.raises(Denied if fault == "permission" else Failed):
+        review(case)
+    case.database.commit.assert_not_called()
+    case.database.rollback.assert_called_once()
+    case.database.close.assert_called_once()
+
+
+@pytest.mark.parametrize("denied", [False, True])
+def test_review_arabic_single_display_english_keys_and_no_lookup_before_permission(transaction_case, denied):
+    case = configure_observation(transaction_case())
+    case.lang = "ar"
+    if denied:
+        case.denied.add((case.target.doctype, case.target.name, "read"))
+    else:
+        case.database.rollback.side_effect = lambda: case.runtime.throw("PRIVATE cleanup popup")
+    with pytest.raises(Denied if denied else Failed) as error:
+        review(case)
+    key = transaction.REVIEW_DENIED_MESSAGE if denied else transaction.REVIEW_FAILED_MESSAGE
+    assert key.isascii() and case.visible == [case.catalog[key]]
+    assert error.value.__context__ is None and "PRIVATE" not in str(error.value)
+    if denied:
+        case.lookup.assert_not_called()
+        case.connect.assert_not_called()
+    case.database.commit.assert_not_called()
+
+
+def test_swallowed_cross_operation_reentry_poisons_review_without_storage(transaction_case):
+    case = configure_observation(transaction_case())
+    lookup, calls = case.lookup.side_effect, []
+    def reenter(*args):
+        calls.append(True)
+        if len(calls) == 2:
+            try:
+                save(case)
+            except Failed:
+                pass
+        return lookup(*args)
+    case.lookup.side_effect = reenter
+    with pytest.raises(Failed):
+        review(case)
+    assert case.visible == [transaction.REVIEW_FAILED_MESSAGE]
+    case.database.commit.assert_not_called()
+    case.database.rollback.assert_called_once()
+    case.database.close.assert_called_once()

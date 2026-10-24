@@ -86,6 +86,29 @@ class MariaDBPendingCSRRepository:
         """Exact declared context only, not latest/owner/environment fallback."""
         return self._run_operation(self._load_context, context)
 
+    def observe(self, original):
+        """Compare retained ciphertext without inserting or returning stored data.
+
+        Absence is only an actual empty exact SELECT, never a caught SQL, key,
+        authentication or decoding failure. A different valid envelope is a
+        conflict, even when its decrypted material happens to be identical.
+        The caller owns rollback/close and must not treat absence as retry consent.
+        """
+        return self._run_operation(self._observe, original)
+
+    def _observe(self, original):
+        if type(original) is not SealedPendingCSR or original.storage_namespace != self._namespace:
+            raise PendingCSRStorageError("envelope")
+        original = SealedPendingCSR(original.storage_namespace, original.manifest_bytes,
+                                    original.key_id, original.nonce, original.ciphertext)
+        self._cipher.open(original)  # Validate the retained input even when absent.
+        with self._connection.cursor() as cursor:
+            self._transaction(cursor)
+            stored = self._load(cursor, original.manifest.context.draft_id, allow_missing=True)
+            if stored is None:
+                return "ABSENT_OBSERVED"
+            return "EXACT_OBSERVED" if stored == original else "CONFLICT_OBSERVED"
+
     def _load_context(self, context):
         valid = False
         try:
@@ -103,7 +126,7 @@ class MariaDBPendingCSRRepository:
                 raise PendingCSRStorageError("context")
             return sealed
 
-    def _load(self, cursor, draft_id, *, missing_code="missing"):
+    def _load(self, cursor, draft_id, *, missing_code="missing", allow_missing=False):
         cursor.execute(
             "SELECT slot_sha256,flow_id,SUBSTRING(manifest_bytes,1,%s),manifest_sha256,key_id,nonce,"
             "SUBSTRING(ciphertext,1,%s) FROM zatca_pending_csr_v1 "
@@ -112,6 +135,8 @@ class MariaDBPendingCSRRepository:
         )
         row = cursor.fetchone()
         if row is None:
+            if allow_missing:
+                return None
             raise PendingCSRStorageError(missing_code)
         if type(row) is not tuple or len(row) != 7:
             raise PendingCSRStorageError("row_format")

@@ -97,8 +97,10 @@ writers still require review. A reviewed new coordinator may redeliver the exact
 original envelope idempotently through the repository; this code never schedules
 that, creates new IDs/material, activates a certificate or authorizes HTTP retry.
 
-Next complete exact historical binding provisioning and reviewed unknown local
-outcome reconciliation before request/receipt/activation integration. Installed
+Increment 91 adds a separately owned [read-only exact-original local review](PENDING_CSR_REVIEW.md),
+not automatic redelivery or proof of a prior commit. Exact historical binding
+provisioning, independent provenance/epoch and reviewed conflict/absence policy
+remain necessary before request/receipt/activation integration. Installed
 ERPNext/Frappe 15/16, browser/Desk, SDK and remote acceptance remain unverified.
 Full development precedes separately approved fictional-Company rehearsal and
 adoption/cancellation or gradual active-client decisions. No live/tenant/authority

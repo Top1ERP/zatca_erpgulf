@@ -1037,3 +1037,26 @@ guard was relaxed. No live source/assets/config/schema/site/customer credential/
 worker/Bench or authority operation occurred. These observations are not atomic
 permission/history/epoch/provenance proof; installed v15/v16, binding provisioning,
 exact unknown-outcome reconciliation and issuance/activation remain gates.
+
+Increment91 adds a [read-only original-envelope review](PENDING_CSR_REVIEW.md)
+through a separately supplied fresh owned lease and the existing saved-source/
+normal-ACL/backing/binding policy. It never stages, commits, reseals or retries a
+save. Exact/absent/conflict are authenticated observations, not caught-error
+guesses. Classification is rechecked before one rollback/close; current visible
+source/permissions/binding are checked again before metadata disclosure. Failed
+cleanup, drift, interruption or reentry withholds the result without replay.
+
+Only existing fixed-manifest suites are extended; no guard or permission check is
+relaxed. The first local-only run passed **13,838 cases in 81.98 seconds**, adding
+67 cases. Final guarded combined: **13,838 local + 1,925 private SQL = 15,763
+passed in 166.97 seconds**, across thirteen private suites, including **87 new
+cases** (67 local + 20 native SQL). All nine Node VM scripts passed **1,444 cases**.
+Native tests additionally review real ambiguous-save visibility on a fresh lease,
+trap stage/commit during review, preserve exact/conflicting stored ciphertext,
+reject corrupt storage, roll back injected test mutations and withhold metadata
+after lost cleanup acknowledgments. No live source/assets/config/schema/site/customer
+credential/worker/Bench or authority operation occurs. Current observations do
+not establish historical provenance, durable absence, prior commit outcome or
+authorization to retry/issue/activate. Historical binding provisioning and
+independent key/source/tenant/epoch evidence remain gates, as do installed v15/v16,
+Desk/browser, SDK and authority acceptance.
