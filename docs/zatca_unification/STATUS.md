@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and ninety-one bounded increments (Compliance outcomes, dedicated
+Safety preparation and ninety-two bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -1961,6 +1961,34 @@ exact-original read-only review, trap stage/commit during review, and verify tha
 corruption, late test mutations and cleanup acknowledgment failures never produce
 a false observation or an unintended write. No guard was waived; installed
 v15/v16, Desk/browser, SDK and authority acceptance remain unverified.
+
+## Increment 92: immutable original source declaration and envelope pair
+
+- Preserve one copied canonical original source/backing/manifest/scope/key binding
+  linked to every exact original envelope field, using the same repository and
+  caller-owned transaction; no second source/ACL policy or runtime wiring.
+- Create only a new pair or accept a fully exact existing pair without rewriting.
+  Refuse unbound envelopes, orphan history and rebindings. Plain INSERTs prevent
+  adopting a competing envelope-only write after absent reads; any failure
+  requires the caller to roll back the whole transaction, not just one record.
+- Bound/revalidate exact stored metadata and authenticated envelope on lookup;
+  never infer history from current settings, choose latest or export raw material.
+  Existing service type/API and owned save/review behavior remain unchanged.
+- Add private-only rehearsal SQL and one reviewed fixed-manifest local suite.
+  No site/schema/provider/button/worker/customer/authority operation occurs.
+  Stored declarations/hashes are not independent provenance or authoritative
+  epochs. Initial permissioned provisioning and owned committed-lookup integration
+  remain gates. See [PENDING_CSR_SOURCE_HISTORY.md](PENDING_CSR_SOURCE_HISTORY.md).
+
+First local-only guarded run: **13,884 passed in 85.45 seconds**; nine Node VM
+scripts: **1,444 cases passed**. Final guarded combined: **13,884 local + 1,949
+private SQL = 15,833 passed in 168.92 seconds**, across thirteen private suites,
+including **70 new cases** (46 local + 24 native SQL). Native tests verify actual
+pair visibility/rollback, exact redelivery and immutable original settings/site,
+orphan/corruption rejection, partial readback failure, both isolation lock waits,
+a competing READ-COMMITTED envelope-only insertion race, and composition with
+the unchanged saved-source service. No guard was waived. Installed v15/v16,
+Desk/browser, SDK and authority acceptance remain unverified.
 
 ## Verification
 

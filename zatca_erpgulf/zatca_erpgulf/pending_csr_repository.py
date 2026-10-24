@@ -5,7 +5,13 @@ HTTP, clock, retry or credential migration. Every error poisons this handle:
 the caller must roll back its whole transaction and discard the repository.
 """
 
+import hashlib
+
 from zatca_erpgulf.zatca_erpgulf.csr_draft import CSRPreparationContext
+from zatca_erpgulf.zatca_erpgulf.credential_bundle_access import CredentialStorageScope
+from zatca_erpgulf.zatca_erpgulf.pending_csr_binding import (
+    MAX_BINDING_BYTES, PendingCSRBindingRecord, decode_binding_record,
+)
 from zatca_erpgulf.zatca_erpgulf.pending_csr import (
     MAX_MANIFEST_BYTES, MAX_PLAINTEXT_BYTES, PendingCSRCipher, PendingCSRStorageError,
     SealedPendingCSR, validate_namespace,
@@ -69,18 +75,103 @@ class MariaDBPendingCSRRepository:
         context = sealed.manifest.context
         with self._connection.cursor() as cursor:
             self._transaction(cursor)
-            cursor.execute(
-                "INSERT INTO zatca_pending_csr_v1 "
-                "(storage_namespace,draft_id,slot_sha256,flow_id,manifest_bytes,manifest_sha256,key_id,nonce,ciphertext) "
-                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) "
-                "ON DUPLICATE KEY UPDATE draft_id=draft_id",
-                (self._namespace, context.draft_id, context.slot.sha256, context.flow_id,
-                 sealed.manifest_bytes, sealed.manifest_sha256, sealed.key_id, sealed.nonce, sealed.ciphertext),
-            )
+            self._insert_envelope(cursor, sealed, redelivery=True)
             stored = self._load(cursor, context.draft_id, missing_code="identity_collision")
             if stored != sealed:
                 raise PendingCSRStorageError("draft_conflict")
             return stored
+
+    def _insert_envelope(self, cursor, sealed, *, redelivery):
+        context = sealed.manifest.context
+        cursor.execute(
+            "INSERT INTO zatca_pending_csr_v1 "
+            "(storage_namespace,draft_id,slot_sha256,flow_id,manifest_bytes,manifest_sha256,key_id,nonce,ciphertext) "
+            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+            + (" ON DUPLICATE KEY UPDATE draft_id=draft_id" if redelivery else ""),
+            (self._namespace, context.draft_id, context.slot.sha256, context.flow_id,
+             sealed.manifest_bytes, sealed.manifest_sha256, sealed.key_id, sealed.nonce, sealed.ciphertext),
+        )
+
+    def stage_bound(self, binding, original):
+        """Stage a NEW envelope/history pair or accept an existing EXACT pair.
+
+        Never backfill an unbound envelope or repair an orphan history row. A
+        race after absent reads must win a plain INSERT or fail, not silently
+        adopt another writer's envelope. Caller owns whole-transaction rollback.
+        This records supplied declarations, not saved-source/ACL provenance.
+        """
+        return self._run_operation(self._stage_bound, binding, original)
+
+    def _stage_bound(self, binding, original):
+        expected = PendingCSRBindingRecord.capture(binding, original)
+        if original.storage_namespace != self._namespace:
+            raise PendingCSRStorageError("binding")
+        original = SealedPendingCSR(original.storage_namespace, original.manifest_bytes,
+                                    original.key_id, original.nonce, original.ciphertext)
+        self._cipher.open(original)
+        context = expected.binding.manifest.context
+        with self._connection.cursor() as cursor:
+            self._transaction(cursor)
+            envelope = self._load(cursor, context.draft_id, allow_missing=True)
+            record = self._load_binding(cursor, context.draft_id, allow_missing=True)
+            if (envelope is None) != (record is None):
+                raise PendingCSRStorageError("binding_unpaired")
+            if envelope is None:
+                self._insert_envelope(cursor, original, redelivery=False)
+                encoded = expected.encode()
+                cursor.execute(
+                    "INSERT INTO zatca_pending_csr_source_binding_v1 "
+                    "(storage_namespace,draft_id,slot_sha256,flow_id,site,binding_bytes,binding_sha256,envelope_sha256) "
+                    "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                    (self._namespace, context.draft_id, context.slot.sha256, context.flow_id,
+                     expected.binding.scope.site, encoded, hashlib.sha256(encoded).hexdigest(), expected.envelope_sha256),
+                )
+                envelope = self._load(cursor, context.draft_id)
+                record = self._load_binding(cursor, context.draft_id)
+            if envelope != original or record.encode() != expected.encode() or not record.matches(envelope):
+                raise PendingCSRStorageError("binding_conflict")
+            return record.binding
+
+    def load_binding(self, scope, context):
+        """Load ONE exact paired declaration; no latest, backfill or public export."""
+        return self._run_operation(self._load_bound, scope, context)
+
+    def _load_bound(self, scope, context):
+        if type(scope) is not CredentialStorageScope or scope.storage_namespace != self._namespace:
+            raise PendingCSRStorageError("binding")
+        scope.__post_init__()
+        self._validate_context(context)
+        with self._connection.cursor() as cursor:
+            self._transaction(cursor)
+            envelope = self._load(cursor, context.draft_id)
+            record = self._load_binding(cursor, context.draft_id)
+            if record.binding.scope != scope or record.binding.manifest.context != context:
+                raise PendingCSRStorageError("context")
+            if not record.matches(envelope):
+                raise PendingCSRStorageError("binding_conflict")
+            return record.binding
+
+    def _load_binding(self, cursor, draft_id, *, allow_missing=False):
+        cursor.execute(
+            "SELECT slot_sha256,flow_id,site,SUBSTRING(binding_bytes,1,%s),binding_sha256,envelope_sha256 "
+            "FROM zatca_pending_csr_source_binding_v1 WHERE storage_namespace=%s AND draft_id=%s FOR UPDATE",
+            (MAX_BINDING_BYTES + 1, self._namespace, draft_id),
+        )
+        row = cursor.fetchone()
+        if row is None:
+            if allow_missing:
+                return None
+            raise PendingCSRStorageError("binding_missing")
+        if type(row) is not tuple or len(row) != 6:
+            raise PendingCSRStorageError("row_format")
+        slot, flow, site, encoded, fingerprint, envelope_fingerprint = row
+        record = decode_binding_record(encoded)
+        context = record.binding.manifest.context
+        if (record.binding.scope.storage_namespace != self._namespace or context.draft_id != draft_id
+                or context.slot.sha256 != slot or context.flow_id != flow or record.binding.scope.site != site
+                or hashlib.sha256(encoded).hexdigest() != fingerprint or record.envelope_sha256 != envelope_fingerprint):
+            raise PendingCSRStorageError("row_binding")
+        return record
 
     def load(self, context):
         """Exact declared context only, not latest/owner/environment fallback."""
@@ -109,7 +200,8 @@ class MariaDBPendingCSRRepository:
                 return "ABSENT_OBSERVED"
             return "EXACT_OBSERVED" if stored == original else "CONFLICT_OBSERVED"
 
-    def _load_context(self, context):
+    @staticmethod
+    def _validate_context(context):
         valid = False
         try:
             if type(context) is CSRPreparationContext:
@@ -119,6 +211,9 @@ class MariaDBPendingCSRRepository:
             pass
         if not valid:
             raise PendingCSRStorageError("context")
+
+    def _load_context(self, context):
+        self._validate_context(context)
         with self._connection.cursor() as cursor:
             self._transaction(cursor)
             sealed = self._load(cursor, context.draft_id)

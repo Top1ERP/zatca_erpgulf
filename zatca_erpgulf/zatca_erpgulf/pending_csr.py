@@ -25,7 +25,7 @@ SCHEMA_VERSION = 1
 MAX_MANIFEST_BYTES = 8192
 MAX_PLAINTEXT_BYTES = 256 * 1024
 FINGERPRINTS = ("public_key_sha256", "csr_der_sha256", "configuration_sha256")
-ERROR_CODES = frozenset("namespace key_id keyring key_unavailable manifest envelope encoding payload material authentication_failed cipher not_pickleable database_error autocommit missing row_format row_binding draft_conflict identity_collision transaction_unusable lock_timeout deadlock unique_conflict context".split())
+ERROR_CODES = frozenset("namespace key_id keyring key_unavailable manifest envelope encoding payload material authentication_failed cipher not_pickleable database_error autocommit missing row_format row_binding draft_conflict identity_collision transaction_unusable lock_timeout deadlock unique_conflict context binding binding_conflict binding_missing binding_unpaired".split())
 
 
 class PendingCSRStorageError(ValueError):

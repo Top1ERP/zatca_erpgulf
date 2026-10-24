@@ -18,12 +18,13 @@ from frappe.permissions import has_permission
 from .api_routing import ENVIRONMENT_FIELDS, resolve_api_route
 from .credential_bundle_access import CredentialStorageScope
 from .credential_write_access import CredentialWriteAccessError, load_credential_write_source
-from .issuance_candidate import _canonical_uuid, _fingerprint, _sha256
+from .issuance_candidate import _canonical_uuid, _fingerprint
 from .operation_messages import mute_operation_messages
 from .permission_compat import saved_row_has_permission
 from .pending_csr import (
-    PendingCSRCipher, PendingCSRManifest, SealedPendingCSR, _key_id, decode_pending_manifest,
+    PendingCSRCipher, SealedPendingCSR, _key_id,
 )
+from .pending_csr_binding import SOURCE_SCHEMA, PendingCSRAccessError, PendingCSRSourceBinding
 from .pending_csr_repository import MariaDBPendingCSRRepository
 from .pending_csr_password_state import (
     CREDENTIAL_FIELDS, TEXT_FIELD_TYPES, PasswordStateSource, capture_password_state,
@@ -48,13 +49,6 @@ REQUIRED_FIELDS = MappingProxyType({
 })
 MAX_FIELD_CHARS = 65536
 LINK_FLAG = "custom__use_company_certificate__keys"
-
-
-class PendingCSRAccessError(ValueError):
-    """Static internal failure only, not diagnostic/source/material export."""
-
-    def __init__(self):
-        super().__init__("pending_csr_access_unconfirmed")
 
 
 def _value(name, value):
@@ -117,35 +111,9 @@ class _PendingSourceRow:
 def _rows_sha256(rows):
     # This protected digest is only an observed local comparison, not authority
     # provenance or a public fingerprint of low-entropy settings/password masks.
-    return _fingerprint({"pending_csr_source_schema": 2, "rows": [
+    return _fingerprint({"pending_csr_source_schema": SOURCE_SCHEMA, "rows": [
         {"doctype": row.doctype, "name": row.name, "revision": row.revision,
          "fields": row.fields, "values": row.values, "password_fields": row.password_fields} for row in rows]})
-
-
-@dataclass(frozen=True, repr=False)
-class PendingCSRSourceBinding:
-    """Server lookup declaration, not independently verified historic evidence."""
-
-    scope: CredentialStorageScope
-    manifest: PendingCSRManifest
-    source_rows_sha256: str
-    key_id: str
-    password_state_sha256: str
-
-    def __post_init__(self):
-        if type(self.scope) is not CredentialStorageScope or type(self.manifest) is not PendingCSRManifest:
-            raise PendingCSRAccessError()
-        self.scope.__post_init__()
-        _sha256(self.source_rows_sha256, "pending_csr_access_source")
-        _sha256(self.password_state_sha256, "pending_csr_access_password_state")
-        _key_id(self.key_id)
-        object.__setattr__(self, "manifest", decode_pending_manifest(self.manifest.encode()))
-
-    def __repr__(self):
-        return "PendingCSRSourceBinding(<server-selected exact declaration>)"
-
-    def __reduce_ex__(self, protocol):
-        raise PendingCSRAccessError()
 
 
 @dataclass(frozen=True, repr=False)

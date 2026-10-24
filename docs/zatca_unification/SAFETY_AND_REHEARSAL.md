@@ -1060,3 +1060,33 @@ not establish historical provenance, durable absence, prior commit outcome or
 authorization to retry/issue/activate. Historical binding provisioning and
 independent key/source/tenant/epoch evidence remain gates, as do installed v15/v16,
 Desk/browser, SDK and authority acceptance.
+
+Increment92 adds [original source-binding/envelope pair storage](PENDING_CSR_SOURCE_HISTORY.md)
+in the existing caller-owned repository. One copied canonical declaration pins
+the original scope/manifest/key and source/backing hashes to every exact envelope
+field. Both records are staged in the same non-autocommit transaction, or a
+fully exact existing pair is observed without rewriting. Plain new INSERTs reject
+a competing envelope-only write after absent reads. Unbound envelopes, orphan
+history, new source/site bindings, corruption and mismatched ciphertext fail;
+there is no backfill, reconstruction or automatic legacy adoption.
+
+Only the reviewed local binding suite joins the fixed manifest. Its private-only
+DDL is installed by the already owned temporary TCP-disabled SQL fixture, never
+by an app hook/patch/installer. Existing service/coordinator/provider APIs are not
+switched or activated. The caller still owns full-transaction rollback after
+partial failure. Source hashes and unkeyed record digests preserve declarations,
+not independent history/source/ACL/epoch/tenant/key attestation or an append-only
+database privilege policy. Initial permissioned provisioning and owned committed
+lookup remain gates. No live source/assets/config/schema/site/customer credential,
+worker/Bench or authority operation occurs.
+
+First local-only guarded run: **13,884 passed in 85.45 seconds**, adding 46 local
+cases. Final guarded combined: **13,884 local + 1,949 private SQL = 15,833 passed
+in 168.92 seconds**, across thirteen private suites, including **70 new cases**
+(46 local + 24 native SQL). Native tests verify pair visibility/rollback, exact
+redelivery, immutable original declarations, orphan/corruption rejection, partial
+readback failure, READ-COMMITTED/REPEATABLE-READ lock waits, an actual competing
+unbound insert after absent reads, and shared saved-source policy composition.
+All nine Node VM scripts passed **1,444 cases**. No resource/ordinary-ACL/crypto/
+transport assertion was waived. Installed v15/v16, Desk/browser, SDK and authority
+acceptance remain unverified.

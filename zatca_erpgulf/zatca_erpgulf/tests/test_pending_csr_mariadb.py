@@ -24,6 +24,7 @@ from unittest.mock import Mock
 from zatca_erpgulf.zatca_erpgulf.tests.test_pending_csr_access import access_case, invoke, Denied, Failed
 from zatca_erpgulf.zatca_erpgulf.tests.test_pending_csr_password_state import configure_password_case
 from zatca_erpgulf.zatca_erpgulf.tests.test_pending_csr_transaction import configure_transaction
+from zatca_erpgulf.zatca_erpgulf.tests.test_pending_csr_binding import declaration
 
 
 pytestmark = pytest.mark.skipif(os.environ.get("ZATCA_RUN_ISOLATED_MARIADB") != "1",
@@ -36,12 +37,13 @@ def install_private_pending_schema(isolated_server):
     # no tenant/socket/host/config override or runtime schema installer exists.
     with pymysql.connect(unix_socket=isolated_server[0], user="root",
                          database="zatca_journal_rehearsal", autocommit=True) as connection:
-        schema = Path(__file__).resolve().parents[3] / "docs/zatca_unification/pending_csr_rehearsal.sql"
-        text = "\n".join(line for line in schema.read_text().splitlines() if not line.lstrip().startswith("--"))
         with connection.cursor() as cursor:
-            for statement in text.split(";"):
-                if statement.strip():
-                    cursor.execute(statement)
+            for name in ("pending_csr_rehearsal.sql", "pending_csr_source_binding_rehearsal.sql"):
+                schema = Path(__file__).resolve().parents[3] / "docs/zatca_unification" / name
+                text = "\n".join(line for line in schema.read_text().splitlines() if not line.lstrip().startswith("--"))
+                for statement in text.split(";"):
+                    if statement.strip():
+                        cursor.execute(statement)
             cursor.execute("CREATE TABLE pending_csr_parent_work (namespace CHAR(36) PRIMARY KEY,payload LONGTEXT) ENGINE=InnoDB")
 
 
@@ -909,3 +911,169 @@ def test_owned_native_review_cleanup_acknowledgment_failure_withholds_result_wit
     assert error.value.__context__ is None and len(attempted) == 1
     assert case.visible == [transaction.REVIEW_FAILED_MESSAGE]
     assert case.lease.resources.connection.closed and pending_count(connections(), case) == 0
+
+
+def source_binding_count(connection, namespace):
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT COUNT(*) FROM zatca_pending_csr_source_binding_v1 WHERE storage_namespace=%s", (namespace,))
+        return cursor.fetchone()[0]
+
+
+@pytest.mark.parametrize("commit", [False, True])
+def test_native_original_binding_and_envelope_share_caller_commit_or_rollback(connections, custody, commit):
+    case = custody
+    binding, writer, observer = declaration(case.envelope), connections(), connections()
+    assert repository(writer, case).stage_bound(binding, case.envelope) == binding
+    assert count(observer, "zatca_pending_csr_v1", case.namespace) == source_binding_count(observer, case.namespace) == 0
+    writer.commit() if commit else writer.rollback()
+    observer.rollback()
+    assert count(observer, "zatca_pending_csr_v1", case.namespace) == source_binding_count(observer, case.namespace) == int(commit)
+    if commit:
+        assert repository(observer, case).load_binding(binding.scope, case.draft.context) == binding
+        observer.rollback()
+        assert repository(writer, case).stage_bound(binding, case.envelope) == binding
+        writer.rollback()  # Exact pair redelivery does not require any rewrite.
+
+
+@pytest.mark.parametrize("field", ["source_rows_sha256", "password_state_sha256", "scope"])
+def test_native_committed_original_binding_cannot_be_rewritten(connections, custody, field):
+    case = custody
+    binding, writer = declaration(case.envelope), connections()
+    repository(writer, case).stage_bound(binding, case.envelope)
+    writer.commit()
+    changed = replace(binding, **{field: replace(binding.scope, site="another.test") if field == "scope" else "3" * 64})
+    with pytest.raises(pending.PendingCSRStorageError, match="^pending_csr_binding_conflict$"):
+        repository(writer, case).stage_bound(changed, case.envelope)
+    writer.rollback()
+    assert repository(writer, case).load_binding(binding.scope, case.draft.context) == binding
+    writer.rollback()
+
+
+@pytest.mark.parametrize("half", ["envelope", "history"])
+def test_native_unpaired_history_or_envelope_is_never_adopted_or_repaired(connections, custody, half):
+    case = custody
+    binding, writer = declaration(case.envelope), connections()
+    if half == "envelope":
+        repository(writer, case).stage(case.envelope)
+    else:
+        repository(writer, case).stage_bound(binding, case.envelope)
+        with writer.cursor() as cursor:
+            cursor.execute("DELETE FROM zatca_pending_csr_v1 WHERE storage_namespace=%s", (case.namespace,))
+    writer.commit()  # Deliberately incomplete fictional fixture only.
+    with pytest.raises(pending.PendingCSRStorageError, match="^pending_csr_binding_unpaired$"):
+        repository(writer, case).stage_bound(binding, case.envelope)
+    writer.rollback()
+    assert source_binding_count(writer, case.namespace) == int(half == "history")
+    assert count(writer, "zatca_pending_csr_v1", case.namespace) == int(half == "envelope")
+    writer.rollback()
+
+
+@pytest.mark.parametrize("field", ["slot_sha256", "flow_id", "site", "binding_bytes", "binding_sha256", "envelope_sha256"])
+def test_native_history_corruption_is_rejected_without_reconstruction(connections, custody, field):
+    case = custody
+    binding, writer = declaration(case.envelope), connections()
+    repository(writer, case).stage_bound(binding, case.envelope)
+    value = b"PRIVATE" if field == "binding_bytes" else "PRIVATE"
+    with writer.cursor() as cursor:
+        cursor.execute("UPDATE zatca_pending_csr_source_binding_v1 SET " + field + "=%s WHERE storage_namespace=%s", (value, case.namespace))
+    writer.commit()  # Owned synthetic row only.
+    with pytest.raises(pending.PendingCSRStorageError) as error:
+        repository(writer, case).load_binding(binding.scope, case.draft.context)
+    assert error.value.__context__ is None and "PRIVATE" not in str(error.value)
+    writer.rollback()
+    assert source_binding_count(writer, case.namespace) == 1
+    writer.rollback()
+
+
+def test_native_pair_readback_failure_leaves_whole_transaction_for_caller_rollback(connections, custody, monkeypatch):
+    case = custody
+    binding, writer, observer = declaration(case.envelope), connections(), connections()
+    repo = repository(writer, case)
+    original, calls = repo._load_binding, []
+    def fail(*args, **kwargs):
+        calls.append(True)
+        if len(calls) == 2:
+            raise RuntimeError("PRIVATE readback failure")
+        return original(*args, **kwargs)
+    monkeypatch.setattr(repo, "_load_binding", fail)
+    with pytest.raises(pending.PendingCSRStorageError, match="^pending_csr_database_error$") as error:
+        repo.stage_bound(binding, case.envelope)
+    assert error.value.__context__ is None
+    assert count(writer, "zatca_pending_csr_v1", case.namespace) == source_binding_count(writer, case.namespace) == 1
+    assert count(observer, "zatca_pending_csr_v1", case.namespace) == source_binding_count(observer, case.namespace) == 0
+    writer.rollback()
+    observer.rollback()
+    assert count(observer, "zatca_pending_csr_v1", case.namespace) == source_binding_count(observer, case.namespace) == 0
+
+
+@pytest.mark.parametrize("isolation", ["READ COMMITTED", "REPEATABLE READ"])
+def test_native_pair_lock_timeout_fails_without_backfill_and_requires_fresh_caller_decision(connections, custody, isolation):
+    case = custody
+    binding, writer, contender = declaration(case.envelope), connections(), connections(isolation)
+    repository(writer, case).stage_bound(binding, case.envelope)
+    handle = repository(contender, case)
+    with pytest.raises(pending.PendingCSRStorageError, match="^pending_csr_lock_timeout$"):
+        handle.stage_bound(binding, case.envelope)
+    contender.rollback()
+    writer.commit()
+    assert repository(contender, case).load_binding(binding.scope, case.draft.context) == binding
+    contender.rollback()
+
+
+def test_native_absent_read_race_cannot_backfill_a_competing_unbound_insert(connections, custody, monkeypatch):
+    case = custody
+    binding, writer, competitor = declaration(case.envelope), connections("READ COMMITTED"), connections()
+    repo = repository(writer, case)
+    original = repo._insert_envelope
+    def raced(cursor, sealed, *, redelivery):
+        assert redelivery is False
+        repository(competitor, case).stage(case.envelope)
+        competitor.commit()  # Injected competing TEST writer, after both absent reads.
+        original(cursor, sealed, redelivery=redelivery)
+    monkeypatch.setattr(repo, "_insert_envelope", raced)
+    with pytest.raises(pending.PendingCSRStorageError, match="^pending_csr_unique_conflict$"):
+        repo.stage_bound(binding, case.envelope)
+    writer.rollback()
+    assert count(writer, "zatca_pending_csr_v1", case.namespace) == 1
+    assert source_binding_count(writer, case.namespace) == 0
+    writer.rollback()
+
+
+@pytest.mark.parametrize("kind", ["company", "multiple_setting"])
+@pytest.mark.parametrize("operation", ["stage", "inspect"])
+def test_native_saved_source_service_can_consume_exact_stored_binding_without_new_access_policy(private_access_schema, access_case, connections, kind, operation):
+    case = private_access_case(access_case, connections, kind)
+    repo = MariaDBPendingCSRRepository(case.writer, case.scope.storage_namespace, case.cipher)
+    repo.stage_bound(case.binding, case.sealed)
+    case.writer.commit()  # Explicit TEST-only provisioning, no runtime integration.
+    def lookup(scope, doctype, name, draft_id):
+        assert (doctype, name, draft_id) == (case.target.doctype, case.target.name, case.draft.context.draft_id)
+        return repo.load_binding(scope, case.draft.context)
+    case.lookup.side_effect = lookup
+    report = invoke(case, operation)
+    assert report["storage_confirmed"] is False and report["current_permissions_observed"] is True
+    case.writer.rollback()
+
+
+@pytest.mark.parametrize("fault", ["revision", "source", "password"])
+def test_native_stored_binding_is_not_recalculated_from_changed_current_source(private_access_schema, access_case, connections, fault):
+    case = private_access_case(access_case, connections, "company")
+    repo = MariaDBPendingCSRRepository(case.writer, case.scope.storage_namespace, case.cipher)
+    repo.stage_bound(case.binding, case.sealed)
+    case.writer.commit()
+    original_binding = case.binding
+    if fault == "revision":
+        case.company.modified = "2026-10-24 11:00:01"
+    elif fault == "source":
+        case.company.custom_csr_config += "\n"
+    else:
+        with case.writer.cursor() as cursor:
+            cursor.execute("INSERT INTO `__Auth` VALUES (%s,%s,%s,%s,%s)",
+                (case.target.doctype, case.target.name, "custom_basic_auth_from_csid", "ENCRYPTED TEST ORPHAN", 1))
+        case.writer.commit()
+    case.lookup.side_effect = lambda *args: repo.load_binding(case.scope, case.draft.context)
+    with pytest.raises(Failed):
+        invoke(case, "inspect")
+    case.writer.rollback()
+    assert MariaDBPendingCSRRepository(case.writer, case.scope.storage_namespace, case.cipher).load_binding(case.scope, case.draft.context) == original_binding
+    case.writer.rollback()

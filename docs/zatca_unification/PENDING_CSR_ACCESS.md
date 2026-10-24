@@ -2,6 +2,11 @@
 
 ## Internal boundary, not runtime adoption
 
+Increment 92 preserves the same binding/error types via reexports from a shared
+codec and adds optional [exact original source-history storage](PENDING_CSR_SOURCE_HISTORY.md).
+No existing lookup/provider is automatically replaced; source/ACL/provenance and
+owned committed-lookup integration remain gates.
+
 Increment 90 adds a protected completion handoff used only by an optional
 [owned transaction coordinator](PENDING_CSR_TRANSACTION.md). Ordinary `stage` and
 `inspect` still own no commit/rollback/close and return observations only; there

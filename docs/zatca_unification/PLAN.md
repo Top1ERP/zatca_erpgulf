@@ -196,6 +196,14 @@ historical-access bypass is added. Historical binding provisioning and independe
 source/key/epoch/tenant provenance still precede issuance/activation integration.
 See [PENDING_CSR_REVIEW.md](PENDING_CSR_REVIEW.md).
 
+Increment 92 adds immutable exact original-source declaration/envelope pair storage
+in the existing caller-owned repository, with canonical bounded lookup and no
+automatic legacy backfill/rebinding. New pairs require plain INSERTs; exact
+existing pairs require no rewrite. Historical preservation is not source/ACL/
+epoch attestation. Next review initial permissioned binding provisioning and
+owned committed-lookup integration before issuance/activation; no runtime caller
+is switched. See [PENDING_CSR_SOURCE_HISTORY.md](PENDING_CSR_SOURCE_HISTORY.md).
+
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |
 | Phase 1 | Local QR for supported Sales/POS documents | No Phase-2 API or production hash-chain mutation |
