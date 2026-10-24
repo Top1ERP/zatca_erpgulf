@@ -1090,3 +1090,36 @@ unbound insert after absent reads, and shared saved-source policy composition.
 All nine Node VM scripts passed **1,444 cases**. No resource/ordinary-ACL/crypto/
 transport assertion was waived. Installed v15/v16, Desk/browser, SDK and authority
 acceptance remain unverified.
+
+Increment93 adds [permissioned initial capture and owned new-pair completion](PENDING_CSR_INITIAL_CAPTURE.md)
+through the existing saved-source/normal-ACL/backing engine and exclusively owned
+provider/coordinator. No historical lookup, placeholder backing digest or supplied
+original-source hash is used for initial capture. Manifest/source/scope/key checks
+precede acquisition; locked source and opaque backing observations precede new
+binding construction. Initial creation refuses every existing identity, even an
+exact pair, rather than recapturing history or retrying an uncertain operation.
+
+Caller-owned staging remains uncommitted. Owned completion reloads the captured
+binding and original envelope and rechecks source/backing/normal permissions before
+one commit/close, then checks current visible source/permissions before disclosure.
+It never borrows a closed lookup connection, claims rollback undoes a durable
+commit, retries unknown outcomes or activates credentials. Shared reentry/cleanup/
+interruption and single-popup/display-only Arabic behavior remain. English keys
+are preserved; no raw private diagnostic or new log/export is added.
+
+Only the reviewed local creation suite joins the fixed manifest; native cases
+extend the existing owned temporary TCP-disabled SQL suite. No live app/source/
+assets/config/schema/site/customer credential/worker/Bench or authority operation
+occurs, and no resource/ordinary-ACL/crypto/transport guard is relaxed. The first
+local-only run passed **13,941 in 83.53 seconds**, including 57 new local cases;
+all nine Node VM scripts passed **1,444 cases**. Final guarded combined:
+**13,941 local + 1,974 private SQL = 15,915 passed in 188.19 seconds**, across
+thirteen private suites, including **82 new cases** (57 local + 25 native SQL).
+Native tests verify source-bound initial pair commits, caller-owned visibility/
+rollback/commit, preexisting/orphan refusal, source/backing/history/envelope/
+permission drift rollback and preservation of both rows after actual commit
+ambiguity/late denial. Every new creation test traps historical lookup. These
+observations are not independent source/key/tenant/epoch
+provenance, atomic permissions or committed-history attestation. Separately owned
+committed-pair review, installed v15/v16, Desk/browser, SDK and authority acceptance
+remain gates before any issuance/activation/runtime adoption.

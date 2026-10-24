@@ -2,6 +2,11 @@
 
 ## Delivered boundary
 
+Increment 93 adds [shared permissioned initial capture and owned completion](PENDING_CSR_INITIAL_CAPTURE.md)
+using the new strict `create_bound` mode. It never consults historical lookup or
+adopts an existing identity. Existing low-level pair APIs below remain unchanged;
+no runtime provider/button/schema is installed.
+
 `MariaDBPendingCSRRepository.stage_bound(binding, original)` stages a **new exact
 envelope and its original supplied source declaration in the same caller-owned
 transaction**. `load_binding(scope, context)` loads only that exact authenticated

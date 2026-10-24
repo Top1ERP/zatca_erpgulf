@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and ninety-two bounded increments (Compliance outcomes, dedicated
+Safety preparation and ninety-three bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -1988,6 +1988,35 @@ pair visibility/rollback, exact redelivery and immutable original settings/site,
 orphan/corruption rejection, partial readback failure, both isolation lock waits,
 a competing READ-COMMITTED envelope-only insertion race, and composition with
 the unchanged saved-source service. No guard was waived. Installed v15/v16,
+Desk/browser, SDK and authority acceptance remain unverified.
+
+## Increment 93: permissioned initial source capture with owned pair save
+
+- Capture a new original binding from shared normal saved-source READ+WRITE/
+  related-READ policy and same-transaction locked source/opaque backing state,
+  without historical lookup or placeholder/source-hash inputs. Preserve existing
+  metadata-only public contracts; no second authorization/storage/cleanup policy.
+- Stage only a completely new pair. Refuse existing exact pairs and unbound/orphan
+  identities rather than recreating history or retrying an uncertain save. Keep
+  caller-owned staging uncommitted and optional owned completion single-use.
+- Recheck captured binding/backing/original ciphertext and current source/ACLs
+  before one commit/close, then visible source/permissions before disclosure;
+  never borrow a closed lookup connection or undo already committed history.
+- Reuse one redacted display-only translated failure with English contract keys.
+  Add only fixed-manifest synthetic and existing owned-private SQL tests; no
+  schema/provider/button/site/worker/customer/authority operation. Independent
+  source/key/tenant/epoch provenance and committed-pair review remain gates. See
+  [PENDING_CSR_INITIAL_CAPTURE.md](PENDING_CSR_INITIAL_CAPTURE.md).
+
+Local-only guarded run: **13,941 passed in 83.53 seconds**; all nine Node VM
+scripts: **1,444 cases passed**. Final guarded combined: **13,941 local + 1,974
+private SQL = 15,915 passed in 188.19 seconds**, across thirteen private suites,
+including **82 new cases** (57 local + 25 native SQL). Native tests verify actual
+initial source-bound pair commits, caller-owned visibility/commit/rollback,
+existing/orphan identity refusal, pre-commit source/backing/history/envelope/
+permission drift rollback, and both-record commit-before/commit-after/close/late
+denial outcomes. Historical lookup is trapped in every new creation path. No
+resource/ordinary-ACL/crypto/transport assertion was waived; installed v15/v16,
 Desk/browser, SDK and authority acceptance remain unverified.
 
 ## Verification

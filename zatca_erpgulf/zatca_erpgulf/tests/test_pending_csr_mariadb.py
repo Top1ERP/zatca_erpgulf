@@ -1077,3 +1077,141 @@ def test_native_stored_binding_is_not_recalculated_from_changed_current_source(p
     case.writer.rollback()
     assert MariaDBPendingCSRRepository(case.writer, case.scope.storage_namespace, case.cipher).load_binding(case.scope, case.draft.context) == original_binding
     case.writer.rollback()
+
+
+@pytest.mark.parametrize("kind", ["company", "multiple_setting"])
+@pytest.mark.parametrize("password", [False, True])
+def test_native_owned_initial_capture_commits_exact_source_and_envelope_without_historical_lookup(pinned_case, connections, monkeypatch, kind, password):
+    case = password_native_case(pinned_case, connections, kind) if password else pinned_case(kind)
+    configure_transaction(case, monkeypatch)
+    case.lookup.side_effect = AssertionError("Initial capture must not consult historical lookup")
+    expected = case.binding
+    report = case.transaction.create_bound("TC", case.identity, case.sealed)
+    assert report["state"] == "PENDING_CSR_BOUND_TRANSACTION_COMPLETED_OBSERVATION"
+    assert report["local_transaction_completed"] is True and report["storage_confirmed"] is False
+    assert case.lease.resources.connection.closed and case.visible == []
+    case.lookup.assert_not_called()
+    observer = connections()
+    assert pending_count(observer, case) == source_binding_count(observer, case.scope.storage_namespace) == 1
+    repo = MariaDBPendingCSRRepository(observer, case.scope.storage_namespace, case.cipher)
+    assert repo.load_binding(case.scope, case.draft.context) == expected
+    assert repo.load(case.draft.context) == case.sealed
+    observer.rollback()
+    for doc in case.documents.values():
+        doc.save.assert_not_called()
+        doc.db_set.assert_not_called()
+
+
+@pytest.mark.parametrize("kind", ["company", "multiple_setting"])
+@pytest.mark.parametrize("commit", [False, True])
+def test_native_initial_stage_leaves_both_records_and_transaction_decision_to_explicit_caller(pinned_case, connections, kind, commit):
+    case = pinned_case(kind)
+    case.lookup.side_effect = AssertionError("No original binding is required before initial capture")
+    report = case.service.stage_new_bound("TC", case.identity, case.sealed)
+    assert report["state"] == "PENDING_CSR_BOUND_CREATION_UNCOMMITTED"
+    owned, observer = case.lease.resources.connection, connections()
+    assert pending_count(observer, case) == source_binding_count(observer, case.scope.storage_namespace) == 0
+    assert not owned.closed
+    owned.commit() if commit else owned.rollback()  # Explicit TEST caller decision.
+    owned.close()
+    observer.rollback()
+    assert pending_count(observer, case) == source_binding_count(observer, case.scope.storage_namespace) == int(commit)
+    case.lookup.assert_not_called()
+
+
+@pytest.mark.parametrize("existing", ["pair", "envelope", "history"])
+def test_native_initial_capture_never_backfills_or_recaptures_preexisting_identity(pinned_case, connections, monkeypatch, existing):
+    case = pinned_case()
+    repo = MariaDBPendingCSRRepository(case.writer, case.scope.storage_namespace, case.cipher)
+    if existing == "envelope":
+        repo.stage(case.sealed)
+    else:
+        repo.stage_bound(case.binding, case.sealed)
+        if existing == "history":
+            with case.writer.cursor() as cursor:
+                cursor.execute("DELETE FROM zatca_pending_csr_v1 WHERE storage_namespace=%s", (case.scope.storage_namespace,))
+    case.writer.commit()  # Exact fictional TEST setup only.
+    configure_transaction(case, monkeypatch)
+    case.lookup.side_effect = AssertionError("Never reconstruct history via initial lookup")
+    with pytest.raises(Failed) as error:
+        case.transaction.create_bound("TC", case.identity, case.sealed)
+    assert error.value.__context__ is None and case.lease.resources.connection.closed
+    observer = connections()
+    assert pending_count(observer, case) == int(existing != "history")
+    assert source_binding_count(observer, case.scope.storage_namespace) == int(existing != "envelope")
+    observer.rollback()
+    case.lookup.assert_not_called()
+
+
+@pytest.mark.parametrize("kind", ["company", "multiple_setting"])
+@pytest.mark.parametrize("fault", ["source", "password", "history", "envelope", "permission"])
+def test_native_initial_precommit_guard_rolls_back_both_records_and_test_mutations(pinned_case, connections, monkeypatch, kind, fault):
+    case = password_native_case(pinned_case, connections, kind)
+    configure_transaction(case, monkeypatch)
+    case.lookup.side_effect = AssertionError("Initial capture must not use history")
+    original, calls = access._verify_locked_rows, []
+    def change(connection, rows):
+        original(connection, rows)
+        calls.append(True)
+        if len(calls) == 2:
+            with connection.cursor() as cursor:
+                if fault == "source":
+                    cursor.execute("UPDATE `tab" + case.target.doctype + "` SET modified=%s WHERE name=%s",
+                        ("2026-10-24 11:00:01", case.target.name))
+                elif fault == "password":
+                    cursor.execute("UPDATE `__Auth` SET password=%s WHERE doctype=%s AND name=%s AND fieldname=%s",
+                        ("ENCRYPTED TEST ROTATED", case.target.doctype, case.target.name, "custom_basic_auth_from_csid"))
+                elif fault == "history":
+                    cursor.execute("UPDATE zatca_pending_csr_source_binding_v1 SET binding_sha256=%s WHERE storage_namespace=%s",
+                        ("0" * 64, case.scope.storage_namespace))
+                elif fault == "envelope":
+                    changed = case.cipher.seal(case.draft, storage_namespace=case.scope.storage_namespace, key_id="test-only-key")
+                    cursor.execute("UPDATE zatca_pending_csr_v1 SET nonce=%s,ciphertext=%s WHERE storage_namespace=%s",
+                        (changed.nonce, changed.ciphertext, case.scope.storage_namespace))
+                else:
+                    case.denied.add((case.target.doctype, case.target.name, "write"))
+    monkeypatch.setattr(access, "_verify_locked_rows", change)
+    with pytest.raises(Denied if fault == "permission" else Failed) as error:
+        case.transaction.create_bound("TC", case.identity, case.sealed)
+    assert error.value.__context__ is None and case.lease.resources.connection.closed
+    observer = connections()
+    assert pending_count(observer, case) == source_binding_count(observer, case.scope.storage_namespace) == 0
+    with observer.cursor() as cursor:
+        cursor.execute("SELECT password FROM `__Auth` WHERE doctype=%s AND name=%s AND fieldname=%s",
+            (case.target.doctype, case.target.name, "custom_basic_auth_from_csid"))
+        assert cursor.fetchone() == ("ENCRYPTED TEST ORIGINAL",)
+    observer.rollback()
+    case.lookup.assert_not_called()
+
+
+@pytest.mark.parametrize("fault", ["commit-before", "commit-after", "close-after", "late-denial"])
+def test_native_initial_unknown_commit_or_late_denial_preserves_both_committed_rows_without_replay(pinned_case, connections, monkeypatch, fault):
+    case = pinned_case()
+    configure_transaction(case, monkeypatch)
+    case.lookup.side_effect = AssertionError("No historical lookup during initial save")
+    original, calls, attempts = access._verify_locked_rows, [], []
+    def inject(connection, rows):
+        original(connection, rows)
+        calls.append(True)
+        if len(calls) == 2:
+            raw = connection._raw  # Exact newly owned TEST handle only.
+            method = "close" if fault == "close-after" else "commit"
+            selected = getattr(raw, method)
+            def fail():
+                attempts.append(True)
+                if fault != "commit-before":
+                    selected()
+                if fault == "late-denial":
+                    case.denied.add((case.target.doctype, case.target.name, "write"))
+                    return
+                raise RuntimeError("PRIVATE initial completion acknowledgment lost")
+            monkeypatch.setattr(raw, method, fail)
+    monkeypatch.setattr(access, "_verify_locked_rows", inject)
+    with pytest.raises(Denied if fault == "late-denial" else Failed) as error:
+        case.transaction.create_bound("TC", case.identity, case.sealed)
+    assert error.value.__context__ is None and len(attempts) == 1
+    assert case.lease.resources.connection.closed and len(case.visible) == 1
+    observer = connections()
+    assert pending_count(observer, case) == source_binding_count(observer, case.scope.storage_namespace) == int(fault != "commit-before")
+    observer.rollback()
+    case.lookup.assert_not_called()

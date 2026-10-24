@@ -100,9 +100,13 @@ class MariaDBPendingCSRRepository:
         adopt another writer's envelope. Caller owns whole-transaction rollback.
         This records supplied declarations, not saved-source/ACL provenance.
         """
-        return self._run_operation(self._stage_bound, binding, original)
+        return self._run_operation(self._stage_bound, binding, original, False)
 
-    def _stage_bound(self, binding, original):
+    def create_bound(self, binding, original):
+        """Initial capture only: never recapture even an exact existing pair."""
+        return self._run_operation(self._stage_bound, binding, original, True)
+
+    def _stage_bound(self, binding, original, require_new):
         expected = PendingCSRBindingRecord.capture(binding, original)
         if original.storage_namespace != self._namespace:
             raise PendingCSRStorageError("binding")
@@ -116,6 +120,8 @@ class MariaDBPendingCSRRepository:
             record = self._load_binding(cursor, context.draft_id, allow_missing=True)
             if (envelope is None) != (record is None):
                 raise PendingCSRStorageError("binding_unpaired")
+            if require_new and envelope is not None:
+                raise PendingCSRStorageError("binding_exists")
             if envelope is None:
                 self._insert_envelope(cursor, original, redelivery=False)
                 encoded = expected.encode()

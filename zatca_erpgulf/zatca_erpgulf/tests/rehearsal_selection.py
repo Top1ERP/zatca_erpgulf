@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "pending_csr_creation",
     "pending_csr_binding",
     "pending_csr_transaction",
     "pending_csr_password_state",

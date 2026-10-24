@@ -228,6 +228,21 @@ class SavedPendingCSRService:
         """Stage exact retained ciphertext; no commit, reseal or plaintext return."""
         return self._execute("stage", company_abbr, source_identity, sealed)
 
+    def stage_new_bound(self, company_abbr, source_identity, sealed):
+        """Capture current authorized/locked source state and stage a NEW pair.
+
+        No historical lookup is invoked or invented. Existing pairs and unbound
+        drafts are refused; retry/recovery is a separate reviewed operation.
+        Caller owns the entire transaction, including rollback after failure.
+        """
+        return self._execute("create_bound", company_abbr, source_identity, sealed)
+
+    def _create_bound_for_commit(self, company_abbr, source_identity, sealed, completion):
+        """Protected initial-capture handoff to the same owned coordinator."""
+        if not callable(completion):
+            raise PendingCSRAccessError()
+        return self._execute("create_bound", company_abbr, source_identity, sealed, completion=completion)
+
     def _stage_for_commit(self, company_abbr, source_identity, sealed, completion):
         """Protected owned-coordinator handoff only; never expose through RPC.
 
@@ -276,9 +291,10 @@ class SavedPendingCSRService:
 
     def _work(self, operation, company_abbr, identity, value, *, completion=None):
         actor = self._actor()
-        if operation not in ("stage", "inspect", "observe"):
+        initial = operation == "create_bound"
+        if operation not in ("stage", "inspect", "observe", "create_bound"):
             raise PendingCSRAccessError()
-        if operation in ("stage", "observe"):
+        if operation in ("stage", "observe", "create_bound"):
             if type(value) is not SealedPendingCSR:
                 raise PendingCSRAccessError()
             value.__post_init__()
@@ -301,16 +317,22 @@ class SavedPendingCSRService:
                 raise PendingCSRAccessError()
 
         recheck()
-        binding = self._lookup(self._scope, target.doctype, target.name, draft_id)
-        if type(binding) is not PendingCSRSourceBinding:
-            raise PendingCSRAccessError()
-        binding.__post_init__()
-        # Snapshot primitive fields, not a provider-owned object's mutable view.
-        binding = PendingCSRSourceBinding(binding.scope, binding.manifest, binding.source_rows_sha256,
-                                         binding.key_id, binding.password_state_sha256)
-        manifest, context = binding.manifest, binding.manifest.context
-        if (binding.scope != self._scope or binding.source_rows_sha256 != _rows_sha256(rows)
-                or context.draft_id != draft_id or context.slot.owner_doctype != target.doctype
+        binding = None
+        if initial:
+            manifest, key_id = value.manifest, value.key_id
+        else:
+            binding = self._lookup(self._scope, target.doctype, target.name, draft_id)
+            if type(binding) is not PendingCSRSourceBinding:
+                raise PendingCSRAccessError()
+            binding.__post_init__()
+            # Snapshot primitives, not a provider-owned mutable interpretation.
+            binding = PendingCSRSourceBinding(binding.scope, binding.manifest, binding.source_rows_sha256,
+                                             binding.key_id, binding.password_state_sha256)
+            if binding.scope != self._scope or binding.source_rows_sha256 != _rows_sha256(rows):
+                raise PendingCSRAccessError()
+            manifest, key_id = binding.manifest, binding.key_id
+        context = manifest.context
+        if (context.draft_id != draft_id or context.slot.owner_doctype != target.doctype
                 or context.slot.owner_name != target.name or context.company_name != company.name
                 or context.source_kind != ("company" if target.doctype == "Company" else "multiple_setting")
                 or saved_form_revision(context.source_revision) != saved_form_revision(target.revision)
@@ -321,23 +343,30 @@ class SavedPendingCSRService:
 
         def check_envelope(sealed):
             if (type(sealed) is not SealedPendingCSR or sealed.storage_namespace != self._scope.storage_namespace
-                    or sealed.manifest_bytes != manifest.encode() or sealed.key_id != binding.key_id):
+                    or sealed.manifest_bytes != manifest.encode() or sealed.key_id != key_id):
                 raise PendingCSRAccessError()
 
-        if operation in ("stage", "observe"):
+        if operation in ("stage", "observe", "create_bound"):
             check_envelope(value)
         recheck()
         resources = self._resources(self._scope)
         if type(resources) is not PendingCSRResources:
             raise PendingCSRAccessError()
         resources.__post_init__()
-        if resources.scope != self._scope or resources.key_id != binding.key_id:
+        if resources.scope != self._scope or resources.key_id != key_id:
             raise PendingCSRAccessError()
         if resources.connection is frappe.db or resources.connection is getattr(frappe.db, "_conn", None):
             raise PendingCSRAccessError()
         recheck()
         _verify_locked_rows(resources.connection, rows)
         password_sources = tuple(PasswordStateSource(row.doctype, row.name, row.password_fields) for row in rows)
+        if initial:
+            # Capture backing bytes only AFTER normal ACLs, scoped acquisition
+            # and same-transaction locked source checks. Never use a placeholder
+            # digest or recalculate a historical binding from today's settings.
+            password_digest = capture_password_state(resources.connection, self._scope.storage_namespace, password_sources)
+            recheck()
+            binding = PendingCSRSourceBinding(self._scope, manifest, _rows_sha256(rows), key_id, password_digest)
 
         def check_password_state():
             if capture_password_state(resources.connection, self._scope.storage_namespace, password_sources) != binding.password_state_sha256:
@@ -347,7 +376,13 @@ class SavedPendingCSRService:
         recheck()
         repository = MariaDBPendingCSRRepository(resources.connection, self._scope.storage_namespace, resources.cipher)
         observation = None
-        if operation == "observe":
+        if initial:
+            if repository.create_bound(binding, value) != binding:
+                raise PendingCSRAccessError()
+            if repository.load_binding(self._scope, context) != binding:
+                raise PendingCSRAccessError()
+            sealed = value
+        elif operation == "observe":
             observation = repository.observe(value)
             sealed = value  # Never substitute conflicting stored ciphertext.
         else:
@@ -362,6 +397,8 @@ class SavedPendingCSRService:
                       password_backing_state_match_observed=True)
         if operation == "observe":
             report.update(state="PENDING_CSR_REVIEW_UNCLOSED", envelope_observation=observation)
+        if initial:
+            report.update(state="PENDING_CSR_BOUND_CREATION_UNCOMMITTED", original_source_binding_observed=True)
         if completion is not None:
             def binding_projection(selected):
                 if type(selected) is not PendingCSRSourceBinding:
@@ -374,9 +411,10 @@ class SavedPendingCSRService:
 
             def current_guard():
                 recheck()
-                selected = self._lookup(self._scope, target.doctype, target.name, draft_id)
-                if binding_projection(selected) != expected_binding:
-                    raise PendingCSRAccessError()
+                if not initial:
+                    selected = self._lookup(self._scope, target.doctype, target.name, draft_id)
+                    if binding_projection(selected) != expected_binding:
+                        raise PendingCSRAccessError()
                 recheck()
 
             def locked_guard(connection):
@@ -385,6 +423,8 @@ class SavedPendingCSRService:
                 current_guard()
                 _verify_locked_rows(connection, rows)
                 check_password_state()
+                if initial and binding_projection(repository.load_binding(self._scope, context)) != expected_binding:
+                    raise PendingCSRAccessError()
                 stable = (repository.observe(sealed) == observation if operation == "observe"
                           else repository.load(context) == sealed)
                 if not stable:

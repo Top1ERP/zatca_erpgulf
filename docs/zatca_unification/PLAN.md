@@ -204,6 +204,15 @@ epoch attestation. Next review initial permissioned binding provisioning and
 owned committed-lookup integration before issuance/activation; no runtime caller
 is switched. See [PENDING_CSR_SOURCE_HISTORY.md](PENDING_CSR_SOURCE_HISTORY.md).
 
+Increment 93 adds initial binding capture through the shared saved-source/normal
+ACL/backing engine and optional owned single-commit pair save. No historical
+lookup is invoked for NEW creation; existing identities are refused rather than
+recaptured or retried. Same-transaction captured binding/envelope/source/backing
+guards precede commit; post-close visible checks gate metadata, not committed
+history. Existing APIs remain and no runtime caller/provider/schema is enabled.
+Next review separately owned committed-pair lookup and provenance/epoch before
+issuance/activation. See [PENDING_CSR_INITIAL_CAPTURE.md](PENDING_CSR_INITIAL_CAPTURE.md).
+
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |
 | Phase 1 | Local QR for supported Sales/POS documents | No Phase-2 API or production hash-chain mutation |

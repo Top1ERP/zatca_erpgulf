@@ -96,7 +96,17 @@ class PendingCSRStagingTransaction:
         """
         return self._run("observe", company_abbr, source_identity, original)
 
+    def create_bound(self, company_abbr, source_identity, original):
+        """Capture authorized current source state and commit ONE new pair.
+
+        Uses no historical lookup; existing draft IDs are refused even if exact.
+        This is initial local custody, not credential activation or issuance.
+        Retain the original on every unknown outcome; do not replay this method.
+        """
+        return self._run("create_bound", company_abbr, source_identity, original)
+
     def _run(self, operation, company_abbr, source_identity, sealed):
+        writing = operation in ("save", "create_bound")
         entered, claimed = False, False
         close_attempted, commit_returned, rollback_attempted = False, False, False
         result, failure, cleanup_failure = None, None, None
@@ -120,7 +130,7 @@ class PendingCSRStagingTransaction:
                     self._check_running()
                     locked_guard(resources.connection)
                     self._check_running()
-                    if operation == "save":
+                    if writing:
                         resources.connection.commit()
                         commit_returned = True
                     else:
@@ -131,8 +141,9 @@ class PendingCSRStagingTransaction:
                     current_guard()  # No SQL/new connection after closure.
                     self._check_running()
                     result = dict(report)
-                    if operation == "save":
-                        result.update(state="PENDING_CSR_TRANSACTION_COMPLETED_OBSERVATION", local_transaction_completed=True)
+                    if writing:
+                        result.update(state=("PENDING_CSR_BOUND_TRANSACTION_COMPLETED_OBSERVATION" if operation == "create_bound"
+                                             else "PENDING_CSR_TRANSACTION_COMPLETED_OBSERVATION"), local_transaction_completed=True)
                     else:
                         result.update(state="PENDING_CSR_LOCAL_REVIEW_OBSERVATION", local_read_transaction_closed=True)
                     return result
@@ -140,6 +151,8 @@ class PendingCSRStagingTransaction:
                 policy = SavedPendingCSRService(self._scope, self._lookup, acquire)
                 if operation == "save":
                     result = policy._stage_for_commit(company_abbr, source_identity, sealed, complete)
+                elif operation == "create_bound":
+                    result = policy._create_bound_for_commit(company_abbr, source_identity, sealed, complete)
                 else:
                     result = policy._observe_for_review(company_abbr, source_identity, sealed, complete)
                 self._check_running()
@@ -171,7 +184,7 @@ class PendingCSRStagingTransaction:
                 raise error
         denied = isinstance(failure, frappe.PermissionError)
         failure = cleanup_failure = error = None  # Do not retain private child exceptions in public error locals.
-        message = ((DENIED_MESSAGE if denied else FAILED_MESSAGE) if operation == "save"
+        message = ((DENIED_MESSAGE if denied else FAILED_MESSAGE) if writing
                    else (REVIEW_DENIED_MESSAGE if denied else REVIEW_FAILED_MESSAGE))
         frappe.throw(_(message),
                      frappe.PermissionError if denied else frappe.ValidationError)
