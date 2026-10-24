@@ -105,6 +105,15 @@ class PendingCSRStagingTransaction:
         """
         return self._run("create_bound", company_abbr, source_identity, original)
 
+    def observe_bound(self, company_abbr, source_identity, original):
+        """Review a retained original and stored pair on a NEW owned lease.
+
+        No external historical lookup or binding recapture. Missing, half and
+        conflicting pairs convey no historical source/backing match or consent
+        to save again. Rollback/close and current access checks gate disclosure.
+        """
+        return self._run("observe_bound", company_abbr, source_identity, original)
+
     def _run(self, operation, company_abbr, source_identity, sealed):
         writing = operation in ("save", "create_bound")
         entered, claimed = False, False
@@ -145,7 +154,8 @@ class PendingCSRStagingTransaction:
                         result.update(state=("PENDING_CSR_BOUND_TRANSACTION_COMPLETED_OBSERVATION" if operation == "create_bound"
                                              else "PENDING_CSR_TRANSACTION_COMPLETED_OBSERVATION"), local_transaction_completed=True)
                     else:
-                        result.update(state="PENDING_CSR_LOCAL_REVIEW_OBSERVATION", local_read_transaction_closed=True)
+                        result.update(state=("PENDING_CSR_BOUND_REVIEW_OBSERVATION" if operation == "observe_bound"
+                                             else "PENDING_CSR_LOCAL_REVIEW_OBSERVATION"), local_read_transaction_closed=True)
                     return result
 
                 policy = SavedPendingCSRService(self._scope, self._lookup, acquire)
@@ -153,6 +163,8 @@ class PendingCSRStagingTransaction:
                     result = policy._stage_for_commit(company_abbr, source_identity, sealed, complete)
                 elif operation == "create_bound":
                     result = policy._create_bound_for_commit(company_abbr, source_identity, sealed, complete)
+                elif operation == "observe_bound":
+                    result = policy._observe_bound_for_review(company_abbr, source_identity, sealed, complete)
                 else:
                     result = policy._observe_for_review(company_abbr, source_identity, sealed, complete)
                 self._check_running()

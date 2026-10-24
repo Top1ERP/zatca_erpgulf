@@ -2,6 +2,10 @@
 
 ## Purpose and ownership
 
+Increment 94 adds a separate [owned source-binding pair review](PENDING_CSR_BOUND_REVIEW.md)
+which reads stored history only through its new owned lease and never invents
+missing historical agreement. The envelope-only API below is not replaced.
+
 `PendingCSRStagingTransaction.observe` reviews an independently retained original
 sealed draft on a **separately supplied fresh owned lease**. It does not call
 `save`, `stage`, `commit`, key/CSR generation, resealing, activation or HTTP. It is

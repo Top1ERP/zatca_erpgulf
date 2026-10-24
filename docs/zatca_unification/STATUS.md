@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and ninety-three bounded increments (Compliance outcomes, dedicated
+Safety preparation and ninety-four bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2018,6 +2018,35 @@ permission drift rollback, and both-record commit-before/commit-after/close/late
 denial outcomes. Historical lookup is trapped in every new creation path. No
 resource/ordinary-ACL/crypto/transport assertion was waived; installed v15/v16,
 Desk/browser, SDK and authority acceptance remain unverified.
+
+## Increment 94: owned exact-original pair review without historical recapture
+
+- Review original envelope/source-binding pair on one separately supplied fresh
+  owned lease, sharing source/normal-ACL/provider/backing/cleanup policy. No
+  external historical lookup, SQL write, recapture, reseal, retry or authority call.
+- Distinguish authenticated exact/absent/envelope-only/binding-only/valid-conflict
+  observations. Corrupt/inconsistent pairs and SQL faults remain unconfirmed,
+  never inferred absence. Only an exact pair yields its restricted original
+  declaration for comparison with current source and opaque backing state.
+- For other states, retain no adopted historical binding: report historical
+  agreement false and observe current backing stability only. Recheck the pair
+  before one rollback/close and current visible source/permissions before metadata
+  disclosure. No closed borrowed lookup, raw material/hash export or undo claim.
+- Extend only fixed-manifest synthetic/owned-private SQL tests; no live source/
+  schema/provider/button/site/worker/customer/authority operation. Independent
+  source/key/tenant/epoch provenance and protected draft intake remain gates. See
+  [PENDING_CSR_BOUND_REVIEW.md](PENDING_CSR_BOUND_REVIEW.md).
+
+Local-only guarded run: **14,024 passed in 85.55 seconds**; all nine Node VM
+scripts: **1,444 cases passed**. Final guarded combined: **14,024 local + 2,006
+private SQL = 16,030 passed in 174.79 seconds**, across thirteen private suites,
+including **115 new cases** (83 local + 32 native SQL). Four existing native
+initial-save ambiguity/late-denial cases now review the same original through a
+new lease. Native tests trap all staging/commit during pair review and verify the
+five observations, corruption/source/backing refusal, classification drift rollback
+and cleanup acknowledgment loss. No resource/ordinary-ACL/crypto/transport guard
+was waived. Installed v15/v16, Desk/browser, SDK and authority acceptance remain
+unverified.
 
 ## Verification
 

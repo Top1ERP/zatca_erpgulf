@@ -1123,3 +1123,40 @@ observations are not independent source/key/tenant/epoch
 provenance, atomic permissions or committed-history attestation. Separately owned
 committed-pair review, installed v15/v16, Desk/browser, SDK and authority acceptance
 remain gates before any issuance/activation/runtime adoption.
+
+Increment94 adds [separately owned exact-original pair review](PENDING_CSR_BOUND_REVIEW.md)
+through the existing normal source/ACL/provider/backing/cleanup engine. It reads
+stored history only through its newly owned lease, not an external callback or
+borrowed closed connection. The authenticated retained original is compared with
+bounded exact pair rows. Exact/absent/envelope-only/binding-only/valid-conflict
+observations are distinct; corruption, inconsistent pairs and SQL faults remain
+unconfirmed. Only an exact pair yields its restricted original declaration for
+current source/backing comparison. Other states adopt NO historical binding and
+report historical agreement false, observing current backing stability only.
+
+The pair classification and exact binding, if any, are rechecked under the same
+read transaction before one rollback/close; current visible source/normal access
+are checked before metadata disclosure. No staging, commit, historical recapture,
+repair, replacement, retry or activation is authorized. Shared cleanup/interruption/
+reentry and single-popup/display-only Arabic behavior remain, with English keys
+and no raw binding/digest/material/driver export. Existing creation/envelope-only
+review APIs are preserved. No schema/provider/button/site/customer credential/
+worker/Bench/live or authority operation occurs.
+
+Only the reviewed local pair-review suite joins the fixed manifest; native cases
+extend the existing owned temporary TCP-disabled SQL suite and four actual initial
+save ambiguity/late-denial cases now use a separately supplied fresh review lease.
+All runtime staging methods and commit are trapped during native pair review, as
+is external lookup. Local-only guarded: **14,024 passed in 85.55 seconds**,
+including 83 new local cases. All nine Node VM scripts passed **1,444 cases**.
+Final guarded combined: **14,024 local + 2,006 private SQL = 16,030 passed in
+174.79 seconds**, across thirteen private suites, including **115 new cases**
+(83 local + 32 native SQL). Four existing native unknown initial-save/late-denial
+cases additionally exercise new owned pair review. Native tests verify the five
+states without staging/commit, corrupt/inconsistent pair and original source/
+backing drift refusal, classification-change rollback and uncertain cleanup.
+No resource/ordinary-ACL/crypto/transport assertion was waived. Present
+observations are not prior-commit proof,
+permanent absence, atomic permissions, historical provenance or a credential epoch.
+Protected draft intake, independent source/key/tenant/epoch evidence and installed
+v15/v16/Desk/browser/SDK/authority acceptance remain gates before adoption.

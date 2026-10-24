@@ -2,6 +2,11 @@
 
 ## Purpose and non-activation
 
+Increment 94 adds [owned exact-original pair review](PENDING_CSR_BOUND_REVIEW.md)
+after unknown completion, with no external historical lookup, recapture or retry.
+Initial creation and existing envelope-only review APIs remain unchanged; no
+runtime provider/button/schema is activated.
+
 `SavedPendingCSRService.stage_new_bound` captures the original source declaration
 from current authorized/locked observations and stages a **new envelope/history
 pair**. `PendingCSRStagingTransaction.create_bound` optionally completes that

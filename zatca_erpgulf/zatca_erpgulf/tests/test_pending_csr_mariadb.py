@@ -25,6 +25,7 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_pending_csr_access import access_cas
 from zatca_erpgulf.zatca_erpgulf.tests.test_pending_csr_password_state import configure_password_case
 from zatca_erpgulf.zatca_erpgulf.tests.test_pending_csr_transaction import configure_transaction
 from zatca_erpgulf.zatca_erpgulf.tests.test_pending_csr_binding import declaration
+from zatca_erpgulf.zatca_erpgulf.tests.test_pending_csr_bound_review import STATES
 
 
 pytestmark = pytest.mark.skipif(os.environ.get("ZATCA_RUN_ISOLATED_MARIADB") != "1",
@@ -1215,3 +1216,166 @@ def test_native_initial_unknown_commit_or_late_denial_preserves_both_committed_r
     assert pending_count(observer, case) == source_binding_count(observer, case.scope.storage_namespace) == int(fault != "commit-before")
     observer.rollback()
     case.lookup.assert_not_called()
+    # Restore only this fictional test ACL, then explicitly provide a NEW lease.
+    # Runtime review never repairs permissions or retries the original save.
+    case.denied.clear()
+    fresh_owned_bound_review(case, monkeypatch)
+    result = case.transaction.observe_bound("TC", case.identity, case.sealed)
+    assert result["pair_observation"] == ("PAIR_ABSENT_OBSERVED" if fault == "commit-before" else "PAIR_EXACT_OBSERVED")
+    assert result["original_source_binding_observed"] is (fault != "commit-before")
+    assert case.lease.resources.connection.closed and result["storage_confirmed"] is False
+
+
+def fresh_owned_bound_review(case, monkeypatch):
+    """New fixture-owned lease and hard traps for all runtime staging/commit."""
+    case.lease = pinned.UnixPendingCSRResourceProvider(case.database_binding, case.login, case.storage_keys)
+    case.lookup.side_effect = AssertionError("Pair review must read history only through its owned lease")
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Read-only pair review must never stage, recapture or commit")
+    for operation in ("stage", "stage_bound", "create_bound"):
+        monkeypatch.setattr(MariaDBPendingCSRRepository, operation, forbidden)
+    monkeypatch.setattr(pinned._OwnedPendingCSRConnection, "commit", forbidden)
+    configure_transaction(case, monkeypatch)
+
+
+def provision_pair_review(case, state):
+    """Exact synthetic fixture setup only, before review traps are installed."""
+    stored = (case.cipher.seal(case.draft, storage_namespace=case.scope.storage_namespace,
+                              key_id="test-only-key") if state == "conflict" else case.sealed)
+    repo = MariaDBPendingCSRRepository(case.writer, case.scope.storage_namespace, case.cipher)
+    if state == "envelope":
+        repo.stage(stored)
+    elif state != "absent":
+        repo.stage_bound(case.binding, stored)
+        if state == "history":
+            with case.writer.cursor() as cursor:
+                cursor.execute("DELETE FROM zatca_pending_csr_v1 WHERE storage_namespace=%s", (case.scope.storage_namespace,))
+    case.writer.commit()  # Only fictional fixture records, never runtime repair.
+    return stored
+
+
+@pytest.mark.parametrize("state", STATES)
+@pytest.mark.parametrize("kind", ["company", "multiple_setting"])
+@pytest.mark.parametrize("password", [False, True])
+def test_native_owned_bound_review_reads_only_exact_original_pair_history_and_closes_without_writes(pinned_case, connections, monkeypatch, state, kind, password):
+    case = password_native_case(pinned_case, connections, kind) if password else pinned_case(kind)
+    stored = provision_pair_review(case, state)
+    fresh_owned_bound_review(case, monkeypatch)
+    result = case.transaction.observe_bound("TC", case.identity, case.sealed)
+    assert result["state"] == "PENDING_CSR_BOUND_REVIEW_OBSERVATION" and result["pair_observation"] == STATES[state]
+    assert result["original_source_binding_observed"] is (state == "exact")
+    assert result["password_backing_state_match_observed"] is (state == "exact")
+    assert result["current_password_backing_stable_observed"] is True and result["storage_confirmed"] is False
+    assert case.lease.resources.connection.closed and case.visible == []
+    case.lookup.assert_not_called()
+    observer = connections()
+    assert pending_count(observer, case) == int(state not in ("absent", "history"))
+    assert source_binding_count(observer, case.scope.storage_namespace) == int(state not in ("absent", "envelope"))
+    if state not in ("absent", "history"):
+        assert MariaDBPendingCSRRepository(observer, case.scope.storage_namespace, case.cipher).load(case.draft.context) == stored
+    observer.rollback()
+
+
+@pytest.mark.parametrize("fault", ["history", "authentication", "pair-mismatch"])
+def test_native_bound_review_corruption_is_unconfirmed_not_absent_half_or_conflict(pinned_case, connections, monkeypatch, fault):
+    case = pinned_case()
+    provision_pair_review(case, "exact")
+    with case.writer.cursor() as cursor:
+        if fault == "history":
+            cursor.execute("UPDATE zatca_pending_csr_source_binding_v1 SET binding_sha256=%s WHERE storage_namespace=%s",
+                           ("0" * 64, case.scope.storage_namespace))
+        else:
+            if fault == "authentication":
+                nonce = case.sealed.nonce
+                payload = case.sealed.ciphertext[:-1] + bytes([case.sealed.ciphertext[-1] ^ 1])
+            else:
+                changed = case.cipher.seal(case.draft, storage_namespace=case.scope.storage_namespace, key_id="test-only-key")
+                nonce, payload = changed.nonce, changed.ciphertext
+            cursor.execute("UPDATE zatca_pending_csr_v1 SET nonce=%s,ciphertext=%s WHERE storage_namespace=%s",
+                           (nonce, payload, case.scope.storage_namespace))
+    case.writer.commit()  # Deliberately damaged fictional fixture only.
+    fresh_owned_bound_review(case, monkeypatch)
+    with pytest.raises(Failed) as error:
+        case.transaction.observe_bound("TC", case.identity, case.sealed)
+    assert error.value.__context__ is None and case.visible == [transaction.REVIEW_FAILED_MESSAGE]
+    assert case.lease.resources.connection.closed
+    observer = connections()
+    assert pending_count(observer, case) == source_binding_count(observer, case.scope.storage_namespace) == 1
+    observer.rollback()
+
+
+@pytest.mark.parametrize("fault", ["source", "password"])
+def test_native_exact_bound_review_requires_original_source_backing_match_without_recalculating_history(pinned_case, connections, monkeypatch, fault):
+    case = password_native_case(pinned_case, connections)
+    provision_pair_review(case, "exact")
+    with case.writer.cursor() as cursor:
+        if fault == "source":
+            case.company.tax_id = "CHANGED TEST VAT"
+            cursor.execute("UPDATE `tabCompany` SET tax_id=%s WHERE name=%s", (case.company.tax_id, case.company.name))
+        else:
+            cursor.execute("UPDATE `__Auth` SET password=%s WHERE doctype=%s AND name=%s AND fieldname=%s",
+                ("ENCRYPTED TEST ROTATED", case.target.doctype, case.target.name, "custom_basic_auth_from_csid"))
+    case.writer.commit()  # Existing fictional state changed BEFORE review.
+    fresh_owned_bound_review(case, monkeypatch)
+    with pytest.raises(Failed) as error:
+        case.transaction.observe_bound("TC", case.identity, case.sealed)
+    assert error.value.__context__ is None and case.lease.resources.connection.closed
+    observer = connections()
+    assert MariaDBPendingCSRRepository(observer, case.scope.storage_namespace, case.cipher).load_binding(case.scope, case.draft.context) == case.binding
+    observer.rollback()
+
+
+@pytest.mark.parametrize("state", STATES)
+def test_native_bound_review_rechecks_pair_classification_and_rolls_back_injected_test_changes(pinned_case, connections, monkeypatch, state):
+    case = pinned_case()
+    provision_pair_review(case, state)
+    fresh_owned_bound_review(case, monkeypatch)
+    original, calls = access._verify_locked_rows, []
+    def change(connection, rows):
+        original(connection, rows)
+        calls.append(True)
+        if len(calls) == 2:
+            with connection.cursor() as cursor:
+                if state == "absent":
+                    sealed, context = case.sealed, case.draft.context
+                    cursor.execute("INSERT INTO zatca_pending_csr_v1 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                        (case.scope.storage_namespace, context.draft_id, context.slot.sha256, context.flow_id,
+                         sealed.manifest_bytes, sealed.manifest_sha256, sealed.key_id, sealed.nonce, sealed.ciphertext))
+                else:
+                    cursor.execute("DELETE FROM zatca_pending_csr_source_binding_v1 WHERE storage_namespace=%s", (case.scope.storage_namespace,))
+                    cursor.execute("DELETE FROM zatca_pending_csr_v1 WHERE storage_namespace=%s", (case.scope.storage_namespace,))
+    monkeypatch.setattr(access, "_verify_locked_rows", change)
+    with pytest.raises(Failed):
+        case.transaction.observe_bound("TC", case.identity, case.sealed)
+    assert case.lease.resources.connection.closed
+    observer = connections()
+    assert pending_count(observer, case) == int(state not in ("absent", "history"))
+    assert source_binding_count(observer, case.scope.storage_namespace) == int(state not in ("absent", "envelope"))
+    observer.rollback()
+
+
+@pytest.mark.parametrize("operation", ["rollback", "close"])
+def test_native_bound_review_cleanup_acknowledgment_loss_withholds_metadata_without_repetition(pinned_case, connections, monkeypatch, operation):
+    case = pinned_case()
+    provision_pair_review(case, "exact")
+    fresh_owned_bound_review(case, monkeypatch)
+    original, calls, attempts = access._verify_locked_rows, [], []
+    def inject(connection, rows):
+        original(connection, rows)
+        calls.append(True)
+        if len(calls) == 2:
+            raw = connection._raw  # Exact owned TEST session only.
+            method = getattr(raw, operation)
+            def fail():
+                attempts.append(True)
+                method()
+                raise RuntimeError("PRIVATE pair review cleanup acknowledgment lost")
+            monkeypatch.setattr(raw, operation, fail)
+    monkeypatch.setattr(access, "_verify_locked_rows", inject)
+    with pytest.raises(Failed) as error:
+        case.transaction.observe_bound("TC", case.identity, case.sealed)
+    assert error.value.__context__ is None and len(attempts) == 1
+    assert case.visible == [transaction.REVIEW_FAILED_MESSAGE] and case.lease.resources.connection.closed
+    observer = connections()
+    assert pending_count(observer, case) == source_binding_count(observer, case.scope.storage_namespace) == 1
+    observer.rollback()

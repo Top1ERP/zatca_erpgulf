@@ -213,6 +213,15 @@ history. Existing APIs remain and no runtime caller/provider/schema is enabled.
 Next review separately owned committed-pair lookup and provenance/epoch before
 issuance/activation. See [PENDING_CSR_INITIAL_CAPTURE.md](PENDING_CSR_INITIAL_CAPTURE.md).
 
+Increment 94 links initial capture to a separately owned read-only exact-original
+pair review, using the same normal ACL/source/provider/backing/cleanup policy.
+Only a complete exact pair adopts its stored original declaration; absent/half/
+conflicting states observe no historical match and never manufacture one from
+current settings. Corruption and SQL faults remain unconfirmed. Recheck before
+rollback/close and visible access before disclosure; no runtime caller is enabled.
+Next review protected draft intake and source/key/tenant/epoch provenance before
+issuance/activation. See [PENDING_CSR_BOUND_REVIEW.md](PENDING_CSR_BOUND_REVIEW.md).
+
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |
 | Phase 1 | Local QR for supported Sales/POS documents | No Phase-2 API or production hash-chain mutation |

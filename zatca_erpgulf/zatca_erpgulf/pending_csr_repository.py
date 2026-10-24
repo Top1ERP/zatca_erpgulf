@@ -142,6 +142,42 @@ class MariaDBPendingCSRRepository:
         """Load ONE exact paired declaration; no latest, backfill or public export."""
         return self._run_operation(self._load_bound, scope, context)
 
+    def observe_bound(self, scope, original):
+        """Read-only pair classification and protected EXACT binding, if present.
+
+        The returned tuple is an INTERNAL handoff, never RPC/log output. Only a
+        complete authenticated pair equal to the retained original yields its
+        historical declaration. Absence/halves/conflicts never create/adopt one.
+        Corrupt or inconsistent pairs fail, rather than becoming observations.
+        """
+        return self._run_operation(self._observe_bound, scope, original)
+
+    def _observe_bound(self, scope, original):
+        if (type(scope) is not CredentialStorageScope or scope.storage_namespace != self._namespace
+                or type(original) is not SealedPendingCSR or original.storage_namespace != self._namespace):
+            raise PendingCSRStorageError("binding")
+        scope.__post_init__()
+        original = SealedPendingCSR(original.storage_namespace, original.manifest_bytes,
+                                    original.key_id, original.nonce, original.ciphertext)
+        self._cipher.open(original)  # Even an empty store cannot validate bad input.
+        with self._connection.cursor() as cursor:
+            self._transaction(cursor)
+            envelope = self._load(cursor, original.manifest.context.draft_id, allow_missing=True)
+            record = self._load_binding(cursor, original.manifest.context.draft_id, allow_missing=True)
+            if record is not None and record.binding.scope != scope:
+                raise PendingCSRStorageError("context")
+            if envelope is None and record is None:
+                return "PAIR_ABSENT_OBSERVED", None
+            if record is None:
+                return "ENVELOPE_ONLY_OBSERVED", None
+            if envelope is None:
+                return "BINDING_ONLY_OBSERVED", None
+            if not record.matches(envelope):
+                raise PendingCSRStorageError("binding_conflict")
+            if envelope != original:
+                return "PAIR_CONFLICT_OBSERVED", None
+            return "PAIR_EXACT_OBSERVED", record.binding
+
     def _load_bound(self, scope, context):
         if type(scope) is not CredentialStorageScope or scope.storage_namespace != self._namespace:
             raise PendingCSRStorageError("binding")
