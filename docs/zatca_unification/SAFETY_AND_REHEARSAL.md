@@ -941,3 +941,24 @@ All nine Node VM scripts passed **1,444 cases**. No offline/normal-permission/
 crypto/transport guard was waived. No live source/assets/config/schema/site/
 customer credential/worker/Bench or authority operation occurred. Installed
 v15/v16, Desk, SDK and remote acceptance are not claimed.
+
+Increment87 adds [permissioned pending CSR custody access](PENDING_CSR_ACCESS.md).
+Only exact saved Company/own-key device targets are supported; System Manager/
+Administrator, target READ+WRITE and routing Company READ precede exact binding
+and protected resources. Saved metadata/credentials/routing/schema observations
+are rechecked around same-transaction locked source reads and encrypted staging.
+The service never commits/rolls back/closes/reseals; any failure/cancellation/
+reentrancy requires caller-owned whole-transaction rollback and handle disposal.
+Late denial does not erase pending writes. One display-only translated failure
+replaces child popups; app contract keys remain English without raw diagnostics.
+
+Only the reviewed local suite joins the manifest; the existing owned-private
+pending-CSR suite adds synthetic source tables/composition. Final combined:
+**13,543 local + 1,844 private SQL = 15,387 passed in 157.30 seconds**, across
+thirteen private suites, including **216 new cases** (199 local + 17 native SQL).
+The initial local-only run passed **13,495 in 82.37 seconds** before extensions.
+All nine Node VM scripts passed **1,444 cases**. No resource/ACL/crypto/transport
+guard was relaxed. No live source/assets/config/schema/site/customer credential/
+worker/Bench or authority operation occurred. Independent historical source/epoch,
+field-level secret custody, provider/key/nonce policy, installed v15/v16 and
+issuance/activation remain release gates, not claims established by these tests.

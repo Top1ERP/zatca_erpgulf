@@ -16,6 +16,8 @@ from zatca_erpgulf.zatca_erpgulf import pending_csr as pending
 from zatca_erpgulf.zatca_erpgulf.pending_csr_repository import MariaDBPendingCSRRepository
 from zatca_erpgulf.zatca_erpgulf.tests.test_csr_draft import sample, crypto, materials
 from zatca_erpgulf.zatca_erpgulf.tests.test_journal_repository_mariadb import isolated_server, connections
+from zatca_erpgulf.zatca_erpgulf import pending_csr_access as access
+from zatca_erpgulf.zatca_erpgulf.tests.test_pending_csr_access import access_case, invoke, Denied, Failed
 
 
 pytestmark = pytest.mark.skipif(os.environ.get("ZATCA_RUN_ISOLATED_MARIADB") != "1",
@@ -257,3 +259,136 @@ def test_synthetic_bad_nonce_provider_cannot_overwrite_a_different_draft(connect
     assert count(reader, "zatca_pending_csr_v1", case.namespace) == 1
     assert repository(reader, case).load(case.draft.context) == case.envelope
     reader.rollback()
+
+
+@pytest.fixture(scope="module")
+def private_access_schema(isolated_server, install_private_pending_schema):
+    # App-like table names exist ONLY in this fixture-owned temporary database.
+    # No tenant/schema override or runtime installer is accepted by the runner.
+    with pymysql.connect(unix_socket=isolated_server[0], user="root",
+                         database="zatca_journal_rehearsal", autocommit=True) as connection:
+        with connection.cursor() as cursor:
+            for kind, fields in access.FIELD_MAP.items():
+                columns = ["`name` VARCHAR(140) PRIMARY KEY", "`modified` DATETIME(6) NOT NULL"] + [
+                    "`" + name + "` " + ("INT" if name == access.LINK_FLAG else "LONGTEXT") for name in fields]
+                cursor.execute("CREATE TABLE `tab" + kind + "` (" + ",".join(columns) + ") ENGINE=InnoDB")
+
+
+def private_access_case(access_case, connections, kind):
+    case = access_case(kind)
+    case.scope = access.CredentialStorageScope("private.test", str(uuid4()))
+    case.sealed = case.cipher.seal(case.draft, storage_namespace=case.scope.storage_namespace, key_id="test-only-key")
+    case.binding = replace(case.binding, scope=case.scope, manifest=case.sealed.manifest)
+    admin = connections()
+    with admin.cursor() as cursor:
+        for doc in case.documents.values():
+            fields = ("name", "modified", *access.FIELD_MAP[doc.doctype])
+            cursor.execute("INSERT INTO `tab" + doc.doctype + "` (" + ",".join("`" + name + "`" for name in fields)
+                + ") VALUES (" + ",".join("%s" for name in fields) + ") ON DUPLICATE KEY UPDATE "
+                + ",".join("`" + name + "`=VALUES(`" + name + "`)" for name in fields if name != "name"),
+                tuple(doc.get(name) for name in fields))
+    admin.commit()  # TEST owner only; app service never installs or commits.
+    case.writer = connections()
+    case.resources = replace(case.resources, scope=case.scope, connection=case.writer)
+    case.service = access.SavedPendingCSRService(case.scope, case.lookup, case.provider)
+    return case
+
+
+def pending_count(connection, case):
+    return count(connection, "zatca_pending_csr_v1", case.scope.storage_namespace)
+
+
+@pytest.mark.parametrize("kind", ["company", "multiple_setting"])
+@pytest.mark.parametrize("commit", [False, True])
+def test_permissioned_stage_and_parent_work_commit_or_rollback_only_together(private_access_schema, access_case, connections, kind, commit):
+    case = private_access_case(access_case, connections, kind)
+    with case.writer.cursor() as cursor:
+        cursor.execute("INSERT INTO pending_csr_parent_work VALUES (%s,%s)", (case.scope.storage_namespace, "TEST PARENT"))
+    report = invoke(case, "stage")
+    assert report["state"] == "PENDING_CSR_STAGED_UNCOMMITTED" and report["storage_confirmed"] is False
+    observer = connections()
+    assert pending_count(observer, case) == 0
+    assert count(observer, "pending_csr_parent_work", case.scope.storage_namespace) == 0
+    case.writer.commit() if commit else case.writer.rollback()
+    observer.rollback()
+    assert pending_count(observer, case) == int(commit)
+    assert count(observer, "pending_csr_parent_work", case.scope.storage_namespace) == int(commit)
+    for doc in case.documents.values():
+        doc.save.assert_not_called()
+
+
+@pytest.mark.parametrize("kind", ["company", "multiple_setting"])
+@pytest.mark.parametrize("field", ["modified", "custom_csr_config", "custom_certificate"])
+def test_locked_native_source_drift_is_rejected_before_pending_insert_without_parent_cleanup(private_access_schema, access_case, connections, kind, field):
+    case = private_access_case(access_case, connections, kind)
+    mutator = connections()
+    value = "2026-10-24 11:00:01" if field == "modified" else "CHANGED TEST"
+    with mutator.cursor() as cursor:
+        cursor.execute("UPDATE `tab" + case.target.doctype + "` SET `" + field + "`=%s WHERE name=%s", (value, case.target.name))
+    mutator.commit()
+    with case.writer.cursor() as cursor:
+        cursor.execute("INSERT INTO pending_csr_parent_work VALUES (%s,%s)", (case.scope.storage_namespace, "TEST PARENT"))
+    with pytest.raises(Failed) as error:
+        invoke(case, "stage")
+    assert error.value.__context__ is None and case.writer.open
+    assert count(case.writer, "pending_csr_parent_work", case.scope.storage_namespace) == 1
+    observer = connections()
+    assert pending_count(observer, case) == 0
+    assert count(observer, "pending_csr_parent_work", case.scope.storage_namespace) == 0
+    case.writer.rollback()  # Explicit TEST owner, including its earlier parent work.
+    observer.rollback()
+    assert count(observer, "pending_csr_parent_work", case.scope.storage_namespace) == 0
+
+
+@pytest.mark.parametrize("kind", ["company", "multiple_setting"])
+@pytest.mark.parametrize("fault", ["permission", "revision"])
+def test_native_post_insert_revocation_refuses_result_but_leaves_whole_pending_transaction_to_caller(private_access_schema, access_case, connections, monkeypatch, kind, fault):
+    case = private_access_case(access_case, connections, kind)
+    original, calls = access._verify_locked_rows, []
+    def guarded(connection, rows):
+        original(connection, rows)
+        calls.append(True)
+        if len(calls) == 2:
+            if fault == "permission":
+                case.denied.add((case.target.doctype, case.target.name, "write"))
+            else:
+                case.target.modified = "2026-10-24 11:00:01"
+    monkeypatch.setattr(access, "_verify_locked_rows", guarded)
+    with pytest.raises(Denied if fault == "permission" else Failed) as error:
+        invoke(case, "stage")
+    assert error.value.__context__ is None
+    assert pending_count(case.writer, case) == 1  # No automatic rollback/commit.
+    observer = connections()
+    assert pending_count(observer, case) == 0
+    case.writer.rollback()
+    observer.rollback()
+    assert pending_count(observer, case) == 0
+
+
+@pytest.mark.parametrize("kind", ["company", "multiple_setting"])
+def test_permissioned_native_inspection_returns_metadata_not_material(private_access_schema, access_case, connections, kind):
+    case = private_access_case(access_case, connections, kind)
+    invoke(case, "stage")
+    case.writer.commit()  # TEST owner only.
+    case.service = access.SavedPendingCSRService(case.scope, case.lookup, case.provider)
+    report = invoke(case, "inspect")
+    assert report["state"] == "PENDING_CSR_INSPECTION_OBSERVATION"
+    assert report["storage_confirmed"] is False and report["credential_epoch_verified"] is False
+    assert "sealed" not in report and "private_key_pem" not in report and "config_text" not in report
+    case.writer.rollback()
+
+
+def test_source_row_lock_blocks_competing_changes_until_test_owner_releases_transaction(private_access_schema, access_case, connections):
+    case = private_access_case(access_case, connections, "company")
+    invoke(case, "stage")
+    other = connections()
+    with other.cursor() as cursor:
+        with pytest.raises(pymysql.err.OperationalError) as error:
+            cursor.execute("UPDATE `tabCompany` SET tax_id=%s WHERE name=%s", ("CHANGED TEST", case.company.name))
+    assert error.value.args[0] == 1205
+    other.rollback()
+    case.writer.rollback()  # Caller releases BOTH source locks and pending draft.
+    with other.cursor() as cursor:
+        cursor.execute("UPDATE `tabCompany` SET tax_id=%s WHERE name=%s", ("CHANGED TEST", case.company.name))
+    other.rollback()
+    assert pending_count(connections(), case) == 0

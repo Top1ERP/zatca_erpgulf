@@ -2,6 +2,10 @@
 
 ## Gap and bounded implementation
 
+Increment 87 adds internal metadata-only saved-source/ACL stage/inspect over
+encrypted custody. No button, preparation call or issuance path is connected;
+see [PENDING_CSR_ACCESS.md](PENDING_CSR_ACCESS.md).
+
 Increment 86 adds a separate, unactivated encrypted envelope and caller-owned
 transaction repository for this exact draft. It does not wire preparation to a
 button or installed store, verify saved-source/ACL/epoch provenance, or activate

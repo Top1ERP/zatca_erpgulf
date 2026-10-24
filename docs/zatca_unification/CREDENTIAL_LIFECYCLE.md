@@ -1,5 +1,10 @@
 # Credential lifecycle separation — development increment 18
 
+Increment 87 adds a saved-source/ACL boundary for separate encrypted pending
+drafts, not replacement/renewal/activation authority. Current comparisons are
+not an independent credential epoch or installed custody provider. See
+[PENDING_CSR_ACCESS.md](PENDING_CSR_ACCESS.md).
+
 Development update, increment 83: the local key/CSR paths now conservatively
 block targets with saved certificate/auth/onboarding-reference material. This
 supersedes their old overwrite behavior, not the remaining CSID writer risks or

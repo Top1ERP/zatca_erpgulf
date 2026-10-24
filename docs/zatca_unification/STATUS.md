@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and eighty-six bounded increments (Compliance outcomes, dedicated
+Safety preparation and eighty-seven bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -1828,6 +1828,33 @@ context manager restored private child exception context. An ordinary operation
 boundary fixes the cause without weakening assertions. No offline resource,
 normal permission, crypto or transport guard was waived. Installed v15/v16,
 Desk/browser, SDK and authority acceptance remain unverified.
+
+## Increment 87: permissioned saved-source pending CSR custody boundary
+
+- Add an internal metadata-only stage/inspect service. Exact saved target
+  READ+WRITE, related Company READ, scoped actor/role and source/manifest/hash
+  matching precede protected resource access; both quiet ACL signatures are used.
+- Reload permissions/source around callbacks and bounded locked reads in the
+  same staging transaction. Reject ambient handles, drift, owner/environment/key
+  fallback and linked-device implicit Company selection. No generation/reseal,
+  plaintext/ciphertext export, active-field write or automatic transaction cleanup.
+- Any failure/reentrancy/cancellation poisons the service; caller retains the exact
+  envelope and owns whole-transaction rollback/review. Child popups are muted;
+  one translated display failure uses static English contract keys without raw
+  private exception context. Success remains explicitly uncommitted/observational.
+- Extend only fixed-manifest synthetic tests and the existing owned private SQL
+  suite. No installed schema/provider/button/worker, live/customer operation or
+  authority request. Historical provider/epoch proof, protected provisioning,
+  nonce policy, issuance/activation and installed v15/v16 remain gates. See
+  [PENDING_CSR_ACCESS.md](PENDING_CSR_ACCESS.md).
+
+Final guarded combined: **13,543 local + 1,844 private SQL = 15,387 passed in
+157.30 seconds**, across thirteen private suites, including **216 new cases**
+(199 local + 17 native SQL). First local-only run passed **13,495 in 82.37
+seconds** before extra role/input/message tests and native composition were added.
+All nine Node VM scripts passed **1,444 cases**. No offline resource, ordinary
+permission, crypto or transport assertion was waived; no installed v15/v16,
+Desk/browser, SDK or authority acceptance is claimed.
 
 ## Verification
 

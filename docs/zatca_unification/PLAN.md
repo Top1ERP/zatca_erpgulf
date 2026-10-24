@@ -154,6 +154,15 @@ Next implement saved-source/ACL/epoch-bound custody access before issuance/recei
 activation wiring; initial certificate/alias defects remain. See
 [PENDING_CSR_CUSTODY.md](PENDING_CSR_CUSTODY.md).
 
+Increment 87 adds permissioned metadata-only saved-source stage/inspect over
+pending custody, not an installed button/provider or issuance flow. Exact target
+WRITE/READ and related Company READ precede resources; source/ACL rechecks and
+same-transaction source locks surround storage. Caller owns commit/rollback and
+must discard a failed/reentrant/interrupted handle. Linked-device implicit Company
+selection is refused, not guessed. Independent source/epoch/provider provenance,
+protected key/transaction provisioning, issuance/receipt/activation and installed
+v15/v16 remain gates. See [PENDING_CSR_ACCESS.md](PENDING_CSR_ACCESS.md).
+
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |
 | Phase 1 | Local QR for supported Sales/POS documents | No Phase-2 API or production hash-chain mutation |

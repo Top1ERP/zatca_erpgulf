@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "pending_csr_access",
     "pending_csr",
     "csr_draft",
     "csid_preservation",

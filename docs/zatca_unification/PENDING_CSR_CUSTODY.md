@@ -2,6 +2,11 @@
 
 ## Scope and separation
 
+Increment 87 adds an internal [saved-source/ACL boundary](PENDING_CSR_ACCESS.md)
+around these primitives, not an installed provider or runtime adoption. The
+primitive-only limitations below still apply; protected key provisioning and
+independent historical source/credential epoch remain gates.
+
 `pending_csr` seals the exact unissued `PreparedCSRDraft` from increment 85.
 `pending_csr_repository` stages that envelope on an explicitly supplied MariaDB
 transaction. This is a separate pre-certificate representation, not a relaxation
