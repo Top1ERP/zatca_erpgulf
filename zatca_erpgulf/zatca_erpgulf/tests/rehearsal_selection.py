@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "csr_draft",
     "csid_preservation",
     "credential_presence",
     "csr_key_preservation",

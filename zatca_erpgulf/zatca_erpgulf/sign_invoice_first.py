@@ -16,12 +16,10 @@ from frappe import _
 import frappe
 from frappe.permissions import has_permission
 from cryptography import x509
-from cryptography.x509.oid import NameOID, ObjectIdentifier
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 import requests
-import asn1
 
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 from zatca_erpgulf.zatca_erpgulf.api_settings import get_company_api_route
@@ -42,6 +40,9 @@ from zatca_erpgulf.zatca_erpgulf.csr_key_preservation import (
 from zatca_erpgulf.zatca_erpgulf.csid_preservation import (
     FINAL_AUTH_FIELDS, CSIDPreservationError, require_no_saved_final_auth,
 )
+from zatca_erpgulf.zatca_erpgulf.csr_template import (
+    csr_builder, encode_customoid as _encode_csr_customoid,
+)
 from zatca_erpgulf.zatca_erpgulf.operation_messages import (
     csid_creation_result, CSIDRequestRejected, CSIDProgress, csid_local_failure,
     CSID_PROGRESS_REVIEW, CSID_FORM_REVIEW, mute_operation_messages,
@@ -52,12 +53,8 @@ SUPPORTED_INVOICES = ["Sales Invoice", "POS Invoice"]
 
 
 def encode_customoid(custom_string):
-    """Encoding of a custom string"""
-    # Create an encoder
-    encoder = asn1.Encoder()
-    encoder.start()
-    encoder.write(custom_string, asn1.Numbers.UTF8String)
-    return encoder.output()
+    """Compatibility wrapper for the shared local CSR label encoder."""
+    return _encode_csr_customoid(custom_string)
 
 
 def parse_csr_config(csr_config_string):
@@ -265,26 +262,8 @@ def _build_csr(doc, portal_type, company_abbr, identity, progress):
     private_key = serialization.load_pem_private_key(
         private_key_pem, password=None, backend=default_backend()
     )
-    oid = ObjectIdentifier("1.3.6.1.4.1.311.20.2")
-    custom_extension = x509.extensions.UnrecognizedExtension(oid, customoid)
-    dn = x509.Name([
-        x509.NameAttribute(NameOID.COUNTRY_NAME, values.get("csr.country.name")),
-        x509.NameAttribute(NameOID.ORGANIZATIONAL_UNIT_NAME, values.get("csr.organization.unit.name")),
-        x509.NameAttribute(NameOID.ORGANIZATION_NAME, values.get("csr.organization.name")),
-        x509.NameAttribute(NameOID.COMMON_NAME, values.get("csr.common.name")),
-    ])
-    alt_name = x509.SubjectAlternativeName([x509.DirectoryName(x509.Name([
-        x509.NameAttribute(NameOID.SURNAME, values.get("csr.serial.number")),
-        x509.NameAttribute(NameOID.USER_ID, values.get("csr.organization.identifier")),
-        x509.NameAttribute(NameOID.TITLE, values.get("csr.invoice.type")),
-        x509.NameAttribute(ObjectIdentifier("2.5.4.26"), values.get("csr.location.address")),
-        x509.NameAttribute(NameOID.BUSINESS_CATEGORY, values.get("csr.industry.business.category")),
-    ]))])
     csr = (
-        x509.CertificateSigningRequestBuilder()
-        .subject_name(dn)
-        .add_extension(custom_extension, critical=False)
-        .add_extension(alt_name, critical=False)
+        csr_builder(values, customoid)
         .sign(private_key, hashes.SHA256(), backend=default_backend())
     )
     return base64.b64encode(csr.public_bytes(serialization.Encoding.PEM)).decode("utf-8")

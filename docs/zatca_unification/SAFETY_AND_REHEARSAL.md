@@ -904,3 +904,21 @@ including **269 new synthetic cases** (221 CSID preservation + 48 shared presenc
 All nine Node VM scripts passed **1,444 cases**. Prior CSR/initial-transition and
 route/auth/save assertions remain; no offline resource/normal permission/transport
 guard was waived. No installed v15/v16, Desk, SDK or authority acceptance is claimed.
+
+Increment85 shares CSR structure and adds an internal non-writing in-memory
+draft, not a button/store/request/selector/activation path. Only fictional contexts
+and ephemeral test keys are used. Preflight precedes generation; material/privacy
+checks and exact legacy TBS/independent goldens do not prove saved source/epoch/
+remote provenance. Raw-field/asdict/trace disclosure and full custody remain risks.
+Pending-key encryption and permissioned flow/activation remain gates; initial
+certificate/alias conflicts are not repaired. Only the reviewed draft suite joins
+the fixed manifest. No live source/assets/config/schema/site/customer credential/
+worker or authority operation occurs. See
+[CSR_DRAFT_PREPARATION.md](CSR_DRAFT_PREPARATION.md).
+
+Final increment85 guarded combined: **13,264 local + 1,800 private SQL =
+15,064 passed in 147.59 seconds**, across twelve owned-private SQL suites,
+including **142 new synthetic cases**. The first run passed **15,061 in 146.25
+seconds** before three independent goldens. All nine Node VM scripts passed
+**1,444 cases**. No resource/normal permission/crypto/transport assertion was
+waived; no real customer material, tenant transaction or authority request was used.

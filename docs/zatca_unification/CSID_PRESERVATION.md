@@ -1,5 +1,9 @@
 # Saved Final-auth preservation — increment 84 (development only)
 
+Increment 85 starts a separate non-writing local key/CSR draft. No CSID writer/
+selector uses it and pending-key custody is absent; see
+[CSR_DRAFT_PREPARATION.md](CSR_DRAFT_PREPARATION.md). Limits below still apply.
+
 ## Bounded behavior change
 
 Both `create_csid` and `production_csid` could overwrite a target's shared

@@ -9,6 +9,10 @@ Increment 84 additionally blocks both CSID writers on observed saved Final auth,
 not all certificate-only/unknown state. Initial transitions and their known
 shared-certificate/device-alias defects remain. See [CSID_PRESERVATION.md](CSID_PRESERVATION.md).
 
+Increment 85 shares CSR structure and adds an unactivated local new-key/CSR
+draft without accessing/replacing the current bundle. It is not pending-key
+custody or active renewal; see [CSR_DRAFT_PREPARATION.md](CSR_DRAFT_PREPARATION.md).
+
 This increment adds read-only legacy separation evidence and a proposed migration
 design. It does not install a DocType, migrate credentials, change CSID writers,
 select a signing certificate, or connect the new snapshot to runtime submissions.

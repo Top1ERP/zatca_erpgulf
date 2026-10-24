@@ -1,5 +1,9 @@
 # Encrypted credential staging — development increment 19
 
+Increment 85 adds separate **unactivated in-memory** pre-certificate key/CSR
+preparation, not pending-key support in this issued-snapshot store or installed
+custody. See [CSR_DRAFT_PREPARATION.md](CSR_DRAFT_PREPARATION.md).
+
 This is a bounded staging storage boundary, **not** an installed Frappe credential
 store, active credential selector, key-management service, migration or remote
 authorization check. No live generator, onboarding button or scheduler uses it.

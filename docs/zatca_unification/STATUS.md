@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and eighty-four bounded increments (Compliance outcomes, dedicated
+Safety preparation and eighty-five bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -1771,6 +1771,34 @@ cases** (221 CSID preservation + 48 shared presence). All nine Node VM scripts
 passed **1,444 cases**. Prior CSR, route/auth/save and initial-transition defect
 assertions remain; no resource/permission/transport guard was waived. No installed
 v15/v16, browser/Desk, SDK or authority acceptance is claimed.
+
+## Increment 85: shared CSR template and non-writing draft preparation
+
+- Extract one ordered subject/SAN/extension builder and label encoder. Legacy
+  public CSR/encoder contracts, curve/hash/encoding, labels, parser/fallback and
+  key-save/guard order remain; no signing certificate/digest/QR change is made.
+- Add an internal unactivated key/CSR draft with explicit Compliance slot/owner/
+  revision/UUID/UTC declarations. Strict nine-key config and attribute preflight
+  precede generation. No saved source, existing key, clock, filesystem, store or
+  HTTP is read; no active credential, document, schema or pointer is changed.
+- Check canonical bounded key/CSR bytes, signature/hash/public-key/subject and
+  ordered extensions. Hide raw fields from repr/diagnostics, refuse pickle/copy
+  transport, and raise static failures without private exception context.
+  Python field/asdict disclosure is not a serialization sandbox or custody.
+- No button/request/selector/store/schema/migration/activation uses the draft.
+  Pending-key protected custody, permissions/source/epoch/receipt flow, coherent
+  activation and installed v15/v16 remain gates. Initial certificate/alias defects
+  are not fixed or automatically selected away. No actual tenant key/CSR, live
+  change or authority operation occurs. See
+  [CSR_DRAFT_PREPARATION.md](CSR_DRAFT_PREPARATION.md).
+
+Final guarded combined: **13,264 local + 1,800 private SQL = 15,064 passed in
+147.59 seconds**, across twelve private suites, including **142 new synthetic
+cases**. First combined passed **15,061 in 146.25 seconds** before the three
+independent structure goldens were added. All nine Node VM scripts passed
+**1,444 cases**. Six new exact-TBS legacy adapter comparisons and prior guards/
+transition characterizations remain. No resource/permission/crypto/transport guard
+was waived; no installed v15/v16, SDK, Desk or authority acceptance is claimed.
 
 ## Verification
 

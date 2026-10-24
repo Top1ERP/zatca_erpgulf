@@ -137,6 +137,14 @@ shared-certificate/device-alias defects. Certificate-only unknown state, source/
 credential epochs and actual staged renewal/activation remain gates; empty Final
 auth is not authority to renew. See [CSID_PRESERVATION.md](CSID_PRESERVATION.md).
 
+Increment 85 extracts shared ordered CSR construction and adds an internal
+non-writing key/CSR draft. Strict new context/config/attribute preflight precedes
+generation; canonical key/CSR checks and metadata do not authorize use. Existing
+buttons stay guarded legacy operations, not switched to drafts. Protected pending
+custody, permissions/source/epoch/issuance/activation and installed v15/v16 remain
+gates; initial certificate/alias defects are not hidden. See
+[CSR_DRAFT_PREPARATION.md](CSR_DRAFT_PREPARATION.md).
+
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |
 | Phase 1 | Local QR for supported Sales/POS documents | No Phase-2 API or production hash-chain mutation |
