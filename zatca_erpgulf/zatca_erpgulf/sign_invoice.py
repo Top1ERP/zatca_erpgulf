@@ -25,9 +25,12 @@ from zatca_erpgulf.zatca_erpgulf.compliance_dispatch import (
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 from zatca_erpgulf.zatca_erpgulf.api_settings import get_company_api_route
 from zatca_erpgulf.zatca_erpgulf.compliance_messages import collect_compliance_results
-from zatca_erpgulf.zatca_erpgulf.compliance_types import COMPLIANCE_TYPES, resolve_compliance_type
+from zatca_erpgulf.zatca_erpgulf.compliance_types import (
+    COMPLIANCE_TYPES, compliance_document_type, resolve_compliance_type,
+)
 from zatca_erpgulf.zatca_erpgulf.nonproduction import temporary_compliance_xml
 from zatca_erpgulf.zatca_erpgulf.issue_timestamp import issue_timestamp_from_datetime
+from zatca_erpgulf.zatca_erpgulf.invoice_identity import has_legacy_uuid_value as _is_valid_zatca_uuid_value
 from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country, normalize_country_code
 from zatca_erpgulf.zatca_erpgulf.customer_address import resolve_customer_address
 import requests
@@ -49,27 +52,6 @@ from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
     supports_advance_deduction_schema,
     is_advance_payment_invoice,
 )
-
-
-def _is_valid_zatca_uuid_value(value):
-    """Return True when the stored value is a real UUID-like value, not a placeholder."""
-    value = str(value or "").strip()
-
-    if not value:
-        return False
-
-    invalid_values = {
-        "not submitted",
-        "not submitted.",
-        "not submitted ",
-        "not submitted\n",
-        "none",
-        "null",
-        "false",
-        "0",
-    }
-
-    return value.lower() not in invalid_values
 
 
 def _get_customer_country_code(sales_invoice_doc, customer_doc):
@@ -2129,15 +2111,9 @@ def _build_onboarding_invoice_xml(company_doc, validation_type, *, issue_instant
     """Build one signed-input UBL document without creating ERPNext documents."""
     if isinstance(company_doc, (dict, str)):
         company_doc = frappe.get_doc("Company", company_doc.get("name") if isinstance(company_doc, dict) else company_doc)
-    type_map = {
-        "Simplified Invoice": ("0200000", "388", True, False),
-        "Standard Invoice": ("0100000", "388", False, False),
-        "Simplified Credit Note": ("0200000", "381", True, True),
-        "Standard Credit Note": ("0100000", "381", False, True),
-        "Simplified Debit Note": ("0211000", "383", True, True),
-        "Standard Debit Note": ("0100000", "383", False, True),
-    }
-    type_name, document_code, simplified, is_note = type_map[validation_type]
+    spec = compliance_document_type(resolve_compliance_type(validation_type))
+    type_name, document_code = spec.type_name, spec.document_code
+    simplified, is_note = spec.simplified, spec.is_note
     address = _onboarding_address(company_doc.name)
     # Explicit aware UTC: never let QR interpret a naive UTC clock as site time.
     # The optional instant is an internal deterministic preview/test input only.

@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and ninety-five bounded increments (Compliance outcomes, dedicated
+Safety preparation and ninety-six bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2077,6 +2077,41 @@ commit/close ambiguity and fresh read-only review without regeneration. No
 resource/ordinary-ACL/crypto/transport assertion was waived; installed v15/v16,
 Desk/browser, SDK and authority acceptance remain unverified.
 
+## Increment 96: shared Sales/POS XML and first-invoice presence boundaries
+
+- Consolidate actual Sales/POS metadata and PIH/QR/signature reference builders
+  behind the unchanged public entry points, preserving normal element order,
+  text/attribute values and the existing signing placeholder.
+- Use one six-type specification for both adapters and automatic onboarding;
+  normalize explicit valid selectors and refuse invalid sample selectors before
+  fragment append. Preserve existing type flags rather than changing tax rules.
+- Share saved credential-owner selection for PIH, including normalized linked
+  checkbox and taxpayer/source checks; refuse empty/non-text selected PIH without
+  inventing a seed, falling back to another owner or resetting a chain.
+- Consolidate the duplicated legacy UUID placeholder policy without changing
+  live UUID persistence, POS regeneration or retry behavior. Remove an obsolete
+  commented POS supplier block with unreachable statements.
+- Add English explanation and an Arabic display key. Extend the offline fixed
+  manifest only; no runtime source, assets, schema, Company, worker or authority
+  operation. See [SHARED_INVOICE_XML.md](SHARED_INVOICE_XML.md).
+
+The first-invoice work is **not complete**: existing saved PIH presence is not
+verified genesis/history, source reads are not a pinned issuance transaction,
+and legacy UUID/ICV writes can precede the reference guard. Counter migration,
+stable retry artifacts, credential epochs/concurrency, installed v15/v16 and
+SDK/authority acceptance remain gates. The new targeted suite passed **171
+cases in 1.10 seconds**. Final guarded combined: **14,252 local + 2,022 private
+SQL = 16,274 passed in 172.76 seconds**, across the same thirteen private suites.
+All nine Node VM scripts passed **1,444 cases**. An initial restricted-execution
+combined run passed all 14,252 local cases but could not start the private native
+server (2,022 setup errors); an approved native-process run passed 222 targeted
+private cases and then the complete combined selection. The application offline
+guard remained active; no guard, ordinary ACL or crypto assertion was weakened.
+The seven changed runtime modules have a net reduction of **189 source lines**,
+including obsolete comments; tests/docs grow separately. This is not a measured
+runtime speed/memory/query improvement. No working environment or authority
+request was used.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -2481,6 +2516,7 @@ endpoints remain untouched.
 | `test_submission_context.py` | Four primary request adapters, environments/owners, Production auth, actual PIH helper with mocked records, rejection/timeout, request-pinned owner, batch mode, legacy 409 behavior |
 | `test_legacy_submission_context.py` | Four existing-XML adapters and wrappers, actual temporary file reads, saved machine-link guards, unchanged artifacts, auth and PIH ownership |
 | `test_icv_identity_contract.py` | Read-only characterization of legacy identity/rotation/purpose behavior and collision edge cases; not a counter migration |
+| `test_invoice_xml_core.py` | Shared metadata/reference/type fragments, saved PIH owner/flag/source parity, missing-hash preservation and Arabic display, automatic six-type parity, legacy UUID filter and mocked first-counter behavior; not genesis/atomic issuance proof |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |
 | `test_background_scheduling.py` | Shared Sales/POS worker selection, Company isolation/windows/settings, stale status and draft boundaries, actual parent routing and worker bridge |
 | `test_retry_identity_contract.py` | Read-only Sales/POS UUID regeneration/filtering, twelve HTTP failure/timeout boundaries, saved ICV and existing artifact identity divergence |

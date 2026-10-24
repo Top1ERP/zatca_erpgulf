@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 96 consolidates Sales/POS metadata and PIH/QR/signature fragments,
+the six sample XML type specifications (including automatic onboarding), saved
+PIH owner selection and the legacy UUID placeholder filter. Missing selected
+PIH now requires review, never automatic chain initialization/reset. This guard
+is not an atomic issuance preflight: legacy UUID/ICV writes can precede it.
+First-chain initialization, immutable retry/rotation/concurrency and unified
+synthetic/real chain policy remain open. See [SHARED_INVOICE_XML.md](SHARED_INVOICE_XML.md).
+
 Retain the public button and hook entry points while gradually replacing their
 duplicated internals with a shared, tested pipeline:
 

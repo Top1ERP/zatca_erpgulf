@@ -18,6 +18,10 @@ from difflib import SequenceMatcher
 import json
 from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
 from zatca_erpgulf.zatca_erpgulf.nonproduction import preview_invoice_uuid
+from zatca_erpgulf.zatca_erpgulf.credential_settings import get_previous_invoice_hash
+from zatca_erpgulf.zatca_erpgulf.invoice_xml_core import (
+    append_additional_references, append_compliance_type, append_invoice_metadata,
+)
 from zatca_erpgulf.ksa_compliance.tax_details import get_item_tax_detail
 from frappe import _
 import frappe
@@ -272,22 +276,12 @@ def salesinvoice_data(invoice, invoice_number, *, purpose="production"):
         pos_invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
         # Use this loaded revision for time as well as identity/returned data.
         issue_timestamp = format_zatca_qr_timestamp(pos_invoice_doc.posting_date, pos_invoice_doc.posting_time)
-        cbc_profileid = ET.SubElement(invoice, "cbc:ProfileID")
-        cbc_profileid.text = "reporting:1.0"
-        cbc_id = ET.SubElement(invoice, "cbc:ID")
-        cbc_id.text = str(pos_invoice_doc.name)
-        cbc_uuid = ET.SubElement(invoice, "cbc:UUID")
-        cbc_uuid.text = (
+        uuid1 = (
             str(uuid.uuid1())
             if purpose == "production"
             else preview_invoice_uuid(getattr(pos_invoice_doc, "custom_uuid", None), purpose)
         )
-        uuid1 = cbc_uuid.text
-        issue_date, issue_time = issue_timestamp.split("T", 1)
-        cbc_issuedate = ET.SubElement(invoice, "cbc:IssueDate")
-        cbc_issuedate.text = issue_date
-        cbc_issuetime = ET.SubElement(invoice, "cbc:IssueTime")
-        cbc_issuetime.text = issue_time
+        append_invoice_metadata(invoice, pos_invoice_doc.name, uuid1, issue_timestamp)
         return invoice, uuid1, pos_invoice_doc
     except (AttributeError, ValueError, frappe.ValidationError) as e:
         frappe.throw(_(("Error occurred in SalesInvoice data: " f"{str(e)}")))
@@ -295,47 +289,9 @@ def salesinvoice_data(invoice, invoice_number, *, purpose="production"):
 
 
 def invoice_typecode_compliance(invoice, compliance_type):
-    """Function for check invoice typecode compliance"""
-    # 0 is default. Not for compliance test. But normal reporting or clearance call.
-    # 1 is for compliance test. Simplified invoice
-    # 2 is for compliance test. Standard invoice
-    # 3 is for compliance test. Simplified Credit Note
-    # 4 is for compliance test. Standard Credit Note
-    # 5 is for compliance test. Simplified Debit Note
-    # 6 is for compliance test. Standard Debit Note
-    # frappe.throw(str("here 5 " + str(compliance_type)))
+    """Keep the public POS adapter over the shared six-sample XML contract."""
     try:
-
-        if compliance_type == "1":  # simplified invoice
-            cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
-            cbc_invoicetypecode.set("name", "0200000")
-            cbc_invoicetypecode.text = "388"
-
-        elif compliance_type == "2":  # standard invoice
-            cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
-            cbc_invoicetypecode.set("name", "0100000")
-            cbc_invoicetypecode.text = "388"
-
-        elif compliance_type == "3":  # simplified Credit note
-            cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
-            cbc_invoicetypecode.set("name", "0200000")
-            cbc_invoicetypecode.text = "381"
-
-        elif compliance_type == "4":  # Standard Credit note
-            cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
-            cbc_invoicetypecode.set("name", "0100000")
-            cbc_invoicetypecode.text = "381"
-
-        elif compliance_type == "5":  # simplified Debit note
-            cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
-            cbc_invoicetypecode.set("name", "0211000")
-            cbc_invoicetypecode.text = "383"
-
-        elif compliance_type == "6":  # Standard Debit note
-            cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
-            cbc_invoicetypecode.set("name", "0100000")
-            cbc_invoicetypecode.text = "383"
-        return invoice
+        return append_compliance_type(invoice, compliance_type)
     except (ET.ParseError, AttributeError, ValueError) as e:
         frappe.throw(_(f"Error occurred in compliance typecode: {e}"))
         return None
@@ -443,144 +399,9 @@ def get_pih_for_company(pih_data, company_name):
 
 
 def additional_reference(invoice, company_abbr, pos_invoice_doc):
-    """Function for additional reference"""
-    try:
-        company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
-        if not company_name:
-            frappe.throw(f"Company with abbreviation {company_abbr} not found.")
-
-        company_doc = frappe.get_doc("Company", company_name)
-
-        # Create the first AdditionalDocumentReference element for PIH
-        cac_additionaldocumentreference2 = ET.SubElement(
-            invoice, "cac:AdditionalDocumentReference"
-        )
-        cbc_id_1_1 = ET.SubElement(cac_additionaldocumentreference2, "cbc:ID")
-        cbc_id_1_1.text = "PIH"
-        cac_attachment = ET.SubElement(
-            cac_additionaldocumentreference2, "cac:Attachment"
-        )
-        cbc_embeddeddocumentbinaryobject = ET.SubElement(
-            cac_attachment, "cbc:EmbeddedDocumentBinaryObject"
-        )
-        cbc_embeddeddocumentbinaryobject.set("mimeCode", "text/plain")
-
-        # Directly retrieve the PIH data without JSON parsing
-        # pih = company_doc.custom_pih  # Assuming this is already in the correct format
-        if pos_invoice_doc.custom_zatca_pos_name:
-            zatca_settings = frappe.get_doc(
-                "ZATCA Multiple Setting", pos_invoice_doc.custom_zatca_pos_name
-            )
-            if zatca_settings.custom__use_company_certificate__keys != 1:
-                pih = zatca_settings.custom_pih
-            else:
-                linked_doc = frappe.get_doc("Company", zatca_settings.custom_linked_doctype)
-                pih = linked_doc.custom_pih
-        else:
-            pih = company_doc.custom_pih
-
-        cbc_embeddeddocumentbinaryobject.text = pih
-
-        # Create the second AdditionalDocumentReference element for QR
-        cac_additionaldocumentreference22 = ET.SubElement(
-            invoice, "cac:AdditionalDocumentReference"
-        )
-        cbc_id_1_12 = ET.SubElement(cac_additionaldocumentreference22, "cbc:ID")
-        cbc_id_1_12.text = "QR"
-        cac_attachment22 = ET.SubElement(
-            cac_additionaldocumentreference22, "cac:Attachment"
-        )
-        cbc_embeddeddocumentbinaryobject22 = ET.SubElement(
-            cac_attachment22, "cbc:EmbeddedDocumentBinaryObject"
-        )
-        cbc_embeddeddocumentbinaryobject22.set("mimeCode", "text/plain")
-        cbc_embeddeddocumentbinaryobject22.text = (
-            "GsiuvGjvchjbFhibcDhjv1886G"  # Example QR code
-        )
-
-        # Create the Signature element
-        cac_sign = ET.SubElement(invoice, "cac:Signature")
-        cbc_id_sign = ET.SubElement(cac_sign, "cbc:ID")
-        cbc_method_sign = ET.SubElement(cac_sign, "cbc:SignatureMethod")
-        cbc_id_sign.text = "urn:oasis:names:specification:ubl:signature:Invoice"
-        cbc_method_sign.text = "urn:oasis:names:specification:ubl:dsig:enveloped:xades"
-
-        return invoice
-    except (ET.ParseError, AttributeError, ValueError, frappe.DoesNotExistError) as e:
-        frappe.throw(_(f"Error occurred in additional references: {e}"))
-        return None
-
-
-# def company_data(invoice, pos_invoice_doc):
-#     """ "function for company data"""
-#     try:
-#         company_doc = frappe.get_doc("Company", pos_invoice_doc.company)
-#         cac_accountingsupplierparty = ET.SubElement(
-#             invoice, "cac:AccountingSupplierParty"
-#         )
-#         cac_party_1 = ET.SubElement(cac_accountingsupplierparty, "cac:Party")
-#         cac_partyidentification = ET.SubElement(cac_party_1, "cac:PartyIdentification")
-#         cbc_id_2 = ET.SubElement(cac_partyidentification, "cbc:ID")
-#         cbc_id_2.set("schemeID", "CRN")
-#         cbc_id_2.text = company_doc.custom_company_registration
-#         address_list = frappe.get_list(
-#             "Address",
-#             filters={"is_your_company_address": "1"},
-#             fields=["address_line1", "address_line2", "city", "pincode", "state"],
-#         )
-#         # frappe.throw(str(address_list))
-#         if len(address_list) == 0:
-#             frappe.throw(
-#                 "Zatca requires proper address. Please add your company address in address master"
-#             )
-
-#         for address in address_list:
-
-#             cac_postaladdress = ET.SubElement(cac_party_1, "cac:PostalAddress")
-#             cbc_streetname = ET.SubElement(cac_postaladdress, "cbc:StreetName")
-#             cbc_streetname.text = address.address_line1
-#             cbc_buildingnumber = ET.SubElement(cac_postaladdress, "cbc:BuildingNumber")
-#             cbc_buildingnumber.text = address.address_line2
-#             cbc_plotidentification = ET.SubElement(
-#                 cac_postaladdress, "cbc:PlotIdentification"
-#             )
-#             cbc_plotidentification.text = address.address_line1
-#             cbc_citysubdivisionname = ET.SubElement(
-#                 cac_postaladdress, "cbc:CitySubdivisionName"
-#             )
-#             cbc_citysubdivisionname.text = address.city
-#             cbc_cityname = ET.SubElement(cac_postaladdress, "cbc:CityName")
-#             cbc_cityname.text = address.city
-#             cbc_postalzone = ET.SubElement(cac_postaladdress, "cbc:PostalZone")
-#             cbc_postalzone.text = address.pincode
-#             cbc_countrysubentity = ET.SubElement(
-#                 cac_postaladdress, "cbc:CountrySubentity"
-#             )
-#             cbc_countrysubentity.text = address.state
-#             break
-#         cac_country = ET.SubElement(cac_postaladdress, "cac:Country")
-#         cbc_identificationcode = ET.SubElement(cac_country, "cbc:IdentificationCode")
-#         cbc_identificationcode.text = "SA"
-#         cac_partytaxscheme = ET.SubElement(cac_party_1, "cac:PartyTaxScheme")
-#         cbc_companyid = ET.SubElement(cac_partytaxscheme, "cbc:CompanyID")
-#         cbc_companyid.text = company_doc.tax_id
-#         # frappe.throw(f"Company Tax ID set to: {cbc_CompanyID.text}")
-#         cac_taxscheme = ET.SubElement(cac_partytaxscheme, "cac:TaxScheme")
-#         cbc_id_3 = ET.SubElement(cac_taxscheme, "cbc:ID")
-#         cbc_id_3.text = "VAT"
-#         # frappe.throw(f"Tax Scheme ID set to: {cbc_ID_3.text}")
-#         cac_partylegalentity = ET.SubElement(cac_party_1, "cac:PartyLegalEntity")
-#         cbc_registrationname = ET.SubElement(
-#             cac_partylegalentity, "cbc:RegistrationName"
-#         )
-#         names=_company_names(company_doc)
-        if names: _append_names(cac_party_1,names)
-        cbc_registrationname.text = names[0] if names else pos_invoice_doc.company
-#         # frappe.throw(f"Registration Name set to: {cbc_RegistrationName.text}")
-#         return invoice
-#     except (ET.ParseError, AttributeError, ValueError, frappe.DoesNotExistError) as e:
-#         frappe.throw(f"Error occurred in company data: {e}")
-#         return None
+    """Share saved PIH ownership and XML fragments with the Sales adapter."""
+    pih = get_previous_invoice_hash(company_abbr, pos_invoice_doc)
+    return append_additional_references(invoice, pih)
 
 
 def get_address(pos_invoice_doc, company_doc):

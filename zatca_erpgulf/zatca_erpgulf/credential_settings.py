@@ -64,6 +64,19 @@ def _resolve_owner_from_saved_company(company, source_doc, *, load_doc=None, inc
     Existing callers retain their behavior. Internal metadata inspection supplies
     its own checked loader and omits credential-field projections entirely.
     """
+    owner, kind = _resolve_owner_record_from_saved_company(company, source_doc, load_doc=load_doc)
+    return CredentialOwner(
+        company.name, owner.doctype, owner.name, kind,
+        MappingProxyType({field: owner.get(field) for field in SECRET_FIELDS} if include_secrets else {}),
+    )
+
+
+def _resolve_owner_record_from_saved_company(company, source_doc, *, load_doc=None):
+    """Select one saved owner record for both credentials and the XML PIH read.
+
+    Keep flag normalization, saved links and taxpayer checks in one place. This
+    is observed read-only selection, not a cross-row lock or issuance snapshot.
+    """
     load_doc = frappe.get_doc if load_doc is None else load_doc
     owner, kind = company, "company"
     if source_doc is not None:
@@ -105,10 +118,30 @@ def _resolve_owner_from_saved_company(company, source_doc, *, load_doc=None, inc
                 owner, kind = linked, "linked_company"
             else:
                 owner, kind = setting, "multiple_setting"
-    return CredentialOwner(
-        company.name, owner.doctype, owner.name, kind,
-        MappingProxyType({field: owner.get(field) for field in SECRET_FIELDS} if include_secrets else {}),
+    return owner, kind
+
+
+def get_previous_invoice_hash(company_abbr, source_doc):
+    """Read PIH from the signing owner without projecting credential fields.
+
+    No fallback from an empty device PIH to Company PIH is permitted. Never
+    initialize, repair, reset or advance a chain based on an empty saved field.
+    """
+    from zatca_erpgulf.zatca_erpgulf.invoice_xml_core import (
+        MISSING_PREVIOUS_HASH, previous_hash_value,
     )
+
+    company = frappe.get_doc("Company", {"abbr": company_abbr})
+    try:
+        owner, _kind = _resolve_owner_record_from_saved_company(company, source_doc)
+    except CredentialConfigurationError as error:
+        _throw_configuration_error(error)
+    try:
+        return previous_hash_value(owner.get("custom_pih"))
+    except ValueError:
+        pass
+    # Outside the handler: do not expose the rejected field or its exception.
+    frappe.throw(_(MISSING_PREVIOUS_HASH))
 
 
 @dataclass(frozen=True)

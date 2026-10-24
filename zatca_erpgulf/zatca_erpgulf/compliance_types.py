@@ -1,5 +1,7 @@
 """Shared document-type contract for the two alternative onboarding methods."""
 
+from dataclasses import dataclass
+
 COMPLIANCE_TYPES = {
     "Simplified Invoice": "1",
     "Standard Invoice": "2",
@@ -8,6 +10,34 @@ COMPLIANCE_TYPES = {
     "Simplified Debit Note": "5",
     "Standard Debit Note": "6",
 }
+
+
+@dataclass(frozen=True)
+class ComplianceDocumentType:
+    """Existing sample XML values; centralization does not certify their rules."""
+
+    type_name: str
+    document_code: str
+    simplified: bool
+    is_note: bool
+
+
+_XML_TYPES = {
+    "1": ComplianceDocumentType("0200000", "388", True, False),
+    "2": ComplianceDocumentType("0100000", "388", False, False),
+    "3": ComplianceDocumentType("0200000", "381", True, True),
+    "4": ComplianceDocumentType("0100000", "381", False, True),
+    "5": ComplianceDocumentType("0211000", "383", True, True),
+    "6": ComplianceDocumentType("0100000", "383", False, True),
+}
+
+
+def compliance_document_type(value) -> ComplianceDocumentType:
+    """Resolve only an explicit sample code, never the ordinary zero selector."""
+    code = normalize_submission_compliance_type(value)
+    if code == "0":
+        raise ValueError("Select a valid ZATCA compliance document type.")
+    return _XML_TYPES[code]
 
 
 def resolve_compliance_type(validation_type, fallback="0") -> str:

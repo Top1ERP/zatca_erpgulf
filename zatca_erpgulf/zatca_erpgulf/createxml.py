@@ -16,6 +16,11 @@ from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 from zatca_erpgulf.zatca_erpgulf.customer_address import resolve_customer_address
 from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
 from zatca_erpgulf.zatca_erpgulf.nonproduction import preview_invoice_uuid
+from zatca_erpgulf.zatca_erpgulf.credential_settings import get_previous_invoice_hash
+from zatca_erpgulf.zatca_erpgulf.invoice_xml_core import (
+    append_additional_references, append_compliance_type, append_invoice_metadata,
+)
+from zatca_erpgulf.zatca_erpgulf.invoice_identity import has_legacy_uuid_value as _is_valid_zatca_uuid_value
 
 CBC_ID = "cbc:ID"
 DS_TRANSFORM = "ds:Transform"
@@ -105,27 +110,6 @@ def _use_line_net_amounts_discount_model(sales_invoice_doc):
 
     return has_line_level_discount_effect and abs(total_gross - total_net) > 0.000001
 
-
-
-def _is_valid_zatca_uuid_value(value):
-    """Return True when the stored value is a real UUID-like value, not a placeholder."""
-    value = str(value or "").strip()
-
-    if not value:
-        return False
-
-    invalid_values = {
-        "not submitted",
-        "not submitted.",
-        "not submitted ",
-        "not submitted\n",
-        "none",
-        "null",
-        "false",
-        "0",
-    }
-
-    return value.lower() not in invalid_values
 
 
 def _get_or_create_sales_invoice_uuid(sales_invoice_doc):
@@ -683,27 +667,12 @@ def salesinvoice_data(invoice, invoice_number, *, purpose="production"):
         # Freeze time from the SAME loaded record, and validate BEFORE any UUID
         # persistence. A second get_doc could observe a different revision.
         issue_timestamp = format_zatca_qr_timestamp(sales_invoice_doc.posting_date, sales_invoice_doc.posting_time)
-        cbc_profile_id = ET.SubElement(invoice, "cbc:ProfileID")
-        cbc_profile_id.text = "reporting:1.0"
-
-        cbc_id = ET.SubElement(invoice, CBC_ID)
-        cbc_id.text = str(sales_invoice_doc.name)
-
-        cbc_uuid = ET.SubElement(invoice, "cbc:UUID")
         uuid1 = (
             _get_or_create_sales_invoice_uuid(sales_invoice_doc)
             if purpose == "production"
             else preview_invoice_uuid(getattr(sales_invoice_doc, "custom_uuid", None), purpose)
         )
-        cbc_uuid.text = uuid1
-
-        issue_date, issue_time = issue_timestamp.split("T", 1)
-        cbc_issue_date = ET.SubElement(invoice, "cbc:IssueDate")
-        cbc_issue_date.text = issue_date
-
-        cbc_issue_time = ET.SubElement(invoice, "cbc:IssueTime")
-        cbc_issue_time.text = issue_time
-
+        append_invoice_metadata(invoice, sales_invoice_doc.name, uuid1, issue_timestamp)
         return invoice, uuid1, sales_invoice_doc
     except (AttributeError, ValueError, frappe.ValidationError) as e:
         frappe.throw(_(("Error occurred in SalesInvoice data: " f"{str(e)}")))
@@ -711,51 +680,9 @@ def salesinvoice_data(invoice, invoice_number, *, purpose="production"):
 
 
 def invoice_typecode_compliance(invoice, compliance_type):
-    """
-    Creates and populates XML tags for a UBL Invoice document.
-    """
-
-    # 0 is default. Not for compliance test. But normal reporting or clearance call.
-    # 1 is for compliance test. Simplified invoice
-    # 2 is for compliance test. Standard invoice
-    # 3 is for compliance test. Simplified Credit Note
-    # 4 is for compliance test. Standard Credit Note
-    # 5 is for compliance test. Simplified Debit Note
-    # 6 is for compliance test. Standard Debit Note
-    # frappe.throw(str("here 5 " + str(compliance_type)))
+    """Keep the public Sales adapter over the shared six-sample XML contract."""
     try:
-
-        if compliance_type == "1":  # simplified invoice
-            cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
-            cbc_invoicetypecode.set("name", "0200000")
-            cbc_invoicetypecode.text = "388"
-
-        elif compliance_type == "2":  # standard invoice
-            cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
-            cbc_invoicetypecode.set("name", "0100000")
-            cbc_invoicetypecode.text = "388"
-
-        elif compliance_type == "3":  # simplified Credit note
-            cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
-            cbc_invoicetypecode.set("name", "0200000")
-            cbc_invoicetypecode.text = "381"
-
-        elif compliance_type == "4":  # Standard Credit note
-            cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
-            cbc_invoicetypecode.set("name", "0100000")
-            cbc_invoicetypecode.text = "381"
-
-        elif compliance_type == "5":  # simplified Debit note
-            cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
-            cbc_invoicetypecode.set("name", "0211000")
-            cbc_invoicetypecode.text = "383"
-
-        elif compliance_type == "6":  # Standard Debit note
-            cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
-            cbc_invoicetypecode.set("name", "0100000")
-            cbc_invoicetypecode.text = "383"
-        return invoice
-
+        return append_compliance_type(invoice, compliance_type)
     except (ET.ParseError, AttributeError, ValueError) as e:
         frappe.throw(_(f"Error occurred in compliance typecode: {e}"))
         return None
@@ -940,72 +867,9 @@ def get_pih_for_company(pih_data, company_name):
 
 
 def additional_reference(invoice, company_abbr, sales_invoice_doc):
-    """
-    Adds additional document references to the XML invoice for PIH, QR, and Signature elements.
-    """
-    try:
-        company_name = frappe.db.get_value("Company", {"abbr": company_abbr}, "name")
-        if not company_name:
-            frappe.throw(_(f"Company with abbreviation {company_abbr} not found."))
-
-        company_doc = frappe.get_doc("Company", company_name)
-
-        # Create the first AdditionalDocumentReference element for PIH
-        cac_additionaldocumentreference2 = ET.SubElement(
-            invoice, "cac:AdditionalDocumentReference"
-        )
-        cbc_id_1_1 = ET.SubElement(cac_additionaldocumentreference2, CBC_ID)
-        cbc_id_1_1.text = "PIH"
-        cac_attachment = ET.SubElement(
-            cac_additionaldocumentreference2, "cac:Attachment"
-        )
-        cbc_embeddeddocumentbinaryobject = ET.SubElement(
-            cac_attachment, "cbc:EmbeddedDocumentBinaryObject"
-        )
-        cbc_embeddeddocumentbinaryobject.set("mimeCode", "text/plain")
-
-        # Directly retrieve the PIH data without JSON parsing
-        # pih = company_doc.custom_pih  # Assuming this is already in the correct format
-        if sales_invoice_doc.custom_zatca_pos_name:
-            zatca_settings = frappe.get_doc(
-                "ZATCA Multiple Setting", sales_invoice_doc.custom_zatca_pos_name
-            )
-            if zatca_settings.custom__use_company_certificate__keys != 1:
-                pih = zatca_settings.custom_pih
-            else:
-                linked_doc = frappe.get_doc("Company", zatca_settings.custom_linked_doctype)
-                pih = linked_doc.custom_pih
-        else:
-            pih = company_doc.custom_pih
-        cbc_embeddeddocumentbinaryobject.text = pih
-
-        # Create the second AdditionalDocumentReference element for QR
-        cac_additionaldocumentreference22 = ET.SubElement(
-            invoice, "cac:AdditionalDocumentReference"
-        )
-        cbc_id_1_12 = ET.SubElement(cac_additionaldocumentreference22, CBC_ID)
-        cbc_id_1_12.text = "QR"
-        cac_attachment22 = ET.SubElement(
-            cac_additionaldocumentreference22, "cac:Attachment"
-        )
-        cbc_embeddeddocumentbinaryobject22 = ET.SubElement(
-            cac_attachment22, "cbc:EmbeddedDocumentBinaryObject"
-        )
-        cbc_embeddeddocumentbinaryobject22.set("mimeCode", "text/plain")
-        cbc_embeddeddocumentbinaryobject22.text = (
-            "GsiuvGjvchjbFhibcDhjv1886G"  # Example QR code
-        )
-        cac_sign = ET.SubElement(invoice, "cac:Signature")
-        cbc_id_sign = ET.SubElement(cac_sign, CBC_ID)
-        cbc_method_sign = ET.SubElement(cac_sign, "cbc:SignatureMethod")
-        cbc_id_sign.text = "urn:oasis:names:specification:ubl:signature:Invoice"
-        cbc_method_sign.text = "urn:oasis:names:specification:ubl:dsig:enveloped:xades"
-
-        return invoice
-
-    except (ET.ParseError, AttributeError, ValueError, frappe.DoesNotExistError) as e:
-        frappe.throw(_(f"Error occurred in additional references: {e}"))
-        return None
+    """Share saved PIH ownership and XML fragments with the POS adapter."""
+    pih = get_previous_invoice_hash(company_abbr, sales_invoice_doc)
+    return append_additional_references(invoice, pih)
 
 
 def get_address(sales_invoice_doc, company_doc):
