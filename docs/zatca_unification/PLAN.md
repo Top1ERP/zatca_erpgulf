@@ -163,6 +163,14 @@ selection is refused, not guessed. Independent source/epoch/provider provenance,
 protected key/transaction provisioning, issuance/receipt/activation and installed
 v15/v16 remain gates. See [PENDING_CSR_ACCESS.md](PENDING_CSR_ACCESS.md).
 
+Increment 88 adds an unactivated single-acquisition pending resource lease with
+shared fixed Unix/peer/session checks and a distinct registration/key-ID domain.
+Keys follow verified target selection; callers own all post-handoff transaction
+decisions/cleanup. A marker/key ID is not vault, tenant, historical epoch or current
+source/ACL-aware commit authority. Next bind exact retained drafts and trustworthy
+source/credential epochs to transaction/issuance/receipt coordination before any
+runtime adoption. See [PENDING_CSR_PROVIDER.md](PENDING_CSR_PROVIDER.md).
+
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |
 | Phase 1 | Local QR for supported Sales/POS documents | No Phase-2 API or production hash-chain mutation |

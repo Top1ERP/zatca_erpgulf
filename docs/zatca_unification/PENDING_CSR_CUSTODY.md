@@ -2,6 +2,9 @@
 
 ## Scope and separation
 
+Increment 88 adds an unactivated [pinned Unix resource lease](PENDING_CSR_PROVIDER.md),
+not key discovery, installed custody or source/ACL-aware commit authority.
+
 Increment 87 adds an internal [saved-source/ACL boundary](PENDING_CSR_ACCESS.md)
 around these primitives, not an installed provider or runtime adoption. The
 primitive-only limitations below still apply; protected key provisioning and

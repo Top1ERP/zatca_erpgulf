@@ -126,12 +126,17 @@ def _set_owned_lock_waits(raw, binding):
         cursor.execute("SET SESSION lock_wait_timeout=1")
 
 
-def _check_connection(raw, binding):
+def _check_connection(raw, binding, *, registration_table="zatca_receipt_storage_binding_v1"):
     """Check owned peer, bounded waits, target and locked registration.
 
     Fixed read-only probes; never repair registration or changed wait settings.
     A matching marker does not attest authority response or tenant provenance.
     """
+    # Only reviewed storage domains may select a marker table. Existing receipt
+    # callers keep the exact default query; no arbitrary SQL identifier/DSN.
+    if type(registration_table) is not str or registration_table not in (
+            "zatca_receipt_storage_binding_v1", "zatca_pending_csr_storage_binding_v1"):
+        raise ReceiptProviderError("receipt_provider_registration")
     pid = _peer_pid(raw, binding)
     with raw.cursor() as cursor:
         cursor.execute("SELECT @@session.innodb_lock_wait_timeout,@@session.lock_wait_timeout")
@@ -144,7 +149,7 @@ def _check_connection(raw, binding):
         if (type(row) is not tuple or len(row) != 4 or row[:3] != (binding.database, binding.server_id, 0)
                 or type(row[1]) is not int or type(row[2]) is not int or type(row[3]) is not int or row[3] <= 0):
             raise ReceiptProviderError("receipt_provider_target")
-        cursor.execute("SELECT site,registration_id FROM zatca_receipt_storage_binding_v1 "
+        cursor.execute("SELECT site,registration_id FROM " + registration_table + " "
             "WHERE storage_namespace=%s FOR UPDATE", (binding.scope.storage_namespace,))
         if cursor.fetchone() != (binding.scope.site, binding.registration_id):
             raise ReceiptProviderError("receipt_provider_registration")

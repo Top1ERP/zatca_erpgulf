@@ -2,6 +2,12 @@
 
 ## Scope and non-activation
 
+Increment 88 reuses these local checks for a separate unactivated
+[pending-CSR resource lease](PENDING_CSR_PROVIDER.md). The shared probe accepts
+only the original receipt or new pending registration table as literal app-owned
+choices. Receipt callers retain the original default query/registration/lifecycle;
+no pending key or alternate marker is selected by this receipt provider.
+
 `primary_receipt_provider.py` adds an optional, server-configured Linux/Unix
 MariaDB provider for the permissioned LOCAL receipt service from increment 47.
 It is not registered in Frappe, a primary API, scheduler, hook, installer or

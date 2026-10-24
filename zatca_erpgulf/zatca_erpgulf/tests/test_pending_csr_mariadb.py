@@ -17,6 +17,9 @@ from zatca_erpgulf.zatca_erpgulf.pending_csr_repository import MariaDBPendingCSR
 from zatca_erpgulf.zatca_erpgulf.tests.test_csr_draft import sample, crypto, materials
 from zatca_erpgulf.zatca_erpgulf.tests.test_journal_repository_mariadb import isolated_server, connections
 from zatca_erpgulf.zatca_erpgulf import pending_csr_access as access
+from zatca_erpgulf.zatca_erpgulf import pending_csr_provider as pinned
+from zatca_erpgulf.zatca_erpgulf import primary_receipt_provider as local_sql
+from unittest.mock import Mock
 from zatca_erpgulf.zatca_erpgulf.tests.test_pending_csr_access import access_case, invoke, Denied, Failed
 
 
@@ -391,4 +394,153 @@ def test_source_row_lock_blocks_competing_changes_until_test_owner_releases_tran
     with other.cursor() as cursor:
         cursor.execute("UPDATE `tabCompany` SET tax_id=%s WHERE name=%s", ("CHANGED TEST", case.company.name))
     other.rollback()
+    assert pending_count(connections(), case) == 0
+
+
+@pytest.fixture(scope="module")
+def private_provider_schema(isolated_server, private_access_schema):
+    with pymysql.connect(unix_socket=isolated_server[0], user="root",
+                         database="zatca_journal_rehearsal", autocommit=True) as connection:
+        schema = Path(__file__).resolve().parents[3] / "docs/zatca_unification/pending_csr_provider_rehearsal.sql"
+        text = "\n".join(line for line in schema.read_text().splitlines() if not line.lstrip().startswith("--"))
+        with connection.cursor() as cursor:
+            for statement in text.split(";"):
+                if statement.strip():
+                    cursor.execute(statement)
+
+
+@pytest.fixture
+def pinned_case(private_provider_schema, isolated_server, access_case, connections):
+    leases = []
+    def build(kind="company"):
+        case = private_access_case(access_case, connections, kind)
+        observed = os.stat(isolated_server[0])  # Exact fixture-owned socket only.
+        admin = connections()
+        with admin.cursor() as cursor:
+            cursor.execute("SELECT @@server_id")
+            server_id = cursor.fetchone()[0]
+            registration = str(uuid4())
+            cursor.execute("INSERT INTO zatca_pending_csr_storage_binding_v1 VALUES (%s,%s,%s,%s)",
+                (case.scope.storage_namespace, case.scope.site, registration, "test-only-key"))
+        admin.commit()  # TEST-only provisioning, never a runtime provider action.
+        case.database_binding = pinned.PendingCSRDatabaseBinding(case.scope, isolated_server[0],
+            observed.st_dev, observed.st_ino, observed.st_uid, "zatca_journal_rehearsal", server_id,
+            registration, "test-only-key")
+        # Empty root login is for this newly owned TCP-disabled TEST server only.
+        case.login = Mock(return_value=local_sql.ReceiptDatabaseCredentials("root", ""))
+        case.storage_keys = Mock(return_value=pinned.PendingCSRStorageKeys(case.scope, "test-only-key", case.cipher))
+        case.lease = pinned.UnixPendingCSRResourceProvider(case.database_binding, case.login, case.storage_keys)
+        leases.append(case.lease)
+        case.service = access.SavedPendingCSRService(case.scope, case.lookup, case.lease)
+        return case
+    yield build
+    for lease in leases:
+        if lease._state == "HANDED_OFF" and not lease.resources.connection.closed:
+            try:
+                lease.resources.connection.rollback()  # TEST caller owns cleanup.
+            finally:
+                lease.resources.connection.close()
+
+
+@pytest.mark.parametrize("kind", ["company", "multiple_setting"])
+@pytest.mark.parametrize("commit", [False, True])
+def test_concrete_pending_provider_composes_actual_service_crypto_source_locks_and_parent_transaction(pinned_case, connections, kind, commit):
+    case = pinned_case(kind)
+    report = invoke(case, "stage")
+    owned = case.lease.resources.connection
+    assert report["state"] == "PENDING_CSR_STAGED_UNCOMMITTED" and report["storage_confirmed"] is False
+    with owned.cursor() as cursor:
+        cursor.execute("INSERT INTO pending_csr_parent_work VALUES (%s,%s)", (case.scope.storage_namespace, "TEST PARENT"))
+    observer = connections()
+    assert pending_count(observer, case) == count(observer, "pending_csr_parent_work", case.scope.storage_namespace) == 0
+    owned.commit() if commit else owned.rollback()  # TEST caller, never service/provider.
+    observer.rollback()
+    assert pending_count(observer, case) == count(observer, "pending_csr_parent_work", case.scope.storage_namespace) == int(commit)
+    case.login.assert_called_once_with(case.scope)
+    case.storage_keys.assert_called_once_with(case.scope)
+    with pytest.raises(pinned.PendingCSRProviderError):
+        case.lease(case.scope)  # No second connection/retry through the same lease.
+
+
+@pytest.mark.parametrize("kind", ["company", "multiple_setting"])
+def test_concrete_pending_provider_metadata_inspection_of_exact_committed_envelope(pinned_case, kind):
+    case = pinned_case(kind)
+    MariaDBPendingCSRRepository(case.writer, case.scope.storage_namespace, case.cipher).stage(case.sealed)
+    case.writer.commit()
+    report = invoke(case, "inspect")
+    assert report["state"] == "PENDING_CSR_INSPECTION_OBSERVATION" and report["storage_confirmed"] is False
+    assert report["credential_epoch_verified"] is False and "private_key_pem" not in report
+    case.lease.resources.connection.rollback()
+
+
+@pytest.mark.parametrize("fault", ["missing-registration", "site", "registration", "key-id", "server-id"])
+def test_actual_pending_registration_or_server_mismatch_refuses_keys_and_staging(pinned_case, connections, fault):
+    case = pinned_case()
+    admin = connections()
+    with admin.cursor() as cursor:
+        if fault == "missing-registration":
+            cursor.execute("DELETE FROM zatca_pending_csr_storage_binding_v1 WHERE storage_namespace=%s", (case.scope.storage_namespace,))
+        elif fault != "server-id":
+            field, value = {"site": ("site", "other.test"), "registration": ("registration_id", str(uuid4())),
+                            "key-id": ("key_id", "other-key")}[fault]
+            cursor.execute("UPDATE zatca_pending_csr_storage_binding_v1 SET " + field + "=%s WHERE storage_namespace=%s",
+                           (value, case.scope.storage_namespace))
+    admin.commit()
+    if fault == "server-id":
+        case.lease._binding = replace(case.database_binding,
+            server_id=(case.database_binding.server_id + 1) % (2**32))
+    with pytest.raises(Failed) as error:
+        invoke(case, "stage")
+    assert error.value.__context__ is None
+    case.storage_keys.assert_not_called()
+    assert pending_count(connections(), case) == 0
+    with pytest.raises(pinned.PendingCSRProviderError):
+        case.lease.resources
+
+
+@pytest.mark.parametrize("operation", ["cursor", "commit"])
+def test_concrete_pending_wait_drift_poisoning_does_not_reset_or_commit_pending_material(pinned_case, connections, operation):
+    case = pinned_case()
+    invoke(case, "stage")
+    owned = case.lease.resources.connection
+    with owned.cursor() as cursor:
+        cursor.execute("SET SESSION lock_wait_timeout=2")  # Exact owned TEST handle only.
+    with pytest.raises(pinned.PendingCSRProviderError) as error:
+        getattr(owned, operation)()
+    assert error.value.__context__ is None
+    with pytest.raises(pinned.PendingCSRProviderError):
+        owned.cursor()
+    owned.rollback()
+    assert pending_count(connections(), case) == 0
+
+
+@pytest.mark.parametrize("kind", ["company", "multiple_setting"])
+@pytest.mark.parametrize("operation", ["read", "write"])
+def test_concrete_pending_provider_is_not_entered_before_saved_row_acl(pinned_case, kind, operation):
+    case = pinned_case(kind)
+    case.denied.add((case.target.doctype, case.target.name, operation))
+    with pytest.raises(Denied):
+        invoke(case, "stage")
+    case.login.assert_not_called()
+    case.storage_keys.assert_not_called()
+    assert case.lease._state == "NEW"
+
+
+def test_concrete_pending_registration_stays_locked_until_caller_releases_transaction(pinned_case, connections):
+    case = pinned_case()
+    invoke(case, "stage")
+    mutator = connections()
+    with mutator.cursor() as cursor:
+        with pytest.raises(pymysql.err.OperationalError) as error:
+            cursor.execute("UPDATE zatca_pending_csr_storage_binding_v1 SET key_id=%s WHERE storage_namespace=%s",
+                           ("other-key", case.scope.storage_namespace))
+    assert error.value.args[0] == 1205
+    mutator.rollback()
+    case.lease.resources.connection.rollback()
+    with mutator.cursor() as cursor:
+        cursor.execute("UPDATE zatca_pending_csr_storage_binding_v1 SET key_id=%s WHERE storage_namespace=%s",
+                       ("other-key", case.scope.storage_namespace))
+    mutator.commit()
+    with pytest.raises(pinned.PendingCSRProviderError):
+        case.lease.resources.connection.cursor()
     assert pending_count(connections(), case) == 0

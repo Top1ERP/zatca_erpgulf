@@ -2,6 +2,10 @@
 
 ## Internal boundary, not runtime adoption
 
+Increment 88 adds a separate [explicit pinned resource lease](PENDING_CSR_PROVIDER.md)
+without installing it or connecting any runtime button. Resource/transaction
+ownership and independent provenance limits below still apply.
+
 `SavedPendingCSRService` adds saved-source authorization and metadata-only
 `stage`/`inspect` over increment 86's encrypted pending-draft repository. It is
 **not whitelisted or connected to a button, wizard, worker, signer, transport,

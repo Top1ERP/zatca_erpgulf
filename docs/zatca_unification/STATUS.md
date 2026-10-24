@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and eighty-seven bounded increments (Compliance outcomes, dedicated
+Safety preparation and eighty-eight bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -1855,6 +1855,34 @@ seconds** before extra role/input/message tests and native composition were adde
 All nine Node VM scripts passed **1,444 cases**. No offline resource, ordinary
 permission, crypto or transport assertion was waived; no installed v15/v16,
 Desk/browser, SDK or authority acceptance is claimed.
+
+## Increment 88: pinned single-acquisition pending CSR resources
+
+- Add an unactivated explicit Unix resource lease over shared socket/peer/session
+  checks, with a distinct pending-domain registration and pinned storage-key ID.
+  Scope/socket checks precede local login; verified pending target precedes scoped
+  keys, followed by another target/session/key-ID check. No discovery/fallback,
+  arbitrary connector, reconnect, schema installation or automatic commit.
+- Extend the shared probe only with two literal registration-table choices;
+  existing receipt callers retain the exact default query and behavior. New
+  pending handles poison drift/driver/probe interruptions and allow caller cleanup;
+  failed acquisition attempts rollback AND close only its newly owned handle.
+- Lease reentry/reacquisition never creates another connection or loses access to
+  handed-off resources. Metadata-only saved-source staging remains uncommitted;
+  actual vault/tenant/key/epoch provenance and source/ACL-aware commit/issuance
+  coordination remain gates, not properties established by a marker or key ID.
+- Add only fixed-manifest synthetic and existing owned-private SQL tests. No live
+  source/config/schema/site/customer credential/worker/Bench or authority operation.
+  No button/provider is installed; existing credentials/signing remain unchanged.
+  See [PENDING_CSR_PROVIDER.md](PENDING_CSR_PROVIDER.md).
+
+Final guarded combined: **13,626 local + 1,862 private SQL = 15,488 passed in
+159.78 seconds**, across thirteen private suites, including **101 new cases**
+(83 local + 18 native SQL). Local-only runner passed **13,626 in 83.01 seconds**.
+All nine Node VM scripts passed **1,444 cases**. Existing receipt default queries/
+session/cleanup tests remain unchanged; no offline resource, ordinary ACL, crypto
+or transport guard was waived. Installed v15/v16, Desk/browser, SDK, actual key
+provisioning and authority acceptance remain unverified.
 
 ## Verification
 

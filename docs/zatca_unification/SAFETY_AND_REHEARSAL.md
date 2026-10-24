@@ -962,3 +962,25 @@ guard was relaxed. No live source/assets/config/schema/site/customer credential/
 worker/Bench or authority operation occurred. Independent historical source/epoch,
 field-level secret custody, provider/key/nonce policy, installed v15/v16 and
 issuance/activation remain release gates, not claims established by these tests.
+
+Increment88 adds an [explicit pinned pending resource lease](PENDING_CSR_PROVIDER.md).
+It is single-acquisition and uninstalled. Shared socket/peer/session checks add
+only a two-literal marker-table selector, preserving receipt defaults. Pending
+scope/socket checks precede login, verified target/registration/key ID precede
+scoped keys, and target/session/key ID are rechecked after the key callback and
+before handle cursors/commit. No discovery/fallback/reconnect/DDL/automatic commit
+or runtime wiring is added. Failed acquisition cleans only its freshly created
+handle, attempting rollback AND close with interruption priority. Handed-off
+resources/parent transaction remain the caller's cleanup/commit responsibility.
+
+Only the reviewed local provider suite joins the fixed manifest. The existing
+owned-private pending suite adds fixture-only registration DDL and actual provider/
+service/cipher/source-lock composition; no tenant database, key or login is used.
+Final combined: **13,626 local + 1,862 private SQL = 15,488 passed in 159.78
+seconds**, across thirteen private suites, including **101 new cases** (83 local
+plus 18 native SQL). Local-only passed **13,626 in 83.01 seconds**. All nine Node VM
+scripts passed **1,444 cases**. Existing receipt expectations and offline/ordinary-
+permission/crypto/transport guards remain intact. No live source/assets/config/
+schema/site/customer credential/worker/Bench or authority operation occurred.
+Actual vault/provisioning/grants/tenant/key/epoch provenance, source/ACL-aware
+commit/issuance/receipt coordination and installed v15/v16 remain gates.
