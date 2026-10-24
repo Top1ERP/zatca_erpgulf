@@ -22,7 +22,7 @@ from .issuance_candidate import _canonical_uuid, _fingerprint
 from .operation_messages import mute_operation_messages
 from .permission_compat import saved_row_has_permission
 from .pending_csr import (
-    PendingCSRCipher, SealedPendingCSR, _key_id,
+    PendingCSRCipher, SealedPendingCSR, _key_id, _copy_context,
 )
 from .pending_csr_binding import SOURCE_SCHEMA, PendingCSRAccessError, PendingCSRSourceBinding
 from .pending_csr_repository import MariaDBPendingCSRRepository
@@ -243,6 +243,13 @@ class SavedPendingCSRService:
             raise PendingCSRAccessError()
         return self._execute("create_bound", company_abbr, source_identity, sealed, completion=completion)
 
+    def _prepare_bound_for_commit(self, company_abbr, source_identity, context, prepare, completion):
+        """Server-only preparation/handoff after source guards, before new save."""
+        if not callable(prepare) or not callable(completion):
+            raise PendingCSRAccessError()
+        return self._execute("prepare_bound", company_abbr, source_identity, context,
+                             completion=completion, prepare=prepare)
+
     def _stage_for_commit(self, company_abbr, source_identity, sealed, completion):
         """Protected owned-coordinator handoff only; never expose through RPC.
 
@@ -269,14 +276,14 @@ class SavedPendingCSRService:
             raise PendingCSRAccessError()
         return self._execute("observe_bound", company_abbr, source_identity, original, completion=completion)
 
-    def _execute(self, operation, company_abbr, identity, value, *, completion=None):
+    def _execute(self, operation, company_abbr, identity, value, *, completion=None, prepare=None):
         entered = False
         try:
             if self._busy or self._failed:
                 raise PendingCSRAccessError()
             self._busy, entered = True, True
             with mute_operation_messages(frappe):
-                return self._work(operation, company_abbr, identity, value, completion=completion)
+                return self._work(operation, company_abbr, identity, value, completion=completion, prepare=prepare)
         except CredentialWriteAccessError as error:
             denied = error.code == "permission"
         except frappe.PermissionError:
@@ -295,13 +302,17 @@ class SavedPendingCSRService:
         frappe.throw(_(DENIED_MESSAGE if denied else FAILED_MESSAGE),
                      frappe.PermissionError if denied else frappe.ValidationError)
 
-    def _work(self, operation, company_abbr, identity, value, *, completion=None):
+    def _work(self, operation, company_abbr, identity, value, *, completion=None, prepare=None):
         actor = self._actor()
-        initial = operation == "create_bound"
+        preparing = operation == "prepare_bound"
+        initial = operation in ("create_bound", "prepare_bound")
         pair_review = operation == "observe_bound"
-        if operation not in ("stage", "inspect", "observe", "create_bound", "observe_bound"):
+        if operation not in ("stage", "inspect", "observe", "create_bound", "observe_bound", "prepare_bound"):
             raise PendingCSRAccessError()
-        if operation != "inspect":
+        if preparing:
+            context = _copy_context(value)
+            draft_id = context.draft_id
+        elif operation != "inspect":
             if type(value) is not SealedPendingCSR:
                 raise PendingCSRAccessError()
             value.__post_init__()
@@ -325,7 +336,9 @@ class SavedPendingCSRService:
 
         recheck()
         binding = None
-        if initial or pair_review:
+        if preparing:
+            manifest, key_id = None, None  # Selected only after scoped resources.
+        elif initial or pair_review:
             manifest, key_id = value.manifest, value.key_id
         else:
             binding = self._lookup(self._scope, target.doctype, target.name, draft_id)
@@ -338,14 +351,15 @@ class SavedPendingCSRService:
             if binding.scope != self._scope or binding.source_rows_sha256 != _rows_sha256(rows):
                 raise PendingCSRAccessError()
             manifest, key_id = binding.manifest, binding.key_id
-        context = manifest.context
+        if not preparing:
+            context = manifest.context
         if (context.draft_id != draft_id or context.slot.owner_doctype != target.doctype
                 or context.slot.owner_name != target.name or context.company_name != company.name
                 or context.source_kind != ("company" if target.doctype == "Company" else "multiple_setting")
                 or saved_form_revision(context.source_revision) != saved_form_revision(target.revision)
                 or context.slot.environment != environment
                 or type(target.get("custom_csr_config")) is not str
-                or hashlib.sha256(target.get("custom_csr_config").encode()).hexdigest() != manifest.configuration_sha256):
+                or (not preparing and hashlib.sha256(target.get("custom_csr_config").encode()).hexdigest() != manifest.configuration_sha256)):
             raise PendingCSRAccessError()
 
         def check_envelope(sealed):
@@ -353,15 +367,17 @@ class SavedPendingCSRService:
                     or sealed.manifest_bytes != manifest.encode() or sealed.key_id != key_id):
                 raise PendingCSRAccessError()
 
-        if operation != "inspect":
+        if operation != "inspect" and not preparing:
             check_envelope(value)
         recheck()
         resources = self._resources(self._scope)
         if type(resources) is not PendingCSRResources:
             raise PendingCSRAccessError()
         resources.__post_init__()
-        if resources.scope != self._scope or resources.key_id != key_id:
+        if resources.scope != self._scope or (not preparing and resources.key_id != key_id):
             raise PendingCSRAccessError()
+        if preparing:
+            key_id = resources.key_id
         if resources.connection is frappe.db or resources.connection is getattr(frappe.db, "_conn", None):
             raise PendingCSRAccessError()
         recheck()
@@ -383,7 +399,7 @@ class SavedPendingCSRService:
             # digest or recalculate a historical binding from today's settings.
             password_digest = capture_password_state(resources.connection, self._scope.storage_namespace, password_sources)
             recheck()
-            if initial:
+            if initial and not preparing:
                 binding = PendingCSRSourceBinding(self._scope, manifest, _rows_sha256(rows), key_id, password_digest)
             # An incomplete/conflicting pair has NO adopted historical binding.
             # This digest observes CURRENT backing stability only, not history.
@@ -396,6 +412,28 @@ class SavedPendingCSRService:
 
         check_password_state()
         recheck()
+        if preparing:
+            repository.require_unused(context)
+            _verify_locked_rows(resources.connection, rows)
+            check_password_state()
+            recheck()
+            # The owned callback generates/seals once, retains the encrypted
+            # original BEFORE invoking its custodian, and requires literal True
+            # acknowledgment. It never receives old raw credential values.
+            selected = prepare(resources, context, target.get("custom_csr_config"))
+            if type(selected) is not SealedPendingCSR:
+                raise PendingCSRAccessError()
+            value = SealedPendingCSR(selected.storage_namespace, selected.manifest_bytes,
+                                    selected.key_id, selected.nonce, selected.ciphertext)
+            manifest = value.manifest
+            if (manifest.context != context
+                    or manifest.configuration_sha256 != hashlib.sha256(target.get("custom_csr_config").encode()).hexdigest()):
+                raise PendingCSRAccessError()
+            check_envelope(value)
+            _verify_locked_rows(resources.connection, rows)
+            check_password_state()
+            recheck()
+            binding = PendingCSRSourceBinding(self._scope, manifest, _rows_sha256(rows), key_id, password_digest)
         observation = None
         if initial:
             if repository.create_bound(binding, value) != binding:
@@ -422,6 +460,8 @@ class SavedPendingCSRService:
             report.update(state="PENDING_CSR_REVIEW_UNCLOSED", envelope_observation=observation)
         if initial:
             report.update(state="PENDING_CSR_BOUND_CREATION_UNCOMMITTED", original_source_binding_observed=True)
+        if preparing:
+            report.update(server_custody_acknowledged=True, server_custody_durable_verified=False)
         if pair_review:
             report.update(state="PENDING_CSR_BOUND_REVIEW_UNCLOSED", pair_observation=pair_result[0],
                           original_source_binding_observed=binding is not None,

@@ -222,6 +222,16 @@ rollback/close and visible access before disclosure; no runtime caller is enable
 Next review protected draft intake and source/key/tenant/epoch provenance before
 issuance/activation. See [PENDING_CSR_BOUND_REVIEW.md](PENDING_CSR_BOUND_REVIEW.md).
 
+Increment 95 connects shared preparation/sealing to authorized NEW local pair
+creation, with normal ACL/source/backing/unused-ID checks before generation and
+mandatory protected encrypted-original retention acknowledgment before staging.
+No old credential is selected/replaced. Exact original custody precedes later
+guard/commit failure; acknowledgment is explicitly not durable attestation.
+Existing owned cleanup and fresh read-only review handle unknown outcomes without
+regeneration/retry. No runtime caller/provider/schema is enabled. Next review
+durable custody and key/source/tenant/epoch provenance before issuance integration.
+See [PENDING_CSR_PREPARATION.md](PENDING_CSR_PREPARATION.md).
+
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |
 | Phase 1 | Local QR for supported Sales/POS documents | No Phase-2 API or production hash-chain mutation |

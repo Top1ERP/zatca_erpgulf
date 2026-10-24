@@ -1379,3 +1379,140 @@ def test_native_bound_review_cleanup_acknowledgment_loss_withholds_metadata_with
     observer = connections()
     assert pending_count(observer, case) == source_binding_count(observer, case.scope.storage_namespace) == 1
     observer.rollback()
+
+
+def configure_owned_preparation(case, crypto, monkeypatch):
+    """Protected in-memory TEST custodian, explicitly NOT durable provisioning."""
+    configure_transaction(case, monkeypatch)
+    case.context, case.retained = case.draft.context, []
+    case.lookup.side_effect = AssertionError("Preparation must not use historical lookup")
+    crypto.generator.reset_mock()  # Fixture construction used a separate fictional draft.
+    def retain(scope, original):
+        assert scope == case.scope and original == case.transaction.prepared_original
+        assert original is not case.transaction.prepared_original
+        case.retained.append(original)
+        return True
+    case.retain = Mock(side_effect=retain)
+    return case
+
+
+@pytest.mark.parametrize("kind", ["company", "multiple_setting"])
+@pytest.mark.parametrize("password", [False, True])
+def test_native_authorized_preparation_retains_and_commits_new_pair_without_replacing_active_fields(pinned_case, connections, monkeypatch, crypto, kind, password):
+    case = password_native_case(pinned_case, connections, kind) if password else pinned_case(kind)
+    configure_owned_preparation(case, crypto, monkeypatch)
+    result = case.transaction.prepare_bound("TC", case.identity, case.context, case.retain)
+    original = case.transaction.prepared_original
+    assert result["server_custody_acknowledged"] is True and result["server_custody_durable_verified"] is False
+    assert result["local_transaction_completed"] is True and result["storage_confirmed"] is False
+    assert case.lease.resources.connection.closed and case.retained == [original]
+    crypto.generator.assert_called_once()
+    case.retain.assert_called_once()
+    case.lookup.assert_not_called()
+    observer = connections()
+    repo = MariaDBPendingCSRRepository(observer, case.scope.storage_namespace, case.cipher)
+    assert repo.load(case.context) == original and case.cipher.open(original).config_text == case.target.custom_csr_config
+    binding = repo.load_binding(case.scope, case.context)
+    assert binding.source_rows_sha256 == case.binding.source_rows_sha256
+    assert binding.password_state_sha256 == case.binding.password_state_sha256
+    assert binding.manifest == original.manifest
+    assert pending_count(observer, case) == source_binding_count(observer, case.scope.storage_namespace) == 1
+    observer.rollback()
+    for identity, doc in case.documents.items():
+        assert {name: doc.get(name) for name in access.FIELD_MAP[doc.doctype]} == case.before[identity]
+        doc.save.assert_not_called()
+        doc.db_set.assert_not_called()
+
+
+@pytest.mark.parametrize("state", ["pair", "envelope", "history"])
+def test_native_existing_identity_blocks_generation_and_does_not_decrypt_old_material(pinned_case, connections, monkeypatch, crypto, state):
+    case = pinned_case()
+    provision_pair_review(case, "exact" if state == "pair" else state)
+    configure_owned_preparation(case, crypto, monkeypatch)
+    opened = Mock(side_effect=AssertionError("Existing identity must block before old key decoding"))
+    monkeypatch.setattr(case.cipher, "open", opened)
+    with pytest.raises(Failed) as error:
+        case.transaction.prepare_bound("TC", case.identity, case.context, case.retain)
+    assert error.value.__context__ is None and case.lease.resources.connection.closed
+    crypto.generator.assert_not_called()
+    opened.assert_not_called()
+    case.retain.assert_not_called()
+    observer = connections()
+    assert pending_count(observer, case) == int(state != "history")
+    assert source_binding_count(observer, case.scope.storage_namespace) == int(state != "envelope")
+    observer.rollback()
+
+
+@pytest.mark.parametrize("fault", ["no-ack", "failure", "permission", "revision", "password"])
+def test_native_retention_or_post_handoff_guard_failure_preserves_original_without_staging(pinned_case, connections, monkeypatch, crypto, fault):
+    case = password_native_case(pinned_case, connections)
+    configure_owned_preparation(case, crypto, monkeypatch)
+    retain = case.retain.side_effect
+    def change(scope, original):
+        retain(scope, original)
+        if fault == "no-ack":
+            return False
+        if fault == "failure":
+            raise RuntimeError("PRIVATE custodian failure")
+        if fault == "permission":
+            case.denied.add((case.target.doctype, case.target.name, "write"))
+        else:
+            with case.lease.resources.connection.cursor() as cursor:
+                if fault == "revision":
+                    cursor.execute("UPDATE `tabCompany` SET modified=%s WHERE name=%s", ("2026-10-24 11:00:01", case.company.name))
+                else:
+                    cursor.execute("UPDATE `__Auth` SET password=%s WHERE doctype=%s AND name=%s AND fieldname=%s",
+                        ("ENCRYPTED TEST ROTATED", case.target.doctype, case.target.name, "custom_basic_auth_from_csid"))
+        return True
+    case.retain.side_effect = change
+    with pytest.raises(Denied if fault == "permission" else Failed) as error:
+        case.transaction.prepare_bound("TC", case.identity, case.context, case.retain)
+    assert error.value.__context__ is None and len(case.visible) == 1
+    assert case.retained == [case.transaction.prepared_original] and case.lease.resources.connection.closed
+    crypto.generator.assert_called_once()
+    observer = connections()
+    assert pending_count(observer, case) == source_binding_count(observer, case.scope.storage_namespace) == 0
+    with observer.cursor() as cursor:
+        cursor.execute("SELECT password FROM `__Auth` WHERE doctype=%s AND name=%s AND fieldname=%s",
+            (case.target.doctype, case.target.name, "custom_basic_auth_from_csid"))
+        assert cursor.fetchone() == ("ENCRYPTED TEST ORIGINAL",)
+    observer.rollback()
+
+
+@pytest.mark.parametrize("fault", ["commit-before", "commit-after", "close-after", "late-denial"])
+def test_native_generated_original_survives_unknown_completion_and_fresh_review_without_regeneration(pinned_case, connections, monkeypatch, crypto, fault):
+    case = pinned_case()
+    configure_owned_preparation(case, crypto, monkeypatch)
+    retain = case.retain.side_effect
+    attempts = []
+    def inject(scope, original):
+        retain(scope, original)
+        raw = case.lease.resources.connection._raw  # Exact newly owned TEST handle only.
+        method = "close" if fault == "close-after" else "commit"
+        selected = getattr(raw, method)
+        def fail():
+            attempts.append(True)
+            if fault != "commit-before":
+                selected()
+            if fault == "late-denial":
+                case.denied.add((case.target.doctype, case.target.name, "write"))
+                return
+            raise RuntimeError("PRIVATE preparation completion acknowledgment lost")
+        monkeypatch.setattr(raw, method, fail)
+        return True
+    case.retain.side_effect = inject
+    with pytest.raises(Denied if fault == "late-denial" else Failed) as error:
+        case.transaction.prepare_bound("TC", case.identity, case.context, case.retain)
+    original = case.transaction.prepared_original
+    assert error.value.__context__ is None and attempts == [True]
+    assert case.retained == [original] and case.lease.resources.connection.closed
+    crypto.generator.assert_called_once()
+    observer = connections()
+    assert pending_count(observer, case) == source_binding_count(observer, case.scope.storage_namespace) == int(fault != "commit-before")
+    observer.rollback()
+    case.denied.clear()  # Explicit fictional TEST ACL restoration before new review.
+    fresh_owned_bound_review(case, monkeypatch)
+    result = case.transaction.observe_bound("TC", case.identity, original)
+    assert result["pair_observation"] == ("PAIR_ABSENT_OBSERVED" if fault == "commit-before" else "PAIR_EXACT_OBSERVED")
+    assert case.lease.resources.connection.closed
+    crypto.generator.assert_called_once()

@@ -1160,3 +1160,36 @@ observations are not prior-commit proof,
 permanent absence, atomic permissions, historical provenance or a credential epoch.
 Protected draft intake, independent source/key/tenant/epoch evidence and installed
 v15/v16/Desk/browser/SDK/authority acceptance remain gates before adoption.
+
+Increment95 adds [permissioned one-shot preparation with protected custody handoff](PENDING_CSR_PREPARATION.md)
+through the existing source/normal-ACL/owned-resource/backing engine. Exact saved
+context/configuration and locked unused identity precede one shared key/CSR
+preparation and one encryption. Existing identities block generation without
+decrypting their old pending material. No active saved key/CSR/certificate/auth
+field is selected or replaced; no legacy button/selector/provider/schema is wired.
+
+The exact encrypted original is copied into protected server-owned memory BEFORE
+the custodian callback. Literal True acknowledgment is required before staging;
+it does not attest durability, actual key/tenant provenance or recovery after
+process loss. A trusted server-only recovery property preserves the same input
+after interruption, late denial or uncertain commit, not a UI/RPC export. Source/
+backing/normal permissions are rechecked after handoff and before shared new-pair
+storage/final guards/one commit/close. Fresh read-only review never regenerates.
+
+One comprehensive redacted preparation/storage failure is display-only translated
+(including Arabic), with English keys and no raw crypto/retainer/driver export.
+The approved fixed local manifest adds only preparation tests; native composition
+extends the existing owned temporary TCP-disabled SQL suite. No live source/asset/
+config/schema/site/customer credential/worker/Bench or authority operation occurs.
+First local-only guarded: **14,081 passed in 85.93 seconds**, including 57 new
+local cases. All nine Node VM scripts passed **1,444 cases**. Combined native
+verification passed **14,081 local + 2,022 private SQL = 16,103 cases in 173.24
+seconds**, across thirteen private suites, including **73 new cases** (57 local +
+16 native SQL). Native tests verify exact generated pair storage and active-field
+preservation, no generation/old-key decryption on existing identity, custody/
+post-handoff guard failure without staging, both-row unknown completion and fresh
+review of the same generated envelope without regeneration. No resource/ordinary-
+ACL/crypto/transport guard was waived. Durable retained custody/recovery,
+independent key/source/tenant/epoch
+evidence, field/log/backup controls and installed v15/v16/Desk/SDK/authority acceptance
+remain gates before any runtime or issuance/activation integration.

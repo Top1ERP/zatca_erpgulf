@@ -106,6 +106,28 @@ class MariaDBPendingCSRRepository:
         """Initial capture only: never recapture even an exact existing pair."""
         return self._run_operation(self._stage_bound, binding, original, True)
 
+    def require_unused(self, context):
+        """Locked absent-identity observation BEFORE generation, not a reservation.
+
+        Presence in either table blocks preparation, without loading old secrets.
+        Under weaker isolation a later competing insert can still win; new-pair
+        plain INSERTs remain mandatory and must never turn into adoption/retry.
+        """
+        return self._run_operation(self._require_unused, context)
+
+    def _require_unused(self, context):
+        self._validate_context(context)
+        with self._connection.cursor() as cursor:
+            self._transaction(cursor)
+            for table in ("zatca_pending_csr_v1", "zatca_pending_csr_source_binding_v1"):
+                cursor.execute("SELECT draft_id FROM " + table
+                    + " WHERE storage_namespace=%s AND draft_id=%s FOR UPDATE", (self._namespace, context.draft_id))
+                row = cursor.fetchone()
+                if row is not None:
+                    if type(row) is not tuple or row != (context.draft_id,):
+                        raise PendingCSRStorageError("row_format")
+                    raise PendingCSRStorageError("binding_exists")
+
     def _stage_bound(self, binding, original, require_new):
         expected = PendingCSRBindingRecord.capture(binding, original)
         if original.storage_namespace != self._namespace:

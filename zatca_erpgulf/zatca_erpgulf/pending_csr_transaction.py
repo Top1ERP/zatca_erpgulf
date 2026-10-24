@@ -15,6 +15,8 @@ from .credential_bundle_access import CredentialStorageScope
 from .operation_messages import mute_operation_messages
 from .pending_csr_access import SavedPendingCSRService
 from .pending_csr_provider import UnixPendingCSRResourceProvider
+from .pending_csr_preparation import prepare_sealed_csr
+from .pending_csr import SealedPendingCSR
 
 
 DENIED_MESSAGE = (
@@ -36,6 +38,16 @@ REVIEW_FAILED_MESSAGE = (
     "Do not regenerate, store again or resend automatically. "
     "No draft was stored or replaced, certificate activated or request sent by this review."
 )
+PREPARATION_DENIED_MESSAGE = (
+    "You do not have permission to prepare or store pending ZATCA CSR drafts. "
+    "Local storage may already have completed. The server custodian must review any retained original. "
+    "Existing saved credentials were not replaced; no request was sent."
+)
+PREPARATION_FAILED_MESSAGE = (
+    "Pending ZATCA CSR preparation or storage could not be confirmed. Do not regenerate or retry automatically. "
+    "The server custodian must review any retained original and the local transaction. "
+    "Existing saved credentials were not replaced; no request was sent."
+)
 
 
 class PendingCSRTransactionError(ValueError):
@@ -48,9 +60,9 @@ class PendingCSRTransactionError(ValueError):
 class PendingCSRStagingTransaction:
     """Single-use server boundary for a separately provisioned OWNED lease.
 
-    No caller connection/factory, parent work, key generation/resealing, HTTP,
-    installation or active-credential write. The caller independently retains
-    its input even after denial, interruption or an unknown commit outcome.
+    No caller connection/factory, parent work, HTTP, installation or active write.
+    Preparation is opt-in and requires a protected custodian handoff before staging.
+    The caller retains input even after denial/interruption/unknown completion.
     Never share this coordinator/lease across threads, RPC, queues or logs.
     """
 
@@ -64,12 +76,24 @@ class PendingCSRStagingTransaction:
         self._scope, self._lookup, self._lease = scope, lookup_provider, lease
         self._owner = object()
         self._used, self._running, self._poisoned = False, False, False
+        self._prepared_original = None
 
     def __repr__(self):
         return "PendingCSRStagingTransaction(<single-use protected local completion>)"
 
     def __reduce_ex__(self, protocol):
         raise PendingCSRTransactionError()
+
+    @property
+    def prepared_original(self):
+        """Protected SERVER recovery only, including after denial/interruption.
+
+        Never RPC/JSON/log/queue this ciphertext or the owning object. Holding it
+        in memory is not durable custody or permission to retry/activate/send.
+        """
+        if self._prepared_original is None:
+            raise PendingCSRTransactionError()
+        return self._prepared_original
 
     def _check_running(self):
         if not self._running or self._poisoned:
@@ -114,8 +138,18 @@ class PendingCSRStagingTransaction:
         """
         return self._run("observe_bound", company_abbr, source_identity, original)
 
-    def _run(self, operation, company_abbr, source_identity, sealed):
-        writing = operation in ("save", "create_bound")
+    def prepare_bound(self, company_abbr, source_identity, context, retain):
+        """Authorize, generate/seal ONCE, acknowledge protected custody, save.
+
+        Context IDs/time are explicit declarations; configuration comes only from
+        authorized saved rows. retain(scope, original) must return literal True;
+        the acknowledgment alone is NOT durability or key/tenant provenance.
+        """
+        return self._run("prepare_bound", company_abbr, source_identity, context, retain=retain)
+
+    def _run(self, operation, company_abbr, source_identity, sealed, *, retain=None):
+        preparing = operation == "prepare_bound"
+        writing = operation in ("save", "create_bound", "prepare_bound")
         entered, claimed = False, False
         close_attempted, commit_returned, rollback_attempted = False, False, False
         result, failure, cleanup_failure = None, None, None
@@ -125,12 +159,28 @@ class PendingCSRStagingTransaction:
                     self._poisoned = True
                 raise PendingCSRTransactionError()
             self._used, self._running, entered = True, True, True
+            if preparing and not callable(retain):
+                raise PendingCSRTransactionError()
             self._lease._claim_for_transaction(self._owner)
             claimed = True
             with mute_operation_messages(frappe):
                 def acquire(scope):
                     self._check_running()
                     return self._lease._acquire_for_transaction(scope, self._owner)
+
+                def prepare(resources, context, configuration):
+                    self._check_running()
+                    if resources is not self._lease.resources or self._prepared_original is not None:
+                        raise PendingCSRTransactionError()
+                    original = prepare_sealed_csr(resources, context, configuration)
+                    self._prepared_original = SealedPendingCSR(original.storage_namespace, original.manifest_bytes,
+                        original.key_id, original.nonce, original.ciphertext)  # Before any custodian callback/late denial.
+                    transferred = SealedPendingCSR(original.storage_namespace, original.manifest_bytes,
+                        original.key_id, original.nonce, original.ciphertext)
+                    if retain(self._scope, transferred) is not True:
+                        raise PendingCSRTransactionError()
+                    self._check_running()
+                    return self._prepared_original
 
                 def complete(resources, locked_guard, current_guard, report):
                     nonlocal close_attempted, commit_returned, rollback_attempted
@@ -151,7 +201,7 @@ class PendingCSRStagingTransaction:
                     self._check_running()
                     result = dict(report)
                     if writing:
-                        result.update(state=("PENDING_CSR_BOUND_TRANSACTION_COMPLETED_OBSERVATION" if operation == "create_bound"
+                        result.update(state=("PENDING_CSR_BOUND_TRANSACTION_COMPLETED_OBSERVATION" if operation in ("create_bound", "prepare_bound")
                                              else "PENDING_CSR_TRANSACTION_COMPLETED_OBSERVATION"), local_transaction_completed=True)
                     else:
                         result.update(state=("PENDING_CSR_BOUND_REVIEW_OBSERVATION" if operation == "observe_bound"
@@ -163,6 +213,8 @@ class PendingCSRStagingTransaction:
                     result = policy._stage_for_commit(company_abbr, source_identity, sealed, complete)
                 elif operation == "create_bound":
                     result = policy._create_bound_for_commit(company_abbr, source_identity, sealed, complete)
+                elif preparing:
+                    result = policy._prepare_bound_for_commit(company_abbr, source_identity, sealed, prepare, complete)
                 elif operation == "observe_bound":
                     result = policy._observe_bound_for_review(company_abbr, source_identity, sealed, complete)
                 else:
@@ -198,5 +250,7 @@ class PendingCSRStagingTransaction:
         failure = cleanup_failure = error = None  # Do not retain private child exceptions in public error locals.
         message = ((DENIED_MESSAGE if denied else FAILED_MESSAGE) if writing
                    else (REVIEW_DENIED_MESSAGE if denied else REVIEW_FAILED_MESSAGE))
+        if preparing:
+            message = PREPARATION_DENIED_MESSAGE if denied else PREPARATION_FAILED_MESSAGE
         frappe.throw(_(message),
                      frappe.PermissionError if denied else frappe.ValidationError)

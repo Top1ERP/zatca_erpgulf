@@ -2,6 +2,11 @@
 
 ## Gap and bounded implementation
 
+Increment 95 adds [permissioned one-shot preparation and custody handoff](PENDING_CSR_PREPARATION.md)
+through the existing saved-source/owned-resource engine. The pure builder below
+remains unchanged; no legacy button, schema/provider, signer or authority path is
+activated. Existing keys/certificates/authentication are not replaced.
+
 Increment 87 adds internal metadata-only saved-source/ACL stage/inspect over
 encrypted custody. No button, preparation call or issuance path is connected;
 see [PENDING_CSR_ACCESS.md](PENDING_CSR_ACCESS.md).
@@ -20,8 +25,9 @@ guards, not a separate renewal workflow.
 `csr_draft.prepare_csr_draft` now prepares a new key/CSR in memory without
 loading/changing an existing key, certificate, auth or saved Company/device.
 It is internal, **not whitelisted, activated or connected to a button, wizard,
-hook, scheduler, signer, store or transport**. It does not bypass preservation
-guards, encrypt/persist material, issue a certificate or activate credentials.
+hook, scheduler, signer or transport**. Increment 95 adds an optional authorized
+caller for separate pending custody; the pure builder itself does not bypass
+preservation guards, encrypt/persist material, issue or activate credentials.
 
 ```text
 declared context + strict configuration
@@ -96,7 +102,8 @@ preparation/issuance where required, not regenerate a key to retry a request.
 | Existing Company/device CSR button | Guarded saved-field operation using the shared template, not switched to drafts |
 | Internal preparation | No existing credential/source reads or writes; declarations only |
 | Issued-credential encrypted store | Still requires an issued snapshot, not repurposed for pending keys |
-| Custody/CSID/active selection | Not wired; no migration, alias choice, restore, promotion or activation |
+| Pending custody | Optional internal authorized preparation/handoff/save in increment 95; no runtime adoption |
+| CSID/active selection | Not wired; no migration, alias choice, restore, promotion or activation |
 
 Increment 86 supplies encrypted staging primitives, not a permissioned service.
 Next provide permissioned saved-source/epoch-bound custody access,

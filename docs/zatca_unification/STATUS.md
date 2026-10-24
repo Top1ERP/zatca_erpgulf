@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and ninety-four bounded increments (Compliance outcomes, dedicated
+Safety preparation and ninety-five bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2047,6 +2047,35 @@ five observations, corruption/source/backing refusal, classification drift rollb
 and cleanup acknowledgment loss. No resource/ordinary-ACL/crypto/transport guard
 was waived. Installed v15/v16, Desk/browser, SDK and authority acceptance remain
 unverified.
+
+## Increment 95: permissioned one-shot preparation and protected original handoff
+
+- Connect the shared in-memory builder/cipher to initial NEW-pair storage through
+  the existing source/normal-ACL/owned-resource/backing policy. Configuration comes
+  from saved rows; declared context must match before acquisition. Locked absence
+  in both pending tables is required before generation, without old-key loading.
+- Generate/seal once, privately retain the exact encrypted original before any
+  custodian callback, and require literal True handoff acknowledgment before SQL
+  staging. An acknowledgment is not durability/provenance; metadata says so.
+- Recheck source/backing/access after handoff, then reuse strict new-pair/final
+  exact guards and one commit/close. Existing populated active fields stay intact.
+  Failures/interruption/uncertain completion do not regenerate or retry; a trusted
+  server owner retains protected recovery input, never a UI/HTTP export.
+- Reuse one comprehensive display-only translated failure and English keys;
+  extend only fixed-manifest/owned-private tests. No runtime schema/provider/button/
+  tenant/worker/live/authority operation. Durable custody/key/source/tenant/epoch
+  provenance and installed acceptance remain gates. See
+  [PENDING_CSR_PREPARATION.md](PENDING_CSR_PREPARATION.md).
+
+First local-only guarded: **14,081 passed in 85.93 seconds**; nine Node VM scripts:
+**1,444 cases passed**. Final guarded combined: **14,081 local + 2,022 private
+SQL = 16,103 passed in 173.24 seconds**, across thirteen private suites, including
+**73 new cases** (57 local + 16 native SQL). Native tests verify retained exact
+new-pair contents, populated active-field preservation, zero generation/old-key
+decryption on existing IDs, custody/guard failure without staging, both-row
+commit/close ambiguity and fresh read-only review without regeneration. No
+resource/ordinary-ACL/crypto/transport assertion was waived; installed v15/v16,
+Desk/browser, SDK and authority acceptance remain unverified.
 
 ## Verification
 
