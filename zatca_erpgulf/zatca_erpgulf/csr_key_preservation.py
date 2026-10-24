@@ -5,6 +5,8 @@ invalid tokens, alias priority nor an environment change authorizes replacement.
 No parsing, decryption, transport, persistence, cleanup or retry belongs here.
 """
 
+from zatca_erpgulf.zatca_erpgulf.credential_presence import classify_saved_credential_presence
+
 
 PROTECTED_CREDENTIAL_FIELDS = (
     "custom_certificate", "custom_certficate", "custom_basic_auth_from_csid",
@@ -39,9 +41,8 @@ def require_unissued_key_target(values):
     Whitespace and masked values are present, not silently normalized to empty.
     Unknown types fail closed without truth testing/stringifying private values.
     """
-    if type(values) is not dict or set(values) != set(PROTECTED_CREDENTIAL_FIELDS):
+    status = classify_saved_credential_presence(values, PROTECTED_CREDENTIAL_FIELDS)
+    if status == "UNKNOWN":
         raise CSRKeyPreservationError("state")
-    if any(value is not None and type(value) is not str for value in values.values()):
-        raise CSRKeyPreservationError("state")
-    if any(type(value) is str and value != "" for value in values.values()):
+    if status == "PRESENT":
         raise CSRKeyPreservationError("existing")

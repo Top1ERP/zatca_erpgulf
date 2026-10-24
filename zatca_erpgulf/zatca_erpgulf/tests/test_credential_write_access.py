@@ -15,6 +15,7 @@ from cryptography.hazmat.primitives import serialization
 from zatca_erpgulf.zatca_erpgulf import sign_invoice_first as client
 from zatca_erpgulf.zatca_erpgulf.credential_write_access import ACCESS_DENIED, ACCESS_UNCONFIRMED
 from zatca_erpgulf.zatca_erpgulf.csr_key_preservation import PROTECTED_CREDENTIAL_FIELDS
+from zatca_erpgulf.zatca_erpgulf.csid_preservation import FINAL_AUTH_FIELDS
 from zatca_erpgulf.zatca_erpgulf.tests.test_credential_selection import (
     boundary as saved_boundary, materials, ValidationError,
 )
@@ -100,6 +101,11 @@ def enable(b, materials, mode):
         b.keygen.side_effect = None
         b.keygen.return_value = serialization.load_pem_private_key(materials[0].pem.encode(), password=None)
     else:
+        # First issuance/initial Final transition only; existing Final auth is
+        # deliberately retained in ACL-negative and dedicated preservation cases.
+        for doc in (b.company, b.device):
+            for field in FINAL_AUTH_FIELDS:
+                setattr(doc, field, None)
         data = {"binarySecurityToken": base64.b64encode(materials[0].text.encode()).decode(),
                 "secret": "TEST-SECRET", "requestID": "TEST-REQUEST"}
         b.post.side_effect = None

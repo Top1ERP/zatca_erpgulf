@@ -129,6 +129,14 @@ presence guard, not a locked credential epoch or a staged renewal workflow;
 CSID/other writers and explicit safe activation remain gates. See
 [CSR_KEY_PRESERVATION.md](CSR_KEY_PRESERVATION.md).
 
+Increment 84 protects observed saved Final auth against both CSID writers, using
+a shared pure bounded presence core also adopted by the CSR guard. Recheck visible
+changes before transport and response assignment; preserve late review plus any
+cleanup notice in one popup. Initial issuance stays, including its characterized
+shared-certificate/device-alias defects. Certificate-only unknown state, source/
+credential epochs and actual staged renewal/activation remain gates; empty Final
+auth is not authority to renew. See [CSID_PRESERVATION.md](CSID_PRESERVATION.md).
+
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |
 | Phase 1 | Local QR for supported Sales/POS documents | No Phase-2 API or production hash-chain mutation |

@@ -50,7 +50,8 @@ def routing(monkeypatch):
         custom_production_url=BASES["Production"],
         custom_csr_data="mock-csr", custom_otp="000000", save=Mock(),
         custom_basic_auth_from_csid="mock-compliance",
-        custom_basic_auth_from_production="mock-production",
+        # Model pre-Final issuance so routing tests reach their mocked transport.
+        custom_basic_auth_from_production=None,
         custom_compliance_request_id_="mock-compliance-request",
     )
     frappe = SimpleNamespace(

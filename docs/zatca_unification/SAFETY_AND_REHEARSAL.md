@@ -886,3 +886,21 @@ including **271 new synthetic cases**. Earlier combined passed **14,652 in
 All nine Node VM scripts passed **1,444 cases** with revised translated consent.
 No resource/ACL/crypto/transport assertion was waived; no installed or authority
 acceptance is claimed.
+
+Increment84 adds a bounded saved Final-auth guard across the two selected CSID
+writers and shares literal presence classification with the existing CSR guard.
+Tests use only saved-row mocks/ephemeral material/mocked HTTP and owned private SQL.
+Allowed fixtures explicitly model pre-Final targets; populated denied ACL fixtures
+remain. Late response preservation and cleanup notices are combined, not converted
+to unsent/retry claims. This is not certificate-only unknown-state protection,
+cross-request locking or staged activation, and initial transition alias/purpose
+defects remain. Only the two reviewed suites are added to the fixed manifest.
+No live source/assets/config/schema/site/customer credential/worker or authority
+operation is made. See [CSID_PRESERVATION.md](CSID_PRESERVATION.md).
+
+Final increment84 guarded combined: **13,122 local + 1,800 private SQL =
+14,922 passed in 153.12 seconds**, across twelve owned-private SQL suites,
+including **269 new synthetic cases** (221 CSID preservation + 48 shared presence).
+All nine Node VM scripts passed **1,444 cases**. Prior CSR/initial-transition and
+route/auth/save assertions remain; no offline resource/normal permission/transport
+guard was waived. No installed v15/v16, Desk, SDK or authority acceptance is claimed.

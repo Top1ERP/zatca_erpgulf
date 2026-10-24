@@ -5,6 +5,10 @@ block targets with saved certificate/auth/onboarding-reference material. This
 supersedes their old overwrite behavior, not the remaining CSID writer risks or
 the separate staged-activation design. See [CSR_KEY_PRESERVATION.md](CSR_KEY_PRESERVATION.md).
 
+Increment 84 additionally blocks both CSID writers on observed saved Final auth,
+not all certificate-only/unknown state. Initial transitions and their known
+shared-certificate/device-alias defects remain. See [CSID_PRESERVATION.md](CSID_PRESERVATION.md).
+
 This increment adds read-only legacy separation evidence and a proposed migration
 design. It does not install a DocType, migrate credentials, change CSID writers,
 select a signing certificate, or connect the new snapshot to runtime submissions.

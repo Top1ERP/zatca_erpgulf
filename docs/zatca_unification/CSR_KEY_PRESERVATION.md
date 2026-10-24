@@ -1,5 +1,10 @@
 # Shared-key preservation guard — increment 83 (development only)
 
+Increment 84 shares its pure presence core with a separate saved Final-auth
+guard for the two CSID writers. This does not resolve certificate-only unknown
+state or initial-transition certificate/alias conflicts; see
+[CSID_PRESERVATION.md](CSID_PRESERVATION.md). The CSR six-field policy below remains.
+
 ## Observed issue and deliberate behavior change
 
 The selected key/CSR paths could replace the shared private key while saved

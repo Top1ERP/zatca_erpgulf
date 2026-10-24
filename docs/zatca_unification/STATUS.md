@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and eighty-three bounded increments (Compliance outcomes, dedicated
+Safety preparation and eighty-four bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -1743,6 +1743,34 @@ preservation cases**. First combined passed **14,652 in 148.40 seconds** before
 the added alias-registry case was collected. All nine Node VM scripts passed
 **1,444 cases**, including revised Arabic/English consent. No installed v15/v16,
 browser/Desk, SDK or authority acceptance is claimed; no guard was waived.
+
+## Increment 84: saved Final-auth preservation across CSID writers
+
+- Block both selected CSID writers if either saved Final-auth field is populated
+  or its state is unverifiable, after ordinary saved-source ACL/binding checks.
+  No role/force/env override or credential clearing bypass is added.
+- Share bounded pure presence semantics with the existing six-field CSR guard.
+  Recheck same-object observations before transport and before successful-response
+  certificate/auth assignment. Late failure keeps uncertain-stage review, not an
+  unsent claim. Cleanup failure appends without erasing a preservation notice.
+- Translate only static final display keys, including actual Arabic CSV entries;
+  preserve English metadata, parent state and cancellation, without secret parsing/
+  logging, retry/restore/transaction cleanup, actual sending or live changes.
+- Preserve initial transition and original URL/OTP/Compliance-auth/payload/save
+  assertions in explicitly pre-Final synthetic fixtures. The known Company shared
+  certificate overwrite and device alias conflict remain characterized, not fixed.
+- Absent Final auth does not protect certificate-only/unknown remote material or
+  authorize renewal. Same-object checks are not database locks/epochs. Staged
+  private custody, all other writers, complete framework diagnostics, coherent
+  activation and installed v15/v16 acceptance remain gates. See
+  [CSID_PRESERVATION.md](CSID_PRESERVATION.md).
+
+Final guarded combined: **13,122 local + 1,800 private SQL = 14,922 passed in
+153.12 seconds**, across twelve private suites, including **269 new synthetic
+cases** (221 CSID preservation + 48 shared presence). All nine Node VM scripts
+passed **1,444 cases**. Prior CSR, route/auth/save and initial-transition defect
+assertions remain; no resource/permission/transport guard was waived. No installed
+v15/v16, browser/Desk, SDK or authority acceptance is claimed.
 
 ## Verification
 

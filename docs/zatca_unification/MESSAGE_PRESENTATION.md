@@ -274,3 +274,10 @@ notice in one popup, not an unsent/no-change or safe-retry claim. The pure guard
 retains only English code/message; it never parses/exports raw credential values.
 See [CSR_KEY_PRESERVATION.md](CSR_KEY_PRESERVATION.md). Broader CSID writers,
 framework diagnostics and atomic staged renewal remain separate gates.
+
+Increment 84 adds static saved Final-auth preservation/unverifiable-state CSID
+notices, translated only for display. A late preservation failure retains its
+uncertain-stage message; a simultaneous progress cleanup failure now appends its
+notice without replacing the preservation notice. No raw credential/read error
+or response is projected. This is not certificate-only custody, a remote rejection
+or completed staged renewal. See [CSID_PRESERVATION.md](CSID_PRESERVATION.md).

@@ -39,6 +39,9 @@ from zatca_erpgulf.zatca_erpgulf.credential_write_access import (
 from zatca_erpgulf.zatca_erpgulf.csr_key_preservation import (
     PROTECTED_CREDENTIAL_FIELDS, CSRKeyPreservationError, require_unissued_key_target,
 )
+from zatca_erpgulf.zatca_erpgulf.csid_preservation import (
+    FINAL_AUTH_FIELDS, CSIDPreservationError, require_no_saved_final_auth,
+)
 from zatca_erpgulf.zatca_erpgulf.operation_messages import (
     csid_creation_result, CSIDRequestRejected, CSIDProgress, csid_local_failure,
     CSID_PROGRESS_REVIEW, CSID_FORM_REVIEW, mute_operation_messages,
@@ -344,6 +347,12 @@ def _run_csid_operation(purpose, operation, *args):
                 operation(progress, *args)
         except CSIDRequestRejected as error:
             failure = error.result
+        except CSIDPreservationError as error:
+            failure = csid_local_failure(purpose, progress)
+            if not progress.request_started:
+                failure = {**failure, "code": error.code, "message": error.message}
+            else:
+                failure = {**failure, "notices": [error.message]}
         except CredentialWriteAccessError as error:
             failure = csid_local_failure(purpose, progress)
             if error.code == "permission" and not progress.request_started:
@@ -358,7 +367,7 @@ def _run_csid_operation(purpose, operation, *args):
             except Exception:
                 if failure is None:
                     failure = csid_local_failure(purpose, progress)
-                failure = {**failure, "notices": [CSID_PROGRESS_REVIEW]}
+                failure = {**failure, "notices": [*failure.get("notices", ()), CSID_PROGRESS_REVIEW]}
     if failure is None and not progress.save_completed:
         failure = csid_local_failure(purpose, progress)
     # No caught raw exception or response is attached to the public failure.
@@ -378,9 +387,22 @@ def create_csid(zatca_doc, company_abbr, portal_type=None):
     return _run_csid_operation("compliance", _create_csid, zatca_doc, company_abbr, portal_type)
 
 
+def _require_csid_preservation(doc):
+    """Check the authorized write target, not client data or its linked Company."""
+    values = None
+    try:
+        values = {name: doc.get(name) for name in FINAL_AUTH_FIELDS}
+    except Exception:
+        pass
+    if values is None:
+        raise CSIDPreservationError("state")
+    require_no_saved_final_auth(values)
+
+
 def _create_csid(progress, zatca_doc, company_abbr, portal_type):
     """Legacy Compliance writer; no public message, retry or transaction owner."""
     doc = load_credential_write_source(frappe, has_permission, company_abbr, zatca_doc).target
+    _require_csid_preservation(doc)
     if doc.doctype == "ZATCA Multiple Setting":
         multiple_setting_doc = doc
         csr_data_str = multiple_setting_doc.get("custom_csr_data", "")
@@ -421,6 +443,7 @@ def _create_csid(progress, zatca_doc, company_abbr, portal_type):
         {"gif_url": "/assets/zatca_erpgulf/js/loading.gif"},
         user=frappe.session.user,
     )
+    _require_csid_preservation(doc)
     progress.request_started = True
     response = requests.post(
         url=api_url,
@@ -436,6 +459,9 @@ def _create_csid(progress, zatca_doc, company_abbr, portal_type):
 
     concatenated_value = data["binarySecurityToken"] + ":" + data["secret"]
     encoded_value = base64.b64encode(concatenated_value.encode()).decode()
+    # Observe this loaded record again before any certificate/auth assignment.
+    # This does not reload/lock the database or attest to response provenance.
+    _require_csid_preservation(doc)
     if doc.doctype == "ZATCA Multiple Setting":
         multiple_setting_doc.custom_certficate = base64.b64decode(
             data["binarySecurityToken"]
@@ -1390,6 +1416,7 @@ def production_csid(zatca_doc, company_abbr):
 def _production_csid(progress, zatca_doc, company_abbr):
     """Legacy Final-CSID writer, separate from invoice reporting/clearance."""
     doc = load_credential_write_source(frappe, has_permission, company_abbr, zatca_doc).target
+    _require_csid_preservation(doc)
     if doc.doctype == "ZATCA Multiple Setting":
         multiple_setting_doc = doc
         csid = multiple_setting_doc.custom_basic_auth_from_csid
@@ -1422,6 +1449,7 @@ def _production_csid(progress, zatca_doc, company_abbr):
 
     # Final-CSID generation uses Compliance credentials in the configured
     # environment. It is not a live invoice reporting/clearance operation.
+    _require_csid_preservation(doc)
     progress.request_started = True
     response = requests.post(
         url=api_url,
@@ -1493,6 +1521,7 @@ def _production_csid(progress, zatca_doc, company_abbr):
 
     concatenated_value = data["binarySecurityToken"] + ":" + data["secret"]
     encoded_value = base64.b64encode(concatenated_value.encode()).decode()
+    _require_csid_preservation(doc)
     if doc.doctype == "ZATCA Multiple Setting":
         multiple_setting_doc.custom_certificate = base64.b64decode(
             data["binarySecurityToken"]

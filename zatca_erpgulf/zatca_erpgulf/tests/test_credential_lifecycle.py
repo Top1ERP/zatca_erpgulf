@@ -18,6 +18,7 @@ from zatca_erpgulf.zatca_erpgulf import credential_settings as adapter
 from zatca_erpgulf.zatca_erpgulf import sign_invoice_first as client
 from zatca_erpgulf.zatca_erpgulf.credential_lifecycle import inspect_legacy_credential_lifecycle
 from zatca_erpgulf.zatca_erpgulf.credential_material import CredentialOwner
+from zatca_erpgulf.zatca_erpgulf.csid_preservation import FINAL_AUTH_FIELDS
 from zatca_erpgulf.zatca_erpgulf.credential_snapshot import CredentialSnapshotError, authentication_certificate_der
 from zatca_erpgulf.zatca_erpgulf.api_routing import ApiConfigurationError
 from zatca_erpgulf.zatca_erpgulf.operation_messages import (
@@ -335,6 +336,10 @@ def test_actual_legacy_csid_writers_reproduce_transition_without_real_http(bound
     b = boundary
     doc = getattr(b, source)
     doc.custom_private_key = pair[0].pem
+    # Preserve the initial transition characterization, not renewal of an
+    # already issued Final bundle. Only this synthetic target is reset.
+    for field in FINAL_AUTH_FIELDS:
+        setattr(doc, field, None)
     doc.custom_csr_data, doc.custom_otp = "TEST-CSR", "000000"
     b.company.custom_production_url = settings()["custom_production_url"]
     b.company.custom_sandbox_url = settings("Sandbox")["custom_sandbox_url"]
@@ -378,6 +383,8 @@ def csid_writer(boundary, pair, monkeypatch):
     """Synthetic issuance replies and saved documents; transport never leaves VM."""
     b = boundary
     for doc in (b.company, b.device):
+        for field in FINAL_AUTH_FIELDS:
+            setattr(doc, field, None)
         doc.custom_csr_data = "PRIVATE-CSR"
         doc.custom_otp = "PRIVATE-OTP"
         doc.custom_compliance_request_id_ = "PRIVATE-ORIGINAL-REQUEST"
