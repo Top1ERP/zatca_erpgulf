@@ -2,6 +2,12 @@
 
 ## Gap and bounded implementation
 
+Increment 86 adds a separate, unactivated encrypted envelope and caller-owned
+transaction repository for this exact draft. It does not wire preparation to a
+button or installed store, verify saved-source/ACL/epoch provenance, or activate
+credentials. The boundaries below describe preparation itself; custody handoff
+remains explicit. See [PENDING_CSR_CUSTODY.md](PENDING_CSR_CUSTODY.md).
+
 Existing encrypted credential bundles require an issued certificate/auth
 snapshot, not a pending pre-certificate key. The legacy CSR operation also saves
 the shared key before construction completes. Increments 83/84 add preservation
@@ -88,7 +94,8 @@ preparation/issuance where required, not regenerate a key to retry a request.
 | Issued-credential encrypted store | Still requires an issued snapshot, not repurposed for pending keys |
 | Custody/CSID/active selection | Not wired; no migration, alias choice, restore, promotion or activation |
 
-Next provide encrypted pending-key custody and permissioned source/epoch binding,
+Increment 86 supplies encrypted staging primitives, not a permissioned service.
+Next provide permissioned saved-source/epoch-bound custody access,
 then bind exact CSR/returned certificate/Compliance evidence to that flow before
 considering Final activation. Lost/late/duplicate handling, all other writers,
 secret-field/read/export/hook/log controls and coherent activation remain gates.

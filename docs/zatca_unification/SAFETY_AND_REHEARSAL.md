@@ -922,3 +922,22 @@ including **142 new synthetic cases**. The first run passed **15,061 in 146.25
 seconds** before three independent goldens. All nine Node VM scripts passed
 **1,444 cases**. No resource/normal permission/crypto/transport assertion was
 waived; no real customer material, tenant transaction or authority request was used.
+
+Increment86 adds [encrypted pending CSR staging](PENDING_CSR_CUSTODY.md), separate
+from issued credentials. Only explicit caller keys, fictional draft declarations
+and fixture-owned private SQL are used; no permissioned source service, installed
+schema/provider, active selector or runtime button is added. The repository owns
+no begin/commit/rollback/close/retry and rejects replacement. Metadata/source/epoch
+authenticity, key provisioning/nonce policy, permissioned access and activation
+remain gates. AAD and scoped SQL uniqueness do not make nonce reuse safe.
+
+Only the reviewed local/private pending-CSR suites join the fixed manifest.
+Final guarded combined: **13,344 local + 1,827 private SQL = 15,171 passed in
+154.19 seconds**, across thirteen private suites, including **107 new cases**
+(80 local + 27 private SQL). First run had **12 failures and 15,159 passes in
+155.66 seconds** because a generator context manager restored child exception
+context; the operation boundary was corrected without weakening privacy tests.
+All nine Node VM scripts passed **1,444 cases**. No offline/normal-permission/
+crypto/transport guard was waived. No live source/assets/config/schema/site/
+customer credential/worker/Bench or authority operation occurred. Installed
+v15/v16, Desk, SDK and remote acceptance are not claimed.

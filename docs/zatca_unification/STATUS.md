@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and eighty-five bounded increments (Compliance outcomes, dedicated
+Safety preparation and eighty-six bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -1799,6 +1799,35 @@ independent structure goldens were added. All nine Node VM scripts passed
 **1,444 cases**. Six new exact-TBS legacy adapter comparisons and prior guards/
 transition characterizations remain. No resource/permission/crypto/transport guard
 was waived; no installed v15/v16, SDK, Desk or authority acceptance is claimed.
+
+## Increment 86: encrypted pending key/CSR staging, not an active vault
+
+- Add a separate AES-256-GCM envelope for the exact prepared draft, with explicit
+  caller keys/namespace and authenticated canonical context/fingerprints. Strict
+  material validation follows decryption; no certificate, key or field is inferred,
+  regenerated, repaired or activated. Issued-credential storage is unchanged.
+- Add an immutable caller-transaction repository: exact envelope redelivery only,
+  locked exact-context reads, no overwrite/reseal/retry/commit/rollback/close/DDL.
+  Errors poison the handle and expose static codes without child exception context.
+- Add only two reviewed fixed-manifest suites and fixture-only private DDL.
+  Synthetic encryption tests and owned private SQL exercise tampering, concurrency,
+  parent visibility, loss and committed/uncommitted crash recovery. No tenant SQL,
+  customer material, live change or authority operation occurs.
+- This is not a permissioned source service or key-management installation.
+  Manifest identities are restricted metadata, not independent source/epoch proof;
+  source/ACL/provider/key/nonce/flow/activation policy remains a gate. AAD/SQL nonce
+  uniqueness does not make actual-key nonce reuse safe. Existing CSR/CSID buttons
+  and initial shared-certificate/device-alias defects remain unchanged. See
+  [PENDING_CSR_CUSTODY.md](PENDING_CSR_CUSTODY.md).
+
+Final guarded combined: **13,344 local + 1,827 private SQL = 15,171 passed in
+154.19 seconds**, across thirteen private suites, including **107 new cases**
+(80 local + 27 private SQL). All nine Node VM scripts passed **1,444 cases**.
+First run had **12 failures and 15,159 passes in 155.66 seconds**; the generator
+context manager restored private child exception context. An ordinary operation
+boundary fixes the cause without weakening assertions. No offline resource,
+normal permission, crypto or transport guard was waived. Installed v15/v16,
+Desk/browser, SDK and authority acceptance remain unverified.
 
 ## Verification
 

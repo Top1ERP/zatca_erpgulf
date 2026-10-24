@@ -4,6 +4,10 @@ Increment 85 adds separate **unactivated in-memory** pre-certificate key/CSR
 preparation, not pending-key support in this issued-snapshot store or installed
 custody. See [CSR_DRAFT_PREPARATION.md](CSR_DRAFT_PREPARATION.md).
 
+Increment 86 adds a separate encrypted pending-draft envelope/repository, not
+pending-key support in this issued-snapshot store. Nothing is installed or wired
+to issuance/activation; see [PENDING_CSR_CUSTODY.md](PENDING_CSR_CUSTODY.md).
+
 This is a bounded staging storage boundary, **not** an installed Frappe credential
 store, active credential selector, key-management service, migration or remote
 authorization check. No live generator, onboarding button or scheduler uses it.

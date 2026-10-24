@@ -13,6 +13,11 @@ Increment 85 shares CSR structure and adds an unactivated local new-key/CSR
 draft without accessing/replacing the current bundle. It is not pending-key
 custody or active renewal; see [CSR_DRAFT_PREPARATION.md](CSR_DRAFT_PREPARATION.md).
 
+Increment 86 adds encrypted pending-draft staging primitives on an explicit
+caller-owned transaction. There is still no permissioned saved-source service,
+installed custody/key provider, issuance connection or activation. See
+[PENDING_CSR_CUSTODY.md](PENDING_CSR_CUSTODY.md).
+
 This increment adds read-only legacy separation evidence and a proposed migration
 design. It does not install a DocType, migrate credentials, change CSID writers,
 select a signing certificate, or connect the new snapshot to runtime submissions.

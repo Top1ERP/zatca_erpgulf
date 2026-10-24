@@ -145,6 +145,15 @@ custody, permissions/source/epoch/issuance/activation and installed v15/v16 rema
 gates; initial certificate/alias defects are not hidden. See
 [CSR_DRAFT_PREPARATION.md](CSR_DRAFT_PREPARATION.md).
 
+Increment 86 supplies separate encrypted pending-draft envelope/repository
+primitives, not an installed permissioned service or runtime adoption. Caller-owned
+transactions accept only exact redelivery and never replace material. The declared
+manifest is not verified source/epoch evidence, and scoped SQL nonce uniqueness
+does not replace independent protected keys and audited nonce/rotation policy.
+Next implement saved-source/ACL/epoch-bound custody access before issuance/receipt/
+activation wiring; initial certificate/alias defects remain. See
+[PENDING_CSR_CUSTODY.md](PENDING_CSR_CUSTODY.md).
+
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |
 | Phase 1 | Local QR for supported Sales/POS documents | No Phase-2 API or production hash-chain mutation |
