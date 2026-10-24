@@ -171,6 +171,14 @@ source/ACL-aware commit authority. Next bind exact retained drafts and trustwort
 source/credential epochs to transaction/issuance/receipt coordination before any
 runtime adoption. See [PENDING_CSR_PROVIDER.md](PENDING_CSR_PROVIDER.md).
 
+Increment 89 closes the masked-Password visible-state comparison gap in internal
+pending staging. Require explicit schema/backing-state expectations and compare
+bounded encrypted `__Auth` observations around repository work, without decryption,
+repair or public digest export. This detects stored-byte drift, not a monotonic
+authoritative credential epoch or source/ACL-aware commit. Historical binding
+provisioning, after-return/commit coordination, all-writer integration and installed
+v15/v16 remain gates. See [PENDING_CSR_PASSWORD_STATE.md](PENDING_CSR_PASSWORD_STATE.md).
+
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |
 | Phase 1 | Local QR for supported Sales/POS documents | No Phase-2 API or production hash-chain mutation |

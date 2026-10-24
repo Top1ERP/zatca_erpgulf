@@ -21,6 +21,7 @@ from zatca_erpgulf.zatca_erpgulf import pending_csr_provider as pinned
 from zatca_erpgulf.zatca_erpgulf import primary_receipt_provider as local_sql
 from unittest.mock import Mock
 from zatca_erpgulf.zatca_erpgulf.tests.test_pending_csr_access import access_case, invoke, Denied, Failed
+from zatca_erpgulf.zatca_erpgulf.tests.test_pending_csr_password_state import configure_password_case
 
 
 pytestmark = pytest.mark.skipif(os.environ.get("ZATCA_RUN_ISOLATED_MARIADB") != "1",
@@ -275,16 +276,23 @@ def private_access_schema(isolated_server, install_private_pending_schema):
                 columns = ["`name` VARCHAR(140) PRIMARY KEY", "`modified` DATETIME(6) NOT NULL"] + [
                     "`" + name + "` " + ("INT" if name == access.LINK_FLAG else "LONGTEXT") for name in fields]
                 cursor.execute("CREATE TABLE `tab" + kind + "` (" + ",".join(columns) + ") ENGINE=InnoDB")
+            cursor.execute("CREATE TABLE `__Auth` (doctype VARCHAR(140) NOT NULL,name VARCHAR(255) NOT NULL,"
+                "fieldname VARCHAR(140) NOT NULL,password TEXT NOT NULL,encrypted INT NOT NULL,"
+                "PRIMARY KEY(doctype,name,fieldname)) ENGINE=InnoDB")
 
 
 def private_access_case(access_case, connections, kind):
     case = access_case(kind)
     case.scope = access.CredentialStorageScope("private.test", str(uuid4()))
     case.sealed = case.cipher.seal(case.draft, storage_namespace=case.scope.storage_namespace, key_id="test-only-key")
-    case.binding = replace(case.binding, scope=case.scope, manifest=case.sealed.manifest)
+    password_sources = tuple(access.PasswordStateSource(row.doctype, row.name, row.password_fields) for row in case.rows)
+    case.binding = replace(case.binding, scope=case.scope, manifest=case.sealed.manifest,
+        password_state_sha256=access.capture_password_state(case.database, case.scope.storage_namespace, password_sources))
     admin = connections()
     with admin.cursor() as cursor:
         for doc in case.documents.values():
+            # Exact fictional fixture owners only; never an app/tenant cleanup.
+            cursor.execute("DELETE FROM `__Auth` WHERE doctype=%s AND name=%s", (doc.doctype, doc.name))
             fields = ("name", "modified", *access.FIELD_MAP[doc.doctype])
             cursor.execute("INSERT INTO `tab" + doc.doctype + "` (" + ",".join("`" + name + "`" for name in fields)
                 + ") VALUES (" + ",".join("%s" for name in fields) + ") ON DUPLICATE KEY UPDATE "
@@ -543,4 +551,135 @@ def test_concrete_pending_registration_stays_locked_until_caller_releases_transa
     mutator.commit()
     with pytest.raises(pinned.PendingCSRProviderError):
         case.lease.resources.connection.cursor()
+    assert pending_count(connections(), case) == 0
+
+
+def password_native_case(pinned_case, connections, kind="company", *, company=False):
+    case = configure_password_case(pinned_case(kind), company=company)
+    writer = connections()
+    with writer.cursor() as cursor:
+        for row in case.rows:
+            for field in row.password_fields:
+                cursor.execute("UPDATE `tab" + row.doctype + "` SET `" + field + "`=%s WHERE name=%s", (row.get(field), row.name))
+            for field, encrypted, token in case.password_records.get((row.doctype, row.name), ()):
+                cursor.execute("INSERT INTO `__Auth` (doctype,name,fieldname,encrypted,password) VALUES (%s,%s,%s,%s,%s)",
+                               (row.doctype, row.name, field, encrypted, token))
+    writer.commit()  # Exact fictional fixture rows, never a real Password write.
+    return case
+
+
+@pytest.mark.parametrize("kind", ["company", "multiple_setting"])
+@pytest.mark.parametrize("operation", ["stage", "inspect"])
+def test_pinned_service_observes_actual_encrypted_backing_without_export_or_decryption(pinned_case, connections, kind, operation):
+    case = password_native_case(pinned_case, connections, kind)
+    if operation == "inspect":
+        MariaDBPendingCSRRepository(case.writer, case.scope.storage_namespace, case.cipher).stage(case.sealed)
+        case.writer.commit()
+    result = invoke(case, operation)
+    assert result["password_backing_state_match_observed"] is True and result["credential_epoch_verified"] is False
+    assert "ENCRYPTED TEST" not in str(result) and case.binding.password_state_sha256 not in str(result)
+    case.lease.resources.connection.rollback()
+    assert pending_count(connections(), case) == int(operation == "inspect")
+
+
+@pytest.mark.parametrize("kind", ["company", "multiple_setting"])
+@pytest.mark.parametrize("operation", ["stage", "inspect"])
+@pytest.mark.parametrize("change", ["rotate", "remove", "unencrypted"])
+def test_native_backing_rotation_deletion_or_unknown_flag_invalidates_old_masked_source_binding(pinned_case, connections, kind, operation, change):
+    case = password_native_case(pinned_case, connections, kind)
+    before = (case.target.modified, case.target.custom_basic_auth_from_csid)
+    writer = connections()
+    with writer.cursor() as cursor:
+        identity = (case.target.doctype, case.target.name, "custom_basic_auth_from_csid")
+        if change == "remove":
+            cursor.execute("DELETE FROM `__Auth` WHERE doctype=%s AND name=%s AND fieldname=%s", identity)
+        elif change == "rotate":
+            cursor.execute("UPDATE `__Auth` SET password=%s WHERE doctype=%s AND name=%s AND fieldname=%s",
+                           ("ENCRYPTED TEST ROTATED", *identity))
+        else:
+            cursor.execute("UPDATE `__Auth` SET encrypted=0 WHERE doctype=%s AND name=%s AND fieldname=%s", identity)
+    writer.commit()  # TEST-only rotation, no source-row modified/mask change.
+    with pytest.raises(Failed) as error:
+        invoke(case, operation)
+    assert error.value.__context__ is None and (case.target.modified, case.target.custom_basic_auth_from_csid) == before
+    assert pending_count(connections(), case) == 0
+    case.lease.resources.connection.rollback()
+
+
+@pytest.mark.parametrize("kind", ["company", "multiple_setting"])
+def test_native_orphan_backing_for_non_password_credential_field_is_not_ignored_or_repaired(pinned_case, connections, kind):
+    case = pinned_case(kind)
+    writer = connections()
+    with writer.cursor() as cursor:
+        cursor.execute("INSERT INTO `__Auth` (doctype,name,fieldname,encrypted,password) VALUES (%s,%s,%s,1,%s)",
+                       (case.target.doctype, case.target.name, "custom_private_key", "ENCRYPTED TEST ORPHAN"))
+    writer.commit()
+    with pytest.raises(Failed):
+        invoke(case, "stage")
+    case.lease.resources.connection.rollback()
+    with writer.cursor() as cursor:
+        cursor.execute("SELECT password FROM `__Auth` WHERE doctype=%s AND name=%s AND fieldname=%s",
+                       (case.target.doctype, case.target.name, "custom_private_key"))
+        assert cursor.fetchone() == ("ENCRYPTED TEST ORPHAN",)
+    assert pending_count(connections(), case) == 0
+
+
+@pytest.mark.parametrize("kind", ["company", "multiple_setting"])
+def test_native_after_insert_password_change_refuses_result_and_rolls_back_only_at_caller_decision(pinned_case, connections, monkeypatch, kind):
+    case = password_native_case(pinned_case, connections, kind)
+    original, calls = access.capture_password_state, []
+    def late_change(connection, namespace, sources):
+        digest = original(connection, namespace, sources)
+        calls.append(True)
+        if len(calls) == 1:
+            # Inject a TEST-only same-transaction mutation, after the first
+            # observation. The runtime observer itself never writes Passwords.
+            with connection.cursor() as cursor:
+                cursor.execute("UPDATE `__Auth` SET password=%s WHERE doctype=%s AND name=%s AND fieldname=%s",
+                    ("ENCRYPTED TEST LATE", case.target.doctype, case.target.name, "custom_basic_auth_from_csid"))
+        return digest
+    monkeypatch.setattr(access, "capture_password_state", late_change)
+    with pytest.raises(Failed) as error:
+        invoke(case, "stage")
+    assert error.value.__context__ is None
+    owned, observer = case.lease.resources.connection, connections()
+    assert pending_count(owned, case) == 1 and pending_count(observer, case) == 0
+    owned.rollback()
+    observer.rollback()
+    assert pending_count(observer, case) == 0
+    with observer.cursor() as cursor:
+        cursor.execute("SELECT password FROM `__Auth` WHERE doctype=%s AND name=%s AND fieldname=%s",
+                       (case.target.doctype, case.target.name, "custom_basic_auth_from_csid"))
+        assert cursor.fetchone() == ("ENCRYPTED TEST ORIGINAL",)
+
+
+@pytest.mark.parametrize("kind", ["company", "multiple_setting"])
+@pytest.mark.parametrize("isolation", ["READ COMMITTED", "REPEATABLE READ"])
+def test_native_existing_password_backing_lock_blocks_competing_rotation_until_caller_releases(pinned_case, connections, kind, isolation):
+    case = password_native_case(pinned_case, connections, kind)
+    invoke(case, "stage")
+    other = connections(isolation)
+    parameters = ("ENCRYPTED TEST ROTATED", case.target.doctype, case.target.name, "custom_basic_auth_from_csid")
+    with other.cursor() as cursor:
+        with pytest.raises(pymysql.err.OperationalError) as error:
+            cursor.execute("UPDATE `__Auth` SET password=%s WHERE doctype=%s AND name=%s AND fieldname=%s", parameters)
+    assert error.value.args[0] == 1205
+    other.rollback()
+    case.lease.resources.connection.rollback()
+    with other.cursor() as cursor:
+        cursor.execute("UPDATE `__Auth` SET password=%s WHERE doctype=%s AND name=%s AND fieldname=%s", parameters)
+    other.rollback()
+    assert pending_count(connections(), case) == 0
+
+
+def test_native_related_company_backing_rotation_invalidates_own_device_draft(pinned_case, connections):
+    case = password_native_case(pinned_case, connections, "multiple_setting", company=True)
+    writer = connections()
+    with writer.cursor() as cursor:
+        cursor.execute("UPDATE `__Auth` SET password=%s WHERE doctype=%s AND name=%s AND fieldname=%s",
+                       ("ENCRYPTED TEST ROTATED", "Company", case.company.name, "custom_basic_auth_from_csid"))
+    writer.commit()
+    with pytest.raises(Failed):
+        invoke(case, "stage")
+    case.lease.resources.connection.rollback()
     assert pending_count(connections(), case) == 0

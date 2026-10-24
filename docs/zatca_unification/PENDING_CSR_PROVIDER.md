@@ -2,6 +2,11 @@
 
 ## Bounded implementation
 
+Increment 89 adds [encrypted Password-state comparisons](PENDING_CSR_PASSWORD_STATE.md)
+inside the saved-source service after resource acquisition, before and after
+repository work. This provider still checks only its pinned storage domain/key ID,
+not credential plaintext, history or an authoritative issuing-unit epoch.
+
 `UnixPendingCSRResourceProvider` is an explicit single-acquisition resource lease
 for the internal saved-source service. It supplies a fresh local SQL handle and
 a separately supplied scoped pending-CSR cipher. **Nothing is installed or wired

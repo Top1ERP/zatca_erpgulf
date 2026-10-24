@@ -57,7 +57,9 @@ def access_case(crypto, monkeypatch):
             fields = set(access.FIELD_MAP[doc.doctype])
             if doc is company:
                 fields.remove("custom_certficate")  # Optional absent physical alias.
-            doc.meta = SimpleNamespace(has_field=lambda name, fields=fields: name in fields)
+            doc.password_fieldtypes = {name: "Long Text" for name in access.COMMON_FIELDS}
+            doc.meta = SimpleNamespace(has_field=lambda name, fields=fields: name in fields,
+                get_field=lambda name, doc=doc: SimpleNamespace(fieldtype=doc.password_fieldtypes.get(name)))
         case.company, case.device = company, device
         case.target = company if kind == "company" else device
         case.identity = {"doctype": case.target.doctype, "name": case.target.name}
@@ -67,8 +69,7 @@ def access_case(crypto, monkeypatch):
         case.sealed = case.cipher.seal(case.draft, storage_namespace=NAMESPACE, key_id="test-only-key")
         rows = {access._row_key(doc): access._PendingSourceRow.capture(doc) for doc in (case.target, company)}
         case.rows = tuple(rows[key] for key in sorted(rows))
-        case.binding = access.PendingCSRSourceBinding(case.scope, case.sealed.manifest,
-            access._rows_sha256(case.rows), "test-only-key")
+        case.password_records = {}
         case.database, case.cursor = Mock(), Mock()
         case.database.cursor.return_value.__enter__ = Mock(return_value=case.cursor)
         case.database.cursor.return_value.__exit__ = Mock(return_value=False)
@@ -80,6 +81,8 @@ def access_case(crypto, monkeypatch):
             elif "FROM `tab" in statement:
                 row = next(row for row in case.rows if row.name == parameters[-1])
                 case.raw = (row.name, row.revision, *row.values)
+            elif "FROM `__Auth`" in statement:
+                case.raw_password_records = case.password_records.get((parameters[1], parameters[2]), ())
             elif statement.startswith("INSERT INTO zatca_pending_csr_v1"):
                 case.raw = None
             elif statement.startswith("SELECT slot_sha256"):
@@ -88,6 +91,13 @@ def access_case(crypto, monkeypatch):
                 raise AssertionError("Unexpected synthetic SQL statement")
         case.cursor.execute.side_effect = sql
         case.cursor.fetchone.side_effect = lambda: case.raw
+        case.cursor.fetchall.side_effect = lambda: case.raw_password_records
+        password_sources = tuple(access.PasswordStateSource(row.doctype, row.name, row.password_fields) for row in case.rows)
+        case.binding = access.PendingCSRSourceBinding(case.scope, case.sealed.manifest,
+            access._rows_sha256(case.rows), "test-only-key",
+            access.capture_password_state(case.database, case.scope.storage_namespace, password_sources))
+        case.events.clear()
+        case.cursor.reset_mock()
 
         def get_doc(kind, name):
             case.events.append(("load", kind, name))

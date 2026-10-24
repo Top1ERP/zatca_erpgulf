@@ -984,3 +984,32 @@ permission/crypto/transport guards remain intact. No live source/assets/config/
 schema/site/customer credential/worker/Bench or authority operation occurred.
 Actual vault/provisioning/grants/tenant/key/epoch provenance, source/ACL-aware
 commit/issuance/receipt coordination and installed v15/v16 remain gates.
+
+Increment89 adds [encrypted Password backing-state comparison](PENDING_CSR_PASSWORD_STATE.md)
+for internal pending staging. Explicit Password schema changes the protected
+source fingerprint to version 2; every exact source binding must include an
+expected backing-state digest. Bounded exact-owner `__Auth` reads compare encrypted
+bytes/flags/presence under source/transaction locks before and after repository
+work, without decryption, key discovery, credential writes or digest export.
+Unknown/non-Password orphan/plain/duplicate/unbounded rows fail closed. Old source
+bindings are not automatically recalculated or migrated to hide drift.
+
+Only the reviewed local suite joins the fixed manifest. The existing owned-private
+pending suite creates a synthetic backing table and uses TEST-only opaque strings;
+no tenant credential, site encryption key, schema, source or worker is accessed or
+modified. Existing text fixtures now explicitly declare their field schema and
+empty backing state; ordinary ACL/crypto/transport assertions remain intact.
+Late mismatch leaves whole-transaction rollback/disposal to the caller and keeps
+the existing single translated failure boundary. Success is an observation only,
+not a monotonic/historical epoch, valid plaintext, remote or activation claim.
+After-return/source/ACL-aware commit, lookup provenance, field/log custody and
+installed v15/v16 remain release gates. No authority request or live change occurs.
+
+Final increment89 guarded combined: **13,708 local + 1,887 private SQL = 15,595
+passed in 163.91 seconds**, across thirteen private suites, including **107 new
+cases** (82 local + 25 native SQL). First local-only run passed **13,707 in 84.10
+seconds**; first combined passed **15,594 in 166.71 seconds** before a stricter
+Password-field-count preflight bound and its regression case. All nine Node VM
+scripts passed **1,444 cases**. No resource/normal-permission/crypto/transport
+guard was waived; no installed v15/v16, Desk/browser, SDK or authority acceptance
+is claimed.

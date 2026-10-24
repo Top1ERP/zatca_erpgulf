@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and eighty-eight bounded increments (Compliance outcomes, dedicated
+Safety preparation and eighty-nine bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -1883,6 +1883,33 @@ All nine Node VM scripts passed **1,444 cases**. Existing receipt default querie
 session/cleanup tests remain unchanged; no offline resource, ordinary ACL, crypto
 or transport guard was waived. Installed v15/v16, Desk/browser, SDK, actual key
 provisioning and authority acceptance remain unverified.
+
+## Increment 89: encrypted Password backing-state drift detection
+
+- Extend internal pending-source capture with explicit Password schema and a
+  version-2 source fingerprint; require an expected protected backing-state hash
+  in each exact source binding. No automatic old-binding recalculation/migration.
+- Add bounded exact-owner read-only `__Auth` comparisons in the same transaction
+  before and after repository work. Detect encrypted-byte rotation/deletion even
+  with unchanged UI masks/modified markers. Reject unknown/plain/orphan/duplicate/
+  oversized backing rows without decrypting, exposing, repairing or clearing them.
+- Keep the existing metadata-only single translated failure and caller-owned
+  rollback/disposal boundary. Success exposes only an observation boolean, not
+  ciphertext/digest or a verified credential epoch/remote/activation claim.
+- Add only the fixed local suite and owned-private synthetic backing-table tests.
+  No installed schema/provider/button, customer/live credential/worker/Bench or
+  authority operation occurs. Real historical/monotonic epoch, field custody,
+  committed source/ACL coordination and installed v15/v16 remain gates. See
+  [PENDING_CSR_PASSWORD_STATE.md](PENDING_CSR_PASSWORD_STATE.md).
+
+Final guarded combined: **13,708 local + 1,887 private SQL = 15,595 passed in
+163.91 seconds**, across thirteen private suites, including **107 new cases**
+(82 local + 25 native SQL). First local-only run passed **13,707 in 84.10
+seconds**; first combined passed **15,594 in 166.71 seconds** before the explicit
+Password-field-count preflight bound/regression case. All nine Node VM scripts
+passed **1,444 cases**. No offline resource, ordinary ACL, crypto or transport
+assertion was waived. Installed v15/v16, Desk/browser, SDK and authority acceptance
+remain unverified.
 
 ## Verification
 

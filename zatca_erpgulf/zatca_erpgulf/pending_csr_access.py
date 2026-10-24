@@ -18,7 +18,6 @@ from frappe.permissions import has_permission
 from .api_routing import ENVIRONMENT_FIELDS, resolve_api_route
 from .credential_bundle_access import CredentialStorageScope
 from .credential_write_access import CredentialWriteAccessError, load_credential_write_source
-from .csr_key_preservation import PROTECTED_CREDENTIAL_FIELDS
 from .issuance_candidate import _canonical_uuid, _fingerprint, _sha256
 from .operation_messages import mute_operation_messages
 from .permission_compat import saved_row_has_permission
@@ -26,6 +25,9 @@ from .pending_csr import (
     PendingCSRCipher, PendingCSRManifest, SealedPendingCSR, _key_id, decode_pending_manifest,
 )
 from .pending_csr_repository import MariaDBPendingCSRRepository
+from .pending_csr_password_state import (
+    CREDENTIAL_FIELDS, TEXT_FIELD_TYPES, PasswordStateSource, capture_password_state,
+)
 from .saved_form_source import saved_form_name, saved_form_revision
 
 
@@ -35,7 +37,7 @@ FAILED_MESSAGE = (
     "The transaction owner must roll back and review the source settings before retrying. "
     "No certificate was activated or request sent."
 )
-COMMON_FIELDS = ("custom_csr_config", "custom_private_key", "custom_csr_data", *PROTECTED_CREDENTIAL_FIELDS)
+COMMON_FIELDS = CREDENTIAL_FIELDS
 FIELD_MAP = MappingProxyType({
     "Company": ("abbr", "tax_id", "custom_select", *ENVIRONMENT_FIELDS.values(), *COMMON_FIELDS),
     "ZATCA Multiple Setting": ("custom_linked_doctype", "custom__use_company_certificate__keys", *COMMON_FIELDS),
@@ -78,10 +80,11 @@ class _PendingSourceRow:
     revision: str
     fields: tuple
     values: tuple = field(repr=False)
+    password_fields: tuple = ()
 
     @classmethod
     def capture(cls, doc):
-        kind, name = doc.doctype, saved_form_name(doc.name)
+        kind, identity = doc.doctype, saved_form_name(doc.name)
         if kind not in FIELD_MAP:
             raise PendingCSRAccessError()
         # Schema presence is part of the binding; absent aliases are not treated
@@ -89,8 +92,17 @@ class _PendingSourceRow:
         present = tuple(name for name in FIELD_MAP[kind] if doc.meta.has_field(name) is True)
         if not set(REQUIRED_FIELDS[kind]).issubset(present):
             raise PendingCSRAccessError()
-        return cls(kind, name, saved_form_revision(doc.get("modified")).isoformat(sep=" ", timespec="microseconds"),
-                   present, tuple(_value(name, doc.get(name)) for name in present))
+        password_fields = []
+        for name in present:
+            if name in COMMON_FIELDS:
+                definition = doc.meta.get_field(name)
+                fieldtype = getattr(definition, "fieldtype", None)
+                if type(fieldtype) is not str or fieldtype not in TEXT_FIELD_TYPES:
+                    raise PendingCSRAccessError()
+                if fieldtype == "Password":
+                    password_fields.append(name)
+        return cls(kind, identity, saved_form_revision(doc.get("modified")).isoformat(sep=" ", timespec="microseconds"),
+                   present, tuple(_value(name, doc.get(name)) for name in present), tuple(password_fields))
 
     def get(self, name):
         return dict(zip(self.fields, self.values)).get(name)
@@ -105,9 +117,9 @@ class _PendingSourceRow:
 def _rows_sha256(rows):
     # This protected digest is only an observed local comparison, not authority
     # provenance or a public fingerprint of low-entropy settings/password masks.
-    return _fingerprint({"pending_csr_source_schema": 1, "rows": [
+    return _fingerprint({"pending_csr_source_schema": 2, "rows": [
         {"doctype": row.doctype, "name": row.name, "revision": row.revision,
-         "fields": row.fields, "values": row.values} for row in rows]})
+         "fields": row.fields, "values": row.values, "password_fields": row.password_fields} for row in rows]})
 
 
 @dataclass(frozen=True, repr=False)
@@ -118,12 +130,14 @@ class PendingCSRSourceBinding:
     manifest: PendingCSRManifest
     source_rows_sha256: str
     key_id: str
+    password_state_sha256: str
 
     def __post_init__(self):
         if type(self.scope) is not CredentialStorageScope or type(self.manifest) is not PendingCSRManifest:
             raise PendingCSRAccessError()
         self.scope.__post_init__()
         _sha256(self.source_rows_sha256, "pending_csr_access_source")
+        _sha256(self.password_state_sha256, "pending_csr_access_password_state")
         _key_id(self.key_id)
         object.__setattr__(self, "manifest", decode_pending_manifest(self.manifest.encode()))
 
@@ -177,7 +191,7 @@ def _verify_locked_rows(connection, rows):
                 raise PendingCSRAccessError()
             actual = _PendingSourceRow(row.doctype, saved_form_name(raw[0]),
                 saved_form_revision(raw[1]).isoformat(sep=" ", timespec="microseconds"), row.fields,
-                tuple(_value(name, value) for name, value in zip(row.fields, raw[2:])))
+                tuple(_value(name, value) for name, value in zip(row.fields, raw[2:])), row.password_fields)
             if actual != row:
                 raise PendingCSRAccessError()
 
@@ -333,15 +347,24 @@ class SavedPendingCSRService:
             raise PendingCSRAccessError()
         recheck()
         _verify_locked_rows(resources.connection, rows)
+        password_sources = tuple(PasswordStateSource(row.doctype, row.name, row.password_fields) for row in rows)
+
+        def check_password_state():
+            if capture_password_state(resources.connection, self._scope.storage_namespace, password_sources) != binding.password_state_sha256:
+                raise PendingCSRAccessError()
+
+        check_password_state()
         recheck()
         repository = MariaDBPendingCSRRepository(resources.connection, self._scope.storage_namespace, resources.cipher)
         sealed = repository.stage(value) if operation == "stage" else repository.load(context)
         check_envelope(sealed)
         _verify_locked_rows(resources.connection, rows)
+        check_password_state()
         recheck()
         report = manifest.diagnostic_projection()
         report.update(state="PENDING_CSR_STAGED_UNCOMMITTED" if operation == "stage" else "PENDING_CSR_INSPECTION_OBSERVATION",
-                      current_source_match_observed=True, current_permissions_observed=True)
+                      current_source_match_observed=True, current_permissions_observed=True,
+                      password_backing_state_match_observed=True)
         return report
 
 

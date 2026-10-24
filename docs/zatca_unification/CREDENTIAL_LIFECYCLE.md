@@ -1,5 +1,10 @@
 # Credential lifecycle separation — development increment 18
 
+Increment 89 adds internal encrypted Password backing-state comparisons for
+pending drafts. Matching stored bytes is not a verified/monotonic credential
+epoch, plaintext validity, activation or a change to existing signing/CSID writers.
+See [PENDING_CSR_PASSWORD_STATE.md](PENDING_CSR_PASSWORD_STATE.md).
+
 Increment 87 adds a saved-source/ACL boundary for separate encrypted pending
 drafts, not replacement/renewal/activation authority. Current comparisons are
 not an independent credential epoch or installed custody provider. See

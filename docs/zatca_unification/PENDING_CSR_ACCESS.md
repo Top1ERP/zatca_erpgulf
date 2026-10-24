@@ -2,6 +2,11 @@
 
 ## Internal boundary, not runtime adoption
 
+Increment 89 adds required explicit Password schema/backing-state comparison,
+without decrypting records or claiming an authoritative epoch. Source fingerprints
+are now schema 2; old bindings are not recalculated automatically. See
+[PENDING_CSR_PASSWORD_STATE.md](PENDING_CSR_PASSWORD_STATE.md).
+
 Increment 88 adds a separate [explicit pinned resource lease](PENDING_CSR_PROVIDER.md)
 without installing it or connecting any runtime button. Resource/transaction
 ownership and independent provenance limits below still apply.
@@ -105,10 +110,11 @@ protected dependencies; raw Python fields/trace locals remain disclosure risks.
 
 Locked source comparisons cover defined visible fields only. They do not lock
 permission tables, turn Frappe reloads into an independent committed historical
-snapshot, inspect encrypted Password backing rows, prove database/tenant origin,
-or establish an authoritative credential epoch. Stable masked Password values,
-out-of-band writers, unknown commit outcomes and after-return ACL/source changes
-remain limitations. Lookup declarations/hashes cannot attest their own provenance.
+snapshot, prove database/tenant origin, or establish an authoritative credential
+epoch. Increment 89 separately compares bounded encrypted Password backing rows;
+it does not decrypt them or prove validity/history/absence of ABA. Out-of-band
+writers, unknown commit outcomes and after-return ACL/source changes remain
+limitations. Lookup declarations/hashes cannot attest their own provenance.
 Ordinary row ACL checks do not establish field-level secret/export/log custody.
 Those controls require separate review before any real-credential integration.
 
