@@ -559,20 +559,24 @@ def test_csid_http_entry_raises_one_redacted_dialog_without_raw_exception_chain(
 
 
 @pytest.mark.parametrize("source", ["company", "device"])
-def test_legacy_key_generation_overwrites_shared_key_without_rotating_auth(boundary, materials, monkeypatch, source):
-    """Generated keys stay in memory; document saves and HTTP are mocked."""
+def test_key_generation_preserves_existing_key_and_issued_auth(boundary, materials, monkeypatch, source):
+    """Increment83 replaces the old overwrite characterization with a blocker."""
     b = boundary
     doc = getattr(b, source)
     b.company.custom_production_url = settings()["custom_production_url"]
     material = materials[0] if source == "company" else materials[2]
     doc.custom_basic_auth_from_csid = doc.custom_basic_auth_from_production = doc.custom_final_auth_csid = basic(material)
     previous = doc.custom_private_key
-    private_key = client.create_private_keys("TC", {"doctype": doc.doctype, "name": doc.name})
-    assert private_key.decode() == doc.custom_private_key != previous
+    keygen = Mock(side_effect=AssertionError("Existing issued material must stop generation"))
+    monkeypatch.setattr(client.ec, "generate_private_key", keygen)
+    with pytest.raises(ValidationError):
+        client.create_private_keys("TC", {"doctype": doc.doctype, "name": doc.name})
+    assert doc.custom_private_key == previous
     assert doc.custom_basic_auth_from_csid == basic(material)
     report = adapter.capture_credential_lifecycle_assessment("TC", doc, observed_at=NOW)
-    assert all(item.error_code == "snapshot_key_mismatch" for item in report.purposes)
-    doc.save.assert_called_once_with()
+    assert all(item.error_code is None for item in report.purposes)
+    keygen.assert_not_called()
+    doc.save.assert_not_called()
     b.frappe.db.commit.assert_not_called()
     b.request.assert_not_called()
 

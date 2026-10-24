@@ -1,5 +1,10 @@
 # Local key/CSR outcomes — increment 82 (development only)
 
+Increment 83 adds a conservative saved-material preservation guard to these
+paths. The original no-blocker limitation below describes increment 82; see
+[CSR_KEY_PRESERVATION.md](CSR_KEY_PRESERVATION.md) for current guard scope and
+remaining non-atomic renewal/custody limitations.
+
 ## Scope and contracts
 
 The selected local `create_csr` and internal `create_private_keys` paths now

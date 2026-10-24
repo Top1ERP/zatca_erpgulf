@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and eighty-two bounded increments (Compliance outcomes, dedicated
+Safety preparation and eighty-three bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -1714,6 +1714,35 @@ Final guarded combined: **12,582 local + 1,800 private SQL = 14,382 passed in
 synthetic key/CSR cases**. All nine Node VM scripts passed **1,444 cases**. No
 offline/resource/normal-permission guard was waived. No installed v15/v16,
 SDK, browser/Desk or authority acceptance is claimed.
+
+## Increment 83: conservative local shared-key preservation
+
+- Block local key/CSR replacement for authorized saved targets containing either
+  certificate alias, any of the three auth fields or an onboarding request ID.
+  Invalid/historical/whitespace/masked material is preserved too; unknown type/
+  read state fails closed without private-value parsing, coercion or export.
+- Recheck the key worker before generation and before assignment, and CSR at
+  entry/final saved-source load. Retain one localized failure and partial-key
+  review if a later check fails. Pre-issuance successful return shapes/crypto,
+  ordinary saves, source ACLs and related Company READ-only policy remain.
+- Update translated consent to pre-issuance only. No force, credential clearing,
+  expiry/environment fallback, active storage, automatic retry/restore/transaction
+  cleanup, live change or authority request is introduced.
+- Explicitly model unissued targets only in allowed synthetic fixtures; retain
+  populated negative ACL fixtures. Replace two legacy key-overwrite cases with
+  no-generation/no-save/preserved-binding assertions. CSID overwrite evidence
+  stays unchanged. Add only the reviewed preservation suite to the fixed manifest.
+- Same-object post-crypto checks are not database locks. Active renewal, unseen
+  source/hook/commit races, other CSID writers, field/epoch custody, full framework
+  diagnostics and installed v15/v16 remain gates. See
+  [CSR_KEY_PRESERVATION.md](CSR_KEY_PRESERVATION.md).
+
+Final guarded combined: **12,853 local + 1,800 private SQL = 14,653 passed in
+164.51 seconds**, across twelve private suites, including **271 new synthetic
+preservation cases**. First combined passed **14,652 in 148.40 seconds** before
+the added alias-registry case was collected. All nine Node VM scripts passed
+**1,444 cases**, including revised Arabic/English consent. No installed v15/v16,
+browser/Desk, SDK or authority acceptance is claimed; no guard was waived.
 
 ## Verification
 

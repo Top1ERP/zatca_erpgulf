@@ -6,6 +6,10 @@ Increment 82 adds a single stage-aware local key/CSR failure owner; see
 [CSR_LOCAL_OUTCOMES.md](CSR_LOCAL_OUTCOMES.md). The key-before-CSR partial-effect/
 active-rotation risks described below still apply.
 
+Increment 83 adds a conservative saved-material guard and revises consent to
+pre-issuance only; see [CSR_KEY_PRESERVATION.md](CSR_KEY_PRESERVATION.md).
+It blocks known/unknown populated credential targets but is not atomic renewal.
+
 ## Inspected behavior and bounded change
 
 Both Company/device `custom_create_csr` buttons previously saved the open form
@@ -14,10 +18,12 @@ also fetched the entire Company and wrote Company/CSR responses to the browser
 console. These two handlers now use the same credential-form runner as the four
 CSID buttons, without automatic save, reload, model sync or console output.
 
-The server is deliberately unchanged: `create_private_keys` replaces the shared
-private key before CSR construction and a later save stores CSR data. Existing
-certificates/auth are not rotated with that key. Errors after key generation can
-leave partial local effects; a client response is not a commit/activation receipt.
+The server now conservatively blocks replacement if the authorized target has
+certificate/auth/onboarding-reference data. For pre-issuance settings only,
+`create_private_keys` still replaces the shared key before CSR construction and a
+later save stores CSR data. Active renewal is not implemented. Errors or unseen
+concurrent changes can still leave partial local effects; a client response is
+not a commit/activation receipt.
 The legacy encoded-CSR return is retained for compatibility, not copied, parsed,
 logged, displayed or returned by the new form runner. No actual key generation or
 CSR RPC is used by the offline UI tests.
@@ -26,8 +32,9 @@ CSR RPC is used by the offline UI tests.
 
 Require an active saved explicitly clean form with observed revision and valid
 identity/routing fields. Before even the device metadata read, obtain translated
-confirmation that generating CSR replaces the saved private key and can make
-existing certificates unusable. Decline/close cancels without a credential call
+confirmation that generating CSR replaces only a pre-issuance saved private key,
+existing certificate/auth/onboarding-reference data blocks the operation, and
+renewal requires a separately reviewed workflow. Decline/close cancels without a credential call
 or review mark. Consent failure has a static preparation message; it cannot
 authorize issuance or establish that renewal is safe.
 

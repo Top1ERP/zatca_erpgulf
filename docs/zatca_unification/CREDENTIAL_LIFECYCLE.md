@@ -1,5 +1,10 @@
 # Credential lifecycle separation — development increment 18
 
+Development update, increment 83: the local key/CSR paths now conservatively
+block targets with saved certificate/auth/onboarding-reference material. This
+supersedes their old overwrite behavior, not the remaining CSID writer risks or
+the separate staged-activation design. See [CSR_KEY_PRESERVATION.md](CSR_KEY_PRESERVATION.md).
+
 This increment adds read-only legacy separation evidence and a proposed migration
 design. It does not install a DocType, migrate credentials, change CSID writers,
 select a signing certificate, or connect the new snapshot to runtime submissions.
@@ -22,7 +27,7 @@ the server's completion/authorization decision.
 | `create_csid` | Writes `custom_certificate` and Compliance auth/request ID | Writes `custom_certficate` and Compliance auth/request ID | A new Company Compliance certificate replaces its old shared certificate |
 | `production_csid` | Writes `custom_certificate` and Production auth | Writes `custom_certificate` and final auth | Company Compliance text is replaced; device may now have two different certificate fields |
 | Shared signing selector | Reads `custom_certificate` | Treats both spellings as aliases; conflicting text fails | Purpose is not represented by certificate storage |
-| `create_csr` / `create_private_keys` | Replaces shared private key | Replaces shared private key | Previously saved certificate/auth can become incompatible before renewal completes |
+| `create_csr` / `create_private_keys` | Pre-issuance key only; populated credential targets blocked since increment 83 | Same conservative own-target guard | Not locked/atomic renewal; unseen races and other writers remain |
 | Legacy ICV identity | Uses environment-selected auth in its key | Uses final auth, then Compliance auth/name fallback | Credential migration must not reset/merge chains or counters |
 
 Tests invoke the actual existing issuance/key functions with synthetic documents,

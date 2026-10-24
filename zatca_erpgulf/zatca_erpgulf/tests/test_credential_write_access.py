@@ -14,6 +14,7 @@ from cryptography.hazmat.primitives import serialization
 
 from zatca_erpgulf.zatca_erpgulf import sign_invoice_first as client
 from zatca_erpgulf.zatca_erpgulf.credential_write_access import ACCESS_DENIED, ACCESS_UNCONFIRMED
+from zatca_erpgulf.zatca_erpgulf.csr_key_preservation import PROTECTED_CREDENTIAL_FIELDS
 from zatca_erpgulf.zatca_erpgulf.tests.test_credential_selection import (
     boundary as saved_boundary, materials, ValidationError,
 )
@@ -25,7 +26,8 @@ class PermissionDenied(Exception):
 
 MODES = ("key", "csr", "compliance", "production")
 FIELDS = ("custom_private_key", "custom_csr_data", "custom_certificate", "custom_certficate",
-          "custom_basic_auth_from_csid", "custom_basic_auth_from_production", "custom_final_auth_csid")
+          "custom_basic_auth_from_csid", "custom_basic_auth_from_production", "custom_final_auth_csid",
+          "custom_compliance_request_id_")
 
 
 @pytest.fixture
@@ -90,6 +92,11 @@ def invoke(b, mode, source, identity, abbr):
 
 def enable(b, materials, mode):
     if mode in ("key", "csr"):
+        # Explicitly model pre-issuance targets for allowed key/CSR tests. Issued
+        # fixtures remain populated in ACL-negative and preservation tests.
+        for doc in (b.company, b.device):
+            for field in PROTECTED_CREDENTIAL_FIELDS:
+                setattr(doc, field, None)
         b.keygen.side_effect = None
         b.keygen.return_value = serialization.load_pem_private_key(materials[0].pem.encode(), password=None)
     else:

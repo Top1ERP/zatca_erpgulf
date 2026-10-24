@@ -4,6 +4,10 @@ Increment 82 supersedes the legacy CSR failure-wrapper descriptions below with
 one stage-aware owner; see [CSR_LOCAL_OUTCOMES.md](CSR_LOCAL_OUTCOMES.md).
 The source guard/save ordering and unresolved active-key risks remain.
 
+Increment 83 additionally blocks observed populated/unknown credential targets
+in the local key/CSR paths; it does not protect all CSID/other writers or establish
+atomic renewal. See [CSR_KEY_PRESERVATION.md](CSR_KEY_PRESERVATION.md).
+
 ## Observed issue and bounded change
 
 `create_csr`, `create_csid`, `production_csid` and internal `create_private_keys`

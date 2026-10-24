@@ -221,8 +221,9 @@ def test_selected_legacy_oid_is_preserved_without_any_transport(boundary, materi
 
 
 @pytest.mark.parametrize("missing", [None, "", "malformed config"])
-def test_invalid_saved_configuration_fails_before_key_generation(boundary, missing):
+def test_invalid_saved_configuration_fails_before_key_generation(boundary, materials, missing):
     b = boundary
+    enable(b, materials, "csr")
     b.company.custom_csr_config = missing
     with pytest.raises(ValidationError):
         b.invoke("csr")

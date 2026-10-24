@@ -36,6 +36,9 @@ from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
 from zatca_erpgulf.zatca_erpgulf.credential_write_access import (
     ACCESS_DENIED, ACCESS_UNCONFIRMED, CredentialWriteAccessError, load_credential_write_source,
 )
+from zatca_erpgulf.zatca_erpgulf.csr_key_preservation import (
+    PROTECTED_CREDENTIAL_FIELDS, CSRKeyPreservationError, require_unissued_key_target,
+)
 from zatca_erpgulf.zatca_erpgulf.operation_messages import (
     csid_creation_result, CSIDRequestRejected, CSIDProgress, csid_local_failure,
     CSID_PROGRESS_REVIEW, CSID_FORM_REVIEW, mute_operation_messages,
@@ -158,6 +161,12 @@ def _run_csr_operation(purpose, worker, *args):
     try:
         with mute_operation_messages(frappe):
             result = worker(*args, progress)
+    except CSRKeyPreservationError as error:
+        failure = csr_local_failure(purpose, progress)
+        if not progress.key_save_started:
+            failure.update(code=error.code, message=error.message)
+        else:
+            failure["notice"] = error.message
     except CredentialWriteAccessError as error:
         denied = error.code == "permission"
         failure = csr_local_failure(purpose, progress)
@@ -181,19 +190,32 @@ def _run_csr_operation(purpose, worker, *args):
 
 
 def create_private_keys(company_abbr, zatca_doc):
-    """Replace a permitted saved target's key; active-key rotation is not solved."""
+    """Generate only without observed issued material; not a renewal endpoint."""
     return _run_csr_operation("key", _write_private_key, company_abbr, zatca_doc)
+
+
+def _require_csr_key_preservation(doc):
+    """Inspect only the authorized write target, never the caller's field values."""
+    try:
+        values = {name: doc.get(name) for name in PROTECTED_CREDENTIAL_FIELDS}
+    except Exception:
+        raise CSRKeyPreservationError("state") from None
+    require_unissued_key_target(values)
 
 
 def _write_private_key(company_abbr, zatca_doc, progress):
     """Shared worker, not another public error boundary or rotation policy."""
     doc = _load_csr_write_source(company_abbr, zatca_doc).target
+    _require_csr_key_preservation(doc)
     private_key = ec.generate_private_key(ec.SECP256K1(), backend=default_backend())
     private_key_pem = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.TraditionalOpenSSL,
         encryption_algorithm=serialization.NoEncryption(),
     )
+    # Recheck this loaded record after crypto callbacks, before assignment.
+    # Ordinary ORM timestamp checks remain; this is not a cross-request lock.
+    _require_csr_key_preservation(doc)
     progress.key_save_started = True
     doc.custom_private_key = private_key_pem.decode("utf-8")
     doc.save()
@@ -210,11 +232,13 @@ def create_csr(zatca_doc, portal_type, company_abbr):
 def _create_csr(zatca_doc, portal_type, company_abbr, progress):
     """Keep existing OIDs, signing and key-before-CSR ordering explicit."""
     doc = _load_csr_write_source(company_abbr, zatca_doc).target
+    _require_csr_key_preservation(doc)
     identity = {"doctype": doc.doctype, "name": doc.name}
     # Keep construction in a separate worker so child exceptions reach only the
     # outer owner, never a nested public key helper with its own popup.
     encoded_string = _build_csr(doc, portal_type, company_abbr, identity, progress)
     target = _load_csr_write_source(company_abbr, identity).target
+    _require_csr_key_preservation(target)
     progress.csr_save_started = True
     target.custom_csr_data = encoded_string.strip()
     target.save()

@@ -121,6 +121,14 @@ Legacy return shapes and algorithms remain; active-bundle preservation/rotation,
 epochs/concurrency, full framework diagnostic custody and installed v15/v16
 acceptance remain gates. See [CSR_LOCAL_OUTCOMES.md](CSR_LOCAL_OUTCOMES.md).
 
+Increment 83 blocks shared key/CSR replacement when any saved certificate/auth/
+onboarding-reference data is present or its state is unverifiable. Pre-issuance
+returns/algorithms remain; no force, clearing, expiry or environment bypass is
+added. Translated consent reflects the restriction. This is an observed local
+presence guard, not a locked credential epoch or a staged renewal workflow;
+CSID/other writers and explicit safe activation remain gates. See
+[CSR_KEY_PRESERVATION.md](CSR_KEY_PRESERVATION.md).
+
 | Mode | Intended output | Side-effect boundary to enforce |
 | --- | --- | --- |
 | Phase 1 | Local QR for supported Sales/POS documents | No Phase-2 API or production hash-chain mutation |

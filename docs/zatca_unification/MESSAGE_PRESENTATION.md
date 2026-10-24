@@ -266,3 +266,11 @@ the new boundary. Post-response ordinary-save denial remains storage-unconfirmed
 Canonical CSID metadata stays English. Full legacy CSR crypto/local error and
 framework log redaction remain gates. See
 [CREDENTIAL_WRITER_ACCESS.md](CREDENTIAL_WRITER_ACCESS.md).
+
+Increment 83 adds static key/CSR preservation and unverifiable-state notices,
+with actual Arabic CSV entries and pre-issuance-only consent. A check failing
+after key save keeps the partial-stage message plus the static preservation
+notice in one popup, not an unsent/no-change or safe-retry claim. The pure guard
+retains only English code/message; it never parses/exports raw credential values.
+See [CSR_KEY_PRESERVATION.md](CSR_KEY_PRESERVATION.md). Broader CSID writers,
+framework diagnostics and atomic staged renewal remain separate gates.

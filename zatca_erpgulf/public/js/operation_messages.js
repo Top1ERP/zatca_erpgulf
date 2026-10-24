@@ -255,10 +255,10 @@ function zatca_run_credential_form(frm, operation) {
                 return guard(__("CSR configuration was placed in the form as an unsaved draft. Review it and save manually. No private key or certificate was generated."));
             }
             if (csr) {
-                // CSR generation replaces the saved private key. This consent
+                // CSR generation can replace a pre-issuance key. This consent
                 // is not credential activation or proof that rotation is safe.
                 const confirmed = await new Promise(resolve => frappe.confirm(
-                    __("Generating CSR replaces the saved private key and may make existing certificates unusable. Continue only for an intentional onboarding or renewal operation."),
+                    __("Generating CSR replaces the saved private key for pre-issuance settings only. Existing certificate, authentication or onboarding-reference data blocks this operation. Renewal requires a separately reviewed workflow. Continue?"),
                     () => resolve(true), () => resolve(false)));
                 if (!confirmed) return;
                 if (!active() || !clean()) return changed();

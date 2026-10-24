@@ -865,3 +865,24 @@ failures were fixed without weakening assertions. A subsequent run passed all
 local cases but had temporary-server readiness setup errors; the same fixed
 runner passed with reviewed subprocess execution permission. No network/site/
 SQL-ownership/normal-permission guard was relaxed or tenant fallback attempted.
+
+Increment83 introduces a conservative presence guard only in local key/CSR
+replacement paths. Saved certificate/auth/onboarding-reference data, including
+invalid/historical/masked text, blocks replacement; unverifiable state fails
+closed. Test-only allowed fixtures explicitly model unissued targets. Two old
+key-overwrite characterizations now assert no generation/save and preserved
+key/auth. This is not a real data-clearing operation or an installed active-key
+rotation service. Late checks retain partial-key review without undo/retry.
+Known in-process mutations are observed, not all concurrent database writers.
+CSID/other writers, source/epoch custody, staged activation and full installed
+v15/v16 remain gates. No live source/assets/config/schema/site/customer credential/
+worker or authority operation is made. See
+[CSR_KEY_PRESERVATION.md](CSR_KEY_PRESERVATION.md).
+
+Final increment83 guarded combined: **12,853 local + 1,800 private SQL =
+14,653 passed in 164.51 seconds**, across twelve owned-private SQL suites,
+including **271 new synthetic cases**. Earlier combined passed **14,652 in
+148.40 seconds** before the additional alias-registry case was collected.
+All nine Node VM scripts passed **1,444 cases** with revised translated consent.
+No resource/ACL/crypto/transport assertion was waived; no installed or authority
+acceptance is claimed.

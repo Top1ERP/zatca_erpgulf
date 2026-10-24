@@ -12,7 +12,7 @@ const text = {
     save: "Save the Company or device settings and CSR configuration before generating CSR. No CSR generation request was sent.",
     incomplete: "Saved CSR source settings are incomplete. Review the Company link and selected environment. No CSR generation request was sent.",
     changed: "CSR generation was cancelled because the form changed. Preserve edits and review saved settings. No CSR generation request was sent.",
-    confirm: "Generating CSR replaces the saved private key and may make existing certificates unusable. Continue only for an intentional onboarding or renewal operation.",
+    confirm: "Generating CSR replaces the saved private key for pre-issuance settings only. Existing certificate, authentication or onboarding-reference data blocks this operation. Renewal requires a separately reviewed workflow. Continue?",
     returned: "The CSR generation call returned. Review saved CSR and private-key settings before any further operation; this does not confirm certificate issuance. Preserve unsaved changes before reloading.",
     unknown: "CSR generation could not be confirmed. The saved private key may have changed. Preserve edits and review saved settings before another CSR or CSID operation.",
     preparation: "CSR preparation could not be completed. No CSR generation request was sent."
