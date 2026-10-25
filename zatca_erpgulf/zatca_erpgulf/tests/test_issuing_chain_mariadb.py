@@ -26,6 +26,8 @@ from zatca_erpgulf.zatca_erpgulf import preparation_review_access as review_acce
 from zatca_erpgulf.zatca_erpgulf.tests.test_preparation_review_access import (
     reviewer, operator, scenario as review_scenario, InspectionFailed,
 )
+from zatca_erpgulf.zatca_erpgulf import preparation_recovery_access as recovery_access
+from zatca_erpgulf.zatca_erpgulf.tests.test_preparation_recovery_access import recoverer
 
 
 pytestmark = pytest.mark.skipif(os.environ.get("ZATCA_RUN_ISOLATED_MARIADB") != "1",
@@ -426,24 +428,28 @@ def test_missing_explicit_chain_never_runs_preparation_builder(connections, case
     assert count(writer, "zatca_issuing_chain_v1", case["namespace"]) == 0
 
 
+class InjectedCommitConnection:
+    """Shared private-test commit/close fault adapter; never a site connection."""
+
+    def __init__(self, connection, fault=None): self.raw, self.fault = connection, fault
+    def cursor(self): return self.raw.cursor()
+    def rollback(self): return self.raw.rollback()
+    def commit(self):
+        if self.fault == "before_commit": raise RuntimeError("PRIVATE commit unavailable")
+        self.raw.commit()
+        if self.fault == "after_commit": raise RuntimeError("PRIVATE commit acknowledgment lost")
+    def close(self):
+        self.raw.close()
+        if self.fault == "close": raise RuntimeError("PRIVATE close acknowledgment lost")
+
+
 def held_case(connections, case, *, name="HELD-FIRST", fault=None):
     """Private owned connections only; fault injection never touches a site."""
     acquired = []
-    class FaultConnection:
-        def __init__(self, connection, number): self.raw, self.number = connection, number
-        def cursor(self): return self.raw.cursor()
-        def rollback(self): return self.raw.rollback()
-        def commit(self):
-            if fault == (self.number, "before_commit"): raise RuntimeError("PRIVATE commit unavailable")
-            self.raw.commit()
-            if fault == (self.number, "after_commit"): raise RuntimeError("PRIVATE commit acknowledgment lost")
-        def close(self):
-            self.raw.close()
-            if fault == (self.number, "close"): raise RuntimeError("PRIVATE close acknowledgment lost")
     def factory():
         raw = connections()
         acquired.append(raw)
-        return FaultConnection(raw, len(acquired))
+        return InjectedCommitConnection(raw, fault[1] if fault and fault[0] == len(acquired) else None)
     owner = HeldIssuancePreparation(factory, case["namespace"])
     template = prepared_for(case["der"], case["registered"], name=name)
     args = case["registered"], template.context, str(uuid4()), str(uuid4())
@@ -795,8 +801,8 @@ def review_source_schema(isolated_server):
                 cursor.execute("CREATE TABLE `tab" + doctype + "` (" + ",".join(columns) + ") ENGINE=InnoDB")
 
 
-def native_review(connections, reviewer, certificates, monkeypatch, *, state="pending", doctype="Sales Invoice", owner="company"):
-    selected = review_scenario(reviewer, certificates[0], monkeypatch, state="pending", doctype=doctype, owner=owner)
+def native_review(connections, reviewer, certificates, monkeypatch, *, state="pending", doctype="Sales Invoice", owner="company", docstatus=0):
+    selected = review_scenario(reviewer, certificates[0], monkeypatch, state="pending", doctype=doctype, owner=owner, docstatus=docstatus)
     selected.scope = replace(selected.scope, storage_namespace=str(uuid4()))
     selected.opened = []
     def factory(scope):
@@ -882,3 +888,209 @@ def test_related_owner_reads_and_real_source_projections(review_source_schema, c
     selected = native_review(connections, reviewer, certificates, monkeypatch, owner=owner)
     assert selected.service.inspect(selected.invoice.name)["state"] == "PENDING_ORIGINAL_UNCONFIRMED_REVIEW"
     assert len(selected.opened) == 1 and not selected.opened[0].open
+
+
+def native_recovery(connections, recoverer, certificates, monkeypatch, *, doctype="Sales Invoice", owner="company"):
+    selected = native_review(connections, recoverer, certificates, monkeypatch, doctype=doctype, owner=owner, docstatus=1)
+    candidate = build_for(certificates[0], selected.hold.ticket)
+    selected.retained = recovery_access.RetainedPreparationOriginal(selected.scope, selected.hold, candidate)
+    selected.evidence = Mock(return_value=True)
+    selected.recovery = recovery_access.SavedPreparationRecoveryService(selected.scope, selected.evidence, selected.factory)
+    return selected
+
+
+def recover(selected):
+    return selected.recovery.persist(selected.invoice.name, selected.retained, doctype=selected.invoice.doctype)
+
+
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("owner", ["company", "device", "linked"])
+def test_permissioned_recovery_and_exact_redelivery_use_real_source_and_original_locks(review_source_schema,
+    connections, recoverer, certificates, monkeypatch, doctype, owner):
+    selected = native_recovery(connections, recoverer, certificates, monkeypatch, doctype=doctype, owner=owner)
+    original = selected.retained.candidate
+    for _ in range(2):
+        assert recover(selected)["state"] == "PREPARATION_ORIGINAL_STORED_LOCAL_NO_REPLAY"
+    assert all(not connection.open for connection in selected.opened) and len(selected.opened) == 2
+    observer = connections()
+    state = storage.MariaDBIssuingChainRepository(observer, selected.scope.storage_namespace).load(selected.hold.ticket.predecessor.registration)
+    assert state.last_icv == 1
+    saved = MariaDBJournalRepository(observer, selected.scope.storage_namespace).load(original.key_sha256)
+    assert saved.candidate.xml_bytes == original.xml_bytes and saved.events == ()
+    assert count(observer, "zatca_issuance_candidate_v1", selected.scope.storage_namespace) == 1
+    with observer.cursor() as cursor:
+        cursor.execute("SELECT modified,docstatus FROM `tab" + doctype + "` WHERE name=%s", (selected.invoice.name,))
+        assert cursor.fetchone() == (selected.invoice.modified, 1)
+    recoverer.runtime.db.commit.assert_not_called()
+    recoverer.runtime.db.rollback.assert_not_called()
+
+
+@pytest.mark.parametrize("fault", ["before_commit", "after_commit", "close"])
+def test_permissioned_unknown_commit_preserves_hold_and_explicit_exact_reconciliation(review_source_schema,
+    connections, recoverer, certificates, monkeypatch, fault):
+    selected = native_recovery(connections, recoverer, certificates, monkeypatch)
+    opened = []
+    def factory(scope):
+        raw = connections()
+        opened.append(raw)
+        return InjectedCommitConnection(raw, fault)
+    selected.recovery = recovery_access.SavedPreparationRecoveryService(selected.scope, selected.evidence, factory)
+    assert recover(selected)["state"] == "PREPARATION_RECOVERY_UNCONFIRMED_NO_REBUILD"
+    assert len(opened) == 1 and not opened[0].open
+    observer = connections()
+    assert count(observer, "zatca_issuance_candidate_v1", selected.scope.storage_namespace) == int(fault != "before_commit")
+    hold = MariaDBPreparationHoldRepository(observer, selected.scope.storage_namespace).load_for_source(
+        selected.invoice.doctype, selected.company.name, selected.invoice.name)
+    assert (hold.original_manifest_sha256 is None) == (fault == "before_commit")
+    observer.rollback()
+    selected.recovery = recovery_access.SavedPreparationRecoveryService(selected.scope, selected.evidence, selected.factory)
+    assert recover(selected)["local_transaction_completed"] is True  # Explicit separate LOCAL recovery.
+    observer.rollback()
+    assert count(observer, "zatca_issuance_candidate_v1", selected.scope.storage_namespace) == 1
+    saved = MariaDBJournalRepository(observer, selected.scope.storage_namespace).load(selected.retained.candidate.key_sha256)
+    assert saved.candidate.xml_bytes == selected.retained.candidate.xml_bytes
+
+
+@pytest.mark.parametrize("stage", [1, 2, 3, 4])
+def test_permission_revocation_before_and_after_commit_never_clears_or_replays_original(review_source_schema,
+    connections, recoverer, certificates, monkeypatch, stage):
+    selected = native_recovery(connections, recoverer, certificates, monkeypatch)
+    calls = []
+    def evidence(*args, **kwargs):
+        calls.append(kwargs["connection"])
+        if len(calls) == stage:
+            recoverer.denied_operations.add((selected.invoice.doctype, selected.invoice.name, "write"))
+        return True
+    selected.evidence.side_effect = evidence
+    original = selected.retained.candidate.xml_bytes
+    with pytest.raises(recoverer.runtime.PermissionError):
+        recover(selected)
+    observer = connections()
+    assert count(observer, "zatca_issuance_candidate_v1", selected.scope.storage_namespace) == int(stage == 4)
+    state = storage.MariaDBIssuingChainRepository(observer, selected.scope.storage_namespace).load(selected.hold.ticket.predecessor.registration)
+    assert state.last_icv == int(stage == 4)
+    assert selected.retained.candidate.xml_bytes == original
+    assert all(not connection.open for connection in selected.opened)
+    recoverer.runtime.db.commit.assert_not_called()
+    recoverer.runtime.db.rollback.assert_not_called()
+
+
+def test_recovery_rechecks_real_source_projection_not_stale_orm_snapshot(review_source_schema,
+    connections, recoverer, certificates, monkeypatch):
+    selected = native_recovery(connections, recoverer, certificates, monkeypatch)
+    writer = connections()
+    with writer.cursor() as cursor:
+        cursor.execute("UPDATE `tabCompany` SET tax_id=%s WHERE name=%s", ("OTHER", "TEST"))
+    writer.commit()
+    constructor = Mock(wraps=MariaDBPreparationHoldRepository)
+    monkeypatch.setattr(recovery_access, "MariaDBPreparationHoldRepository", constructor)
+    assert recover(selected)["local_transaction_completed"] is False
+    constructor.assert_not_called()
+    assert count(writer, "zatca_issuance_candidate_v1", selected.scope.storage_namespace) == 0
+
+
+def test_conflicting_exact_identity_but_changed_xml_is_not_overwritten(review_source_schema,
+    connections, recoverer, certificates, monkeypatch):
+    selected = native_recovery(connections, recoverer, certificates, monkeypatch)
+    assert recover(selected)["local_transaction_completed"] is True
+    original = selected.retained.candidate
+    changed = replace(original, xml_bytes=original.xml_bytes.replace(b"><", b">\n<"))
+    assert changed.artifact.uuid == original.artifact.uuid and changed.xml_bytes != original.xml_bytes
+    selected.retained = replace(selected.retained, candidate=changed)
+    assert recover(selected)["state"] == "PREPARATION_RECOVERY_UNCONFIRMED_NO_REBUILD"
+    observer = connections()
+    saved = MariaDBJournalRepository(observer, selected.scope.storage_namespace).load(original.key_sha256)
+    assert saved.candidate.xml_bytes == original.xml_bytes
+    assert storage.MariaDBIssuingChainRepository(observer, selected.scope.storage_namespace).load(
+        selected.hold.ticket.predecessor.registration).last_icv == 1
+
+
+def test_borrowed_parent_does_not_commit_rollback_or_close_private_parent(review_source_schema,
+    connections, recoverer, certificates, monkeypatch):
+    selected = native_recovery(connections, recoverer, certificates, monkeypatch)
+    parent = connections()
+    with parent.cursor() as cursor:
+        cursor.execute("INSERT INTO chain_parent_work VALUES (%s,%s)", (selected.scope.storage_namespace, "SYNTHETIC UNCOMMITTED PARENT"))
+    recoverer.runtime.db._conn = parent
+    selected.recovery = recovery_access.SavedPreparationRecoveryService(selected.scope, selected.evidence, lambda scope: parent)
+    assert recover(selected)["local_transaction_completed"] is False
+    observer = connections()
+    assert parent.open and count(parent, "chain_parent_work", selected.scope.storage_namespace) == 1
+    assert count(observer, "chain_parent_work", selected.scope.storage_namespace) == 0
+    assert count(observer, "zatca_issuance_candidate_v1", selected.scope.storage_namespace) == 0
+    parent.rollback()  # Explicit test owner cleanup only.
+    parent.close()
+
+
+def test_missing_requested_hold_is_not_created_by_recovery(review_source_schema,
+    connections, recoverer, certificates, monkeypatch):
+    selected = native_recovery(connections, recoverer, certificates, monkeypatch)
+    selected.retained = replace(selected.retained, hold=replace(selected.hold, hold_id=str(uuid4())))
+    assert recover(selected)["local_transaction_completed"] is False
+    observer = connections()
+    assert count(observer, "zatca_preparation_hold_v1", selected.scope.storage_namespace) == 1
+    assert count(observer, "zatca_issuance_candidate_v1", selected.scope.storage_namespace) == 0
+
+
+@pytest.mark.parametrize("docstatus", [0, 2])
+def test_native_draft_cancelled_policy_never_opens_recovery_connection(review_source_schema,
+    connections, recoverer, certificates, monkeypatch, docstatus):
+    selected = native_recovery(connections, recoverer, certificates, monkeypatch)
+    selected.invoice.docstatus = docstatus
+    with pytest.raises(InspectionFailed): recover(selected)
+    assert selected.opened == []
+    selected.evidence.assert_not_called()
+
+
+@pytest.mark.parametrize("isolation", ["READ COMMITTED", "REPEATABLE READ"])
+def test_two_authorized_local_recoveries_advance_once_with_actual_source_locks(review_source_schema,
+    connections, recoverer, certificates, monkeypatch, isolation):
+    selected = native_recovery(connections, recoverer, certificates, monkeypatch)
+    guarded, release = Event(), Event()
+    calls = []
+    def evidence(*args, **kwargs):
+        calls.append(kwargs["connection"])
+        if len(calls) == 3:
+            guarded.set()
+            assert release.wait(10)
+        return True
+    first = recovery_access.SavedPreparationRecoveryService(selected.scope, evidence, lambda scope: connections(isolation))
+    second = recovery_access.SavedPreparationRecoveryService(selected.scope, lambda *args, **kwargs: True, lambda scope: connections(isolation))
+    ready = Event()
+    def competing():
+        ready.set()
+        return second.persist(selected.invoice.name, selected.retained, doctype=selected.invoice.doctype)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first_result = pool.submit(first.persist, selected.invoice.name, selected.retained, doctype=selected.invoice.doctype)
+        assert guarded.wait(5)
+        try:
+            second_result = pool.submit(competing)
+            assert ready.wait(5)
+            with pytest.raises(TimeoutError): second_result.result(timeout=0.05)
+        finally:
+            release.set()
+        assert first_result.result(timeout=10)["local_transaction_completed"] is True
+        assert second_result.result(timeout=10)["local_transaction_completed"] is True
+    observer = connections()
+    assert count(observer, "zatca_issuance_candidate_v1", selected.scope.storage_namespace) == 1
+    assert storage.MariaDBIssuingChainRepository(observer, selected.scope.storage_namespace).load(
+        selected.hold.ticket.predecessor.registration).last_icv == 1
+
+
+def test_evidence_callback_projected_sql_drift_is_rolled_back_not_committed(review_source_schema,
+    connections, recoverer, certificates, monkeypatch):
+    selected = native_recovery(connections, recoverer, certificates, monkeypatch)
+    calls = []
+    def evidence(*args, **kwargs):
+        calls.append(kwargs["connection"])
+        if len(calls) == 2:
+            with kwargs["connection"].cursor() as cursor:
+                cursor.execute("UPDATE `tabCompany` SET tax_id=%s WHERE name=%s", ("OTHER", "TEST"))
+        return True
+    selected.evidence.side_effect = evidence
+    assert recover(selected)["local_transaction_completed"] is False
+    observer = connections()
+    with observer.cursor() as cursor:
+        cursor.execute("SELECT tax_id FROM `tabCompany` WHERE name=%s", ("TEST",))
+        assert cursor.fetchone() == (selected.company.tax_id,)
+    assert count(observer, "zatca_issuance_candidate_v1", selected.scope.storage_namespace) == 0

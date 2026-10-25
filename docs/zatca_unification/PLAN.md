@@ -19,6 +19,13 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 101 adds uninstalled saved-WRITE local recovery of an exact retained
+original, separate from READ review. Mandatory explicit evidence and source/ACL
+guards bracket one owned atomic original/head/hold completion; uncertain commit
+never regenerates or retries. Draft/cancelled sources remain review-only under
+an explicit conservative local policy. No vault, authentic source verifier,
+runtime hook or authority client is installed. See [PREPARATION_RECOVERY.md](PREPARATION_RECOVERY.md).
+
 Increment 100 adds uninstalled permissioned read-only preparation review from
 saved source identity after loss of the in-memory ticket. Reuse ordinary saved
 READ/owner/source checks and owned rollback/close; preserve existing accepted-

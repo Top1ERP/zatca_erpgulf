@@ -57,7 +57,7 @@ class _SavedReviewSource(ArchiveInspectionEngine):
 
     def __init__(self, scope, connection_factory):
         if type(scope) is not CredentialStorageScope or not callable(connection_factory):
-            raise self.ERROR("preparation_review_dependencies")
+            raise self.ERROR(self.ERROR_PREFIX + "_dependencies")
         self._scope, self._connect = scope, connection_factory
 
     def _dependencies(self):

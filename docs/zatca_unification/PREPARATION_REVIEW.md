@@ -5,6 +5,11 @@ internal metadata service plus display formatter, NOT a Company/invoice button,
 whitelisted endpoint, provider registration, live hook, worker or migration.
 No live source/schema/configuration was changed and no authority was contacted.
 
+Increment 101 adds a SEPARATE [saved-WRITE exact-original recovery service](PREPARATION_RECOVERY.md).
+The READ service below remains metadata-only and acquires no persist/release/
+rebuild capability. Authentic custody/source validation and runtime adoption
+remain independent gates.
+
 ## Scope and source selection
 
 [Durable preparation](DURABLE_PREPARATION.md) deliberately leaves a no-rebuild

@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and one bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2243,6 +2243,38 @@ suite passed **102 cases in 4.06 seconds**. All nine Node VM scripts passed
 new test helper; corrected without weakening assertions, ACL, timeout or the
 offline guard. No installed v15/v16, cryptographic/SDK or remote acceptance is claimed.
 
+## Increment 101: saved-WRITE exact-original local preparation recovery
+
+- Add a private retained site/namespace/hold/original contract that reconstructs
+  strict existing codecs and compares all derived identity/evidence fields.
+  Pin independent validated objects so callback checks avoid repeated XML parsing.
+- Add a separate source WRITE/related READ boundary, not a capability on READ
+  review. Require a submitted committed source under an explicit conservative
+  local policy; draft/cancelled history remains review-only, not discarded/reset.
+- Require explicit source/custody evidence before owned acquisition and at every
+  mutation boundary. Literal True is a declaration, not authenticated provenance;
+  no default ERP verifier/encrypted custody provider or live factory is installed.
+- Reuse current source/owner/permission/SQL/owned-transaction helpers and exact
+  hold completion. Recheck projections on both sides of the evidence callback.
+  Original/head/hold completion stay atomic, exact redelivery never increments
+  twice, and corrupt/missing/conflicting records are not repaired or replaced.
+- Keep exact inputs across uncertainty; commit/close failures report unconfirmed
+  without automatic retry. Late ACL/source denial can follow a completed commit
+  and never clears rows or cleans an ambient parent. No builder or authority I/O.
+- Add fixed English metadata and one display-only translated summary with Arabic
+  entries, no source/ID/XML export or event writer. No installed hook/UI/provider/
+  schema changes. See [PREPARATION_RECOVERY.md](PREPARATION_RECOVERY.md).
+
+Final guarded combined: **14,888 local + 2,168 private SQL = 17,056 passed in
+181.93 seconds**, across fourteen private suites. This adds **165 cases** (121
+local retained/WRITE/evidence/display and 44 native recovery cases). Targeted
+READ/recovery suites passed **336 cases in 2.91 seconds**; the expanded native
+chain suite passed **146 cases in 5.98 seconds** before the final independent
+pinning refinement, which the full combined run also verifies. All nine Node VM
+scripts passed **1,444 cases**. No assertion, timeout, ordinary ACL, network/site
+or cryptographic guard was waived. Installed v15/v16, authentic source/custody
+verification, encrypted original custody and SDK/authority acceptance remain gates.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -2652,6 +2684,7 @@ endpoints remain untouched.
 | `test_issuance_preparation.py` | One-shot pinned preparation, pre-build key/binding refusal, exact builder/custody/guard boundaries, recursive/error poisoning and caller transaction ownership; no installed adapter or durable pending hold |
 | `test_preparation_hold.py` | Bounded pre-build ticket codecs, permanent source identity and mocked owned commit/close-before-build, six guard boundaries, strict custody/recursion/unknown-result behavior; no authenticated provider or runtime activation |
 | `test_preparation_review_access.py` | Saved READ/related ownership, pending/recorded/absent metadata, missing saved UUID/counter, current-source/ACL/actor guards, owned cleanup, protected source lookup and Arabic display-only presentation; v15/v16 signatures are mocks, not installed-version tests |
+| `test_preparation_recovery_access.py` | Separate saved WRITE/related READ, exact retained contract/pinning, mandatory evidence, conservative source status, owned uncertainty/cleanup, late drift and Arabic single-message metadata separation; no live verifier/vault or runtime adoption |
 | `test_issuing_chain_mariadb.py` (separate opt-in) | Owned-private head/original atomicity, preparation contention, independent units, durable pre-build holds, commit/close uncertainty, exact reconciliation, cooperating-writer refusal, corruption and owned-server crash recovery |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |
 | `test_background_scheduling.py` | Shared Sales/POS worker selection, Company isolation/windows/settings, stale status and draft boundaries, actual parent routing and worker bridge |
