@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and ninety-nine bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2213,6 +2213,36 @@ succeeded with the offline guard unchanged. No assertion, timeout, ordinary ACL,
 network/site or cryptographic guard was waived. Installed v15/v16 and SDK/remote
 acceptance are not claimed.
 
+## Increment 100: permissioned saved-source preparation review
+
+- Add a bounded permanent-source lookup for protected ticket inspection after
+  process-memory loss. Reuse the existing strict exact hold loader; no latest
+  search, new builder, release, reset or speculative partial-record repair.
+- Separate shared saved-source selection from accepted archive identity rules.
+  Existing QR/advance/receipt/pair callers retain their old constraints; the new
+  read-only review reuses normal ACL/owner/v15-v16 permission compatibility and
+  source SQL guards without requiring saved UUID/ICV/accepted status.
+- Require current site/manager identity, saved source READ and related READ before
+  owned SQL; check seller/owner/environment/route and exact source revisions,
+  then deny even metadata after late source/ACL/actor changes or cleanup failure.
+  Refuse recognizable ambient handles without touching their transaction state.
+- Return fixed English pending/recorded/absent observations and false-only grants;
+  no protected IDs/XML/hashes. Provide one display-only translated summary with
+  Arabic entries, separate from unchanged English metadata. No log writer added.
+- No live button/provider/endpoint/hook, raw export, hold/source write, commit or
+  authority call. Historical source/epoch/tenant/factory provenance, protected
+  custody, WRITE-gated recovery, legacy integration and installed v15/v16 remain
+  gates. See [PREPARATION_REVIEW.md](PREPARATION_REVIEW.md).
+
+Final guarded combined: **14,767 local + 2,124 private SQL = 16,891 passed in
+187.54 seconds**, across fourteen private suites. This adds **241 cases** (215
+local review/lookup/display and 26 native source-review cases). Targeted shared
+QR/advance/review tests passed **484 cases in 3.43 seconds**; the native chain
+suite passed **102 cases in 4.06 seconds**. All nine Node VM scripts passed
+**1,444 cases**. Four initial native checks exposed a missing Mock import in the
+new test helper; corrected without weakening assertions, ACL, timeout or the
+offline guard. No installed v15/v16, cryptographic/SDK or remote acceptance is claimed.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -2621,6 +2651,7 @@ endpoints remain untouched.
 | `test_issuing_chain.py` | Explicit new-unit seed/state, exact candidate/source/epoch/predecessor transitions, strict bounded codecs and mocked transaction/error ownership; no authenticated enrollment or runtime allocation |
 | `test_issuance_preparation.py` | One-shot pinned preparation, pre-build key/binding refusal, exact builder/custody/guard boundaries, recursive/error poisoning and caller transaction ownership; no installed adapter or durable pending hold |
 | `test_preparation_hold.py` | Bounded pre-build ticket codecs, permanent source identity and mocked owned commit/close-before-build, six guard boundaries, strict custody/recursion/unknown-result behavior; no authenticated provider or runtime activation |
+| `test_preparation_review_access.py` | Saved READ/related ownership, pending/recorded/absent metadata, missing saved UUID/counter, current-source/ACL/actor guards, owned cleanup, protected source lookup and Arabic display-only presentation; v15/v16 signatures are mocks, not installed-version tests |
 | `test_issuing_chain_mariadb.py` (separate opt-in) | Owned-private head/original atomicity, preparation contention, independent units, durable pre-build holds, commit/close uncertainty, exact reconciliation, cooperating-writer refusal, corruption and owned-server crash recovery |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |
 | `test_background_scheduling.py` | Shared Sales/POS worker selection, Company isolation/windows/settings, stale status and draft boundaries, actual parent routing and worker bridge |

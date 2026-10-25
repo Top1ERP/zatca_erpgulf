@@ -210,8 +210,8 @@ class ArchiveInspectionEngine:
             frappe.throw(translate(self.DENIED_MESSAGE), frappe.PermissionError)
         return site, user
 
-    def _saved_binding(self, invoice_name, doctype, actor):
-        """Shared saved-row policy only, not storage/dispatch authorization.
+    def _saved_selection(self, invoice_name, doctype, actor):
+        """Shared saved-row ACL/owner selection, including pre-artifact review.
 
         Concrete server adapters select the fixed invoice permission/status
         policy. Other owner/Company rows always require read. Existing metadata
@@ -254,6 +254,11 @@ class ArchiveInspectionEngine:
                     raise self.ERROR(self.ERROR_PREFIX + "_source_changed")
 
         recheck()
+        return invoice, company, owner, rows, records, recheck
+
+    def _saved_binding(self, invoice_name, doctype, actor):
+        """Archive identity/status policy stays separate from saved-row access."""
+        invoice, company, owner, rows, records, recheck = self._saved_selection(invoice_name, doctype, actor)
         binding = self._lookup(self._scope, rows)
         if type(binding) is not self.BINDING_TYPE or binding.scope != self._scope:
             raise self.ERROR(self.ERROR_PREFIX + "_binding")

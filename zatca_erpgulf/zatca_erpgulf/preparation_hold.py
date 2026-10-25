@@ -11,7 +11,8 @@ import json
 from dataclasses import dataclass, field, replace
 
 from .issuance_candidate import (
-    _canonical_uuid, _sha256, compare_prepared_candidates, preparation_source_sha256,
+    IssuanceContractError, _canonical_uuid, _sha256, compare_prepared_candidates,
+    preparation_source_sha256, preparation_source_identity_sha256,
 )
 from .issuance_preparation import PreparationTicket
 from .issuing_chain import IssuingChainError, _check
@@ -160,6 +161,35 @@ class MariaDBPreparationHoldRepository:
                 if stored.original_manifest_sha256 is None and current != stored.ticket.predecessor:
                     raise IssuingChainError("preparation_predecessor_conflict")
                 return stored
+
+    def load_for_source(self, doctype, company_name, invoice_name):
+        """Protected saved-source inspection after loss of in-memory ticket.
+
+        Caller authorizes the saved source BEFORE this bounded indexed read.
+        First read is nonlocking to preserve chain-before-hold lock order; the
+        existing strict load rechecks the immutable ticket and current head.
+        Absence is an observation only, never proof of no generation/no send.
+        """
+        with self._chain._guard():
+            try:
+                source = preparation_source_identity_sha256(doctype, company_name, invoice_name)
+            except IssuanceContractError:
+                raise IssuingChainError("preparation_source") from None
+            with self._chain._cursor() as cursor:
+                cursor.execute("SELECT hold_id,SUBSTRING(ticket_bytes,1,%s),ticket_sha256 "
+                    "FROM zatca_preparation_hold_v1 WHERE storage_namespace=%s AND source_sha256=%s LIMIT 1",
+                    (MAX_TICKET_BYTES + 1, self._namespace, source))
+                row = cursor.fetchone()
+            if row is None:
+                return None
+            if type(row) is not tuple or len(row) != 3:
+                raise IssuingChainError("preparation_hold_missing_or_invalid")
+            expected = PreparationHold(row[0], decode_preparation_ticket(row[1]))
+            scope = expected.ticket.context.scope
+            if (row[2] != expected.ticket_sha256 or expected.source_sha256 != source
+                or (scope.doctype, scope.company_name, scope.invoice_name) != (doctype, company_name, invoice_name)):
+                raise IssuingChainError("preparation_hold_conflict")
+            return self.load(expected)
 
     def complete(self, expected, candidate):
         """Record exact original/head AND complete hold in ONE owner transaction."""

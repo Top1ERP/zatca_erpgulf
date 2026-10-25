@@ -76,6 +76,11 @@ SQL, and legacy application generators remain separate, unmigrated writers.
 
 ## Unknown results and reconciliation
 
+Increment 100 adds [permissioned saved-source review](PREPARATION_REVIEW.md),
+including bounded protected lookup when the original process ticket is no longer
+in memory. It returns only metadata and has no completion/release/rebuild power;
+protected custody and WRITE-gated recovery still require separate integration.
+
 The protected owner retains its initial ticket/hold and exact candidate, including
 on final commit/close failure. Fresh local reconciliation may call
 `complete(exact_hold, exact_original)` through a separately owned transaction:

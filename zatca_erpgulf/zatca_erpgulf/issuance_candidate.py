@@ -129,8 +129,17 @@ def preparation_source_sha256(scope):
     """
     if type(scope) is not IssuanceScope:
         raise IssuanceContractError("source_doctype")
+    return preparation_source_identity_sha256(scope.doctype, scope.company_name, scope.invoice_name)
+
+
+def preparation_source_identity_sha256(doctype, company_name, invoice_name):
+    """Same source key before a protected ticket or XML is available in memory."""
+    if type(doctype) is not str or doctype not in ("Sales Invoice", "POS Invoice"):
+        raise IssuanceContractError("source_doctype")
+    _identity_text(company_name, "company_name")
+    _identity_text(invoice_name, "invoice_name")
     return _fingerprint({"schema_version": 1, "purpose": "preparation-no-rebuild",
-        "doctype": scope.doctype, "company": scope.company_name, "invoice": scope.invoice_name})
+        "doctype": doctype, "company": company_name, "invoice": invoice_name})
 
 
 @dataclass(frozen=True)

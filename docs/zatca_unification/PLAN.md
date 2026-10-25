@@ -19,6 +19,13 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 100 adds uninstalled permissioned read-only preparation review from
+saved source identity after loss of the in-memory ticket. Reuse ordinary saved
+READ/owner/source checks and owned rollback/close; preserve existing accepted-
+archive rules. Return only pending/recorded/absent non-authorizing English metadata
+and provide one display-only translated summary. No raw export, mutation,
+provider/button installation or authority call. See [PREPARATION_REVIEW.md](PREPARATION_REVIEW.md).
+
 Increment 99 adds durable pre-build no-rebuild holds and an opt-in owned
 two-transaction local coordinator. Commit/close an immutable ticket BEFORE the
 single local builder, then atomically record exact original/head/hold completion.

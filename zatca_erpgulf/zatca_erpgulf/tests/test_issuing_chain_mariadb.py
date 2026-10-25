@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from dataclasses import replace
 from pathlib import Path
 from threading import Event
+from unittest.mock import Mock
 from uuid import uuid4
 
 import pymysql
@@ -21,6 +22,10 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_certificate_evidence import certific
 from zatca_erpgulf.zatca_erpgulf.tests.test_issuing_chain import registration, prepared_for
 from zatca_erpgulf.zatca_erpgulf.tests.test_journal_repository_mariadb import isolated_server, connections
 from zatca_erpgulf.zatca_erpgulf.tests.test_dispatch_journal import event
+from zatca_erpgulf.zatca_erpgulf import preparation_review_access as review_access
+from zatca_erpgulf.zatca_erpgulf.tests.test_preparation_review_access import (
+    reviewer, operator, scenario as review_scenario, InspectionFailed,
+)
 
 
 pytestmark = pytest.mark.skipif(os.environ.get("ZATCA_RUN_ISOLATED_MARIADB") != "1",
@@ -746,3 +751,134 @@ def test_competing_exact_completion_advances_once_and_different_bytes_require_re
     observer = connections()
     assert repository(observer, case).load(case["registered"]) == one
     assert count(observer, "zatca_issuance_candidate_v1", case["namespace"]) == 1
+
+
+@pytest.mark.parametrize("state", ["pending", "recorded", "missing"])
+def test_protected_source_lookup_without_in_memory_ticket_is_observation_only(connections, case, state):
+    writer = connections()
+    initialize(writer, case)
+    hold = None if state == "missing" else reserve_held(writer, case)
+    if state == "recorded":
+        original = build_for(case["der"], hold.ticket)
+        hold, _ = MariaDBPreparationHoldRepository(writer, case["namespace"]).complete(hold, original)
+        writer.commit()
+    observer = connections()
+    repository = MariaDBPreparationHoldRepository(observer, case["namespace"])
+    assert repository.load_for_source("Sales Invoice", "TEST", "HELD-FIRST") == hold
+    assert MariaDBPreparationHoldRepository(observer, str(uuid4())).load_for_source("Sales Invoice", "TEST", "HELD-FIRST") is None
+    assert count(observer, "zatca_preparation_hold_v1", case["namespace"]) == int(state != "missing")
+    assert count(observer, "zatca_issuance_candidate_v1", case["namespace"]) == int(state == "recorded")
+
+
+def test_source_lookup_after_owned_crash_does_not_need_the_original_process_ticket(connections, case, isolated_server):
+    writer = connections()
+    initialize(writer, case)
+    expected = reserve_held(writer, case)
+    isolated_server[2]()
+    # Only the saved source identity, not the retained object, is supplied.
+    observer = connections()
+    observed = MariaDBPreparationHoldRepository(observer, case["namespace"]).load_for_source("Sales Invoice", "TEST", "HELD-FIRST")
+    assert observed == expected and observed.original_manifest_sha256 is None
+    assert count(observer, "zatca_issuance_candidate_v1", case["namespace"]) == 0
+
+
+@pytest.fixture(scope="module")
+def review_source_schema(isolated_server):
+    """ONLY this fixture's synthetic source tables, not a Frappe site/schema."""
+    with pymysql.connect(unix_socket=isolated_server[0], user="root",
+        database="zatca_journal_rehearsal", autocommit=True) as connection:
+        with connection.cursor() as cursor:
+            for doctype, fields in review_access.REVIEW_FIELDS.items():
+                columns = ["`name` VARCHAR(140) PRIMARY KEY", "`modified` DATETIME(6) NOT NULL"]
+                numeric = ("docstatus", "custom__use_company_certificate__keys")
+                columns += ["`" + field + "` " + ("BIGINT" if field in numeric else "LONGTEXT") for field in fields]
+                cursor.execute("CREATE TABLE `tab" + doctype + "` (" + ",".join(columns) + ") ENGINE=InnoDB")
+
+
+def native_review(connections, reviewer, certificates, monkeypatch, *, state="pending", doctype="Sales Invoice", owner="company"):
+    selected = review_scenario(reviewer, certificates[0], monkeypatch, state="pending", doctype=doctype, owner=owner)
+    selected.scope = replace(selected.scope, storage_namespace=str(uuid4()))
+    selected.opened = []
+    def factory(scope):
+        assert scope == selected.scope
+        connection = connections()
+        selected.opened.append(connection)
+        return connection
+    selected.factory = factory
+    selected.service = review_access.SavedPreparationReviewService(selected.scope, factory)
+    monkeypatch.setattr(review_access, "MariaDBPreparationHoldRepository", MariaDBPreparationHoldRepository)
+    writer = connections()
+    with writer.cursor() as cursor:
+        for doc in reviewer.documents.values():
+            row = review_access.SavedPreparationReviewRow.from_document(doc)
+            fields = ("name", "modified", *row.fields)
+            cursor.execute("INSERT INTO `tab" + row.doctype + "` ("
+                + ",".join("`" + field + "`" for field in fields) + ") VALUES ("
+                + ",".join("%s" for _ in fields) + ") ON DUPLICATE KEY UPDATE "
+                + ",".join("`" + field + "`=VALUES(`" + field + "`)" for field in fields),
+                (row.name, doc.modified, *row.values))
+    writer.commit()
+    if state != "missing":
+        template = selected.hold
+        registered = template.ticket.predecessor.registration
+        storage.MariaDBIssuingChainRepository(writer, selected.scope.storage_namespace).create(registered)
+        selected.hold = MariaDBPreparationHoldRepository(writer, selected.scope.storage_namespace).reserve(
+            registered, template.ticket.context, template.ticket.invoice_uuid, template.hold_id, guard=lambda ticket: True)
+        if state == "recorded":
+            original = build_for(certificates[0], selected.hold.ticket)
+            selected.hold, _ = MariaDBPreparationHoldRepository(writer, selected.scope.storage_namespace).complete(selected.hold, original)
+        writer.commit()
+    else:
+        selected.hold = None
+    writer.close()
+    return selected
+
+
+@pytest.mark.parametrize("state", ["pending", "recorded", "missing"])
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+def test_saved_review_uses_actual_owned_source_and_hold_reads_only(review_source_schema, connections, reviewer, certificates, monkeypatch, state, doctype):
+    selected = native_review(connections, reviewer, certificates, monkeypatch, state=state, doctype=doctype)
+    report = selected.service.inspect(selected.invoice.name, doctype=doctype)
+    assert report["original_recorded_observed"] is {"pending":False, "recorded":True, "missing":None}[state]
+    assert all(report[name] is False for name in review_access.FALSE_FLAGS)
+    assert len(selected.opened) == 1 and not selected.opened[0].open
+    reviewer.runtime.db.commit.assert_not_called()
+    reviewer.runtime.db.rollback.assert_not_called()
+    observer = connections()
+    assert count(observer, "zatca_preparation_hold_v1", selected.scope.storage_namespace) == int(state != "missing")
+    assert count(observer, "zatca_issuance_candidate_v1", selected.scope.storage_namespace) == int(state == "recorded")
+
+
+@pytest.mark.parametrize("column,value", [("tax_id","OTHER"), ("custom_select","Simulation")])
+def test_stale_ambient_source_cannot_hide_committed_database_change(review_source_schema, connections, reviewer, certificates, monkeypatch, column, value):
+    selected = native_review(connections, reviewer, certificates, monkeypatch)
+    writer = connections()
+    with writer.cursor() as cursor:
+        cursor.execute("UPDATE `tabCompany` SET `" + column + "`=%s WHERE name=%s", (value, "TEST"))
+    writer.commit()
+    constructor = Mock(wraps=MariaDBPreparationHoldRepository)
+    monkeypatch.setattr(review_access, "MariaDBPreparationHoldRepository", constructor)
+    with pytest.raises(InspectionFailed): selected.service.inspect(selected.invoice.name)
+    constructor.assert_not_called()
+    assert len(selected.opened) == 1 and not selected.opened[0].open
+
+
+def test_inspection_discards_only_its_owned_uncommitted_observation(review_source_schema, connections, reviewer, certificates, monkeypatch):
+    selected = native_review(connections, reviewer, certificates, monkeypatch)
+    owned = connections()
+    with owned.cursor() as cursor:
+        cursor.execute("UPDATE zatca_preparation_hold_v1 SET ticket_sha256=%s WHERE storage_namespace=%s",
+            ("f"*64, selected.scope.storage_namespace))
+    selected.service = review_access.SavedPreparationReviewService(selected.scope, lambda scope: owned)
+    report = selected.service.inspect(selected.invoice.name)
+    assert report["state"] == "PENDING_ORIGINAL_UNCONFIRMED_REVIEW" and not owned.open
+    observer = connections()
+    observed = MariaDBPreparationHoldRepository(observer, selected.scope.storage_namespace).load_for_source("Sales Invoice", "TEST", "INV-TEST")
+    assert observed == selected.hold
+
+
+@pytest.mark.parametrize("owner", ["device", "linked"])
+def test_related_owner_reads_and_real_source_projections(review_source_schema, connections, reviewer, certificates, monkeypatch, owner):
+    selected = native_review(connections, reviewer, certificates, monkeypatch, owner=owner)
+    assert selected.service.inspect(selected.invoice.name)["state"] == "PENDING_ORIGINAL_UNCONFIRMED_REVIEW"
+    assert len(selected.opened) == 1 and not selected.opened[0].open
