@@ -1,5 +1,10 @@
 # Saved-WRITE exact-original local preparation recovery
 
+Follow-up: increment 102 adds optional protected encrypted custody supplying
+this same exact-original recovery service. This document's test totals remain
+historical. No live provider is installed; see
+[PREPARATION_CUSTODY.md](PREPARATION_CUSTODY.md).
+
 Increment 101 — 2026-10-25. OFFLINE development only. This is an uninstalled
 internal persistence boundary, NOT a live endpoint/button, authority client,
 builder, credential activator, migration or queue. The existing READ-only

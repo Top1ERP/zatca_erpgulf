@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 102 adds uninstalled encrypted exact-original/ticket custody and
+saved-WRITE protected retrieval feeding the existing local recovery service.
+Supplied independent storage keys authenticate an immutable envelope; uncertain
+storage retains the SAME ciphertext without resealing, rebuilding or retrying.
+Shared source/evidence guards and source/chain/hold/ciphertext lock order remain
+mandatory. No live vault, installer, runtime caller or authority transport is
+enabled. Existing plaintext journals are not converted. See
+[PREPARATION_CUSTODY.md](PREPARATION_CUSTODY.md).
+
 Increment 101 adds uninstalled saved-WRITE local recovery of an exact retained
 original, separate from READ review. Mandatory explicit evidence and source/ACL
 guards bracket one owned atomic original/head/hold completion; uncertain commit

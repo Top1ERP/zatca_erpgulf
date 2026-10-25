@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and one bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and two bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2275,6 +2275,44 @@ scripts passed **1,444 cases**. No assertion, timeout, ordinary ACL, network/sit
 or cryptographic guard was waived. Installed v15/v16, authentic source/custody
 verification, encrypted original custody and SDK/authority acceptance remain gates.
 
+## Increment 102: encrypted exact preparation-original custody and recovery
+
+- Add a bounded exact ticket/context/XML codec and an explicitly supplied,
+  dedicated AES-256-GCM keyring with authenticated scoped metadata. Preserve
+  lexical XML; reject malformed/noncanonical or unauthenticated inputs using
+  static errors. Reuse only framing with retained receipts, without wire changes.
+- Add immutable ciphertext staging against an existing exact hold, caller-owned
+  transaction only. Exact envelope redelivery matches; resealing the same
+  plaintext conflicts and cannot overwrite the copy. No hold completion, head
+  advance, original generation, schema installation or transport occurs here.
+- Add uninstalled saved-WRITE/related-READ custody access before scoped keys,
+  reusing recovery source/evidence guards. Protected retrieval returns ciphertext
+  only, never a UI/RPC original. Internal recovery closes its protected read,
+  then rechecks the SAME stored envelope inside the existing local recovery
+  write transaction with source -> chain -> hold -> ciphertext lock ordering.
+- Keep unknown storage/commit/close outcomes unconfirmed, without resealing or
+  retry. Preserve exact inputs, pending/committed history and ambient parents;
+  deny late source/ACL drift without clearing committed records.
+- Add one allowlisted display-only translated summary with Arabic entries and
+  fixed non-authorizing English metadata. Independent keys, authentic source/
+  accounting/epoch evidence and provider provenance remain operational gates.
+  No live factory/button/schema/provider is installed and existing plaintext
+  journals are not converted. See [PREPARATION_CUSTODY.md](PREPARATION_CUSTODY.md).
+
+Targeted encryption/access and prior receipt/recovery regression suites passed
+**410 cases in 4.74 seconds**; the two new local suites independently passed
+**168 cases in 3.09 seconds**. Expanded native chain/custody tests passed
+**192 cases in 10.14 seconds**. An initial native run exposed misplaced cleanup
+in the new test insertion; restored the existing parent's explicit cleanup and
+reran successfully, without weakening any assertion/guard. The increment adds
+**214 cases**: 168 local and 46 private SQL. All nine Node VM scripts passed
+**1,444 cases**. Final guarded combined verification passed **15,056 local +
+2,214 private SQL = 17,270 cases in 192.78 seconds**, across fourteen private
+SQL suites, with the network/site guard active. No assertion, ACL, timeout,
+crypto check or offline restriction was waived.
+Installed v15/v16, authenticated financial/source provenance, deployed key
+management and SDK/authority acceptance are not claimed.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -2685,6 +2723,8 @@ endpoints remain untouched.
 | `test_preparation_hold.py` | Bounded pre-build ticket codecs, permanent source identity and mocked owned commit/close-before-build, six guard boundaries, strict custody/recursion/unknown-result behavior; no authenticated provider or runtime activation |
 | `test_preparation_review_access.py` | Saved READ/related ownership, pending/recorded/absent metadata, missing saved UUID/counter, current-source/ACL/actor guards, owned cleanup, protected source lookup and Arabic display-only presentation; v15/v16 signatures are mocks, not installed-version tests |
 | `test_preparation_recovery_access.py` | Separate saved WRITE/related READ, exact retained contract/pinning, mandatory evidence, conservative source status, owned uncertainty/cleanup, late drift and Arabic single-message metadata separation; no live verifier/vault or runtime adoption |
+| `test_preparation_custody.py` | Exact bounded ticket/context/XML frames, dedicated AES-GCM metadata binding, malformed/tampered/wrong-key rejection, protected representations, caller transaction ownership, immutable ciphertext and poisoned failed handles |
+| `test_preparation_custody_access.py` | Saved WRITE/related READ before scoped keys, protected ciphertext retrieval, exact internal recovery, mandatory evidence, late source/ACL drift, uncertain commit/interrupt/parent cleanup and one Arabic display summary; native chain suite adds real SQL visibility/contention, crash/restart, corruption and unknown commits |
 | `test_issuing_chain_mariadb.py` (separate opt-in) | Owned-private head/original atomicity, preparation contention, independent units, durable pre-build holds, commit/close uncertainty, exact reconciliation, cooperating-writer refusal, corruption and owned-server crash recovery |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |
 | `test_background_scheduling.py` | Shared Sales/POS worker selection, Company isolation/windows/settings, stale status and draft boundaries, actual parent routing and worker bridge |

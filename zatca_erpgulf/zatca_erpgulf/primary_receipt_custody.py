@@ -15,6 +15,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from .artifact_evidence import MAX_XML_BYTES
 from .credential_bundle import _key_id, copy_storage_keys
+from .custody_frames import decode_frames, encode_frames
 from .dispatch_journal import DispatchJournal
 from .issuance_candidate import _canonical_uuid, _sha256
 from .journal_repository import MariaDBJournalRepository
@@ -51,9 +52,7 @@ def encode_retained_receipt(receipt):
             encode_dispatch_event(receipt.before.events[0]),
             encode_dispatch_event(receipt.before.events[1]) if len(receipt.before.events) == 2 else b"",
             encode_dispatch_event(receipt.response_event), receipt.response_event.response_bytes)
-        if any(type(part) is not bytes or len(part) > bound for part, bound in zip(parts, FRAME_BOUNDS)):
-            raise ValueError
-        content = MAGIC + b"".join(len(part).to_bytes(4, "big") + part for part in parts)
+        content = encode_frames(MAGIC, FRAME_BOUNDS, parts)
     except Exception:
         invalid = True
     else:
@@ -66,22 +65,7 @@ def encode_retained_receipt(receipt):
 def decode_retained_receipt(content):
     """Rebuild exact contracts, preserving empty response and lexical XML bytes."""
     try:
-        if (type(content) is not bytes or not len(MAGIC) < len(content) <= MAX_CUSTODY_BYTES
-                or not content.startswith(MAGIC)):
-            raise ValueError
-        offset, parts = len(MAGIC), []
-        for bound in FRAME_BOUNDS:
-            if len(content) - offset < 4:
-                raise ValueError
-            size = int.from_bytes(content[offset:offset + 4], "big")
-            offset += 4
-            if size > bound or len(content) - offset < size:
-                raise ValueError
-            parts.append(content[offset:offset + size])
-            offset += size
-        if offset != len(content):
-            raise ValueError
-        namespace, context, xml, start, unknown, response, body = parts
+        namespace, context, xml, start, unknown, response, body = decode_frames(MAGIC, FRAME_BOUNDS, content)
         candidate = decode_candidate_context(context, xml)
         events = (decode_dispatch_event(start, None),)
         if unknown:

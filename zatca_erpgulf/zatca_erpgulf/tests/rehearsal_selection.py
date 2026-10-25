@@ -1,6 +1,8 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "preparation_custody",
+    "preparation_custody_access",
     "preparation_recovery_access",
     "preparation_review_access",
     "preparation_hold",

@@ -100,6 +100,32 @@ class _SavedRecoverySource(_SavedReviewSource):
         return frappe, _, has_permission, None
 
 
+def _submitted_selection(policy, invoice_name, doctype, actor):
+    selected = policy._saved_selection(invoice_name, doctype, actor)
+    if selected[0].get("docstatus") != 1:
+        # Conservative local policy, not a claimed ZATCA regulation.
+        raise policy.ERROR(policy.ERROR_PREFIX + "_source_status")
+    return selected
+
+
+def _guard_original_source(policy, retained, pinned, selected, evidence, connection=None):
+    """Shared exact source/ACL/evidence boundary for recovery and custody."""
+    invoice, company, owner, rows, _records, recheck = selected
+    recheck()
+    if connection is not None:
+        _verify_rows(connection, rows)
+    _bind_current_source(retained.hold, invoice, company, owner)
+    if retained != pinned:
+        raise policy.ERROR(policy.ERROR_PREFIX + "_input_drift")
+    if evidence(policy._scope, rows, retained, connection=connection) is not True:
+        raise policy.ERROR(policy.ERROR_PREFIX + "_evidence")
+    if retained != pinned:
+        raise policy.ERROR(policy.ERROR_PREFIX + "_input_drift")
+    if connection is not None:
+        _verify_rows(connection, rows)
+    recheck()
+
+
 def _projection(completed):
     return {"state": "PREPARATION_ORIGINAL_STORED_LOCAL_NO_REPLAY" if completed else
         "PREPARATION_RECOVERY_UNCONFIRMED_NO_REBUILD", "local_transaction_completed": completed,
@@ -155,26 +181,11 @@ class SavedPreparationRecoveryService:
             source = retained.candidate.context.scope
             if retained.scope != policy._scope or (source.doctype, source.invoice_name) != (doctype, invoice_name):
                 raise PreparationRecoveryAccessError("preparation_recovery_target")
-            invoice, company, owner, rows, _records, recheck = policy._saved_selection(invoice_name, doctype, actor)
-            if invoice.get("docstatus") != 1:
-                # Conservative local policy, not a claimed ZATCA regulation.
-                # Cancelled/draft historical recovery needs separate review.
-                raise PreparationRecoveryAccessError("preparation_recovery_source_status")
+            selected = _submitted_selection(policy, invoice_name, doctype, actor)
+            recheck = selected[-1]
 
             def guard(connection=None):
-                recheck()
-                if connection is not None:
-                    _verify_rows(connection, rows)
-                _bind_current_source(retained.hold, invoice, company, owner)
-                if retained != pinned:
-                    raise PreparationRecoveryAccessError("preparation_recovery_input_drift")
-                if self._evidence(policy._scope, rows, retained, connection=connection) is not True:
-                    raise PreparationRecoveryAccessError("preparation_recovery_evidence")
-                if retained != pinned:
-                    raise PreparationRecoveryAccessError("preparation_recovery_input_drift")
-                if connection is not None:
-                    _verify_rows(connection, rows)  # Also catch callback-side projected SQL drift.
-                recheck()
+                _guard_original_source(policy, retained, pinned, selected, self._evidence, connection)
 
             guard()  # Normal saved ACL and explicit evidence BEFORE owned SQL.
 

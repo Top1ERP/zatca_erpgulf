@@ -28,6 +28,9 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_preparation_review_access import (
 )
 from zatca_erpgulf.zatca_erpgulf import preparation_recovery_access as recovery_access
 from zatca_erpgulf.zatca_erpgulf.tests.test_preparation_recovery_access import recoverer
+from zatca_erpgulf.zatca_erpgulf import preparation_custody as custody
+from zatca_erpgulf.zatca_erpgulf import preparation_custody_access as custody_access
+from zatca_erpgulf.zatca_erpgulf.tests.test_preparation_custody_access import custodian
 
 
 pytestmark = pytest.mark.skipif(os.environ.get("ZATCA_RUN_ISOLATED_MARIADB") != "1",
@@ -62,7 +65,7 @@ def initialize(connection, case):
 
 
 def count(connection, table, namespace):
-    assert table in ("zatca_issuing_chain_v1", "zatca_issuance_candidate_v1", "chain_parent_work", "zatca_preparation_hold_v1")
+    assert table in ("zatca_issuing_chain_v1", "zatca_issuance_candidate_v1", "chain_parent_work", "zatca_preparation_hold_v1", "zatca_preparation_custody_v1")
     column = "namespace" if table == "chain_parent_work" else "storage_namespace"
     with connection.cursor() as cursor:
         cursor.execute("SELECT COUNT(*) FROM " + table + " WHERE " + column + "=%s", (namespace,))
@@ -1020,6 +1023,180 @@ def test_borrowed_parent_does_not_commit_rollback_or_close_private_parent(review
     assert count(observer, "zatca_issuance_candidate_v1", selected.scope.storage_namespace) == 0
     parent.rollback()  # Explicit test owner cleanup only.
     parent.close()
+
+
+def native_custody(connections, custodian, certificates, monkeypatch, **kwargs):
+    selected = native_recovery(connections, custodian, certificates, monkeypatch, **kwargs)
+    selected.cipher = custody.PreparationOriginalCipher({"test-preparation-v1": b"P"*32})
+    selected.sealed = selected.cipher.seal(selected.retained, key_id="test-preparation-v1")
+    selected.keys = Mock(return_value=custody_access.PreparationCustodyResources(selected.scope, selected.cipher))
+    selected.custody = custody_access.SavedPreparationCustodyService(
+        selected.scope, selected.keys, selected.evidence, selected.factory)
+    return selected
+
+
+def stage_custody(selected):
+    return selected.custody.stage(selected.invoice.name, selected.sealed, doctype=selected.invoice.doctype)
+
+
+def recover_custody(selected):
+    return selected.custody.persist_from_custody(selected.invoice.name, doctype=selected.invoice.doctype)
+
+
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("owner", ["company", "device", "linked"])
+def test_native_encrypted_copy_does_not_advance_hold_then_recovers_exact_original(review_source_schema,
+    connections, custodian, certificates, monkeypatch, doctype, owner):
+    selected = native_custody(connections, custodian, certificates, monkeypatch, doctype=doctype, owner=owner)
+    namespace = selected.scope.storage_namespace
+    assert stage_custody(selected)["local_transaction_completed"] is True
+    observer = connections()
+    assert count(observer, "zatca_preparation_custody_v1", namespace) == 1
+    assert count(observer, "zatca_issuance_candidate_v1", namespace) == 0
+    stored_hold = MariaDBPreparationHoldRepository(observer, namespace).load(selected.hold)
+    assert stored_hold.original_manifest_sha256 is None
+    stored = custody.MariaDBPreparationCustodyRepository(observer, namespace, selected.cipher).load(selected.hold.hold_id)
+    assert stored == selected.sealed
+    assert selected.retained.candidate.xml_bytes not in stored.ciphertext
+    observer.rollback()
+    # A new service receives only the saved source name, not the plaintext original.
+    selected.custody = custody_access.SavedPreparationCustodyService(
+        selected.scope, selected.keys, selected.evidence, selected.factory)
+    assert recover_custody(selected)["local_transaction_completed"] is True
+    assert recover_custody(selected)["local_transaction_completed"] is True
+    assert count(observer, "zatca_issuance_candidate_v1", namespace) == 1
+    saved = MariaDBJournalRepository(observer, namespace).load(selected.retained.candidate.key_sha256)
+    assert saved.candidate.xml_bytes == selected.retained.candidate.xml_bytes and saved.events == ()
+    state = storage.MariaDBIssuingChainRepository(observer, namespace).load(selected.hold.ticket.predecessor.registration)
+    assert state.last_icv == 1
+    assert all(not connection.open for connection in selected.opened)
+    custodian.runtime.db.commit.assert_not_called()
+    custodian.runtime.db.rollback.assert_not_called()
+
+
+def test_ciphertext_survives_private_database_restart_without_resealing(review_source_schema,
+    isolated_server, connections, custodian, certificates, monkeypatch):
+    selected = native_custody(connections, custodian, certificates, monkeypatch)
+    assert stage_custody(selected)["local_transaction_completed"] is True
+    sealed = selected.sealed
+    original = selected.retained.candidate.xml_bytes
+    selected.retained = None  # No plaintext original is passed into the recovery API.
+    isolated_server[2]()  # Owned private subprocess ONLY, never Bench or a tenant DB.
+    fresh_cipher = custody.PreparationOriginalCipher({"test-preparation-v1": b"P"*32})
+    selected.keys.return_value = custody_access.PreparationCustodyResources(selected.scope, fresh_cipher)
+    assert selected.custody.load(selected.invoice.name) == sealed
+    assert recover_custody(selected)["local_transaction_completed"] is True
+    observer = connections()
+    saved = MariaDBJournalRepository(observer, selected.scope.storage_namespace).load(sealed.candidate_sha256)
+    assert saved.candidate.xml_bytes == original
+
+
+@pytest.mark.parametrize("commit", [False, True])
+def test_ciphertext_raw_stage_obeys_caller_atomicity(review_source_schema,
+    connections, custodian, certificates, monkeypatch, commit):
+    selected = native_custody(connections, custodian, certificates, monkeypatch)
+    writer, observer = connections(), connections()
+    repo = custody.MariaDBPreparationCustodyRepository(writer, selected.scope.storage_namespace, selected.cipher)
+    assert repo.stage(selected.sealed) == selected.sealed
+    assert count(observer, "zatca_preparation_custody_v1", selected.scope.storage_namespace) == 0
+    writer.commit() if commit else writer.rollback()
+    observer.rollback()
+    assert count(observer, "zatca_preparation_custody_v1", selected.scope.storage_namespace) == int(commit)
+    assert count(observer, "zatca_issuance_candidate_v1", selected.scope.storage_namespace) == 0
+
+
+def test_exact_ciphertext_redelivery_matches_but_reseal_cannot_overwrite(review_source_schema,
+    connections, custodian, certificates, monkeypatch):
+    selected = native_custody(connections, custodian, certificates, monkeypatch)
+    original = selected.sealed
+    for _ in range(2): assert stage_custody(selected)["local_transaction_completed"] is True
+    selected.sealed = selected.cipher.seal(selected.retained, key_id="test-preparation-v1")
+    assert stage_custody(selected)["local_transaction_completed"] is False
+    assert selected.custody.load(selected.invoice.name) == original
+    observer = connections()
+    assert count(observer, "zatca_preparation_custody_v1", selected.scope.storage_namespace) == 1
+
+
+@pytest.mark.parametrize("operation", ["stage", "recover"])
+@pytest.mark.parametrize("fault", ["before_commit", "after_commit", "close"])
+def test_unknown_custody_commit_never_retries_or_reseals(review_source_schema,
+    connections, custodian, certificates, monkeypatch, operation, fault):
+    selected = native_custody(connections, custodian, certificates, monkeypatch)
+    if operation == "recover": assert stage_custody(selected)["local_transaction_completed"] is True
+    acquired = []
+    def factory(scope):
+        raw = connections()
+        acquired.append(raw)
+        # Recovery first owns a rollback-only protected read; fault the write only.
+        number = 1 if operation == "stage" else 2
+        return InjectedCommitConnection(raw, fault if len(acquired) == number else None)
+    selected.custody = custody_access.SavedPreparationCustodyService(
+        selected.scope, selected.keys, selected.evidence, factory)
+    report = stage_custody(selected) if operation == "stage" else recover_custody(selected)
+    assert report["local_transaction_completed"] is False
+    assert len(acquired) == (1 if operation == "stage" else 2)
+    assert all(not conn.open for conn in acquired)
+    observer = connections()
+    table = "zatca_preparation_custody_v1" if operation == "stage" else "zatca_issuance_candidate_v1"
+    assert count(observer, table, selected.scope.storage_namespace) == int(fault != "before_commit")
+    observer.rollback()
+    # A separate explicit local call uses the SAME ciphertext, never a new seal.
+    selected.custody = custody_access.SavedPreparationCustodyService(
+        selected.scope, selected.keys, selected.evidence, selected.factory)
+    assert (stage_custody(selected) if operation == "stage" else recover_custody(selected))["local_transaction_completed"] is True
+    assert selected.custody.load(selected.invoice.name) == selected.sealed
+
+
+@pytest.mark.parametrize("column", ["nonce", "ciphertext", "payload_sha256"])
+def test_authenticated_storage_corruption_cannot_fall_back_to_rebuilding(review_source_schema,
+    connections, custodian, certificates, monkeypatch, column):
+    selected = native_custody(connections, custodian, certificates, monkeypatch)
+    assert stage_custody(selected)["local_transaction_completed"] is True
+    writer = connections()
+    value = {"nonce": b"N"*12, "ciphertext":b"PRIVATE CORRUPTED CIPHERTEXT",
+        "payload_sha256":"f"*64}[column]
+    with writer.cursor() as cursor:
+        cursor.execute("UPDATE zatca_preparation_custody_v1 SET " + column + "=%s WHERE storage_namespace=%s AND hold_id=%s",
+            (value, selected.scope.storage_namespace, selected.hold.hold_id))
+    writer.commit()
+    with pytest.raises(InspectionFailed): recover_custody(selected)
+    assert count(writer, "zatca_issuance_candidate_v1", selected.scope.storage_namespace) == 0
+    stored = MariaDBPreparationHoldRepository(writer, selected.scope.storage_namespace).load(selected.hold)
+    assert stored.original_manifest_sha256 is None
+
+
+@pytest.mark.parametrize("isolation", ["READ COMMITTED", "REPEATABLE READ"])
+@pytest.mark.parametrize("exact", [False, True])
+def test_competing_ciphertext_stages_share_hold_first_lock_order(review_source_schema,
+    connections, custodian, certificates, monkeypatch, isolation, exact):
+    selected = native_custody(connections, custodian, certificates, monkeypatch)
+    first = connections(isolation)
+    repo = custody.MariaDBPreparationCustodyRepository(first, selected.scope.storage_namespace, selected.cipher)
+    repo.stage(selected.sealed)
+    other = selected.sealed if exact else selected.cipher.seal(selected.retained, key_id="test-preparation-v1")
+    ready = Event()
+    def competing():
+        conn = connections(isolation)
+        ready.set()
+        try:
+            result = custody.MariaDBPreparationCustodyRepository(conn, selected.scope.storage_namespace, selected.cipher).stage(other)
+            conn.commit()
+            return result
+        except custody.PreparationCustodyError:
+            conn.rollback()
+            return None
+        finally:
+            conn.close()
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(competing)
+        assert ready.wait(2)
+        with pytest.raises(TimeoutError): future.result(timeout=0.03)
+        first.commit()
+        assert future.result(timeout=5) == (selected.sealed if exact else None)
+    observer = connections()
+    stored = custody.MariaDBPreparationCustodyRepository(observer, selected.scope.storage_namespace, selected.cipher).load(selected.hold.hold_id)
+    assert stored == selected.sealed
+    assert count(observer, "zatca_issuance_candidate_v1", selected.scope.storage_namespace) == 0
 
 
 def test_missing_requested_hold_is_not_created_by_recovery(review_source_schema,
