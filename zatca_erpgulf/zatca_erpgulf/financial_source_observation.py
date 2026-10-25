@@ -198,6 +198,50 @@ def _validate_projection(projection, fields, required):
     return presence
 
 
+def _capture_table(document, child_meta, table_name, expected_type, fields, required, identities, *, max_rows=None):
+    """Shared bounded ordered-child capture; no record loads or policy choice."""
+    table_field = document.meta.get_field(table_name)
+    if table_field.fieldtype != "Table" or table_field.options != expected_type or child_meta.name != expected_type:
+        raise ValueError
+    presence = tuple(_present(child_meta, name) for name in fields)
+    if any(not presence[fields.index(name)] for name in required):
+        raise ValueError
+    rows = document.get(table_name)
+    limit = MAX_ROWS if max_rows is None else min(MAX_ROWS, max_rows)
+    if type(rows) not in (list, tuple) or len(rows) > limit:
+        raise ValueError
+    observed = []
+    for index, row in enumerate(rows, 1):
+        row_name = _name(row.name)
+        identity = expected_type, row_name
+        if (row.doctype != expected_type or row.get("parent") != document.name
+            or row.get("parenttype") != document.doctype or row.get("parentfield") != table_name
+            or type(row.get("idx")) is not int or row.get("idx") != index or identity in identities):
+            raise ValueError
+        identities.add(identity)
+        observed.append([row_name, index, _projection(row, child_meta, fields, required)])
+    return {"doctype":expected_type, "presence":presence, "rows":observed}
+
+
+def _validate_table(table, expected_type, fields, required, identities):
+    if type(table) is not dict or set(table) != {"doctype", "presence", "rows"}:
+        raise ValueError
+    presence, rows = table["presence"], table["rows"]
+    if (table["doctype"] != expected_type or type(presence) is not list or len(presence) != len(fields)
+        or any(type(value) is not bool for value in presence)
+        or any(not presence[fields.index(field)] for field in required)
+        or type(rows) is not list or len(rows) > MAX_ROWS):
+        raise ValueError
+    for index, row in enumerate(rows, 1):
+        if type(row) is not list or len(row) != 3 or type(row[1]) is not int or row[1] != index:
+            raise ValueError
+        identity = expected_type, _name(row[0])
+        if identity in identities or _validate_projection(row[2], fields, required) != presence:
+            raise ValueError
+        identities.add(identity)
+    return len(rows)
+
+
 def _validate_body(body):
     _validate_scalar(body["modified"])
     if body["modified"][0] not in ("str", "datetime") or not body["modified"][1]:
@@ -213,25 +257,9 @@ def _validate_body(body):
         table = entry[1]
         if table == ["absent"] and name not in ("items", "taxes"):
             continue
-        if type(table) is not dict or set(table) != {"doctype", "presence", "rows"}:
+        total_rows += _validate_table(table, _child_type(body["doctype"], name), fields, CHILD_REQUIRED[name], identities)
+        if total_rows > MAX_ROWS or (name == "items" and not table["rows"]):
             raise ValueError
-        expected_type = _child_type(body["doctype"], name)
-        presence, rows = table["presence"], table["rows"]
-        if (table["doctype"] != expected_type or type(presence) is not list or len(presence) != len(fields)
-            or any(type(value) is not bool for value in presence)
-            or any(not presence[fields.index(field)] for field in CHILD_REQUIRED[name])
-            or type(rows) is not list or len(rows) > MAX_ROWS or (name == "items" and not rows)):
-            raise ValueError
-        total_rows += len(rows)
-        if total_rows > MAX_ROWS:
-            raise ValueError
-        for index, row in enumerate(rows, 1):
-            if type(row) is not list or len(row) != 3 or type(row[1]) is not int or row[1] != index:
-                raise ValueError
-            identity = expected_type, _name(row[0])
-            if identity in identities or _validate_projection(row[2], fields, CHILD_REQUIRED[name]) != presence:
-                raise ValueError
-            identities.add(identity)
 
 
 @dataclass(frozen=True, repr=False)
@@ -309,33 +337,13 @@ def capture_invoice_financial_observation(document, *, erp_major, child_metas):
             if table_name not in present_tables:
                 tables.append([table_name, ["absent"]])
                 continue
-            child_meta = child_metas[table_name]
-            expected_type = _child_type(doctype, table_name)
-            table_field = meta.get_field(table_name)
-            if table_field.fieldtype != "Table" or table_field.options != expected_type or child_meta.name != expected_type:
+            table = _capture_table(document, child_metas[table_name], table_name,
+                _child_type(doctype, table_name), fields, CHILD_REQUIRED[table_name], identities,
+                max_rows=MAX_ROWS-total_rows)
+            total_rows += len(table["rows"])
+            if total_rows > MAX_ROWS or (table_name == "items" and not table["rows"]):
                 raise ValueError
-            # Capture schema even when no child exists; schema changes are drift.
-            presence = tuple(_present(child_meta, name) for name in fields)
-            if any(not presence[fields.index(name)] for name in CHILD_REQUIRED[table_name]):
-                raise ValueError
-            rows = document.get(table_name)
-            if type(rows) not in (list, tuple) or len(rows) > MAX_ROWS:
-                raise ValueError
-            total_rows += len(rows)
-            if total_rows > MAX_ROWS or (table_name == "items" and not rows):
-                raise ValueError
-            observed = []
-            for index, row in enumerate(rows, 1):
-                row_name = _name(row.name)
-                identity = expected_type, row_name
-                if (row.doctype != expected_type or row.get("parent") != name
-                    or row.get("parenttype") != doctype or row.get("parentfield") != table_name
-                    or type(row.get("idx")) is not int or row.get("idx") != index or identity in identities):
-                    raise ValueError
-                identities.add(identity)
-                observed.append([row_name, index,
-                    _projection(row, child_meta, fields, CHILD_REQUIRED[table_name])])
-            tables.append([table_name, {"doctype":expected_type, "presence":presence, "rows":observed}])
+            tables.append([table_name, table])
         payload = _canonical(dict(profile=PROFILE, erp_major=erp_major, doctype=doctype,
             name=name, modified=_scalar(modified), header=header, tables=tables))
         result = InvoiceFinancialObservation(erp_major, doctype, name, payload)

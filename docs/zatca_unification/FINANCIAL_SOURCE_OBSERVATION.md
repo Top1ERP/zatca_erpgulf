@@ -2,6 +2,12 @@
 
 Increment 104 — 2026-10-25. Offline development, not runtime activation.
 
+Follow-up increment 105 adds explicit protected observations of the exact
+referenced invoice/item tax templates, including ordered taxes rows. It reuses
+child capture/validation without changing this profile's wire bytes or digest;
+both components remain PARTIAL. See
+[TAX_DEPENDENCY_OBSERVATION.md](TAX_DEPENDENCY_OBSERVATION.md).
+
 ## Delivered scope and proof limits
 
 The new pure observation captures an explicit invoice-owned projection for

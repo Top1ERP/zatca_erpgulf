@@ -325,3 +325,16 @@ def test_streamed_canonical_bytes_match_existing_json_encoding(value):
     expected = json.dumps(value, ensure_ascii=False, sort_keys=True,
         separators=(",", ":"), allow_nan=False).encode("utf-8")
     assert source._canonical(value) == expected
+
+
+
+def test_shared_table_refactor_preserves_committed_v104_wire_fingerprints(case):
+    expected = {
+        (15,"Sales Invoice"):"4693273e62b9d72d96911c85b356b1edff8f96607cb11cc782f0cbc4eccb9e2e",
+        (15,"POS Invoice"):"1aecb757883b2c5ddd7535514c662233593a50edb075a77768df5b19d2ddb202",
+        (16,"Sales Invoice"):"5922042c74416ecd4bb63f8aefc62db398a10754307b03321d42e0594e432588",
+        (16,"POS Invoice"):"3d27c92227b0ce5016d52c26750545fbd82788a163f19596c511cf9bb90682b8",
+    }
+    # Captured by read-only comparisons with committed increment-104 source,
+    # not generated as part of this assertion or from the refactored helper.
+    assert capture(case).sha256 == expected[case.erp_major, case.doc.doctype]

@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 105 adds explicit linked tax-template observations from a pinned
+financial profile: exact Sales Taxes and Charges Template/Item Tax Template
+sets, Company binding and ordered tax children. Missing/extra records fail,
+never silently select invoice fallback. Reuse bounded typed/canonical child
+helpers without changing the invoice-owned profile. Still PARTIAL/uninstalled,
+not a full evidence guard, precedence choice or committed ERP snapshot. See
+[TAX_DEPENDENCY_OBSERVATION.md](TAX_DEPENDENCY_OBSERVATION.md).
+
 Increment 104 starts the financial dependency boundary with a pure versioned
 invoice-owned observation: header plus ordered items/taxes/payments/advances/
 deductions and explicit optional-schema presence. Preserve exact typed values,

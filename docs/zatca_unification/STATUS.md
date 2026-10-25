@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and four bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and five bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2398,6 +2398,36 @@ suites. All nine Node VM scripts passed **1,444 cases**. These are synthetic
 profile observations, not installed ERP/SDK/authority acceptance. No ordinary
 ACL, timeout, network/site guard, assertion or cryptographic check was waived.
 
+## Increment 105: explicit linked tax-template dependency observations
+
+- Add an independent pinned invoice/financial binding and exact referenced
+  invoice/item tax-template set. Capture both dependency families without
+  choosing runtime tax precedence or treating mixed usage as fiscally valid.
+- Record allowlisted template headers, disabled/default/category/exemption
+  fields and ordered taxes children, preserving optional-schema/NULL/zero/scale.
+  Reject missing/extra identities, wrong Company/metadata/parent links, invalid
+  row indices and duplicate SQL child identities rather than selecting fallback.
+- Share bounded child capture/validation and typed canonical encoding with the
+  invoice-owned profile. A read-only comparison against committed increment 104
+  passed **20 variants** with identical bytes AND fingerprints; four fixed
+  fingerprint goldens now protect the existing profile. No wire reinterpretation.
+- Bound additional capture to 128 templates/512 tax rows/2 MiB; retain protected
+  independent objects, static unchained failures and no raw export/pickle/writes.
+  No Frappe/SQL/file/clock/cache/provider/credential/transport behavior exists.
+- Keep both profiles explicitly PARTIAL and uninstalled. Ordinary authorization,
+  committed SQL capture, full settings/dependency coverage, credential/source
+  provenance and arithmetic/XML/installed-version/SDK acceptance remain gates.
+  Existing tax-source precedence discrepancy is recorded, not silently changed.
+  See [TAX_DEPENDENCY_OBSERVATION.md](TAX_DEPENDENCY_OBSERVATION.md).
+
+Targeted tax/financial suites passed **1,603 cases in 8.65 seconds**, including
+**500 new cases** (496 linked-template and four prior-profile fingerprint goldens).
+Synthetic v15/v16 declarations are not installed ERP acceptance. Final guarded
+combined verification passed **16,841 local + 2,234 private SQL = 19,075 cases
+in 200.52 seconds**, across fourteen private SQL suites with the network/site
+guard active. All nine Node VM scripts passed **1,444 cases**. No assertion,
+ordinary ACL, timeout, crypto or offline restriction was waived.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -2810,6 +2840,7 @@ endpoints remain untouched.
 | `test_preparation_recovery_access.py` | Separate saved WRITE/related READ, exact retained contract/pinning, mandatory evidence, conservative source status, owned uncertainty/cleanup, late drift and Arabic single-message metadata separation; no live verifier/vault or runtime adoption |
 | `test_preparation_custody.py` | Exact bounded ticket/context/XML frames, dedicated AES-GCM metadata binding, malformed/tampered/wrong-key rejection, protected representations, caller transaction ownership, immutable ciphertext and poisoned failed handles |
 | `test_financial_source_observation.py` | Partial invoice-owned typed header/child observations, schema presence, unchanged-parent field/row/order changes, both advance markers, strict canonical reconstruction, bounds/privacy/no writes; not committed source or arithmetic/XML parity |
+| `test_tax_dependency_observation.py` | Exact linked invoice/item template sets, independent financial pin, header/tax-row field/order/schema drift, zero-rate/conflicting-source preservation, missing/extra/company/parent/type refusal, bounds/privacy/direct reconstruction; still partial without committed SQL/ACL/precedence choice |
 | `test_preparation_custody_access.py` | Saved WRITE/related READ before scoped keys, protected ciphertext retrieval, exact internal recovery, mandatory evidence, late source/ACL drift, uncertain commit/interrupt/parent cleanup and one Arabic display summary; native chain suite adds real SQL visibility/contention, crash/restart, corruption and unknown commits |
 | `test_issuing_chain_mariadb.py` (separate opt-in) | Owned-private head/original atomicity, preparation contention, independent units, durable pre-build holds, commit/close uncertainty, exact reconciliation, cooperating-writer refusal, corruption and owned-server crash recovery |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |
