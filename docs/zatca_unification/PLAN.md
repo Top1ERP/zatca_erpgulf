@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 99 adds durable pre-build no-rebuild holds and an opt-in owned
+two-transaction local coordinator. Commit/close an immutable ticket BEFORE the
+single local builder, then atomically record exact original/head/hold completion.
+Unknown results keep the hold; reconciliation uses exact retained bytes, never
+a fresh builder. Previous internal chain entry points honor pending/permanent
+holds. No live writer, installer, permission facade or authority client uses it;
+authenticated source/custody/operator review and installed v15/v16 remain gates.
+See [DURABLE_PREPARATION.md](DURABLE_PREPARATION.md).
+
 Increment 98 adds an uninstalled one-shot preparation coordinator: lock an
 existing explicit chain, refuse a previously prepared source before building,
 pin context/UUID/ICV/PIH, preserve the exact candidate before protected custody,

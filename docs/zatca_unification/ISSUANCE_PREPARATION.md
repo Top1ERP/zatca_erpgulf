@@ -4,6 +4,11 @@ Increment 98 — 2026-10-25. OFFLINE development only. This is an internal,
 uninstalled caller-transaction service, not a Sales/POS hook, RPC, signing
 implementation, authority client or installed ERPNext 15/16 integration.
 
+Follow-up: [increment 99](DURABLE_PREPARATION.md) adds an opt-in owned workflow
+with a committed pre-build no-rebuild hold. The caller-owned service described
+here still has no independent durable reservation, but now honors pending and
+permanent holds created by that workflow. No live writer is migrated by either.
+
 ## Scope
 
 `IssuancePreparation` connects the [explicit issuing chain](ISSUING_CHAIN.md) to

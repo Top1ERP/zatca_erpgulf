@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "preparation_hold",
     "issuance_preparation",
     "issuing_chain",
     "invoice_xml_core",

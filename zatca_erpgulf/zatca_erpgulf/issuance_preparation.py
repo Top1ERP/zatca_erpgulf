@@ -51,6 +51,16 @@ class PreparationTicket:
     def key_sha256(self):
         return _fingerprint(self.context.scope.key_projection())
 
+    def validate_candidate(self, candidate):
+        """Compare exact builder output; never repair or normalize its bytes."""
+        if type(candidate) is not PreparedIssuanceCandidate:
+            raise IssuingChainError("preparation_candidate")
+        if candidate.context != self.context:
+            raise IssuingChainError("preparation_context_drift")
+        if candidate.artifact.uuid != self.invoice_uuid:
+            raise IssuingChainError("preparation_uuid_drift")
+        return record_generated_candidate(self.predecessor, candidate)
+
     def __reduce__(self):
         raise TypeError("preparation_ticket_not_serializable")
 
@@ -125,11 +135,7 @@ class IssuancePreparation:
                 raise IssuingChainError("preparation_candidate")
             self._original = candidate  # Preserve BEFORE any subsequent callback.
             self._check_source(guard)
-            if candidate.context != context:
-                raise IssuingChainError("preparation_context_drift")
-            if candidate.artifact.uuid != invoice_uuid:
-                raise IssuingChainError("preparation_uuid_drift")
-            record_generated_candidate(before, candidate)
+            self._ticket.validate_candidate(candidate)
             if retain(self._ticket, candidate) is not True:
                 raise IssuingChainError("preparation_custody")
             self._check_source(guard)

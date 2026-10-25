@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and ninety-eight bounded increments (Compliance outcomes, dedicated
+Safety preparation and ninety-nine bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2177,6 +2177,42 @@ an absent path segment; it now genuinely changes the path and explicitly asserts
 the difference. No assertion, timeout, ordinary ACL or cryptographic guard was
 waived. No installed v15/v16, SDK or authority acceptance is claimed.
 
+## Increment 99: durable no-rebuild hold before the local builder
+
+- Add strict bounded immutable ticket storage before XML exists, sharing the
+  candidate preparation-context codec rather than duplicating settings decoding.
+- Add a caller-transaction hold repository with permanent saved-source/UUID/key
+  bindings and one active hold per chain. Reservation is strict, including equal
+  redelivery; no timeout, expiry, release, reset or automatic builder retry.
+- Add an opt-in owned two-transaction coordinator: commit AND close the pending
+  hold before invoking a single local builder outside SQL locks. Preserve the
+  exact returned candidate and atomically complete original/head/hold later.
+  A failed/unconfirmed first commit/close never invokes the builder; a later
+  failure keeps the committed hold and exact available candidate for review.
+- Make both previous internal chain entry points honor active and permanent
+  source holds through bounded unique-index lookups. Different preparation
+  versions/units do not release the source. Private primitives remain trusted
+  server operations, not a sandbox against unrelated legacy/arbitrary SQL writers.
+- Add exact local reconciliation after an unknown final commit, without another
+  increment/rewind after later originals. Missing originals remain pending and
+  require operator/custody review; corruption and partial records are not repaired.
+- No Company/UI field, live source/schema/provider/worker, authority request or
+  deployment. Normal ERP saved-source/ACL and authenticated namespace/epoch/factory
+  provenance, encrypted custody/review, legacy migration and installed v15/v16
+  remain gates. The owned coordinator must not commit borrowed Frappe parent work.
+  See [DURABLE_PREPARATION.md](DURABLE_PREPARATION.md).
+
+Final guarded combined: **14,552 local + 2,098 private SQL = 16,650 passed in
+178.58 seconds**, across fourteen private suites. This adds **92 cases** (55
+local ticket/owned-owner cases and 37 native hold cases). The expanded targeted
+chain SQL suite passed **76 cases in 3.34 seconds** before the final bounded
+point-lookup refinement, which the full combined run also verifies. All nine
+Node VM scripts passed **1,444 cases**. One initial native launch was not executed
+because automatic permission review timed out; its permitted single retry
+succeeded with the offline guard unchanged. No assertion, timeout, ordinary ACL,
+network/site or cryptographic guard was waived. Installed v15/v16 and SDK/remote
+acceptance are not claimed.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -2584,7 +2620,8 @@ endpoints remain untouched.
 | `test_invoice_xml_core.py` | Shared metadata/reference/type fragments, saved PIH owner/flag/source parity, missing-hash preservation and Arabic display, automatic six-type parity, legacy UUID filter and mocked first-counter behavior; not genesis/atomic issuance proof |
 | `test_issuing_chain.py` | Explicit new-unit seed/state, exact candidate/source/epoch/predecessor transitions, strict bounded codecs and mocked transaction/error ownership; no authenticated enrollment or runtime allocation |
 | `test_issuance_preparation.py` | One-shot pinned preparation, pre-build key/binding refusal, exact builder/custody/guard boundaries, recursive/error poisoning and caller transaction ownership; no installed adapter or durable pending hold |
-| `test_issuing_chain_mariadb.py` (separate opt-in) | Owned-private head/original atomicity, initialization/redelivery without reset, two-worker first-position contention, independent units, uncertain commits, corruption and owned-server crash recovery |
+| `test_preparation_hold.py` | Bounded pre-build ticket codecs, permanent source identity and mocked owned commit/close-before-build, six guard boundaries, strict custody/recursion/unknown-result behavior; no authenticated provider or runtime activation |
+| `test_issuing_chain_mariadb.py` (separate opt-in) | Owned-private head/original atomicity, preparation contention, independent units, durable pre-build holds, commit/close uncertainty, exact reconciliation, cooperating-writer refusal, corruption and owned-server crash recovery |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |
 | `test_background_scheduling.py` | Shared Sales/POS worker selection, Company isolation/windows/settings, stale status and draft boundaries, actual parent routing and worker bridge |
 | `test_retry_identity_contract.py` | Read-only Sales/POS UUID regeneration/filtering, twelve HTTP failure/timeout boundaries, saved ICV and existing artifact identity divergence |

@@ -121,6 +121,18 @@ class IssuanceScope:
         }
 
 
+def preparation_source_sha256(scope):
+    """Conservative saved-source hold across versions/units/environments.
+
+    Namespace is supplied by the repository. Renames/aliases/tenant ownership
+    remain an external mapping gate; no arbitrary version change releases this.
+    """
+    if type(scope) is not IssuanceScope:
+        raise IssuanceContractError("source_doctype")
+    return _fingerprint({"schema_version": 1, "purpose": "preparation-no-rebuild",
+        "doctype": scope.doctype, "company": scope.company_name, "invoice": scope.invoice_name})
+
+
 @dataclass(frozen=True)
 class DeclaredCredentialEpoch:
     """No keys/tokens: an unverified version reference and public fingerprints."""

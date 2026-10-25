@@ -77,7 +77,13 @@ def encode_candidate_context(candidate):
     """Store declarations separately from the exact XML BLOB, never auth/key data."""
     if type(candidate) is not PreparedIssuanceCandidate:
         raise JournalStorageError("storage_candidate")
-    context = candidate.context
+    return encode_preparation_context(candidate.context)
+
+
+def encode_preparation_context(context):
+    """Same versioned context encoding, also usable BEFORE XML exists."""
+    if type(context) is not PreparationContext:
+        raise JournalStorageError("storage_candidate")
     return _encode({
         "schema_version": SCHEMA_VERSION, "scope": _fields(context.scope, SCOPE_FIELDS),
         "credential_epoch": _fields(context.credential_epoch, EPOCH_FIELDS),
@@ -88,16 +94,24 @@ def encode_candidate_context(candidate):
 
 def decode_candidate_context(content, xml_bytes):
     """Rehydrate from stored declarations/bytes without today's ERP settings."""
+    context = decode_preparation_context(content)
+    try:
+        return PreparedIssuanceCandidate(context, xml_bytes)
+    except (TypeError, ValueError):
+        raise JournalStorageError("storage_candidate_invalid") from None
+
+
+def decode_preparation_context(content):
+    """Revalidate frozen declarations without inventing an XML candidate."""
     body = _decode(content, MAX_CONTEXT_BYTES)
     _keys(body, ("schema_version", "scope", "credential_epoch", "route", "source_snapshot_sha256"))
     for name, fields in (("scope", SCOPE_FIELDS), ("credential_epoch", EPOCH_FIELDS), ("route", ROUTE_FIELDS)):
         _keys(body[name], fields)
     try:
-        context = PreparationContext(
+        return PreparationContext(
             IssuanceScope(**body["scope"]), DeclaredCredentialEpoch(**body["credential_epoch"]),
             ApiRoute(**body["route"]), body["source_snapshot_sha256"],
         )
-        return PreparedIssuanceCandidate(context, xml_bytes)
     except (TypeError, ValueError):
         raise JournalStorageError("storage_candidate_invalid") from None
 

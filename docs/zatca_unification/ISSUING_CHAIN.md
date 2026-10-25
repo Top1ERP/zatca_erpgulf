@@ -82,6 +82,11 @@ installed. Do not export payload bytes as a UI/log projection.
 
 ## Small existing-path correction
 
+Increment 99 adds [durable pre-build holds](DURABLE_PREPARATION.md) and makes the
+previous internal entry points honor recorded pending/permanent source holds.
+That opt-in owner commits the hold before a local builder and completes it with
+the exact original/head later; no live generator or schema is installed.
+
 Increment 98 adds the uninstalled [one-shot preparation coordinator](ISSUANCE_PREPARATION.md)
 on top of this repository. It pins UUID/context/next ICV/PIH and refuses an
 existing logical key before building, with explicit local custody/source guards.
@@ -121,6 +126,9 @@ timeout/assertion was weakened, and no customer/site or authority I/O occurred.
 Increment 98 preparation verification extends the combined result to **16,558
 passing Python/SQL cases** and the same **1,444 Node VM cases**; see its linked
 preparation notes for the exact scope and remaining custody/worker gates.
+Increment 99 durable preparation extends the combined result to **16,650 passing
+Python/SQL cases**, with the same **1,444 Node VM cases**. Its separate notes
+explain committed pending holds, exact reconciliation and missing-original gates.
 
 Before runtime adoption: authenticate the exact enrollment record and owned
 site/namespace/connection; implement normal source/settings ACL and revision

@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from zatca_erpgulf.zatca_erpgulf.artifact_evidence import ArtifactEvidenceError
 from zatca_erpgulf.zatca_erpgulf.issuance_candidate import (
     DeclaredCredentialEpoch, _canonical_uuid, _fingerprint, compare_prepared_candidates,
+    preparation_source_sha256,
 )
 from zatca_erpgulf.zatca_erpgulf.issuing_chain import (
     DeclaredChainRegistration, IssuingChainError, IssuingChainState, _check,
@@ -190,10 +191,15 @@ class MariaDBIssuingChainRepository:
         without allocating a new identity or moving the current chain backward.
         A stale competing new candidate requires rollback/review, not HTTP retry.
         """
+        return self._record(expected_state, candidate)
+
+    def _record(self, expected_state, candidate, preparation_hold_id=None):
+        """Held completion uses its already validated hold; not an RPC capability."""
         with self._guard():
             after = record_generated_candidate(expected_state, candidate)
             with self._cursor() as cursor:
                 current = self._load(cursor, expected_state.registration)
+                self._preparation_available(cursor, candidate.context, preparation_hold_id)
                 if current.state_sha256 != expected_state.state_sha256:
                     if candidate.artifact.icv > current.last_icv:
                         raise IssuingChainError("chain_stale_state")
@@ -229,6 +235,7 @@ class MariaDBIssuingChainRepository:
             validate_chain_context(registration, context)
             with self._cursor() as cursor:
                 before = self._load(cursor, registration)
+                self._preparation_available(cursor, context)
                 key = _fingerprint(context.scope.key_projection())
                 if self._has_candidate(cursor, key):
                     raise IssuingChainError("chain_original_requires_review")
@@ -239,6 +246,27 @@ class MariaDBIssuingChainRepository:
     def invalidate(self):
         """Block this handle after an external preparation failure; owner rolls back."""
         self._failed = True
+
+    def _preparation_available(self, cursor, context, allowed_hold_id=None):
+        """All cooperating writers honor chain AND permanent saved-source holds.
+
+        The held repository validates full ticket/original identity before using
+        allowed_hold_id. Python private methods do not sandbox arbitrary SQL.
+        Missing/corrupt rehearsal schema fails closed, never skips this check.
+        """
+        # Two bounded unique-index point lookups, not a history-wide OR/sort.
+        for column, value in (("active_chain_id", context.scope.chain_id),
+                              ("source_sha256", preparation_source_sha256(context.scope))):
+            cursor.execute("SELECT hold_id FROM zatca_preparation_hold_v1 "
+                "WHERE storage_namespace=%s AND " + column + "=%s LIMIT 1 FOR UPDATE",
+                (self._namespace, value))
+            row = cursor.fetchone()
+            if row is None:
+                continue
+            if type(row) is not tuple or len(row) != 1:
+                raise IssuingChainError("preparation_hold_row")
+            if allowed_hold_id is None or row != (allowed_hold_id,):
+                raise IssuingChainError("preparation_held_requires_review")
 
     def _has_candidate(self, cursor, key_sha256):
         cursor.execute(

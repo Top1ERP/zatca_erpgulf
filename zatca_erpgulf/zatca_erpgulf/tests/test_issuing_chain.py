@@ -222,6 +222,7 @@ def mock_repository(certificates, monkeypatch, *, autocommit=0):
     state = chain.initialize_declared_chain(registration(certificates[0]))
     monkeypatch.setattr(repo, "_load", Mock(return_value=state))
     monkeypatch.setattr(repo, "_has_candidate", Mock(return_value=False))
+    monkeypatch.setattr(repo, "_preparation_available", Mock())
     repo._artifacts = SimpleNamespace(put=Mock(return_value=SimpleNamespace(events=())))
     return repo, connection, cursor, state, prepared_for(certificates[0])
 

@@ -14,6 +14,8 @@ from zatca_erpgulf.zatca_erpgulf import issuing_chain as chain
 from zatca_erpgulf.zatca_erpgulf import issuing_chain_repository as storage
 from zatca_erpgulf.zatca_erpgulf.journal_repository import MariaDBJournalRepository
 from zatca_erpgulf.zatca_erpgulf.issuance_preparation import IssuancePreparation
+from zatca_erpgulf.zatca_erpgulf.held_issuance_preparation import HeldIssuancePreparation
+from zatca_erpgulf.zatca_erpgulf.preparation_hold import MariaDBPreparationHoldRepository
 from zatca_erpgulf.zatca_erpgulf.tests.test_issuance_preparation import build_for
 from zatca_erpgulf.zatca_erpgulf.tests.test_certificate_evidence import certificates
 from zatca_erpgulf.zatca_erpgulf.tests.test_issuing_chain import registration, prepared_for
@@ -53,7 +55,7 @@ def initialize(connection, case):
 
 
 def count(connection, table, namespace):
-    assert table in ("zatca_issuing_chain_v1", "zatca_issuance_candidate_v1", "chain_parent_work")
+    assert table in ("zatca_issuing_chain_v1", "zatca_issuance_candidate_v1", "chain_parent_work", "zatca_preparation_hold_v1")
     column = "namespace" if table == "chain_parent_work" else "storage_namespace"
     with connection.cursor() as cursor:
         cursor.execute("SELECT COUNT(*) FROM " + table + " WHERE " + column + "=%s", (namespace,))
@@ -417,3 +419,330 @@ def test_missing_explicit_chain_never_runs_preparation_builder(connections, case
     assert builds == []
     writer.rollback()
     assert count(writer, "zatca_issuing_chain_v1", case["namespace"]) == 0
+
+
+def held_case(connections, case, *, name="HELD-FIRST", fault=None):
+    """Private owned connections only; fault injection never touches a site."""
+    acquired = []
+    class FaultConnection:
+        def __init__(self, connection, number): self.raw, self.number = connection, number
+        def cursor(self): return self.raw.cursor()
+        def rollback(self): return self.raw.rollback()
+        def commit(self):
+            if fault == (self.number, "before_commit"): raise RuntimeError("PRIVATE commit unavailable")
+            self.raw.commit()
+            if fault == (self.number, "after_commit"): raise RuntimeError("PRIVATE commit acknowledgment lost")
+        def close(self):
+            self.raw.close()
+            if fault == (self.number, "close"): raise RuntimeError("PRIVATE close acknowledgment lost")
+    def factory():
+        raw = connections()
+        acquired.append(raw)
+        return FaultConnection(raw, len(acquired))
+    owner = HeldIssuancePreparation(factory, case["namespace"])
+    template = prepared_for(case["der"], case["registered"], name=name)
+    args = case["registered"], template.context, str(uuid4()), str(uuid4())
+    callbacks = dict(guard=lambda ticket: True, retain=lambda ticket, original: True,
+        build=lambda ticket: build_for(case["der"], ticket))
+    return owner, args, callbacks, acquired
+
+
+def reserve_held(connection, case, *, name="HELD-FIRST"):
+    template = prepared_for(case["der"], case["registered"], name=name)
+    hold = MariaDBPreparationHoldRepository(connection, case["namespace"]).reserve(
+        case["registered"], template.context, str(uuid4()), str(uuid4()), guard=lambda ticket: True)
+    connection.commit()  # Explicit test owner, not a library repository.
+    return hold
+
+
+def test_owned_hold_is_visible_and_first_connection_closed_before_builder(connections, case):
+    initialize(connections(), case)
+    owner, args, callbacks, acquired = held_case(connections, case)
+    builds = []
+    def build(ticket):
+        assert len(acquired) == 1 and not acquired[0].open
+        observer = connections()
+        held = MariaDBPreparationHoldRepository(observer, case["namespace"]).load(owner.protected_hold)
+        assert held.original_manifest_sha256 is None and ticket.icv == 1
+        assert count(observer, "zatca_issuance_candidate_v1", case["namespace"]) == 0
+        observer.rollback()
+        # There is no long-held SQL lock while building: the prior internal
+        # preparation path immediately observes the durable hold and refuses.
+        with pytest.raises(chain.IssuingChainError, match="^preparation_held_requires_review$"):
+            prepare_synthetic(observer, case, name="DIFFERENT")
+        observer.rollback()
+        builds.append(ticket)
+        return build_for(case["der"], ticket)
+    callbacks["build"] = build
+    after = owner.prepare(*args, **callbacks)
+    assert len(builds) == 1 and after.last_icv == 1 and len(acquired) == 2
+    assert all(not connection.open for connection in acquired)
+    observer = connections()
+    held = MariaDBPreparationHoldRepository(observer, case["namespace"]).load(owner.protected_hold)
+    assert held.original_manifest_sha256 == owner.protected_original.manifest_sha256
+    assert count(observer, "zatca_preparation_hold_v1", case["namespace"]) == 1
+    assert repository(observer, case).load(case["registered"]) == after
+
+
+@pytest.mark.parametrize("method", ["before_commit", "after_commit", "close"])
+def test_first_owned_transaction_failure_never_starts_builder(connections, case, method):
+    initialize(connections(), case)
+    owner, args, callbacks, _ = held_case(connections, case, fault=(1, method))
+    builds = []
+    callbacks["build"] = lambda ticket: builds.append(ticket)
+    with pytest.raises(chain.IssuingChainError, match="^held_preparation_unconfirmed$"):
+        owner.prepare(*args, **callbacks)
+    assert builds == [] and owner.protected_original is None
+    observer = connections()
+    persisted = int(method != "before_commit")
+    assert count(observer, "zatca_preparation_hold_v1", case["namespace"]) == persisted
+    assert count(observer, "zatca_issuance_candidate_v1", case["namespace"]) == 0
+    if persisted:
+        assert MariaDBPreparationHoldRepository(observer, case["namespace"]).load(owner.protected_hold).original_manifest_sha256 is None
+
+
+@pytest.mark.parametrize("method", ["before_commit", "after_commit", "close"])
+def test_final_owned_uncertainty_reconciles_exact_original_without_rebuilding(connections, case, method):
+    initialize(connections(), case)
+    owner, args, callbacks, _ = held_case(connections, case, fault=(2, method))
+    builds = []
+    def build(ticket):
+        builds.append(ticket)
+        return build_for(case["der"], ticket)
+    callbacks["build"] = build
+    with pytest.raises(chain.IssuingChainError, match="^held_preparation_unconfirmed$"):
+        owner.prepare(*args, **callbacks)
+    assert len(builds) == 1 and owner.protected_original is not None
+    observer = connections()
+    stored = MariaDBPreparationHoldRepository(observer, case["namespace"]).load(owner.protected_hold)
+    assert (stored.original_manifest_sha256 is None) == (method == "before_commit")
+    assert count(observer, "zatca_issuance_candidate_v1", case["namespace"]) == int(method != "before_commit")
+    # A fresh owner cannot build even when the final original transaction rolled back.
+    observer.rollback()
+    fresh, fresh_args, fresh_callbacks, _ = held_case(connections, case)
+    fresh_callbacks["build"] = lambda ticket: pytest.fail("No second builder is permitted")
+    with pytest.raises(chain.IssuingChainError, match="^preparation_held_requires_review$"):
+        fresh.prepare(*fresh_args, **fresh_callbacks)
+    recovered, after = MariaDBPreparationHoldRepository(observer, case["namespace"]).complete(
+        owner.protected_hold, owner.protected_original)
+    observer.commit()
+    assert after.last_icv == 1 and recovered.original_manifest_sha256 == owner.protected_original.manifest_sha256
+    assert count(observer, "zatca_issuance_candidate_v1", case["namespace"]) == 1
+
+
+@pytest.mark.parametrize("stage", [1, 2, 3, 4, 5, 6])
+def test_owned_source_drift_preserves_committed_hold_without_partial_original(connections, case, stage):
+    before = initialize(connections(), case)
+    owner, args, callbacks, _ = held_case(connections, case)
+    calls = []
+    def guard(ticket):
+        calls.append(ticket)
+        return len(calls) != stage
+    callbacks["guard"] = guard
+    with pytest.raises(chain.IssuingChainError, match="^preparation_source_guard$"):
+        owner.prepare(*args, **callbacks)
+    observer = connections()
+    assert repository(observer, case).load(case["registered"]) == before
+    assert count(observer, "zatca_preparation_hold_v1", case["namespace"]) == int(stage > 1)
+    assert count(observer, "zatca_issuance_candidate_v1", case["namespace"]) == 0
+    assert (owner.protected_original is not None) == (stage > 2)
+
+
+def test_pending_hold_survives_owned_server_crash_and_blocks_fresh_worker(connections, case, isolated_server):
+    before = initialize(connections(), case)
+    hold = reserve_held(connections(), case)
+    isolated_server[2]()  # Crash/restart ONLY this fixture's private SQL process.
+    observer = connections()
+    assert MariaDBPreparationHoldRepository(observer, case["namespace"]).load(hold) == hold
+    assert repository(observer, case).load(case["registered"]) == before
+    observer.rollback()
+    fresh, args, callbacks, _ = held_case(connections, case)
+    callbacks["build"] = lambda ticket: pytest.fail("No automatic crash rebuild")
+    with pytest.raises(chain.IssuingChainError, match="^preparation_held_requires_review$"):
+        fresh.prepare(*args, **callbacks)
+
+
+@pytest.mark.parametrize("isolation", ["READ COMMITTED", "REPEATABLE READ"])
+def test_fresh_worker_cannot_build_while_first_worker_is_building_outside_sql(connections, case, isolation):
+    initialize(connections(), case)
+    building, release = Event(), Event()
+    def first_worker():
+        owner, args, callbacks, _ = held_case(lambda: connections(isolation), case)
+        def build(ticket):
+            building.set()
+            assert release.wait(10)
+            return build_for(case["der"], ticket)
+        callbacks["build"] = build
+        return owner.prepare(*args, **callbacks)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(first_worker)
+        assert building.wait(5)
+        try:
+            second, args, callbacks, _ = held_case(lambda: connections(isolation), case, name="OTHER")
+            callbacks["build"] = lambda ticket: pytest.fail("A pending chain has no next build")
+            with pytest.raises(chain.IssuingChainError, match="^preparation_held_requires_review$"):
+                second.prepare(*args, **callbacks)
+        finally:
+            release.set()
+        assert future.result(timeout=10).last_icv == 1
+
+
+def test_completed_hold_retains_source_identity_and_review_does_not_rewind_chain(connections, case):
+    initialize(connections(), case)
+    first, args, callbacks, _ = held_case(connections, case)
+    one = first.prepare(*args, **callbacks)
+    second, args, callbacks, _ = held_case(connections, case, name="SECOND")
+    two = second.prepare(*args, **callbacks)
+    assert two.last_icv == 2 and second.protected_hold.ticket.predecessor == one
+    observer = connections()
+    _, reviewed = MariaDBPreparationHoldRepository(observer, case["namespace"]).complete(
+        first.protected_hold, first.protected_original)
+    assert reviewed == two
+    changed = replace(first.protected_original,
+        xml_bytes=first.protected_original.xml_bytes.replace(b"><", b">\n<"))
+    with pytest.raises(chain.IssuingChainError, match="^preparation_original_conflict$"):
+        MariaDBPreparationHoldRepository(observer, case["namespace"]).complete(first.protected_hold, changed)
+    observer.rollback()
+    ctx = replace(first.protected_hold.ticket.context,
+        scope=replace(first.protected_hold.ticket.context.scope, issuance_version=2))
+    with pytest.raises(chain.IssuingChainError, match="^preparation_held_requires_review$"):
+        repository(observer, case).begin_preparation(case["registered"], ctx)
+
+
+@pytest.mark.parametrize("column,value", [("ticket_bytes", b"PRIVATE BROKEN"), ("ticket_sha256", "a"*64),
+    ("invoice_uuid", str(uuid4())), ("candidate_key_sha256", "b"*64),
+    ("active_chain_id", None), ("original_manifest_sha256", "c"*64)])
+def test_corrupt_hold_is_refused_without_automatic_release_or_repair(connections, case, column, value):
+    initialize(connections(), case)
+    writer = connections()
+    hold = reserve_held(writer, case)
+    with writer.cursor() as cursor:
+        cursor.execute("UPDATE zatca_preparation_hold_v1 SET " + column + "=%s WHERE storage_namespace=%s AND hold_id=%s",
+            (value, case["namespace"], hold.hold_id))
+    writer.commit()
+    with pytest.raises(chain.IssuingChainError) as error:
+        MariaDBPreparationHoldRepository(writer, case["namespace"]).load(hold)
+    assert "PRIVATE" not in str(error.value)
+    writer.rollback()
+    assert count(writer, "zatca_preparation_hold_v1", case["namespace"]) == 1
+
+
+def test_strict_redelivery_and_direct_unheld_record_cannot_bypass_pending_hold(connections, case):
+    initialize(connections(), case)
+    connection = connections()
+    hold = reserve_held(connection, case)
+    original = build_for(case["der"], hold.ticket)
+    with pytest.raises(chain.IssuingChainError, match="^preparation_held_requires_review$"):
+        MariaDBPreparationHoldRepository(connection, case["namespace"]).reserve(case["registered"],
+            hold.ticket.context, hold.ticket.invoice_uuid, hold.hold_id, guard=lambda ticket: True)
+    connection.rollback()
+    with pytest.raises(chain.IssuingChainError, match="^preparation_held_requires_review$"):
+        repository(connection, case).record(hold.ticket.predecessor, original)
+    connection.rollback()
+    assert count(connection, "zatca_issuance_candidate_v1", case["namespace"]) == 0
+    _, after = MariaDBPreparationHoldRepository(connection, case["namespace"]).complete(hold, original)
+    connection.commit()
+    assert after.last_icv == 1
+
+
+@pytest.mark.parametrize("same_uuid", [True, False])
+def test_changing_unit_does_not_release_source_or_uuid_identity(connections, case, certificates, same_uuid):
+    initialize(connections(), case)
+    writer = connections()
+    hold = reserve_held(writer, case)
+    other = registration(certificates[2], chain_id=str(uuid4()), registration_id=str(uuid4()))
+    repository(writer, case).create(other)
+    writer.commit()
+    name = "OTHER-SOURCE" if same_uuid else hold.ticket.context.scope.invoice_name
+    template = prepared_for(certificates[2], other, name=name)
+    expected = "chain_unique_conflict" if same_uuid else "preparation_held_requires_review"
+    with pytest.raises(chain.IssuingChainError, match="^" + expected + "$"):
+        MariaDBPreparationHoldRepository(writer, case["namespace"]).reserve(other, template.context,
+            hold.ticket.invoice_uuid if same_uuid else str(uuid4()), str(uuid4()), guard=lambda ticket: True)
+    writer.rollback()
+    assert count(writer, "zatca_preparation_hold_v1", case["namespace"]) == 1
+    assert repository(writer, case).load(other).last_icv == 0
+
+
+@pytest.mark.parametrize("change", ["uuid", "source", "route"])
+def test_exact_ticket_required_for_completion_not_just_the_hold_identifier(connections, case, change):
+    initialize(connections(), case)
+    writer = connections()
+    hold = reserve_held(writer, case)
+    ticket = hold.ticket
+    if change == "uuid": ticket = replace(ticket, invoice_uuid=str(uuid4()))
+    if change == "source": ticket = replace(ticket, context=replace(ticket.context, source_snapshot_sha256="a"*64))
+    if change == "route":
+        ticket = replace(ticket, context=replace(ticket.context,
+            route=replace(ticket.context.route, url=ticket.context.route.url.replace("/phase2/", "/other/"))))
+    changed = replace(hold, ticket=ticket)
+    assert changed.ticket != hold.ticket
+    original = build_for(case["der"], ticket)
+    with pytest.raises(chain.IssuingChainError, match="^preparation_hold_conflict$"):
+        MariaDBPreparationHoldRepository(writer, case["namespace"]).complete(changed, original)
+    writer.rollback()
+    assert count(writer, "zatca_issuance_candidate_v1", case["namespace"]) == 0
+
+
+@pytest.mark.parametrize("operation", ["reserve", "load", "complete"])
+def test_held_repository_refuses_autocommit_without_reconfiguring_session(connections, case, operation):
+    initialize(connections(), case)
+    hold = reserve_held(connections(), case)
+    writer = connections(autocommit=True)
+    handle = MariaDBPreparationHoldRepository(writer, case["namespace"])
+    with pytest.raises(chain.IssuingChainError, match="^chain_autocommit$"):
+        if operation == "reserve":
+            handle.reserve(case["registered"], hold.ticket.context, str(uuid4()), str(uuid4()), guard=lambda ticket: True)
+        elif operation == "load": handle.load(hold)
+        else: handle.complete(hold, build_for(case["der"], hold.ticket))
+    assert writer.get_autocommit() is True
+    assert count(writer, "zatca_preparation_hold_v1", case["namespace"]) == 1
+
+
+def test_unbound_partial_original_is_not_repaired_or_adopted(connections, case):
+    initialize(connections(), case)
+    owner, args, callbacks, _ = held_case(connections, case)
+    one = owner.prepare(*args, **callbacks)
+    writer = connections()
+    pending = reserve_held(writer, case, name="SECOND")
+    second = build_for(case["der"], pending.ticket)
+    # Deliberately violate the writer protocol in this synthetic database only.
+    MariaDBJournalRepository(writer, case["namespace"]).put(second)
+    writer.commit()
+    with pytest.raises(chain.IssuingChainError, match="^preparation_partial_original$"):
+        MariaDBPreparationHoldRepository(writer, case["namespace"]).complete(pending, second)
+    writer.rollback()
+    assert repository(writer, case).load(case["registered"]) == one
+    assert count(writer, "zatca_issuance_candidate_v1", case["namespace"]) == 2
+
+
+@pytest.mark.parametrize("isolation", ["READ COMMITTED", "REPEATABLE READ"])
+@pytest.mark.parametrize("exact", [True, False])
+def test_competing_exact_completion_advances_once_and_different_bytes_require_review(connections, case, isolation, exact):
+    initialize(connections(), case)
+    writer = connections(isolation)
+    pending = reserve_held(writer, case)
+    original = build_for(case["der"], pending.ticket)
+    changed = original if exact else replace(original, xml_bytes=original.xml_bytes.replace(b"><", b">\n<"))
+    _, one = MariaDBPreparationHoldRepository(writer, case["namespace"]).complete(pending, original)
+    ready = Event()
+    def competitor():
+        connection = connections(isolation)
+        ready.set()
+        try:
+            _, after = MariaDBPreparationHoldRepository(connection, case["namespace"]).complete(pending, changed)
+            connection.commit()
+            return after
+        except chain.IssuingChainError as error:
+            connection.rollback()
+            return error.code
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(competitor)
+        assert ready.wait(5)
+        with pytest.raises(TimeoutError): future.result(timeout=0.05)
+        writer.commit()
+        outcome = future.result(timeout=10)
+    assert outcome == (one if exact else "preparation_original_conflict")
+    observer = connections()
+    assert repository(observer, case).load(case["registered"]) == one
+    assert count(observer, "zatca_issuance_candidate_v1", case["namespace"]) == 1
