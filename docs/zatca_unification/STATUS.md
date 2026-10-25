@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and five bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and six bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2428,6 +2428,42 @@ in 200.52 seconds**, across fourteen private SQL suites with the network/site
 guard active. All nine Node VM scripts passed **1,444 cases**. No assertion,
 ordinary ACL, timeout, crypto or offline restriction was waived.
 
+## Increment 106: non-secret issuing settings and shared compatibility policies
+
+- Add explicit source Company/device/linked-Company observations, at most three
+  exact records, preserving each revision and schema/NULL/zero/blank/alias value.
+  Include phase/environment/name alternatives, submission/discount controls and
+  schedule fields without choosing active credentials, API purpose or dispatch.
+- Share existing device flag and foreign-linked-taxpayer declaration policies
+  with the saved-owner resolver. Preserve its conditional read/selection behavior;
+  validate equivalent Company/device/linked/foreign-own selections in tests.
+- Structurally validate all configured URLs using the existing pure resolver,
+  rejecting userinfo/query/unsafe URLs before retention; missing Phase-1 routing
+  stays an observation, not Production permission. No transport occurs.
+- Move the SINGLE 13-group alias registry into a pure module; retain the same
+  field_compat public dictionary and lookup/creation behavior. A read-only AST
+  comparison against committed source and a fixed registry fingerprint prove
+  unchanged contents/order. Do not create a second registry or alias selector.
+- Share financial pin/reference/scalar helpers from the base observation module,
+  retaining prior profile goldens. No secret/certificate/auth/OTP/CSR/PIH/identity
+  fields are requested. Add protected independent results and static failures.
+- Add a functional developer/AI navigation guide and README development caveat,
+  distinguishing runtime from staged components, pending cleanup and release
+  gates. No installed app/site/schema/config/UI/provider or authority request.
+  See [ISSUING_SETTINGS_OBSERVATION.md](ISSUING_SETTINGS_OBSERVATION.md).
+
+The new suite passed **533 cases in 3.76 seconds**; settings/alias/credential
+regressions passed **642 cases in 4.06 seconds** before the final added fixed
+registry assertion, which the new-suite run verifies. Earlier combined financial/
+tax/alias/credential checks passed **2,209 cases in 12.71 seconds** before the
+final nullable/bounds additions. Final guarded verification passed
+**17,374 local + 2,234 private SQL = 19,608 cases in 208.76 seconds**, across fourteen private
+SQL suites with the network/site guard active. All nine Node VM scripts passed
+**1,444 cases**. No assertion, ordinary ACL, timeout, crypto or offline restriction
+was waived.
+These remain PARTIAL declarations, not a committed source guard, complete
+accounting validation or installed v15/v16/SDK/authority acceptance.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -2841,6 +2877,7 @@ endpoints remain untouched.
 | `test_preparation_custody.py` | Exact bounded ticket/context/XML frames, dedicated AES-GCM metadata binding, malformed/tampered/wrong-key rejection, protected representations, caller transaction ownership, immutable ciphertext and poisoned failed handles |
 | `test_financial_source_observation.py` | Partial invoice-owned typed header/child observations, schema presence, unchanged-parent field/row/order changes, both advance markers, strict canonical reconstruction, bounds/privacy/no writes; not committed source or arithmetic/XML parity |
 | `test_tax_dependency_observation.py` | Exact linked invoice/item template sets, independent financial pin, header/tax-row field/order/schema drift, zero-rate/conflicting-source preservation, missing/extra/company/parent/type refusal, bounds/privacy/direct reconstruction; still partial without committed SQL/ACL/precedence choice |
+| `test_issuing_settings_observation.py` | Source Company/device/linked records, saved-owner parity, every settings/alias value, nullable flags/cross-taxpayer refusal, secret-field exclusion, safe URL structure, exact canonical binding/privacy/bounds and unchanged shared registry; still partial without authorized committed acquisition |
 | `test_preparation_custody_access.py` | Saved WRITE/related READ before scoped keys, protected ciphertext retrieval, exact internal recovery, mandatory evidence, late source/ACL drift, uncertain commit/interrupt/parent cleanup and one Arabic display summary; native chain suite adds real SQL visibility/contention, crash/restart, corruption and unknown commits |
 | `test_issuing_chain_mariadb.py` (separate opt-in) | Owned-private head/original atomicity, preparation contention, independent units, durable pre-build holds, commit/close uncertainty, exact reconciliation, cooperating-writer refusal, corruption and owned-server crash recovery |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |

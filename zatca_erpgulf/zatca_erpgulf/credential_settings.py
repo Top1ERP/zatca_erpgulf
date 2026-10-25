@@ -17,7 +17,7 @@ from cryptography.hazmat.primitives import serialization
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_group
 from zatca_erpgulf.zatca_erpgulf.credential_material import (
     CredentialConfigurationError, CredentialOwner, authorization_for_owner,
-    certificate_value, use_linked_company,
+    certificate_value, use_linked_company, validate_declared_linked_company_taxpayer,
 )
 
 
@@ -110,10 +110,8 @@ def _resolve_owner_record_from_saved_company(company, source_doc, *, load_doc=No
                 raise CredentialConfigurationError("linked_company")
             linked = company if linked_name == company.name else load_doc("Company", linked_name)
             if linked.name != company.name:
-                company_vat = str(company.get("tax_id") or "").strip()
-                linked_vat = str(linked.get("tax_id") or "").strip()
-                if not company_vat or not linked_vat or company_vat != linked_vat:
-                    raise CredentialConfigurationError("taxpayer")
+                validate_declared_linked_company_taxpayer(company.name, company.get("tax_id"),
+                    linked.name, linked.get("tax_id"))
             if use_linked_company(setting.get("custom__use_company_certificate__keys")):
                 owner, kind = linked, "linked_company"
             else:

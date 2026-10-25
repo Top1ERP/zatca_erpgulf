@@ -124,6 +124,15 @@ def _present(meta, name):
     return bool(present)
 
 
+def _reference(encoded):
+    """Optional typed reference; do not trim or coerce false/numeric values."""
+    if encoded in (["absent"], ["null"], ["str", ""]):
+        return None
+    if type(encoded) is not list or len(encoded) != 2 or encoded[0] != "str":
+        raise ValueError
+    return _name(encoded[1])
+
+
 def _projection(document, meta, fields, required):
     # Presence is part of the snapshot: absent != NULL != zero != empty string.
     present = tuple(_present(meta, name) for name in fields)
@@ -157,6 +166,11 @@ def _child_type(doctype, table_name):
 
 
 def _validate_scalar(encoded, *, absent=False):
+    """Validate canonical form; return its scalar for shared declaration policies.
+
+    Callers allowing absence must retain the tag: absent and NULL both decode
+    to None. No numeric/flag coercion or normalization is introduced here.
+    """
     if type(encoded) is not list or not encoded or type(encoded[0]) is not str:
         raise ValueError
     if encoded == ["absent"] and absent:
@@ -184,6 +198,7 @@ def _validate_scalar(encoded, *, absent=False):
         else: raise ValueError
     if _scalar(decoded) != encoded:
         raise ValueError
+    return decoded
 
 
 def _validate_projection(projection, fields, required):
@@ -306,6 +321,17 @@ class InvoiceFinancialObservation:
 
     def __reduce__(self):
         raise TypeError("financial_source_not_serializable")
+
+
+def _pin_financial(observation):
+    """Independent validated copy, not authentication of a supplied source."""
+    if type(observation) is not InvoiceFinancialObservation:
+        raise ValueError
+    pinned = InvoiceFinancialObservation(observation.erp_major, observation.doctype,
+        observation.name, observation._payload)
+    if pinned != observation:
+        raise ValueError
+    return pinned
 
 
 def capture_invoice_financial_observation(document, *, erp_major, child_metas):

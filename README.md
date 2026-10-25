@@ -1,6 +1,13 @@
 
 Saudi Arabian E-Invoicing (ZATCA Phase-2) – A Frappe ERPNext App
 
+Development branch notice: the ERPNext 15/16 unification work is unfinished and
+not approved for deployment. Start with the
+[development guide](docs/zatca_unification/DEVELOPMENT_GUIDE.md) for current versus
+target architecture, test boundaries and release gates. The historical features
+and installation commands below do not certify this branch or authorize any
+working-site changes or authority requests.
+
 A Frappe ERPNext app for businesses in Saudi Arabia, ensuring compliance with ZATCA Phase-2 e-invoicing regulations.
 
 🚀 Features

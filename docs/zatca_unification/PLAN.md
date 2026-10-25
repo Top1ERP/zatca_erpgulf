@@ -19,6 +19,16 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Read [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md) for the functional source map
+and closing sequence, separate from this chronological design history.
+
+Increment 106 adds non-secret source Company/device/linked-Company settings
+observations and shared declaration checks, without a default source guard or
+runtime activation. Extract the SINGLE existing alias registry without Frappe,
+preserve its public object and lookup semantics, and share financial pin/scalar
+helpers rather than introduce settings-to-tax coupling. See
+[ISSUING_SETTINGS_OBSERVATION.md](ISSUING_SETTINGS_OBSERVATION.md).
+
 Increment 105 adds explicit linked tax-template observations from a pinned
 financial profile: exact Sales Taxes and Charges Template/Item Tax Template
 sets, Company binding and ordered tax children. Missing/extra records fail,

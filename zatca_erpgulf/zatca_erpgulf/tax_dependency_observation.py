@@ -13,7 +13,8 @@ from types import MappingProxyType
 
 from .financial_source_observation import (
     InvoiceFinancialObservation, MAX_PAYLOAD_BYTES, TAX_FIELDS, _canonical, _capture_table, _name,
-    _present, _projection, _scalar, _validate_projection, _validate_scalar, _validate_table,
+    _pin_financial, _present, _projection, _reference, _scalar,
+    _validate_projection, _validate_scalar, _validate_table,
 )
 
 PROFILE = "invoice-tax-dependencies/v1"
@@ -35,24 +36,6 @@ class TaxDependencyError(ValueError):
     def __init__(self, code):
         self.code = code
         super().__init__(code)
-
-
-def _pin_financial(observation):
-    if type(observation) is not InvoiceFinancialObservation:
-        raise ValueError
-    pinned = InvoiceFinancialObservation(observation.erp_major, observation.doctype,
-        observation.name, observation._payload)
-    if pinned != observation:
-        raise ValueError
-    return pinned
-
-
-def _reference(encoded):
-    if encoded in (["absent"], ["null"], ["str", ""]):
-        return None
-    if type(encoded) is not list or len(encoded) != 2 or encoded[0] != "str":
-        raise ValueError
-    return _name(encoded[1])  # No trimming/normalization or truthy numeric fallback.
 
 
 def _dependencies(financial):

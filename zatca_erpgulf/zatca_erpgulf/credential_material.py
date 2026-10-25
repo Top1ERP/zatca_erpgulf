@@ -47,6 +47,20 @@ def use_linked_company(value) -> bool:
     raise CredentialConfigurationError("link_flag")
 
 
+def validate_declared_linked_company_taxpayer(company_name, company_tax_id, linked_name, linked_tax_id):
+    """Shared legacy declaration check, NOT authenticated taxpayer provenance.
+
+    Caller resolves and authorizes saved identities. Same-company links retain
+    the existing policy; cross-company links require equal nonempty stripped
+    Tax IDs even when the device chooses its OWN credentials.
+    """
+    if linked_name != company_name:
+        company_vat = str(company_tax_id or "").strip()
+        linked_vat = str(linked_tax_id or "").strip()
+        if not company_vat or not linked_vat or company_vat != linked_vat:
+            raise CredentialConfigurationError("taxpayer")
+
+
 def certificate_value(values: Mapping, aliases: Sequence[str]) -> str:
     """Read registered spellings without silently choosing conflicting certificates.
 

@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "issuing_settings_observation",
     "tax_dependency_observation",
     "financial_source_observation",
     "preparation_custody",
