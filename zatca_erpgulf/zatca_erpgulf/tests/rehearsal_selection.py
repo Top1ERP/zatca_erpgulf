@@ -1,6 +1,8 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "default_scope_contract",
+    "metadata_reconciliation",
     "source_metadata",
     "calculation_settings_observation",
     "party_address_observation",

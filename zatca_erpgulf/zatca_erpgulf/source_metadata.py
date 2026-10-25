@@ -171,6 +171,16 @@ class SourceMetadata:
         raise TypeError("source_metadata_not_serializable")
 
 
+def _pin_metadata(metadata):
+    """Independent validated declaration; never trust cached derived fields."""
+    if type(metadata) is not SourceMetadata:
+        raise ValueError
+    pinned=SourceMetadata(metadata.name,metadata._payload)
+    if pinned!=metadata:
+        raise ValueError
+    return pinned
+
+
 def project_source_metadata(meta,*,base_fields):
     """Capture selected applied definitions, explicitly supplement base fields.
 
@@ -231,9 +241,7 @@ class SourceDocumentView:
             if type(self.meta) is not SourceMetadata or self._source.doctype!=self.meta.name:
                 raise ValueError
             name=financial._name(self._source.name)
-            meta=SourceMetadata(self.meta.name,self.meta._payload)
-            if meta!=self.meta:
-                raise ValueError
+            meta=_pin_metadata(self.meta)
         except Exception:
             invalid=True
         else:

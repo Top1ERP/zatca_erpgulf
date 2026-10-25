@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and nine bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and ten bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2561,6 +2561,35 @@ site guard active. All nine Node VM scripts passed **1,444 cases**. No assertion
 ordinary ACL, timeout, crypto or offline restriction was waived. Synthetic v15/v16
 labels do not certify installed version, complete financial/SQL/ACL or SDK/authority parity.
 
+## Increment 110: declared customization matching and defaults API behavior
+
+- Match supplied baseline metadata, relevant raw Custom Fields/Property Setters
+  and applied metadata for one allowlisted DocType. Reuse independent metadata
+  pinning in the read view; preserve existing profile bytes and calculations.
+- Use the actual installed non-temporal Frappe cast subset in an explicit
+  framework adapter. Keep raw values/revisions/type tags; bind the framework
+  version. Reject stale/missing effects, shadowed fields, duplicate property
+  targets and unsupported scopes/casts instead of guessing precedence.
+- Reconstruct and compare every retained declaration with static redacted
+  failures, bounded collections/payloads and no SQL/Redis/Meta-loading/writes or
+  runtime provider. Supplied-row completeness and committed provenance remain
+  open, including omitted rows whose effects equal baseline values.
+- Characterize actual installed defaults APIs with synthetic sources: explicit
+  __default versus __global, exact/scrubbed keys, user overlays including false
+  values, API-specific list/tuple rules, permission filtering and cache hits.
+  No guessed scope hierarchy or effective-default resolver is introduced.
+  See [METADATA_RECONCILIATION.md](METADATA_RECONCILIATION.md).
+
+The new metadata suite passed **504 cases in 27.08 seconds**. The defaults API
+suite plus existing metadata adapter suite passed **509 cases in 7.74 seconds**
+(53 new API cases and 456 existing adapter cases). The full guarded run passed
+**19,395 local + 2,234 private SQL = 21,629 cases in 256.87 seconds**, across
+fourteen private SQL suites with the external-network/site-init guard active.
+All nine Node VM scripts passed **1,444 cases**. No assertion, ordinary ACL,
+timeout, crypto or offline restriction was waived. Installed v15/v16,
+SDK/authority acceptance, runtime adoption and complete committed source/ACL/
+physical-schema provenance are not claimed.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -2978,6 +3007,8 @@ endpoints remain untouched.
 | `test_party_address_observation.py`, `test_customer_address_resolution.py` | Exact party/address graph, parent Company consistency, aliases/current Dynamic Links/declared candidate order, shared/historical disabled-unlinked addresses, strict schema/canonical/bounds/privacy and existing mocked resolver behavior; not committed-query completeness or address-selection authorization |
 | `test_calculation_settings_observation.py` | Explicit Singleton storage without fabricated revisions, referenced currencies/POS/Profile tax graph, every setting/payment/tax value, unchanged invoice time/amounts, exact schema/Company/child/canonical/bounds/privacy; not effective precision or committed defaults |
 | `test_source_metadata.py` | Applied field/base-schema declarations, real get_default_df without site init, missing-docstatus reproduction and exact adapted financial bytes, precision/options/default/flag drift, Password/default-expression safety, independent read views and strict canonical/privacy/bounds; not raw Setter/default/physical-schema provenance |
+| `test_metadata_reconciliation.py` | Supplied baseline/raw/applied equality, actual bounded Frappe casts/Meta setter method, typed effects, conflicts/stale/ambiguous rows, independent parents/version/canonical/privacy/bounds; not committed acquisition or row-completeness proof |
+| `test_default_scope_contract.py` | Actual installed defaults API behavior with synthetic sources: separate parents, user/false-value overlays, exact/scrubbed keys, list/tuple/permission/cache semantics; no real defaults or resolver |
 | `test_preparation_custody_access.py` | Saved WRITE/related READ before scoped keys, protected ciphertext retrieval, exact internal recovery, mandatory evidence, late source/ACL drift, uncertain commit/interrupt/parent cleanup and one Arabic display summary; native chain suite adds real SQL visibility/contention, crash/restart, corruption and unknown commits |
 | `test_issuing_chain_mariadb.py` (separate opt-in) | Owned-private head/original atomicity, preparation contention, independent units, durable pre-build holds, commit/close uncertainty, exact reconciliation, cooperating-writer refusal, corruption and owned-server crash recovery |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |

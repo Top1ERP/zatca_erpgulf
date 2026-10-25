@@ -25,6 +25,7 @@ A DEV branch source push is not deployment or permission to send.
 | Party/address graph | party_address_observation.py | Pins settings/financial parent; exact records/current links and declared candidate order, NOT an address resolver or complete-query proof |
 | Calculation declarations | calculation_settings_observation.py | Explicit Singleton/Currency/POS/profile-tax records; not effective precision, timezone interpretation or fiscal validity |
 | Applied metadata adapter | source_metadata.py | Explicit base/default fields plus immutable applied properties; narrow read view, not physical schema, raw Setter provenance or committed values |
+| Declared customization matching | metadata_reconciliation.py | Explicit baseline/raw/applied equality using bounded installed Frappe casts; no committed query/completeness proof or defaults resolver |
 | Original preparation/history | issuance_candidate.py, issuance_preparation.py, issuing_chain*.py, preparation_hold.py | Explicit identity/chain contracts and local durable holds; not integrated issuance authorization |
 | Protected recovery | preparation_review_access.py, preparation_recovery_access.py, preparation_custody*.py | Opt-in source/ACL/evidence boundaries; no default trusted provider/runtime caller |
 | Primary receipt/outcome scaffolds | primary_capture*.py, primary_receipt*.py, response_assessment.py, dispatch_journal.py | Local observations/recovery, not automatic acceptance/replay authority |
@@ -45,6 +46,9 @@ Do not combine that target with a claim that every legacy path already uses it.
 - Keep the source metadata adapter above profile definitions; profiles must not
   import it back and introduce a circular dependency. Acquisition services can
   compose the explicit metadata/read views before calling the pure profiles.
+- Keep framework cast matching outside pure profiles. Defaults are API/user/scope
+  dependent; use the characterized behavior in METADATA_RECONCILIATION.md before
+  designing a committed reader. Cache hits do not prove current stored rows.
 - Preserve exact originals and identity; unknown results never grant rebuilding,
   resetting a chain, releasing holds or automatic resend.
 - A hash/HTTP status/saved field alone does not prove source, signature or remote

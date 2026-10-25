@@ -2,6 +2,11 @@
 
 Increment 109 — 2026-10-25. Read-only compatibility foundation, uninstalled.
 
+Increment 110 adds explicit baseline/raw/applied declaration matching with the
+installed non-temporal Frappe cast subset, plus actual defaults API behavior
+tests. It does not establish committed provenance or resolve defaults. See
+[METADATA_RECONCILIATION.md](METADATA_RECONCILIATION.md).
+
 ## Finding from local framework source
 
 Frappe Meta.has_field/get_field use the applied DocField map. Default/base fields
@@ -72,7 +77,8 @@ Read-only local source inspection shows applied Meta adds Custom Fields and
 applies Property Setters with property-type casting. Capturing the resulting
 properties does NOT prove that cached Meta agrees with the current stored rows.
 Raw relevant Custom Field/Setter identity/value/membership/revision and ordering/
-casting evidence still need committed capture and reconciliation.
+casting evidence still need committed capture. Increment 110 matches supplied
+declarations; acquisition/completeness and cache freshness remain unverified.
 
 Defaults are API/scope dependent. The inspected db.get_default path defaults
 to __default; get_defaults merges its base with user defaults, and other getters

@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 110 matches supplied baseline metadata, raw Custom Field/Property
+Setter rows and applied metadata using the installed framework's bounded
+non-temporal casts. Reject stale/conflicting declarations without applying
+changes. Characterize actual defaults scope/list/permission/cache APIs instead
+of guessing universal precedence. These are declaration/API contracts, not a
+committed reader, completeness proof or effective-default resolver. See
+[METADATA_RECONCILIATION.md](METADATA_RECONCILIATION.md).
+
 Increment 109 adds explicit applied-field metadata/base definitions and a narrow
 read-only document view. Raw Frappe Meta excludes default fields: require supplied
 docstatus/creation definitions rather than assume columns or rewrite source data.
