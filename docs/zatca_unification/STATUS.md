@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and eight bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and nine bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2527,6 +2527,40 @@ restriction was waived. These remain PARTIAL declarations: effective field/defau
 actual financial/XML parity and installed v15/v16/SDK/authority acceptance are
 not claimed.
 
+## Increment 109: applied metadata/base-field compatibility before provenance
+
+- Read-only local framework inspection found that Meta.has_field/get_field omit
+  normal default fields such as docstatus/creation. Prior synthetic metadata
+  included those names and was not installed integration evidence. Add explicit
+  base definitions rather than claiming columns or changing existing profiles.
+- Capture immutable allowlisted applied field type/options/precision/default/
+  flag/custom markers and declared storage kind, with optional-field absence.
+  Retain typed values and default expressions without evaluating them; refuse
+  Password definitions before reading defaults. No raw Setter/default lookup.
+- Add a narrow identity-bound read interface without save/db_set or original
+  document/Meta mutation. Copy metadata independently, reject corrupt derived
+  state/identity drift, and state clearly that delegated VALUES are not frozen
+  or committed and the view is not a full Frappe Document/Meta replacement.
+- Test actual installed get_default_df without site initialization and reproduce
+  raw-Meta missing-docstatus failure, followed by adapted capture with identical
+  old financial bytes/fingerprint. A precision-only hash change does not alter
+  invoice amounts; complete binding must additionally include metadata.
+- Document observed Property Setter application and defaults API/scope/cache
+  distinctions, not a guessed universal precedence. Raw Custom Field/Setter
+  provenance, effective defaults and authorized committed readers remain open.
+  No runtime controller/provider/UI/schema/site/authority operation is installed.
+  See [SOURCE_METADATA.md](SOURCE_METADATA.md).
+
+The new targeted suite passed **456 cases in 7.53 seconds**, including every
+selected metadata kind/property, explicit base fields, raw-Meta compatibility,
+independent pins, strict canonical/privacy/bounds and read-interface behavior.
+An earlier check passed 440 before derived-state/default-expression refinements.
+Full guarded verification passed **18,838 local + 2,234 private SQL = 21,072
+cases in 229.94 seconds**, across fourteen private SQL suites with the network/
+site guard active. All nine Node VM scripts passed **1,444 cases**. No assertion,
+ordinary ACL, timeout, crypto or offline restriction was waived. Synthetic v15/v16
+labels do not certify installed version, complete financial/SQL/ACL or SDK/authority parity.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -2943,6 +2977,7 @@ endpoints remain untouched.
 | `test_issuing_settings_observation.py` | Source Company/device/linked records, saved-owner parity, every settings/alias value, nullable flags/cross-taxpayer refusal, secret-field exclusion, safe URL structure, exact canonical binding/privacy/bounds and unchanged shared registry; still partial without authorized committed acquisition |
 | `test_party_address_observation.py`, `test_customer_address_resolution.py` | Exact party/address graph, parent Company consistency, aliases/current Dynamic Links/declared candidate order, shared/historical disabled-unlinked addresses, strict schema/canonical/bounds/privacy and existing mocked resolver behavior; not committed-query completeness or address-selection authorization |
 | `test_calculation_settings_observation.py` | Explicit Singleton storage without fabricated revisions, referenced currencies/POS/Profile tax graph, every setting/payment/tax value, unchanged invoice time/amounts, exact schema/Company/child/canonical/bounds/privacy; not effective precision or committed defaults |
+| `test_source_metadata.py` | Applied field/base-schema declarations, real get_default_df without site init, missing-docstatus reproduction and exact adapted financial bytes, precision/options/default/flag drift, Password/default-expression safety, independent read views and strict canonical/privacy/bounds; not raw Setter/default/physical-schema provenance |
 | `test_preparation_custody_access.py` | Saved WRITE/related READ before scoped keys, protected ciphertext retrieval, exact internal recovery, mandatory evidence, late source/ACL drift, uncertain commit/interrupt/parent cleanup and one Arabic display summary; native chain suite adds real SQL visibility/contention, crash/restart, corruption and unknown commits |
 | `test_issuing_chain_mariadb.py` (separate opt-in) | Owned-private head/original atomicity, preparation contention, independent units, durable pre-build holds, commit/close uncertainty, exact reconciliation, cooperating-writer refusal, corruption and owned-server crash recovery |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |

@@ -19,6 +19,13 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 109 adds explicit applied-field metadata/base definitions and a narrow
+read-only document view. Raw Frappe Meta excludes default fields: require supplied
+docstatus/creation definitions rather than assume columns or rewrite source data.
+Observe precision/options/defaults/custom markers without applying setters or
+resolving scoped defaults. Physical/committed/schema/Setter provenance and actual
+runtime integration remain gates. See [SOURCE_METADATA.md](SOURCE_METADATA.md).
+
 Increment 108 captures explicit System Settings/Global Defaults Singletons,
 referenced currencies, POS Profile/payments and its own tax template. Preserve
 Singleton storage without invented modified values, deduplicate currency refs

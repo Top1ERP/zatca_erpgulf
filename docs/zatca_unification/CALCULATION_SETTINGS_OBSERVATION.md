@@ -2,6 +2,10 @@
 
 Increment 108 — 2026-10-25. Pure PARTIAL declarations, not a calculation engine.
 
+Increment 109 adds explicit applied-field/base-field metadata adaptation, including
+the raw Meta/default-field distinction. It does NOT resolve defaults or prove
+Property Setter provenance; see [SOURCE_METADATA.md](SOURCE_METADATA.md).
+
 ## Delivered dependency boundary
 
 The component pins an independent issuing-settings/financial parent and requires
