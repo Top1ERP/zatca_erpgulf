@@ -146,6 +146,16 @@ class IssuingSettingsObservation:
         raise TypeError("issuing_settings_not_serializable")
 
 
+def _pin_settings(observation):
+    """Independent validated settings/financial copy, not origin attestation."""
+    if type(observation) is not IssuingSettingsObservation:
+        raise ValueError
+    pinned = IssuingSettingsObservation(observation.financial, observation._payload)
+    if pinned != observation:
+        raise ValueError
+    return pinned
+
+
 def capture_issuing_settings_observation(financial, *, records):
     """Require exact source Company, optional device and its linked Company.
 

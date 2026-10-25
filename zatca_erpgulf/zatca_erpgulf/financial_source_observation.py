@@ -215,6 +215,8 @@ def _validate_projection(projection, fields, required):
 
 def _capture_table(document, child_meta, table_name, expected_type, fields, required, identities, *, max_rows=None):
     """Shared bounded ordered-child capture; no record loads or policy choice."""
+    if not _present(document.meta, table_name):
+        raise ValueError
     table_field = document.meta.get_field(table_name)
     if table_field.fieldtype != "Table" or table_field.options != expected_type or child_meta.name != expected_type:
         raise ValueError

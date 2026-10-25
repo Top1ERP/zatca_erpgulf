@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 107 adds an explicit party/address graph from a pinned settings/source
+parent, with exact Company/Customer/Cost Center refs, address fields/current links
+and caller-observed discovery order. Preserve submitted historical addresses and
+reject inconsistent Company versions; do not invent fallback or choose address
+eligibility. Still PARTIAL: committed discovery/ACL, remaining settings and actual
+XML parity precede runtime adoption. See
+[PARTY_ADDRESS_OBSERVATION.md](PARTY_ADDRESS_OBSERVATION.md).
+
 Read [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md) for the functional source map
 and closing sequence, separate from this chronological design history.
 

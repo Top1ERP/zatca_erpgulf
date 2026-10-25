@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and six bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and seven bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2464,6 +2464,36 @@ was waived.
 These remain PARTIAL declarations, not a committed source guard, complete
 accounting validation or installed v15/v16/SDK/authority acceptance.
 
+## Increment 107: explicit party/address dependency graph, not address resolution
+
+- Pin an independent settings/financial parent and capture exact source Company,
+  Customer, optional Cost Center and referenced/discovered Address records. Match
+  overlapping Company fields AND revision to the parent; reject mixed versions.
+- Capture registered aliases, registration/party/address/country fields and
+  ordered current Dynamic Link children; preserve schema/NULL/blank/zero states.
+  Reject wrong/missing/extra identities, branch Company, child parents/idx/schema,
+  duplicate SQL child identities and internally inconsistent discovery links.
+- Preserve explicit historical references even when now disabled or unlinked.
+  Caller-observed company/customer candidate order is retained, not selected or
+  inferred. Discovery completeness/eligibility/ownership remains unverified.
+- Reuse shared projections/typed codecs/child capture and require explicit Table
+  schema presence. Bound capture to 64 addresses/67 records/256 links/2 MiB for
+  this component; retain protected independent objects and static errors.
+- Document existing Sales/POS supplier/B2C/address selection differences without
+  changing current resolver/XML behavior, hooks/providers/sites or transport.
+  Still PARTIAL, not a complete committed source, fiscal/ACL verifier or default
+  preparation/custody guard. See [PARTY_ADDRESS_OBSERVATION.md](PARTY_ADDRESS_OBSERVATION.md).
+
+Targeted graph and mocked resolver suites passed **524 cases in 9.18 seconds**:
+520 new graph cases plus four existing address-resolution regressions newly
+included in the reviewed guarded manifest. A mocked actual-resolver test also
+confirms submitted disabled/unlinked address preservation without discovery.
+Final guarded combined verification passed **17,898 local + 2,234 private SQL =
+20,132 cases in 210.86 seconds**, across fourteen private SQL suites with the
+network/site guard active. All nine Node VM scripts passed **1,444 cases**.
+No assertion, ordinary ACL, timeout, crypto or offline restriction was waived;
+no installed ERPNext 15/16, SDK or authority acceptance is claimed.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -2878,6 +2908,7 @@ endpoints remain untouched.
 | `test_financial_source_observation.py` | Partial invoice-owned typed header/child observations, schema presence, unchanged-parent field/row/order changes, both advance markers, strict canonical reconstruction, bounds/privacy/no writes; not committed source or arithmetic/XML parity |
 | `test_tax_dependency_observation.py` | Exact linked invoice/item template sets, independent financial pin, header/tax-row field/order/schema drift, zero-rate/conflicting-source preservation, missing/extra/company/parent/type refusal, bounds/privacy/direct reconstruction; still partial without committed SQL/ACL/precedence choice |
 | `test_issuing_settings_observation.py` | Source Company/device/linked records, saved-owner parity, every settings/alias value, nullable flags/cross-taxpayer refusal, secret-field exclusion, safe URL structure, exact canonical binding/privacy/bounds and unchanged shared registry; still partial without authorized committed acquisition |
+| `test_party_address_observation.py`, `test_customer_address_resolution.py` | Exact party/address graph, parent Company consistency, aliases/current Dynamic Links/declared candidate order, shared/historical disabled-unlinked addresses, strict schema/canonical/bounds/privacy and existing mocked resolver behavior; not committed-query completeness or address-selection authorization |
 | `test_preparation_custody_access.py` | Saved WRITE/related READ before scoped keys, protected ciphertext retrieval, exact internal recovery, mandatory evidence, late source/ACL drift, uncertain commit/interrupt/parent cleanup and one Arabic display summary; native chain suite adds real SQL visibility/contention, crash/restart, corruption and unknown commits |
 | `test_issuing_chain_mariadb.py` (separate opt-in) | Owned-private head/original atomicity, preparation contention, independent units, durable pre-build holds, commit/close uncertainty, exact reconciliation, cooperating-writer refusal, corruption and owned-server crash recovery |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |

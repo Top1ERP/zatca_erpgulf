@@ -2,6 +2,11 @@
 
 Increment 106 — 2026-10-25. Pure PARTIAL declarations, uninstalled.
 
+Increment 107 adds an independently pinned party/address graph, requiring
+matching overlapping Company fields/revision and preserving historical direct
+address refs without choosing replacements. Both profiles remain PARTIAL; see
+[PARTY_ADDRESS_OBSERVATION.md](PARTY_ADDRESS_OBSERVATION.md).
+
 The invoice-owned financial profile now has a sibling observation for the exact
 source Company, optional issuing device and its linked Company. At most three
 explicit supplied records are permitted. Same-company links reuse one record;
