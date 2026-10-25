@@ -230,3 +230,110 @@ def test_presentation_refuses_secret_fields_and_fabricated_grants(change):
     if change == "state": report["state"] = "ACCEPTED"
     with pytest.raises(access.PreparationCustodyAccessError):
         access.present_preparation_custody(report, lambda text:text)
+
+
+
+@pytest.mark.parametrize("method", ["stage", "load", "persist_from_custody"])
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("owner", ["company", "device", "linked"])
+def test_access_authenticates_once_without_skipping_source_boundaries(
+    custodian, certificates, monkeypatch, method, doctype, owner):
+    case = scenario(custodian, certificates[0], monkeypatch, doctype=doctype, owner=owner)
+    authenticated = Mock(wraps=case.cipher.open)
+    monkeypatch.setattr(case.cipher, "open", authenticated)
+    result = getattr(case.custody, method)(case.invoice.name,
+        *([case.sealed] if method == "stage" else []), doctype=doctype)
+    authenticated.assert_called_once_with(case.sealed)
+    expected_boundaries = {"stage":4, "load":2, "persist_from_custody":6}[method]
+    assert case.evidence.call_count == expected_boundaries
+    if method == "load":
+        assert result is case.sealed
+        case.database.commit.assert_not_called()
+    else:
+        assert result["local_transaction_completed"] is True
+    if method == "persist_from_custody":
+        assert case.custody_repo.load.call_count == 3  # Read and both write boundaries.
+        case.repository.complete.assert_called_once_with(case.retained.hold, case.retained.candidate)
+    untouched(custodian, case)
+
+
+@pytest.mark.parametrize("boundary", ["evidence", "factory", "stage", "close"])
+@pytest.mark.parametrize("field", ["site", "storage_namespace", "hold_id", "ticket_sha256",
+    "candidate_sha256", "manifest_sha256", "payload_sha256", "key_id", "nonce", "ciphertext"])
+def test_every_envelope_field_remains_pinned_after_authentication(
+    custodian, certificates, monkeypatch, boundary, field):
+    case = scenario(custodian, certificates[0], monkeypatch)
+    value = {"site":"other.test", "storage_namespace":str(uuid4()), "hold_id":str(uuid4()),
+        "key_id":"other-key", "nonce":b"N"*12,
+        "ciphertext":case.sealed.ciphertext[:-1] + bytes([case.sealed.ciphertext[-1] ^ 1])}.get(field, "f"*64)
+    target = {"evidence":case.evidence, "factory":case.factory,
+        "stage":case.custody_repo.stage, "close":case.database.close}[boundary]
+    result = {"evidence":True, "factory":case.database, "stage":case.sealed, "close":None}[boundary]
+    def mutate(*args, **kwargs):
+        # Deliberate trusted-callback corruption, not a supported mutation API.
+        object.__setattr__(case.sealed, field, value)
+        return result
+    target.side_effect = mutate
+    authenticated = Mock(wraps=case.cipher.open)
+    monkeypatch.setattr(case.cipher, "open", authenticated)
+    with pytest.raises(InspectionFailed) as caught:
+        stage(case)
+    assert str(caught.value) == access.FAILED_MESSAGE and caught.value.__context__ is None
+    authenticated.assert_called_once()
+    case.repository.complete.assert_not_called()
+    if boundary == "evidence":
+        case.factory.assert_not_called()
+    else:
+        case.database.close.assert_called_once()
+    if boundary == "close":
+        case.database.commit.assert_called_once()  # Late denial cannot undo commit.
+
+
+@pytest.mark.parametrize("field", ["xml_bytes", "key_sha256", "manifest_sha256",
+    "scope", "ticket", "completed"])
+@pytest.mark.parametrize("boundary", [1, 2, 3, 4])
+def test_independent_original_pin_catches_callback_drift_without_redecoding(
+    custodian, certificates, monkeypatch, field, boundary):
+    case = scenario(custodian, certificates[0], monkeypatch)
+    calls = []
+    def mutate(scope, rows, original, *, connection=None):
+        calls.append(connection)
+        if len(calls) == boundary:
+            if field in ("xml_bytes", "key_sha256", "manifest_sha256"):
+                object.__setattr__(original.candidate, field, b"PRIVATE" if field == "xml_bytes" else "f"*64)
+            elif field == "scope":
+                object.__setattr__(original, "scope", replace(original.scope, site="other.test"))
+            elif field == "ticket":
+                object.__setattr__(original.hold, "ticket", replace(original.hold.ticket, invoice_uuid=str(uuid4())))
+            else:
+                object.__setattr__(original.hold, "original_manifest_sha256", "f"*64)
+        return True
+    case.evidence.side_effect = mutate
+    authenticated = Mock(wraps=case.cipher.open)
+    monkeypatch.setattr(case.cipher, "open", authenticated)
+    with pytest.raises(InspectionFailed): stage(case)
+    authenticated.assert_called_once()
+    if boundary == 1: case.factory.assert_not_called()
+    else: case.database.close.assert_called_once()
+    if boundary == 4: case.database.commit.assert_called_once()
+
+
+@pytest.mark.parametrize("boundary", ["load", "evidence", "close"])
+@pytest.mark.parametrize("field", ["nonce", "ticket_sha256", "ciphertext"])
+def test_protected_read_never_discloses_late_changed_envelope(
+    custodian, certificates, monkeypatch, boundary, field):
+    case = scenario(custodian, certificates[0], monkeypatch)
+    if boundary == "load":
+        # Retrieval returns an already corrupted envelope: authentication refuses it.
+        target, result = case.custody_repo.load, case.sealed
+    else:
+        target = case.evidence if boundary == "evidence" else case.database.close
+        result = True if boundary == "evidence" else None
+    def mutate(*args, **kwargs):
+        object.__setattr__(case.sealed, field,
+            b"N"*12 if field == "nonce" else ("f"*64 if field == "ticket_sha256" else b"PRIVATE CORRUPTION"))
+        return result
+    target.side_effect = mutate
+    with pytest.raises(InspectionFailed): load(case)
+    case.database.commit.assert_not_called()
+    case.database.close.assert_called_once()

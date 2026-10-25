@@ -3,6 +3,16 @@
 Increment 102 — 2026-10-25. Offline development only: uninstalled dependencies,
 not a live vault, migration, button or authority client.
 
+Follow-up increment 103 removes repeated decryption/XML reconstruction from
+access-boundary guards. Authenticate at entry and pin the whole envelope hash
+plus an independent validated original; compare them before/after callbacks.
+Every source/ACL/evidence boundary is retained, and SQL repositories still
+authenticate each loaded envelope independently. Native tests count cipher opens:
+stage 7 -> 3, protected load 4 -> 2, recovery 6 -> 4. These are operation counts,
+not a measured end-to-end latency or memory guarantee. Cipher/key providers and
+callbacks remain trusted server dependencies, not an arbitrary-code sandbox.
+See [STATUS.md](STATUS.md) for the follow-up tests and restrictions.
+
 ## Purpose and exact format
 
 After a durable preparation hold and one local build, retain the exact original

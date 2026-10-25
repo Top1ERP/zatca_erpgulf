@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and two bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and three bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2312,6 +2312,57 @@ SQL suites, with the network/site guard active. No assertion, ACL, timeout,
 crypto check or offline restriction was waived.
 Installed v15/v16, authenticated financial/source provenance, deployed key
 management and SDK/authority acceptance are not claimed.
+
+## Increment 103: bounded custody authentication without repeated XML reconstruction
+
+- Remove redundant decrypt/decode from access-boundary guards. Authenticate at
+  entry, retain an independent validated original, and bind the complete sealed
+  envelope by its exact fingerprint. Compare before/after callbacks; do not
+  cache permission, source revision or explicit evidence results.
+- Preserve all source/ACL/evidence boundaries and the SQL repositories' separate
+  authentication of loaded envelopes. Native tests assert cipher-open counts:
+  stage 7 -> 3, protected load 4 -> 2 and local recovery 6 -> 4. This proves fewer
+  operations, not end-to-end speed, throughput or peak-memory bounds.
+- Add mutation tests for every sealed field and independent original content,
+  context/ticket/manifest, at all storage/evidence/cleanup boundaries. Late denial
+  still cannot undo a completed commit. Actual SQL tests prove the original
+  ciphertext remains unchanged, the head is not advanced by staging and holds
+  are not cleared. Borrowed-parent, interruption, exact recovery, Arabic display
+  and prior source checks remain covered by the unchanged regression suites.
+- Keep cipher/key-provider/callback trust and authentic accounting/source/epoch
+  provenance as explicit gates. No financial calculations, field aliases, source
+  snapshots, live callers, schema/provider installation or HTTP are changed.
+  See [PREPARATION_CUSTODY.md](PREPARATION_CUSTODY.md).
+
+Targeted access/recovery suites passed **430 cases in 6.36 seconds**; expanded
+native chain/custody suite passed **212 cases in 10.00 seconds**. This increment
+adds **202 cases**: 182 local and 20 private SQL. Final guarded combined run
+passed **15,238 local + 2,234 private SQL = 17,472 cases in 201.05 seconds**,
+across fourteen private SQL suites, with the offline/site guard active. All
+nine Node VM scripts passed **1,444 cases**. No assertion/ACL/timeout/offline or
+crypto guard was waived; installed ERPNext 15/16, SDK and authority acceptance
+remain untested.
+
+### Immediate source-evidence follow-up — not implemented by increment 103
+
+The context's source hash is still a declaration, not a computed committed ERP
+financial snapshot. Existing saved-row guards deliberately cover identity/owner/
+revision/routing projections, not complete invoice amounts or child tables.
+Next define a versioned dependency manifest before enabling a default verifier:
+
+1. Header, ordered items/taxes/payments/advance deductions and referenced tax
+   templates, customer/address, effective Company/device configuration, precision
+   and time settings; enumerate each actual XML adapter's dependencies.
+2. Explicit v15/v16 schema and alternate-field presence/precedence. Preserve zero
+   versus absent values; do not silently change current net/discount/tax/return/
+   advance rounding policy while introducing a fingerprint.
+3. Owned committed source reads with child insertion/deletion/order detection,
+   stable lock order and source/ACL/settings checks around snapshot capture.
+   A saved parent modified timestamp or cached document alone is insufficient.
+4. Bind that canonical snapshot to preparation and custody, then test arithmetic/
+   XML parity separately across Sales/POS, both phases, Debug, Compliance and
+   initial/settled/returned/historical advances. No generic True guard substitutes
+   for this work. Installed-version and SDK rehearsal need separate approval.
 
 ## Verification
 

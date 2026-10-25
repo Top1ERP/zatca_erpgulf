@@ -19,6 +19,13 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 103 reduces encrypted-custody access work by authenticating once per
+entry and pinning the complete envelope and independent original at subsequent
+boundaries. Preserve all source/ACL/evidence checks and independent SQL envelope
+authentication. Tests assert actual decrypt counts and reject late envelope/
+original mutation, including post-commit denial. No accounting policy, snapshot
+provenance, runtime binding or transport permission changes.
+
 Increment 102 adds uninstalled encrypted exact-original/ticket custody and
 saved-WRITE protected retrieval feeding the existing local recovery service.
 Supplied independent storage keys authenticate an immutable envelope; uncertain

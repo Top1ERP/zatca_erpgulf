@@ -129,8 +129,12 @@ class SavedPreparationCustodyService:
         recheck()
         return selected, resources.cipher
 
-    def _guard(self, selected, cipher, sealed, retained, pinned, binding, connection=None):
-        if sealed_preparation_sha256(sealed) != binding or cipher.open(sealed) != pinned:
+    def _guard(self, selected, sealed, retained, pinned, binding, connection=None):
+        # Authenticate/decode once at entry, then pin the entire envelope and
+        # an independent validated original. Repeating decryption/XML parsing
+        # cannot strengthen this binding; source/ACL/evidence still recheck.
+        # Storage repositories separately authenticate every loaded envelope.
+        if sealed_preparation_sha256(sealed) != binding:
             raise PreparationCustodyAccessError("preparation_custody_input_drift")
         _guard_original_source(self._policy, retained, pinned, selected, self._evidence, connection)
         if sealed_preparation_sha256(sealed) != binding:
@@ -144,7 +148,7 @@ class SavedPreparationCustodyService:
             pinned = RetainedPreparationOriginal(*_validated_parts(retained))
             binding = sealed_preparation_sha256(sealed)
             def guard(connection=None):
-                self._guard(selected, cipher, sealed, retained, pinned, binding, connection)
+                self._guard(selected, sealed, retained, pinned, binding, connection)
             guard()
             def work(connection):
                 guard(connection)
@@ -190,7 +194,7 @@ class SavedPreparationCustodyService:
                 raise PreparationCustodyAccessError("preparation_custody_binding")
             pinned = RetainedPreparationOriginal(*_validated_parts(retained))
             binding = sealed_preparation_sha256(sealed)
-            self._guard(selected, cipher, sealed, retained, pinned, binding, connection)
+            self._guard(selected, sealed, retained, pinned, binding, connection)
         except BaseException as error:
             failure = error
         finally:
@@ -198,7 +202,7 @@ class SavedPreparationCustodyService:
                 cleanup_failure = _discard(connection)
         if failure is None and cleanup_failure is None:
             try:
-                self._guard(selected, cipher, sealed, retained, pinned, binding)
+                self._guard(selected, sealed, retained, pinned, binding)
                 return sealed, retained, cipher
             except BaseException as error:
                 failure = error

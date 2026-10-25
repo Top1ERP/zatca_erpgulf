@@ -1271,3 +1271,54 @@ def test_evidence_callback_projected_sql_drift_is_rolled_back_not_committed(revi
         cursor.execute("SELECT tax_id FROM `tabCompany` WHERE name=%s", ("TEST",))
         assert cursor.fetchone() == (selected.company.tax_id,)
     assert count(observer, "zatca_issuance_candidate_v1", selected.scope.storage_namespace) == 0
+
+
+
+@pytest.mark.parametrize("method", ["stage", "load", "persist_from_custody"])
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+def test_native_custody_avoids_redecoding_but_authenticates_sql_envelopes(
+    review_source_schema, connections, custodian, certificates, monkeypatch, method, doctype):
+    selected = native_custody(connections, custodian, certificates, monkeypatch, doctype=doctype)
+    if method != "stage":
+        assert stage_custody(selected)["local_transaction_completed"] is True
+    selected.evidence.reset_mock()
+    authenticated = Mock(wraps=selected.cipher.open)
+    monkeypatch.setattr(selected.cipher, "open", authenticated)
+    result = getattr(selected.custody, method)(selected.invoice.name,
+        *([selected.sealed] if method == "stage" else []), doctype=doctype)
+    # Access entry + repository authentication; boundary guards do no XML work.
+    assert authenticated.call_count == {"stage":3, "load":2, "persist_from_custody":4}[method]
+    assert selected.evidence.call_count == {"stage":4, "load":2, "persist_from_custody":6}[method]
+    assert all(call.args == (selected.sealed,) for call in authenticated.call_args_list)
+    if method == "load": assert result == selected.sealed
+    else: assert result["local_transaction_completed"] is True
+    assert all(not connection.open for connection in selected.opened)
+    observer = connections()
+    assert count(observer, "zatca_preparation_custody_v1", selected.scope.storage_namespace) == 1
+    assert count(observer, "zatca_issuance_candidate_v1", selected.scope.storage_namespace) == int(method == "persist_from_custody")
+
+
+@pytest.mark.parametrize("boundary", [1, 2, 3, 4])
+def test_native_stage_pin_rejects_late_envelope_change_without_clearing_storage(
+    review_source_schema, connections, custodian, certificates, monkeypatch, boundary):
+    selected = native_custody(connections, custodian, certificates, monkeypatch)
+    original = replace(selected.sealed)
+    calls = []
+    def evidence(*args, **kwargs):
+        calls.append(kwargs["connection"])
+        if len(calls) == boundary:
+            object.__setattr__(selected.sealed, "payload_sha256", "f"*64)
+        return True
+    selected.evidence.side_effect = evidence
+    with pytest.raises(InspectionFailed): stage_custody(selected)
+    observer = connections()
+    stored_count = count(observer, "zatca_preparation_custody_v1", selected.scope.storage_namespace)
+    assert stored_count == int(boundary == 4)  # Late denial cannot undo commit.
+    if stored_count:
+        stored = custody.MariaDBPreparationCustodyRepository(
+            observer, selected.scope.storage_namespace, selected.cipher).load(original.hold_id)
+        assert stored == original
+    assert count(observer, "zatca_issuance_candidate_v1", selected.scope.storage_namespace) == 0
+    stored_hold = MariaDBPreparationHoldRepository(observer, selected.scope.storage_namespace).load(selected.hold)
+    assert stored_hold.original_manifest_sha256 is None
+    assert all(not connection.open for connection in selected.opened)
