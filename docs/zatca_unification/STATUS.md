@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and three bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and four bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2364,6 +2364,40 @@ Next define a versioned dependency manifest before enabling a default verifier:
    initial/settled/returned/historical advances. No generic True guard substitutes
    for this work. Installed-version and SDK rehearsal need separate approval.
 
+## Increment 104: pure invoice-owned financial dependency observation
+
+- Add a bounded versioned projection for Sales/POS header and ordered item,
+  tax, payment, advance and ZATCA deduction rows. Include row identity/order and
+  optional column/table presence, not just a saved parent modified timestamp.
+- Preserve typed exact values, valid zeros, NULL/empty/absent and Decimal scale;
+  no rounding, net/discount recalculation, tax-source priority or alias choice.
+  Freeze canonical bytes and domain-separated hash with protected repr/nonpickle.
+- Validate fixed projection/canonical scalar structure even on direct object
+  construction. Reject wrong metadata/Table options/parent links/idx/duplicate
+  identities, unsupported/nonfinite values and text/row/payload overflows using
+  static unchained errors. No Frappe/SQL/file/clock/transport side effects.
+- Keep this explicitly PARTIAL and uninstalled: no substitution for the existing
+  preparation source digest, mandatory source guard or financial validation.
+  Linked templates/parties/addresses/settings, authenticated committed capture,
+  credential provenance and accounting/XML parity remain separate gates.
+- Document observed source dependencies and the existing tax-template versus
+  invoice-priority discrepancy for a separate parity-focused change, without
+  silently changing calculations or historical tests. No live schema, Company,
+  invoice, UI/provider or authority operation changes. See
+  [FINANCIAL_SOURCE_OBSERVATION.md](FINANCIAL_SOURCE_OBSERVATION.md).
+
+The final targeted new suite passed **1,103 cases in 4.99 seconds**, including every
+selected header/child dependency, unchanged-parent edits/membership/order,
+advance markers, v15/v16 declared profiles, typed values/privacy/bounds and
+malformed payload reconstruction and stopping canonical encoding at the size
+limit before consuming further fragments. An initial combined run passed
+**18,568 cases in 195.25 seconds** before the final streaming-bound refinement
+and seven extra tests. Final guarded verification passed **16,341 local + 2,234
+private SQL = 18,575 cases in 198.87 seconds**, across fourteen private SQL
+suites. All nine Node VM scripts passed **1,444 cases**. These are synthetic
+profile observations, not installed ERP/SDK/authority acceptance. No ordinary
+ACL, timeout, network/site guard, assertion or cryptographic check was waived.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -2775,6 +2809,7 @@ endpoints remain untouched.
 | `test_preparation_review_access.py` | Saved READ/related ownership, pending/recorded/absent metadata, missing saved UUID/counter, current-source/ACL/actor guards, owned cleanup, protected source lookup and Arabic display-only presentation; v15/v16 signatures are mocks, not installed-version tests |
 | `test_preparation_recovery_access.py` | Separate saved WRITE/related READ, exact retained contract/pinning, mandatory evidence, conservative source status, owned uncertainty/cleanup, late drift and Arabic single-message metadata separation; no live verifier/vault or runtime adoption |
 | `test_preparation_custody.py` | Exact bounded ticket/context/XML frames, dedicated AES-GCM metadata binding, malformed/tampered/wrong-key rejection, protected representations, caller transaction ownership, immutable ciphertext and poisoned failed handles |
+| `test_financial_source_observation.py` | Partial invoice-owned typed header/child observations, schema presence, unchanged-parent field/row/order changes, both advance markers, strict canonical reconstruction, bounds/privacy/no writes; not committed source or arithmetic/XML parity |
 | `test_preparation_custody_access.py` | Saved WRITE/related READ before scoped keys, protected ciphertext retrieval, exact internal recovery, mandatory evidence, late source/ACL drift, uncertain commit/interrupt/parent cleanup and one Arabic display summary; native chain suite adds real SQL visibility/contention, crash/restart, corruption and unknown commits |
 | `test_issuing_chain_mariadb.py` (separate opt-in) | Owned-private head/original atomicity, preparation contention, independent units, durable pre-build holds, commit/close uncertainty, exact reconciliation, cooperating-writer refusal, corruption and owned-server crash recovery |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |

@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 104 starts the financial dependency boundary with a pure versioned
+invoice-owned observation: header plus ordered items/taxes/payments/advances/
+deductions and explicit optional-schema presence. Preserve exact typed values,
+including zero/NULL/absent/scale, without recalculation or alias selection.
+This PARTIAL digest is NOT the complete preparation source hash or a default
+evidence guard. Committed SQL, linked settings/templates and arithmetic/XML
+parity remain gates. See [FINANCIAL_SOURCE_OBSERVATION.md](FINANCIAL_SOURCE_OBSERVATION.md).
+
 Increment 103 reduces encrypted-custody access work by authenticating once per
 entry and pinning the complete envelope and independent original at subsequent
 boundaries. Preserve all source/ACL/evidence checks and independent SQL envelope
