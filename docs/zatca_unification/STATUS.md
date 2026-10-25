@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and ninety-seven bounded increments (Compliance outcomes, dedicated
+Safety preparation and ninety-eight bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2145,6 +2145,38 @@ now uses that same observer and explicit rollback. No assertion, timeout,
 ordinary ACL, resource or cryptographic guard was waived. No installed v15/v16,
 SDK or authority acceptance is claimed.
 
+## Increment 98: one-shot pinned preparation inside the caller transaction
+
+- Add a private frozen ticket binding the exact predecessor, declared source/
+  epoch/route context and supplied canonical UUID. Next ICV/PIH derive from the
+  locked predecessor; neither builder nor later HTTP result selects them.
+- Add a repository preflight that locks an existing declared head and refuses an
+  existing issuance key BEFORE invoking a builder. No registration discovery,
+  automatic genesis, legacy reset, UUID allocation or normal runtime wiring.
+- Add an internal one-shot coordinator with explicit local build, protected
+  custody and saved-source guard callbacks. Keep the exact returned candidate
+  before later failures, enforce context/UUID/ICV/PIH, require literal True and
+  guard four boundaries. Recursive or failed operations poison the repository;
+  callers own whole-parent rollback, commit and exact-original reconciliation.
+- Test actual private-SQL two-worker ordering: same-source work is refused before
+  building after its predecessor commits; different-source work builds only after
+  obtaining the next committed head. No new runtime wait/polling interval.
+- This is NOT a durable pre-build hold, installed ERP source/ACL adapter, proof of
+  custody/signature/enrollment, legacy migration or an authority client. In-memory
+  one-shot state cannot protect fresh workers after process death/rollback; do
+  not rebuild absent keys after uncertainty. Same-handle callback transaction
+  tampering remains an explicit outer-owner gate. No live site/worker or authority
+  operation. See [ISSUANCE_PREPARATION.md](ISSUANCE_PREPARATION.md).
+
+Final guarded combined: **14,497 local + 2,061 private SQL = 16,558 passed in
+179.70 seconds**, across fourteen private suites. This adds **110 cases** (98
+local preparation cases and 12 native transaction/concurrency cases). The
+targeted chain SQL suite passed **39 cases in 2.48 seconds**. All nine Node VM
+scripts passed **1,444 cases**. An initial synthetic route-drift fixture changed
+an absent path segment; it now genuinely changes the path and explicitly asserts
+the difference. No assertion, timeout, ordinary ACL or cryptographic guard was
+waived. No installed v15/v16, SDK or authority acceptance is claimed.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -2551,6 +2583,7 @@ endpoints remain untouched.
 | `test_icv_identity_contract.py` | Read-only characterization of legacy identity/rotation/purpose behavior and collision edge cases; not a counter migration |
 | `test_invoice_xml_core.py` | Shared metadata/reference/type fragments, saved PIH owner/flag/source parity, missing-hash preservation and Arabic display, automatic six-type parity, legacy UUID filter and mocked first-counter behavior; not genesis/atomic issuance proof |
 | `test_issuing_chain.py` | Explicit new-unit seed/state, exact candidate/source/epoch/predecessor transitions, strict bounded codecs and mocked transaction/error ownership; no authenticated enrollment or runtime allocation |
+| `test_issuance_preparation.py` | One-shot pinned preparation, pre-build key/binding refusal, exact builder/custody/guard boundaries, recursive/error poisoning and caller transaction ownership; no installed adapter or durable pending hold |
 | `test_issuing_chain_mariadb.py` (separate opt-in) | Owned-private head/original atomicity, initialization/redelivery without reset, two-worker first-position contention, independent units, uncertain commits, corruption and owned-server crash recovery |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |
 | `test_background_scheduling.py` | Shared Sales/POS worker selection, Company isolation/windows/settings, stale status and draft boundaries, actual parent routing and worker bridge |

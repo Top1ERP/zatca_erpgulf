@@ -13,6 +13,8 @@ import pytest
 from zatca_erpgulf.zatca_erpgulf import issuing_chain as chain
 from zatca_erpgulf.zatca_erpgulf import issuing_chain_repository as storage
 from zatca_erpgulf.zatca_erpgulf.journal_repository import MariaDBJournalRepository
+from zatca_erpgulf.zatca_erpgulf.issuance_preparation import IssuancePreparation
+from zatca_erpgulf.zatca_erpgulf.tests.test_issuance_preparation import build_for
 from zatca_erpgulf.zatca_erpgulf.tests.test_certificate_evidence import certificates
 from zatca_erpgulf.zatca_erpgulf.tests.test_issuing_chain import registration, prepared_for
 from zatca_erpgulf.zatca_erpgulf.tests.test_journal_repository_mariadb import isolated_server, connections
@@ -280,3 +282,138 @@ def test_owned_server_crash_rolls_back_uncommitted_head_and_original(connections
     observer = connections()
     assert repository(observer, case).load(case["registered"]) == before
     assert count(observer, "zatca_issuance_candidate_v1", case["namespace"]) == 0
+
+
+def prepare_synthetic(connection, case, *, name="SYNTHETIC-1", guard=lambda ticket: True,
+                      retain=lambda ticket, original: True, build=None, invoice_uuid=None):
+    """Explicit private-fixture transaction; no installed adapter or authority."""
+    template = prepared_for(case["der"], case["registered"], name=name)
+    service = IssuancePreparation(repository(connection, case))
+    after = service.prepare(case["registered"], template.context, invoice_uuid or str(uuid4()),
+        build=build or (lambda ticket: build_for(case["der"], ticket)), retain=retain, guard=guard)
+    return service, after
+
+
+@pytest.mark.parametrize("commit", [True, False])
+def test_preparation_stages_exact_original_and_parent_without_owning_commit(connections, case, commit):
+    writer, observer = connections(), connections()
+    before = initialize(writer, case)
+    with writer.cursor() as cursor:
+        cursor.execute("INSERT INTO chain_parent_work VALUES (%s,%s)", (case["namespace"], "SYNTHETIC"))
+    retained = []
+    def retain(ticket, original):
+        retained.append((ticket, original))
+        assert count(observer, "zatca_issuance_candidate_v1", case["namespace"]) == 0
+        return True
+    service, after = prepare_synthetic(writer, case, retain=retain)
+    original = service.protected_original
+    assert retained == [(service.protected_ticket, original)] and after.last_icv == 1
+    assert count(observer, "chain_parent_work", case["namespace"]) == 0
+    writer.commit() if commit else writer.rollback()
+    observer.rollback()
+    assert repository(observer, case).load(case["registered"]) == (after if commit else before)
+    assert count(observer, "zatca_issuance_candidate_v1", case["namespace"]) == int(commit)
+    assert count(observer, "chain_parent_work", case["namespace"]) == int(commit)
+    if commit:
+        saved = MariaDBJournalRepository(observer, case["namespace"]).load(original.key_sha256)
+        assert saved.candidate.xml_bytes == original.xml_bytes
+    else:
+        # Do NOT call a fresh builder after rollback. Keep the exact ticket and
+        # original for explicit reconciliation with a fresh transaction instead.
+        observer.rollback()
+        assert repository(writer, case).record(service.protected_ticket.predecessor, original) == after
+        writer.rollback()
+
+
+@pytest.mark.parametrize("stage", [1, 2, 3, 4])
+def test_preparation_late_guard_failure_is_rolled_back_with_parent_work(connections, case, stage):
+    writer = connections()
+    before = initialize(writer, case)
+    with writer.cursor() as cursor:
+        cursor.execute("INSERT INTO chain_parent_work VALUES (%s,%s)", (case["namespace"], "SYNTHETIC"))
+    calls = []
+    retained = []
+    service = IssuancePreparation(repository(writer, case))
+    template = prepared_for(case["der"], case["registered"])
+    def guard(ticket):
+        calls.append(ticket)
+        return len(calls) != stage
+    def retain(ticket, original):
+        retained.append(original)
+        return True
+    with pytest.raises(chain.IssuingChainError, match="^preparation_source_guard$"):
+        service.prepare(case["registered"], template.context, str(uuid4()), guard=guard,
+            retain=retain, build=lambda ticket: build_for(case["der"], ticket))
+    assert service.protected_original is not None if stage > 1 else service.protected_original is None
+    writer.rollback()  # Caller owns ALL parent/chain/artifact rollback.
+    observer = connections()
+    assert repository(observer, case).load(case["registered"]) == before
+    assert count(observer, "zatca_issuance_candidate_v1", case["namespace"]) == 0
+    assert count(observer, "chain_parent_work", case["namespace"]) == 0
+
+
+@pytest.mark.parametrize("isolation", ["READ COMMITTED", "REPEATABLE READ"])
+@pytest.mark.parametrize("same_source", [True, False])
+def test_competing_preparation_locks_before_builder_then_reviews_or_uses_next_head(connections, case, isolation, same_source):
+    writer = connections(isolation)
+    initialize(writer, case)
+    first_service, first = prepare_synthetic(writer, case, name="FIRST")
+    ready, built = Event(), Event()
+    def competitor():
+        connection = connections(isolation)
+        ready.set()
+        def build(ticket):
+            built.set()
+            return build_for(case["der"], ticket)
+        try:
+            service, after = prepare_synthetic(connection, case,
+                name="FIRST" if same_source else "SECOND", build=build)
+            connection.commit()
+            return service, after
+        except chain.IssuingChainError as error:
+            connection.rollback()
+            return error.code
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(competitor)
+        assert ready.wait(5)
+        with pytest.raises(TimeoutError): future.result(timeout=0.05)
+        assert not built.is_set()  # Crucially, no XML/UUID from the builder yet.
+        writer.commit()
+        outcome = future.result(timeout=10)
+    if same_source:
+        assert outcome == "chain_original_requires_review" and not built.is_set()
+    else:
+        service, after = outcome
+        assert after.last_icv == 2 and service.protected_ticket.predecessor == first
+        assert service.protected_original.artifact.previous_hash == first.previous_hash
+        assert service.protected_original.artifact.uuid != first_service.protected_original.artifact.uuid
+    observer = connections()
+    assert count(observer, "zatca_issuance_candidate_v1", case["namespace"]) == (1 if same_source else 2)
+
+
+def test_unknown_preparation_commit_ack_uses_retained_original_not_a_second_builder(connections, case):
+    writer = connections()
+    initialize(writer, case)
+    service, after = prepare_synthetic(writer, case)
+    writer.commit()  # Synthetic successful commit with an unavailable acknowledgment.
+    writer.close()
+    reader = connections()
+    before, original = service.protected_ticket.predecessor, service.protected_original
+    assert repository(reader, case).record(before, original) == after
+    reader.commit()
+    builds = []
+    with pytest.raises(chain.IssuingChainError, match="^chain_original_requires_review$"):
+        prepare_synthetic(reader, case, build=lambda ticket: builds.append(ticket))
+    assert builds == []
+    reader.rollback()
+    assert count(reader, "zatca_issuance_candidate_v1", case["namespace"]) == 1
+
+
+def test_missing_explicit_chain_never_runs_preparation_builder(connections, case):
+    writer = connections()
+    builds = []
+    with pytest.raises(chain.IssuingChainError, match="^chain_missing$"):
+        prepare_synthetic(writer, case, build=lambda ticket: builds.append(ticket))
+    assert builds == []
+    writer.rollback()
+    assert count(writer, "zatca_issuing_chain_v1", case["namespace"]) == 0

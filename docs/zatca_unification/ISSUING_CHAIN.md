@@ -82,6 +82,12 @@ installed. Do not export payload bytes as a UI/log projection.
 
 ## Small existing-path correction
 
+Increment 98 adds the uninstalled [one-shot preparation coordinator](ISSUANCE_PREPARATION.md)
+on top of this repository. It pins UUID/context/next ICV/PIH and refuses an
+existing logical key before building, with explicit local custody/source guards.
+It does not authenticate enrollment, install a durable pre-build hold, migrate
+legacy workers or change the live issuance path.
+
 Automatic onboarding's EMPTY-Company-PIH fallback now uses the shared published
 seed instead of a hash of a random sample ID. It still creates no ERP invoice or
 customer and writes no Company PIH. Nonempty configured values, timestamp-based
@@ -106,12 +112,15 @@ Synthetic 200/202/400/401/500 observations do not roll back the generated chain.
 No test establishes authenticated enrollment, valid signatures, SDK acceptance,
 installed ERPNext 15/16 or remote acceptance.
 
-Final guarded verification: **14,399 local + 2,049 private SQL = 16,448 passed
+Increment 97 guarded verification: **14,399 local + 2,049 private SQL = 16,448 passed
 in 177.33 seconds**, across fourteen owned-private SQL suites. The increment adds
 174 cases; all nine Node VM scripts also passed **1,444 cases**. One initial
 native assertion held an observer lock across a different connection's read;
 the test now reuses the observer and releases its transaction explicitly. No
 timeout/assertion was weakened, and no customer/site or authority I/O occurred.
+Increment 98 preparation verification extends the combined result to **16,558
+passing Python/SQL cases** and the same **1,444 Node VM cases**; see its linked
+preparation notes for the exact scope and remaining custody/worker gates.
 
 Before runtime adoption: authenticate the exact enrollment record and owned
 site/namespace/connection; implement normal source/settings ACL and revision

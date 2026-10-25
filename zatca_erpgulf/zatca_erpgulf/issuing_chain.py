@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from zatca_erpgulf.zatca_erpgulf.api_routing import ENVIRONMENT_FIELDS
 from zatca_erpgulf.zatca_erpgulf.invoice_xml_core import INITIAL_PREVIOUS_HASH
 from zatca_erpgulf.zatca_erpgulf.issuance_candidate import (
-    DeclaredCredentialEpoch, IssuanceContractError, PreparedIssuanceCandidate,
+    DeclaredCredentialEpoch, IssuanceContractError, PreparationContext, PreparedIssuanceCandidate,
     _canonical_uuid, _fingerprint, _identity_text, _sha256,
 )
 
@@ -145,18 +145,25 @@ def initialize_declared_chain(registration):
     return IssuingChainState(registration, 0, INITIAL_PREVIOUS_HASH)
 
 
-def validate_chain_candidate(registration, candidate):
-    """Bind source/environment/epoch without changing UUID, ICV or XML bytes."""
-    if type(registration) is not DeclaredChainRegistration or type(candidate) is not PreparedIssuanceCandidate:
-        raise IssuingChainError("chain_candidate")
-    scope = candidate.context.scope
+def validate_chain_context(registration, context):
+    """Compare the declared binding before invoking any expensive XML builder."""
+    if type(registration) is not DeclaredChainRegistration or type(context) is not PreparationContext:
+        raise IssuingChainError("chain_context")
+    scope = context.scope
     if (
         scope.chain_id != registration.chain_id or scope.company_name != registration.company_name
         or scope.seller_tax_id != registration.seller_tax_id or scope.environment != registration.environment
     ):
         raise IssuingChainError("chain_candidate_scope")
-    if candidate.context.credential_epoch != registration.credential_epoch:
+    if context.credential_epoch != registration.credential_epoch:
         raise IssuingChainError("chain_candidate_epoch")
+
+
+def validate_chain_candidate(registration, candidate):
+    """Bind source/environment/epoch without changing UUID, ICV or XML bytes."""
+    if type(registration) is not DeclaredChainRegistration or type(candidate) is not PreparedIssuanceCandidate:
+        raise IssuingChainError("chain_candidate")
+    validate_chain_context(registration, candidate.context)
 
 
 def record_generated_candidate(before, candidate):

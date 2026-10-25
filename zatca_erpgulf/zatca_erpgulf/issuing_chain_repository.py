@@ -11,11 +11,12 @@ from contextlib import contextmanager
 
 from zatca_erpgulf.zatca_erpgulf.artifact_evidence import ArtifactEvidenceError
 from zatca_erpgulf.zatca_erpgulf.issuance_candidate import (
-    DeclaredCredentialEpoch, _canonical_uuid, compare_prepared_candidates,
+    DeclaredCredentialEpoch, _canonical_uuid, _fingerprint, compare_prepared_candidates,
 )
 from zatca_erpgulf.zatca_erpgulf.issuing_chain import (
     DeclaredChainRegistration, IssuingChainError, IssuingChainState, _check,
-    initialize_declared_chain, record_generated_candidate, validate_chain_candidate,
+    MAX_CHAIN_ICV, initialize_declared_chain, record_generated_candidate,
+    validate_chain_candidate, validate_chain_context,
 )
 from zatca_erpgulf.zatca_erpgulf.journal_repository import MariaDBJournalRepository
 from zatca_erpgulf.zatca_erpgulf.journal_storage import JournalStorageError
@@ -216,6 +217,28 @@ class MariaDBIssuingChainRepository:
                 if cursor.rowcount != 1:
                     raise IssuingChainError("chain_compare_and_swap")
                 return after
+
+    def begin_preparation(self, registration, context):
+        """Lock an existing head and refuse a previously prepared source key.
+
+        No allocation or durable reservation occurs here. The same caller-owned
+        transaction must remain open through building, custody and record().
+        Existing originals require exact review, never a replacement builder.
+        """
+        with self._guard():
+            validate_chain_context(registration, context)
+            with self._cursor() as cursor:
+                before = self._load(cursor, registration)
+                key = _fingerprint(context.scope.key_projection())
+                if self._has_candidate(cursor, key):
+                    raise IssuingChainError("chain_original_requires_review")
+                if before.last_icv == MAX_CHAIN_ICV:
+                    raise IssuingChainError("chain_counter_exhausted")
+                return before
+
+    def invalidate(self):
+        """Block this handle after an external preparation failure; owner rolls back."""
+        self._failed = True
 
     def _has_candidate(self, cursor, key_sha256):
         cursor.execute(

@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 98 adds an uninstalled one-shot preparation coordinator: lock an
+existing explicit chain, refuse a previously prepared source before building,
+pin context/UUID/ICV/PIH, preserve the exact candidate before protected custody,
+recheck the declared source guard and stage original/head in the caller's
+transaction. It does not commit, send, supply an ERP adapter, authenticate
+declarations or install a durable pre-build hold. Process-death/rollback recovery
+and source/identity custody remain gates before runtime adoption. See
+[ISSUANCE_PREPARATION.md](ISSUANCE_PREPARATION.md).
+
 Increment 97 introduces explicit NEW_EGS chain state and atomic local recording
 of its exact original through the shared artifact repository. No manual reset
 field is added. A declared new unit starts from zero/initial PIH and records its
