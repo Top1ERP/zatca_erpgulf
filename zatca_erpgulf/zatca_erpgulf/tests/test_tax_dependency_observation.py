@@ -275,3 +275,16 @@ def test_missing_template_fails_instead_of_choosing_invoice_fallback(case):
     case = scenario(case, items=False)
     case.templates.clear()
     assert_static(lambda:capture(case))
+
+
+
+def test_shared_template_helpers_preserve_committed_v105_wire_fingerprints(case):
+    case=scenario(case)
+    expected={
+        (15,"Sales Invoice"):"878615ba8a8a6b378fd25e145f7a349ded0b97ebd9a7d5a00331bdc916b6a1a9",
+        (15,"POS Invoice"):"23a00b991404265cca8208a0c51faaeda4a17dff3ccefa15c7529dbb04078901",
+        (16,"Sales Invoice"):"967afadf93b48ceea73a47461f199afd351eea31d9e622f924d0f1d79efd21aa",
+        (16,"POS Invoice"):"3ccc87d5536f25d46d0c67104db06850f21360be9e313388c85b47cb3443f44b",
+    }
+    # Independently compared with committed source before freezing these values.
+    assert capture(case).sha256==expected[case.erp_major,case.doc.doctype]

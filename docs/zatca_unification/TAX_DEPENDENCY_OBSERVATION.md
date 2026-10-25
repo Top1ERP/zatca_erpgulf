@@ -2,6 +2,11 @@
 
 Increment 105 — 2026-10-25. Pure offline development; uninstalled.
 
+Increment 108 reuses template capture/validation helpers for explicit POS Profile
+tax references, without changing this version's bytes or source selection.
+Read-only prior-format comparison and fixed tax-profile goldens protect the
+refactor. See [CALCULATION_SETTINGS_OBSERVATION.md](CALCULATION_SETTINGS_OBSERVATION.md).
+
 ## What this adds
 
 The [invoice-owned financial profile](FINANCIAL_SOURCE_OBSERVATION.md) records

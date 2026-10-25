@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 108 captures explicit System Settings/Global Defaults Singletons,
+referenced currencies, POS Profile/payments and its own tax template. Preserve
+Singleton storage without invented modified values, deduplicate currency refs
+and reuse the existing tax-profile helpers without wire/precedence changes.
+Still PARTIAL: effective metadata/default scope, committed capture and real
+calculation/XML parity remain gates. See
+[CALCULATION_SETTINGS_OBSERVATION.md](CALCULATION_SETTINGS_OBSERVATION.md).
+
 Increment 107 adds an explicit party/address graph from a pinned settings/source
 parent, with exact Company/Customer/Cost Center refs, address fields/current links
 and caller-observed discovery order. Preserve submitted historical addresses and

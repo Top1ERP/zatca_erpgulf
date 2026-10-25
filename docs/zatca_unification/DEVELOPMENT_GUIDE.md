@@ -23,6 +23,7 @@ A DEV branch source push is not deployment or permission to send.
 | Field compatibility | ksa_compliance/field_alias_registry.py and field_compat.py | One registry; pure names separated from Frappe schema/lookup operations |
 | Financial observations | financial_source_observation.py, tax_dependency_observation.py, issuing_settings_observation.py | Pure PARTIAL immutable declarations, not complete committed source guards |
 | Party/address graph | party_address_observation.py | Pins settings/financial parent; exact records/current links and declared candidate order, NOT an address resolver or complete-query proof |
+| Calculation declarations | calculation_settings_observation.py | Explicit Singleton/Currency/POS/profile-tax records; not effective precision, timezone interpretation or fiscal validity |
 | Original preparation/history | issuance_candidate.py, issuance_preparation.py, issuing_chain*.py, preparation_hold.py | Explicit identity/chain contracts and local durable holds; not integrated issuance authorization |
 | Protected recovery | preparation_review_access.py, preparation_recovery_access.py, preparation_custody*.py | Opt-in source/ACL/evidence boundaries; no default trusted provider/runtime caller |
 | Primary receipt/outcome scaffolds | primary_capture*.py, primary_receipt*.py, response_assessment.py, dispatch_journal.py | Local observations/recovery, not automatic acceptance/replay authority |
@@ -74,7 +75,8 @@ SQL, installed ERP integration, SDK and remote acceptance.
 
 1. Complete dependencies: party/address/Company/device/POS profile/time/precision,
    tax templates and linked/archived advance evidence.
-2. Implement authorized committed capture with fixed columns, stable locks,
+2. Capture effective field precision/default scopes and implement authorized
+   committed capture with fixed columns, Singleton storage, stable locks,
    child membership/order checks and physical v15/v16 normalization.
 3. Resolve the documented invoice/template priority discrepancy and establish
    amount/XML/GL/VAT parity without changing snapshot formats accidentally.

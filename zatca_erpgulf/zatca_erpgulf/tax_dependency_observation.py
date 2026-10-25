@@ -12,7 +12,7 @@ import json
 from types import MappingProxyType
 
 from .financial_source_observation import (
-    InvoiceFinancialObservation, MAX_PAYLOAD_BYTES, TAX_FIELDS, _canonical, _capture_table, _name,
+    InvoiceFinancialObservation, MAX_PAYLOAD_BYTES, TAX_FIELDS, _canonical, _capture_table,
     _pin_financial, _present, _projection, _reference, _scalar,
     _validate_projection, _validate_scalar, _validate_table,
 )
@@ -58,22 +58,44 @@ def _dependencies(financial):
     return company, tuple(sorted(references))
 
 
+def _validate_template_record(record, identity, company, identities):
+    """Shared exact template projection; no lookup or tax-precedence policy."""
+    doctype, name = identity
+    if (doctype not in TABLE_PROFILES or type(record) is not dict
+        or set(record) != {"doctype", "name", "modified", "header", "taxes"}
+        or (record["doctype"], record["name"]) != (doctype, name)):
+        raise ValueError
+    _validate_scalar(record["modified"])
+    if record["modified"][0] not in ("str", "datetime") or not record["modified"][1]:
+        raise ValueError
+    _validate_projection(record["header"], TEMPLATE_FIELDS, REQUIRED_TEMPLATE_FIELDS)
+    if dict(record["header"])["company"] != ["str", company]:
+        raise ValueError
+    return _validate_table(record["taxes"], *TABLE_PROFILES[doctype], identities)
+
+
+def _capture_template_record(document, identity, company, child_meta, identities, *, max_rows):
+    """Shared caller-supplied template capture with an explicit child budget."""
+    doctype, name = identity
+    if doctype not in TABLE_PROFILES or (document.doctype, document.name, document.meta.name) != (doctype, name, doctype):
+        raise ValueError
+    header = _projection(document, document.meta, TEMPLATE_FIELDS, REQUIRED_TEMPLATE_FIELDS)
+    if dict(header)["company"] != ["str", company] or not _present(document.meta, "taxes"):
+        raise ValueError
+    modified = _scalar(document.get("modified"))
+    if modified[0] not in ("str", "datetime") or not modified[1]:
+        raise ValueError
+    taxes = _capture_table(document, child_meta, "taxes", *TABLE_PROFILES[doctype], identities, max_rows=max_rows)
+    return dict(doctype=doctype, name=name, modified=modified, header=header, taxes=taxes)
+
+
 def _validate_records(financial, records):
     company, references = _dependencies(financial)
     if type(records) is not list or len(records) != len(references):
         raise ValueError
     identities, count = set(), 0
     for record, (doctype, name) in zip(records, references):
-        if (type(record) is not dict or set(record) != {"doctype", "name", "modified", "header", "taxes"}
-            or (record["doctype"], record["name"]) != (doctype, name)):
-            raise ValueError
-        _validate_scalar(record["modified"])
-        if record["modified"][0] not in ("str", "datetime") or not record["modified"][1]:
-            raise ValueError
-        _validate_projection(record["header"], TEMPLATE_FIELDS, REQUIRED_TEMPLATE_FIELDS)
-        if dict(record["header"])["company"] != ["str", company]:
-            raise ValueError
-        count += _validate_table(record["taxes"], *TABLE_PROFILES[doctype], identities)
+        count += _validate_template_record(record, (doctype, name), company, identities)
         if count > MAX_TAX_ROWS:
             raise ValueError
 
@@ -133,19 +155,10 @@ def capture_tax_dependency_observation(financial, *, templates, child_metas):
             raise ValueError
         records, identities, count = [], set(), 0
         for doctype, name in references:
-            document = templates[doctype, name]
-            if (document.doctype, document.name, document.meta.name) != (doctype, name, doctype):
-                raise ValueError
-            header = _projection(document, document.meta, TEMPLATE_FIELDS, REQUIRED_TEMPLATE_FIELDS)
-            if dict(header)["company"] != ["str", company] or not _present(document.meta, "taxes"):
-                raise ValueError
-            modified = _scalar(document.get("modified"))
-            if modified[0] not in ("str", "datetime") or not modified[1]:
-                raise ValueError
-            taxes = _capture_table(document, child_metas[doctype], "taxes",
-                *TABLE_PROFILES[doctype], identities, max_rows=MAX_TAX_ROWS-count)
-            count += len(taxes["rows"])
-            records.append(dict(doctype=doctype, name=name, modified=modified, header=header, taxes=taxes))
+            record = _capture_template_record(templates[doctype, name], (doctype, name), company,
+                child_metas[doctype], identities, max_rows=MAX_TAX_ROWS-count)
+            count += len(record["taxes"]["rows"])
+            records.append(record)
         payload = _canonical(dict(profile=PROFILE, financial_sha256=financial.sha256, records=records))
         result = TaxDependencyObservation(financial, payload)
     except Exception:

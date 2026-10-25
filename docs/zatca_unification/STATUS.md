@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and seven bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and eight bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2494,6 +2494,39 @@ network/site guard active. All nine Node VM scripts passed **1,444 cases**.
 No assertion, ordinary ACL, timeout, crypto or offline restriction was waived;
 no installed ERPNext 15/16, SDK or authority acceptance is claimed.
 
+## Increment 108: explicit POS/currency/global calculation-setting declarations
+
+- Capture exact System Settings/Global Defaults Singleton identities, all
+  explicitly referenced Currency records, optional POS Profile/payments and
+  the Profile's own tax template. Invoice/profile tax refs remain separate;
+  missing/extra/foreign-Company records never authorize silent substitution.
+- Record raw timezone/format/precision/rounding and fraction/discount/payment/
+  write-off controls without choosing effective precision, changing amounts or
+  shifting issue time. Preserve absent/NULL/blank/zero/scale declarations.
+- Validate explicit Singleton storage kind without requesting or fabricating
+  modified/creation; keep ordinary record revisions. A future SQL reader must
+  handle Singles membership/locking, not a fictitious normal parent table.
+- Share template capture/validation with the prior tax profile. Read-only old-
+  source comparison passed **20 variants** with identical bytes/fingerprints;
+  four fixed old-tax goldens protect wire compatibility. No VAT priority change.
+- Bound the new component to eight records/128 payment rows/512 tax rows/2 MiB,
+  independent protected parent/result objects and strict static failures. No
+  Frappe/SQL/defaults/cache/clock/FX/credential/transport operation or runtime
+  controller/provider/UI/schema installation is introduced. See
+  [CALCULATION_SETTINGS_OBSERVATION.md](CALCULATION_SETTINGS_OBSERVATION.md).
+
+Targeted calculation/tax suites passed **980 cases in 10.69 seconds**. This adds
+**484 cases** (480 new calculation observations and four old-tax fingerprint
+goldens). Earlier checks passed 956 before final context/payment/currency/golden
+refinements. The combined guarded run passed **18,382 local + 2,234 private SQL =
+20,616 cases in 221.94 seconds**, across fourteen private SQL suites with the
+network/site guard active. After removing one unused private import, the targeted
+suites passed again: **980 cases in 10.90 seconds**. All nine Node VM scripts
+passed **1,444 cases**. No assertion, ordinary ACL, timeout, crypto or offline
+restriction was waived. These remain PARTIAL declarations: effective field/default metadata, committed provenance,
+actual financial/XML parity and installed v15/v16/SDK/authority acceptance are
+not claimed.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -2909,6 +2942,7 @@ endpoints remain untouched.
 | `test_tax_dependency_observation.py` | Exact linked invoice/item template sets, independent financial pin, header/tax-row field/order/schema drift, zero-rate/conflicting-source preservation, missing/extra/company/parent/type refusal, bounds/privacy/direct reconstruction; still partial without committed SQL/ACL/precedence choice |
 | `test_issuing_settings_observation.py` | Source Company/device/linked records, saved-owner parity, every settings/alias value, nullable flags/cross-taxpayer refusal, secret-field exclusion, safe URL structure, exact canonical binding/privacy/bounds and unchanged shared registry; still partial without authorized committed acquisition |
 | `test_party_address_observation.py`, `test_customer_address_resolution.py` | Exact party/address graph, parent Company consistency, aliases/current Dynamic Links/declared candidate order, shared/historical disabled-unlinked addresses, strict schema/canonical/bounds/privacy and existing mocked resolver behavior; not committed-query completeness or address-selection authorization |
+| `test_calculation_settings_observation.py` | Explicit Singleton storage without fabricated revisions, referenced currencies/POS/Profile tax graph, every setting/payment/tax value, unchanged invoice time/amounts, exact schema/Company/child/canonical/bounds/privacy; not effective precision or committed defaults |
 | `test_preparation_custody_access.py` | Saved WRITE/related READ before scoped keys, protected ciphertext retrieval, exact internal recovery, mandatory evidence, late source/ACL drift, uncertain commit/interrupt/parent cleanup and one Arabic display summary; native chain suite adds real SQL visibility/contention, crash/restart, corruption and unknown commits |
 | `test_issuing_chain_mariadb.py` (separate opt-in) | Owned-private head/original atomicity, preparation contention, independent units, durable pre-build holds, commit/close uncertainty, exact reconciliation, cooperating-writer refusal, corruption and owned-server crash recovery |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |
