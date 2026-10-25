@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 97 introduces explicit NEW_EGS chain state and atomic local recording
+of its exact original through the shared artifact repository. No manual reset
+field is added. A declared new unit starts from zero/initial PIH and records its
+first candidate at one; a blank legacy field, token change or renewal cannot
+select this path. Enrollment/tenant/epoch/ACL provenance and legacy-writer/runtime
+integration remain gates. Automatic samples only replace the empty-PIH random
+fallback with the published seed. See [ISSUING_CHAIN.md](ISSUING_CHAIN.md).
+
 Increment 96 consolidates Sales/POS metadata and PIH/QR/signature fragments,
 the six sample XML type specifications (including automatic onboarding), saved
 PIH owner selection and the legacy UUID placeholder filter. Missing selected

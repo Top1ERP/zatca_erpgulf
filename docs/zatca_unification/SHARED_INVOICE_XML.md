@@ -29,6 +29,11 @@ remain available; no fixture, Company, site, counter or stored PIH is migrated.
 
 ## First invoice: what is and is not fixed
 
+Increment 97 adds the separate [declared new-EGS ledger](ISSUING_CHAIN.md), not
+automatic genesis in these legacy adapters. Its shared published seed also
+replaces the random-ID-derived automatic-sample fallback when Company PIH is
+empty. The ordinary guard and old counter/UUID policies below remain unchanged.
+
 A selected missing, blank or non-text PIH now fails with a static translated
 message before the shared reference fragment is appended. It never falls back
 to another owner's PIH, generates a seed, looks up a previous local invoice,

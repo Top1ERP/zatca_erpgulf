@@ -31,6 +31,7 @@ from zatca_erpgulf.zatca_erpgulf.compliance_types import (
 from zatca_erpgulf.zatca_erpgulf.nonproduction import temporary_compliance_xml
 from zatca_erpgulf.zatca_erpgulf.issue_timestamp import issue_timestamp_from_datetime
 from zatca_erpgulf.zatca_erpgulf.invoice_identity import has_legacy_uuid_value as _is_valid_zatca_uuid_value
+from zatca_erpgulf.zatca_erpgulf.invoice_xml_core import INITIAL_PREVIOUS_HASH
 from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country, normalize_country_code
 from zatca_erpgulf.zatca_erpgulf.customer_address import resolve_customer_address
 import requests
@@ -2152,7 +2153,9 @@ def _build_onboarding_invoice_xml(company_doc, validation_type, *, issue_instant
 
     pih = str(company_doc.get("custom_pih") or "").strip()
     if not pih:
-        pih = base64.b64encode(hashlib.sha256(document_id.encode()).digest()).decode()
+        # A disposable sample may use the published initial value; never write
+        # it back to Company or treat a blank live PIH as a new registration.
+        pih = INITIAL_PREVIOUS_HASH
     pih_ref = _onboarding_element(root, "cac", "AdditionalDocumentReference")
     _onboarding_element(pih_ref, "cbc", "ID", "PIH")
     attachment = _onboarding_element(pih_ref, "cac", "Attachment")

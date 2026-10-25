@@ -1,8 +1,8 @@
-# Implementation status — 2026-10-24
+# Implementation status — 2026-10-25
 
 ## Scope delivered in this increment
 
-Safety preparation and ninety-six bounded increments (Compliance outcomes, dedicated
+Safety preparation and ninety-seven bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2112,6 +2112,39 @@ including obsolete comments; tests/docs grow separately. This is not a measured
 runtime speed/memory/query improvement. No working environment or authority
 request was used.
 
+## Increment 97: explicit new-EGS chain and atomic original recording
+
+- Add the shared published initial PIH with an exact literal test, and replace
+  automatic onboarding's empty-Company-PIH random sample-ID fallback only. No
+  Company PIH write, real invoice/customer, ordinary fallback or live counter
+  change; existing nonempty sample PIH and timestamp-based sample ICV stay.
+- Add pure explicit NEW_EGS registration/state and exact candidate transitions,
+  with separate opaque chain/enrollment/epoch identity, strict next ICV and PIH
+  binding. Neither empty history nor changed auth/certificate implies genesis.
+  Renewal/migration/restore need separate reviewed policy and are refused here.
+- Add an uninstalled caller-transaction repository that reuses the exact artifact
+  journal. A locked head, original bytes and next position share one transaction;
+  equal initialization/redelivery never resets or increments twice. Competing
+  originals, changed bytes, unbound partial records and corruption require review.
+- Record locally generated originals independently of HTTP acceptance. No live
+  writer is switched; the legacy accepted-response PIH policy is not presented
+  as fixed. Any failure poisons the handle; rollback/commit/recovery belong to the
+  caller, with no automatic retry, identity allocation or dispatch.
+- No new Company/UI field, installed schema, native provider, permission facade,
+  worker or authority operation. Enrollment/tenant/epoch/connection provenance,
+  authenticated original custody, whole-worker integration and installed v15/v16
+  remain gates. See [ISSUING_CHAIN.md](ISSUING_CHAIN.md).
+
+Targeted local chain/sample suites passed **318 cases in 1.07 seconds**. Final
+guarded combined: **14,399 local + 2,049 private SQL = 16,448 passed in 177.33
+seconds**, across fourteen private suites. This adds **174 cases** (129 local
+chain/codec/ownership, 18 sample fallback and 27 native chain cases). All nine
+Node VM scripts passed **1,444 cases**. An expanded native test initially kept
+an observer's FOR UPDATE lock while rereading from another connection; the test
+now uses that same observer and explicit rollback. No assertion, timeout,
+ordinary ACL, resource or cryptographic guard was waived. No installed v15/v16,
+SDK or authority acceptance is claimed.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -2517,6 +2550,8 @@ endpoints remain untouched.
 | `test_legacy_submission_context.py` | Four existing-XML adapters and wrappers, actual temporary file reads, saved machine-link guards, unchanged artifacts, auth and PIH ownership |
 | `test_icv_identity_contract.py` | Read-only characterization of legacy identity/rotation/purpose behavior and collision edge cases; not a counter migration |
 | `test_invoice_xml_core.py` | Shared metadata/reference/type fragments, saved PIH owner/flag/source parity, missing-hash preservation and Arabic display, automatic six-type parity, legacy UUID filter and mocked first-counter behavior; not genesis/atomic issuance proof |
+| `test_issuing_chain.py` | Explicit new-unit seed/state, exact candidate/source/epoch/predecessor transitions, strict bounded codecs and mocked transaction/error ownership; no authenticated enrollment or runtime allocation |
+| `test_issuing_chain_mariadb.py` (separate opt-in) | Owned-private head/original atomicity, initialization/redelivery without reset, two-worker first-position contention, independent units, uncertain commits, corruption and owned-server crash recovery |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |
 | `test_background_scheduling.py` | Shared Sales/POS worker selection, Company isolation/windows/settings, stale status and draft boundaries, actual parent routing and worker bridge |
 | `test_retry_identity_contract.py` | Read-only Sales/POS UUID regeneration/filtering, twelve HTTP failure/timeout boundaries, saved ICV and existing artifact identity divergence |
@@ -2542,7 +2577,7 @@ development worktree, not the installed production package. From the worktree:
 PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py
 ```
 
-For all selected local cases plus twelve owned-private SQL suites:
+For all selected local cases plus the reviewed owned-private SQL suites:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py --private-sql

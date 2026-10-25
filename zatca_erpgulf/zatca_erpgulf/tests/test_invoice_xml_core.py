@@ -18,7 +18,7 @@ import pytest
 from zatca_erpgulf.zatca_erpgulf import createxml, credential_settings, icv, posxml, sign_invoice
 from zatca_erpgulf.zatca_erpgulf.compliance_types import COMPLIANCE_TYPES, compliance_document_type
 from zatca_erpgulf.zatca_erpgulf.invoice_xml_core import (
-    MISSING_PREVIOUS_HASH, QR_PLACEHOLDER, append_additional_references,
+    INITIAL_PREVIOUS_HASH, MISSING_PREVIOUS_HASH, QR_PLACEHOLDER, append_additional_references,
     append_compliance_type, append_invoice_metadata,
 )
 from zatca_erpgulf.zatca_erpgulf.invoice_identity import has_legacy_uuid_value
@@ -285,6 +285,28 @@ def test_automatic_onboarding_uses_same_sample_spec(isolated, monkeypatch, label
     assert element.attrib == {"name": expected[0]} and element.text == expected[1]
     assert bool(root.find("cac:BillingReference", sign_invoice._ONBOARDING_UBL) is not None) == expected[3]
     company.db_set.assert_not_called()
+    runtime.db.commit.assert_not_called()
+
+
+@pytest.mark.parametrize("label", list(COMPLIANCE_TYPES))
+@pytest.mark.parametrize("saved_pih", [None, "", synthetic_hash("existing-owner-tail")])
+def test_sample_seed_fallback_is_published_and_never_writes_company(isolated, monkeypatch, label, saved_pih):
+    from lxml import etree
+
+    _, company, _, runtime, _ = isolated
+    company.tax_id, company.custom_pih = "300000000000003", saved_pih
+    monkeypatch.setattr(sign_invoice, "_onboarding_address", lambda name: Document(
+        address_line1="SYNTHETIC-ROAD", address_line2="DISTRICT", city="Riyadh",
+        pincode="12345", state="", custom_building_number="1234"))
+    _, content = sign_invoice._build_onboarding_invoice_xml(company, label,
+        issue_instant=datetime(2026, 9, 27, 9, 5, 42, tzinfo=timezone.utc))
+    root = etree.fromstring(content.encode())
+    found = root.xpath("string(cac:AdditionalDocumentReference[cbc:ID='PIH']/cac:Attachment/cbc:EmbeddedDocumentBinaryObject)",
+                       namespaces=sign_invoice._ONBOARDING_UBL)
+    assert found == (saved_pih or INITIAL_PREVIOUS_HASH)
+    assert company.custom_pih == saved_pih
+    company.db_set.assert_not_called()
+    runtime.db.set_value.assert_not_called()
     runtime.db.commit.assert_not_called()
 
 

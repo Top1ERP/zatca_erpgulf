@@ -5,6 +5,8 @@ pipeline must still replace that placeholder before producing a final artifact.
 An absent previous hash is never evidence that this is a new issuing chain.
 """
 
+import base64
+import hashlib
 import xml.etree.ElementTree as ET
 
 from zatca_erpgulf.zatca_erpgulf.compliance_types import compliance_document_type
@@ -16,6 +18,10 @@ MISSING_PREVIOUS_HASH = (
     "An empty field does not authorize starting or resetting a chain."
 )
 QR_PLACEHOLDER = "GsiuvGjvchjbFhibcDhjv1886G"
+# BR-KSA-26, XML Implementation Standard v1.2, page 54: encode the
+# hexadecimal SHA-256 representation of the ASCII character zero, not an
+# empty string, the raw zero character, or the 32-byte binary digest.
+INITIAL_PREVIOUS_HASH = base64.b64encode(hashlib.sha256(b"0").hexdigest().encode("ascii")).decode("ascii")
 
 
 def previous_hash_value(value):

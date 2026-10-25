@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "issuing_chain",
     "invoice_xml_core",
     "pending_csr_preparation",
     "pending_csr_bound_review",
@@ -62,6 +63,7 @@ LOCAL_SUITES = (
     "zatca_response", "compatibility_hardening",
 )
 PRIVATE_SUITES = (
+    "issuing_chain_mariadb",
     "pending_csr_mariadb",
     "qr_source_access_mariadb",
     "journal_repository_mariadb", "credential_bundle_mariadb",
