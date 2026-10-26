@@ -1,8 +1,8 @@
-# Implementation status — 2026-10-26
+# Implementation status — 2026-10-27
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and eleven bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and twelve bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2624,6 +2624,39 @@ external-network/site-init guard active. All nine Node VM scripts passed
 was waived. These remain uninstalled dependency reads, not complete source/
 financial/installed-version/SDK/authority acceptance.
 
+## Increment 112: saved-READ fresh defaults acquisition and one localized failure
+
+- Compose the defaults reader with saved invoice/Company READ and configured
+  actor/site/parent scope before explicit owned SQL/cache dependencies. Extract
+  the existing saved-record ACL/drift mechanism once; keep legacy owner/status/
+  READ/WRITE policies and the new minimal graph separate. No CSID/route/UUID/
+  accepted-status requirement is imposed on the new Phase-1/2 dependency read.
+- Clear pending work only on the explicitly owned acquired connection, reject
+  recognizable borrowed ambient handles, lock exact source revisions and repeat
+  defaults membership/cache/source checks. Always attempt owned rollback/close;
+  never commit, refresh a cache, change a source or install a provider/RPC.
+- Return an independently validated protected site/actor/source/default binding,
+  not a verified origin, complete preparation digest or issuance authorization.
+  Native fixtures prove pending parent continuity, initial owned rollback, stale
+  source rejection, RC insertion detection and callback edit rollback.
+- Reuse request-local child-message muting with exact parent flag restoration.
+  Display one final app-owned translated failure; keep internal codes English.
+  Add two Arabic translations and test nested producer messages, retained parent
+  messages and interruptions. No live frontend entry point is activated.
+  See [CALCULATION_DEFAULTS_ACCESS.md](CALCULATION_DEFAULTS_ACCESS.md).
+
+Initial targeted local checks passed **292 cases in 1.52 seconds** (152 new access
+cases plus the existing 140 reader cases). The first native/access check passed
+**212 cases in 2.66 seconds**. After sharing child-message suppression and adding
+parent/producer/input contracts, the new suites plus existing preparation review
+passed **473 cases in 4.02 seconds** (198 new local + 60 new private SQL + 215
+existing review cases). The final guarded run passed **19,733 local + 2,329 private
+SQL = 22,062 cases in 263.82 seconds**, across sixteen private SQL suites with the
+external-network/site-init guard active. All nine Node VM scripts passed
+**1,444 cases**. No assertion, ordinary ACL, timeout, crypto or offline restriction
+was waived. Native SQL with synthetic ACL is not installed v15/v16 or complete
+source/SDK/authority proof.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -3045,6 +3078,8 @@ endpoints remain untouched.
 | `test_default_scope_contract.py` | Actual installed defaults API behavior with synthetic sources: separate parents, user/false-value overlays, exact/scrubbed keys, list/tuple/permission/cache semantics; no real defaults or resolver |
 | `test_calculation_defaults.py` | Fixed bounded SQL, explicit scopes, actual-framework row folding, selected cache presence/type/list equality, immutable canonical revisions, strict corruption/bounds/privacy/poisoning and caller cleanup ownership |
 | `test_calculation_defaults_mariadb.py` | New guarded synthetic SQL: current reads, other/own pending writes, retained locks, RC phantom detection/RR fixture insert blocking, scope/collation/exact caps/revisions and actual lock timeout; not installed-schema or complete-source proof |
+| `test_calculation_defaults_access.py` | Shared saved READ/quiet permission signatures, three fixed scopes, Phase-1/2-independent minimal graph, owned cleanup, late drift, protected result validation and one translated display with exact parent-message restoration |
+| `test_calculation_defaults_access_mariadb.py` | New native SQL with synthetic ACL: owned pending rollback, untouched pending parent/borrow rejection, stale source/cache, RC membership changes, callback rollback and cleanup failure; no installed provider/tenant access |
 | `test_preparation_custody_access.py` | Saved WRITE/related READ before scoped keys, protected ciphertext retrieval, exact internal recovery, mandatory evidence, late source/ACL drift, uncertain commit/interrupt/parent cleanup and one Arabic display summary; native chain suite adds real SQL visibility/contention, crash/restart, corruption and unknown commits |
 | `test_issuing_chain_mariadb.py` (separate opt-in) | Owned-private head/original atomicity, preparation contention, independent units, durable pre-build holds, commit/close uncertainty, exact reconciliation, cooperating-writer refusal, corruption and owned-server crash recovery |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |

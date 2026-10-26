@@ -210,17 +210,14 @@ class ArchiveInspectionEngine:
             frappe.throw(translate(self.DENIED_MESSAGE), frappe.PermissionError)
         return site, user
 
-    def _saved_selection(self, invoice_name, doctype, actor):
-        """Shared saved-row ACL/owner selection, including pre-artifact review.
+    def _saved_record_access(self, actor):
+        """Compose explicit saved graphs with the same quiet ACL/drift policy.
 
-        Concrete server adapters select the fixed invoice permission/status
-        policy. Other owner/Company rows always require read. Existing metadata
-        inspection keeps its read/accepted-status behavior unchanged.
+        The concrete service chooses its graph, fixed row projection and invoice
+        permission. Finalization freezes membership for subsequent rechecks;
+        it does not authorize an archive, resolve ownership or acquire SQL.
         """
         frappe, _, has_permission, _repository_type = self._dependencies()
-        if type(doctype) is not str or doctype not in self.BINDING_TYPE.ALLOWED_DOCTYPES:
-            raise self.ERROR(self.ERROR_PREFIX + "_doctype")
-        _name(invoice_name)
         records = {}
 
         def load(doctype, name):
@@ -241,19 +238,35 @@ class ArchiveInspectionEngine:
                 frappe.throw(_(self.DENIED_MESSAGE), frappe.PermissionError)
             return doc
 
+        def finalize():
+            rows = tuple(records[identity] for identity in sorted(records))
+
+            def recheck():
+                if self._actor() != actor:
+                    frappe.throw(_(self.DENIED_MESSAGE), frappe.PermissionError)
+                for row in rows:
+                    if self.ROW_TYPE.from_document(load(row.doctype, row.name)) != row:
+                        raise self.ERROR(self.ERROR_PREFIX + "_source_changed")
+
+            recheck()
+            return rows, records, recheck
+
+        return load, finalize
+
+    def _saved_selection(self, invoice_name, doctype, actor):
+        """Shared saved-row ACL/owner selection, including pre-artifact review.
+
+        Existing archive/review callers retain their full owner graph and status
+        policy. Other explicit graphs reuse only the saved-record ACL mechanism.
+        """
+        if type(doctype) is not str or doctype not in self.BINDING_TYPE.ALLOWED_DOCTYPES:
+            raise self.ERROR(self.ERROR_PREFIX + "_doctype")
+        _name(invoice_name)
+        load, finalize = self._saved_record_access(actor)
         invoice = load(doctype, invoice_name)
         company = load("Company", invoice.get("company"))
         owner = _resolve_owner_from_saved_company(company, invoice, load_doc=load, include_secrets=False)
-        rows = tuple(records[identity] for identity in sorted(records))
-
-        def recheck():
-            if self._actor() != actor:
-                frappe.throw(_(self.DENIED_MESSAGE), frappe.PermissionError)
-            for row in rows:
-                if self.ROW_TYPE.from_document(load(row.doctype, row.name)) != row:
-                    raise self.ERROR(self.ERROR_PREFIX + "_source_changed")
-
-        recheck()
+        rows, records, recheck = finalize()
         return invoice, company, owner, rows, records, recheck
 
     def _saved_binding(self, invoice_name, doctype, actor):

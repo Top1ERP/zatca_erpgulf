@@ -2,6 +2,11 @@
 
 Increment 111 — 2026-10-26. Development only, not installed or runtime-integrated.
 
+Increment 112 composes this reader with saved-source READ, fresh owned acquisition,
+explicit cache checks and protected actor/source binding. Factory provenance and
+complete source consistency remain separate gates. See
+[CALCULATION_DEFAULTS_ACCESS.md](CALCULATION_DEFAULTS_ACCESS.md).
+
 ## Delivered responsibility
 
 `calculation_defaults.py` adds a fixed-query MariaDB reader for the three keys

@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 112 composes defaults reads with saved invoice/Company READ, an explicit
+fresh owned transaction and cache source, and protected actor/source binding.
+Share one saved-record ACL/drift mechanism; keep the new graph free of CSID/owner/
+route prerequisites. Preserve parent transactions/messages and one localized
+failure. No provider is installed and complete preparation provenance/effective
+precision/runtime integration remain gates. See
+[CALCULATION_DEFAULTS_ACCESS.md](CALCULATION_DEFAULTS_ACCESS.md).
+
 Increment 111 adds fixed-column scoped SQL reads/rechecks for currency precision,
 float precision and number format, plus supplied selected-cache comparison.
 Preserve raw rows/NULL/order/revisions, reject ambiguous precedence, retain caller
