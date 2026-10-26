@@ -1,8 +1,8 @@
-# Implementation status — 2026-10-25
+# Implementation status — 2026-10-26
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and ten bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and eleven bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2590,6 +2590,40 @@ timeout, crypto or offline restriction was waived. Installed v15/v16,
 SDK/authority acceptance, runtime adoption and complete committed source/ACL/
 physical-schema provenance are not claimed.
 
+## Increment 111: scoped defaults SQL, cache comparison and native locking
+
+- Add a fixed-query three-key calculation defaults reader on an explicit
+  caller-owned transaction. Preserve all selected raw rows, nullable timestamps,
+  values/NULL/order/revisions with exact scope/collation validation, bounded SQL
+  projection and immutable canonical observations. Binary names give canonical
+  raw order for equal timestamps without inventing fiscal value precedence.
+  No existing profile change.
+- Compare only supplied selected cache keys with the actual characterized
+  framework folding rule. Preserve miss/empty/NULL/zero/blank/list distinctions;
+  reject ambiguous same-timestamp value precedence and never fetch or repair.
+- Re-read membership/values/revisions before completion; refuse autocommit and
+  poison the reader on failure without committing, rolling back, closing,
+  changing session settings or suppressing interruption. Internal errors remain
+  English/redacted; there is no new UI/provider/hook or authority operation.
+- Rehearse current SQL reads past stale MVCC, competing commit/rollback, retained
+  update/delete locks, READ COMMITTED insertion detection, fixture-indexed
+  REPEATABLE READ insert blocking, exact caps, collation and real lock timeout.
+  Explicitly prove own uncommitted writes remain visible; the raw observation
+  cannot claim committed acquisition, complete source locks or provider/ACL origin.
+  See [CALCULATION_DEFAULTS.md](CALCULATION_DEFAULTS.md).
+
+The initial local suite passed **140 cases in 0.17 seconds**. Native verification
+passed **173 combined cases in 3.59 seconds** with exact-boundary/all-key/real-timeout
+coverage. Review then identified normal SQL collation versus canonical Python
+ordering for mixed-case names at equal timestamps. Explicit binary-name tie
+ordering and two native cases passed **175 cases in 3.60 seconds** (140 local +
+35 private SQL). The final full guarded run passed **19,535 local + 2,269 private
+SQL = 21,804 cases in 262.57 seconds**, across fifteen private SQL suites with the
+external-network/site-init guard active. All nine Node VM scripts passed
+**1,444 cases**. No assertion, ordinary ACL, timeout, crypto or offline restriction
+was waived. These remain uninstalled dependency reads, not complete source/
+financial/installed-version/SDK/authority acceptance.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -3009,6 +3043,8 @@ endpoints remain untouched.
 | `test_source_metadata.py` | Applied field/base-schema declarations, real get_default_df without site init, missing-docstatus reproduction and exact adapted financial bytes, precision/options/default/flag drift, Password/default-expression safety, independent read views and strict canonical/privacy/bounds; not raw Setter/default/physical-schema provenance |
 | `test_metadata_reconciliation.py` | Supplied baseline/raw/applied equality, actual bounded Frappe casts/Meta setter method, typed effects, conflicts/stale/ambiguous rows, independent parents/version/canonical/privacy/bounds; not committed acquisition or row-completeness proof |
 | `test_default_scope_contract.py` | Actual installed defaults API behavior with synthetic sources: separate parents, user/false-value overlays, exact/scrubbed keys, list/tuple/permission/cache semantics; no real defaults or resolver |
+| `test_calculation_defaults.py` | Fixed bounded SQL, explicit scopes, actual-framework row folding, selected cache presence/type/list equality, immutable canonical revisions, strict corruption/bounds/privacy/poisoning and caller cleanup ownership |
+| `test_calculation_defaults_mariadb.py` | New guarded synthetic SQL: current reads, other/own pending writes, retained locks, RC phantom detection/RR fixture insert blocking, scope/collation/exact caps/revisions and actual lock timeout; not installed-schema or complete-source proof |
 | `test_preparation_custody_access.py` | Saved WRITE/related READ before scoped keys, protected ciphertext retrieval, exact internal recovery, mandatory evidence, late source/ACL drift, uncertain commit/interrupt/parent cleanup and one Arabic display summary; native chain suite adds real SQL visibility/contention, crash/restart, corruption and unknown commits |
 | `test_issuing_chain_mariadb.py` (separate opt-in) | Owned-private head/original atomicity, preparation contention, independent units, durable pre-build holds, commit/close uncertainty, exact reconciliation, cooperating-writer refusal, corruption and owned-server crash recovery |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |

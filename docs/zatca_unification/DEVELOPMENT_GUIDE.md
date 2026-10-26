@@ -26,6 +26,7 @@ A DEV branch source push is not deployment or permission to send.
 | Calculation declarations | calculation_settings_observation.py | Explicit Singleton/Currency/POS/profile-tax records; not effective precision, timezone interpretation or fiscal validity |
 | Applied metadata adapter | source_metadata.py | Explicit base/default fields plus immutable applied properties; narrow read view, not physical schema, raw Setter provenance or committed values |
 | Declared customization matching | metadata_reconciliation.py | Explicit baseline/raw/applied equality using bounded installed Frappe casts; no committed query/completeness proof or defaults resolver |
+| Scoped calculation defaults SQL | calculation_defaults.py | Fixed three-key locking reads/rechecks and explicit cache equality on a caller-owned transaction; not a provider, committed-origin proof or effective precision resolver |
 | Original preparation/history | issuance_candidate.py, issuance_preparation.py, issuing_chain*.py, preparation_hold.py | Explicit identity/chain contracts and local durable holds; not integrated issuance authorization |
 | Protected recovery | preparation_review_access.py, preparation_recovery_access.py, preparation_custody*.py | Opt-in source/ACL/evidence boundaries; no default trusted provider/runtime caller |
 | Primary receipt/outcome scaffolds | primary_capture*.py, primary_receipt*.py, response_assessment.py, dispatch_journal.py | Local observations/recovery, not automatic acceptance/replay authority |
@@ -49,6 +50,9 @@ Do not combine that target with a claim that every legacy path already uses it.
 - Keep framework cast matching outside pure profiles. Defaults are API/user/scope
   dependent; use the characterized behavior in METADATA_RECONCILIATION.md before
   designing a committed reader. Cache hits do not prove current stored rows.
+- Compose the scoped SQL reader in CALCULATION_DEFAULTS.md with an audited
+  authorized transaction. Its own writes remain visible; READ COMMITTED admits
+  insertions between checks. Do not claim a complete source lock from row locks.
 - Preserve exact originals and identity; unknown results never grant rebuilding,
   resetting a chain, releasing holds or automatic resend.
 - A hash/HTTP status/saved field alone does not prove source, signature or remote

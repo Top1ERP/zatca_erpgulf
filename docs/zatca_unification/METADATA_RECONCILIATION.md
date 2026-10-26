@@ -2,6 +2,11 @@
 
 Increment 110 — 2026-10-25. Development only; no runtime caller or installation.
 
+Increment 111 adds a bounded selected-default SQL reader and supplied-cache
+comparison on an explicit caller-owned transaction. It does not complete
+authorized committed acquisition or effective precision. See
+[CALCULATION_DEFAULTS.md](CALCULATION_DEFAULTS.md).
+
 ## Purpose and boundary
 
 `metadata_reconciliation.py` compares three supplied declarations for one selected

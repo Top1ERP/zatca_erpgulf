@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "calculation_defaults",
     "default_scope_contract",
     "metadata_reconciliation",
     "source_metadata",
@@ -78,6 +79,7 @@ LOCAL_SUITES = (
     "zatca_response", "compatibility_hardening",
 )
 PRIVATE_SUITES = (
+    "calculation_defaults_mariadb",
     "issuing_chain_mariadb",
     "pending_csr_mariadb",
     "qr_source_access_mariadb",

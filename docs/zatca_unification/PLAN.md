@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 111 adds fixed-column scoped SQL reads/rechecks for currency precision,
+float precision and number format, plus supplied selected-cache comparison.
+Preserve raw rows/NULL/order/revisions, reject ambiguous precedence, retain caller
+transaction ownership and test actual current reads/locks/phantoms/bounds on a
+new guarded private server. This is one dependency, not the complete authorized
+committed source reader or effective precision resolver. See
+[CALCULATION_DEFAULTS.md](CALCULATION_DEFAULTS.md).
+
 Increment 110 matches supplied baseline metadata, raw Custom Field/Property
 Setter rows and applied metadata using the installed framework's bounded
 non-temporal casts. Reject stale/conflicting declarations without applying
