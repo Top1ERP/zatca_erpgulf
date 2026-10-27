@@ -99,10 +99,15 @@ rows, including old synthetic references and zero allocations. It does not searc
 historical source invoices, decide settlement eligibility, allocate available
 balances, validate archived XML authenticity or change legacy settlement behavior.
 
+Increment 116 now composes this reader with saved READ and the existing defaults/
+metadata acquisition on one owned transaction. See
+[CALCULATION_FINANCIAL_ACCESS.md](CALCULATION_FINANCIAL_ACCESS.md). It remains a
+PARTIAL native observation; it is not wired to preparation or XML generation.
+
 All tests use synthetic metadata/data on a NEW guard-owned TCP-disabled server.
 Declared v15/v16 labels are not installed-version, GL/VAT, SDK or authority proof.
-Executed totals are in [STATUS.md](STATUS.md). Next compose permissioned financial
-acquisition with the remaining linked/settings graph and an explicit ORM bridge,
+Executed totals are in [STATUS.md](STATUS.md). Next compose the permissioned
+financial acquisition with the remaining linked/settings graph and an explicit ORM bridge,
 then establish effective precision and amount/XML/GL/VAT parity before adoption.
 See [FINANCIAL_SOURCE_OBSERVATION.md](FINANCIAL_SOURCE_OBSERVATION.md),
 [CALCULATION_CONTEXT.md](CALCULATION_CONTEXT.md), [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md)

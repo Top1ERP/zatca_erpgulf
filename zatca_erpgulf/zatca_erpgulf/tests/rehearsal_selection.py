@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "calculation_financial_access",
     "financial_source_sql",
     "calculation_context_access",
     "metadata_source",
@@ -83,6 +84,7 @@ LOCAL_SUITES = (
     "zatca_response", "compatibility_hardening",
 )
 PRIVATE_SUITES = (
+    "calculation_financial_access_mariadb",
     "financial_source_sql_mariadb",
     "calculation_context_access_mariadb",
     "metadata_source_mariadb",

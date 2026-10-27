@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 116 composes native invoice/child data with the existing permissioned
+defaults/metadata service on one fresh owned transaction. Pin exact overlapping
+identity/revision/Company/status/metadata, preserve Decimal scale and parent pending
+work, and reject late source/ACL drift through one translated summary. Existing
+defaults-only and metadata-only operations remain intact. No XML/runtime change
+or complete preparation proof. Next finish native/ORM parity and linked/effective
+settings. See [CALCULATION_FINANCIAL_ACCESS.md](CALCULATION_FINANCIAL_ACCESS.md).
+
 Increment 115 adds native invoice-owned header/child SQL acquisition with exact
 metadata, ordered scope/membership/revision checks and bounded preflight/value
 projections. Preserve native Decimal scale and temporal types; reject lossy

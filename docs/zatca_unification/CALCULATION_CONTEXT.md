@@ -70,7 +70,7 @@ translations are reused; no duplicate presentation or translation catalog is add
 
 ## Practical limits and next work
 
-This is a PARTIAL read of defaults and TWO source metadata types. It does not
+This operation remains a PARTIAL read of defaults and TWO source metadata types. It does not
 read the financial invoice rows, child membership, tax templates, addresses,
 currencies or calculation Singletons. Minimal source projections cover ownership/
 revision/status, not the complete accounting state. Audited provider registration,
@@ -84,7 +84,11 @@ cleanup the observations can become stale; they cannot authorize a later build,
 replay or send. Native tests use real private SQL with synthetic ACL/applied Meta,
 not an installed Frappe site or actual v16/SDK/authority acceptance.
 
-Next complete committed financial/child/dependency acquisition, compose their
+Increment 116 adds a separate explicit financial composition in this SAME service;
+see [CALCULATION_FINANCIAL_ACCESS.md](CALCULATION_FINANCIAL_ACCESS.md). This
+metadata-only method does not acquire financial rows implicitly.
+
+Next complete linked dependency acquisition and native/ORM parity, compose their
 metadata and effective precision consistently, and establish amount/XML/GL/VAT
 parity before pipeline adoption. Executed evidence is in [STATUS.md](STATUS.md).
 See [CALCULATION_DEFAULTS_ACCESS.md](CALCULATION_DEFAULTS_ACCESS.md),

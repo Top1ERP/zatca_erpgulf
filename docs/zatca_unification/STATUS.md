@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and fifteen bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and sixteen bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2748,6 +2748,42 @@ with the external-network/site-init guard active. All nine Node VM scripts passe
 was waived. This is raw dependency evidence, not ORM equivalence, complete source,
 installed ERP, settlement/GL/VAT parity, SDK or authority acceptance.
 
+## Increment 116: permissioned native financial/default/metadata acquisition
+
+- Compose the native invoice/child reader in the existing calculation service,
+  with one saved READ/owned acquisition/cleanup/display pipeline. Existing
+  defaults-only and two-type metadata methods retain their result and read scope.
+- Derive the exact child metadata family from the authorized invoice declaration;
+  require unchanged minimal declarations across extension and completion. Reuse
+  invoice metadata from the native reader rather than duplicate its first read.
+- Bind overlapping source identity/revision/Company/typed status/metadata in an
+  independently pinned protected PARTIAL result. Preserve Decimal scale and
+  temporal/NULL/zero distinctions without fiscal rounding or ORM coercion.
+- Recheck native header/child data and all selected defaults/metadata after the
+  cache/declaration callbacks; withhold disclosure on ACL/source/cleanup drift.
+  Preserve pending parent work and display one translated financial summary.
+  No runtime provider, preparation, XML, QR, settlement or authority call changes.
+  See [CALCULATION_FINANCIAL_ACCESS.md](CALCULATION_FINANCIAL_ACCESS.md).
+
+Initial local composition tests exposed a mock cursor dispatch error: the minimal
+source lock also uses SUBSTRING. Corrected only the fixture dispatch to identify
+native projections by OCTET_LENGTH. The new local suite then passed **158 cases
+in 24.34 seconds**; the first new native suite passed **74 in 32.12 seconds**.
+Additional saved-status/metadata-extension, lock coexistence and old-reference/
+zero-payment cases are included in the final guarded verification below.
+
+Final guarded combined: **20,123 local + 2,536 private SQL = 22,659 passed in
+359.36 seconds**, across twenty private SQL suites, including **248 new cases**
+(166 local + 82 native SQL). The external-network/site-init guard stayed active;
+no assertion, ordinary ACL, timeout, crypto or offline restriction was waived.
+Frontend files were unchanged; the nine Node VM suites were not rerun after the
+increment115 result of 1,444 passed. Syntax/diff checks passed for this increment.
+The new native fixtures are synthetic, guard-owned and TCP-disabled.
+No installed site/data/config/schema/source/worker,
+Bench or authority operation occurs. Source/provider provenance, complete linked
+graph/effective precision, native/ORM parity, installed ERP15/16, GL/VAT/XML/SDK
+and authority acceptance remain integration gates.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -3177,6 +3213,8 @@ endpoints remain untouched.
 | `test_calculation_context_access_mariadb.py` | New native combined SQL: one owned handle, pending rollback/parent continuity, metadata/default/source callback edits, same-effect RC insertion and simultaneous metadata/default locks until cleanup |
 | `test_financial_source_sql.py` | Native typed financial/metadata binding, optional-table presence, scope/order/length budgets, lossy decoder refusal, private reconstruction and caller cleanup ownership |
 | `test_financial_source_sql_mariadb.py` | New guarded synthetic financial SQL: direct-value oracle/Frappe-decoder difference, child drift/locks, scoped same-name invoices, oversized RC masking, decimal scale with NULL, old refs/zero/subcent and pending work |
+| `test_calculation_financial_access.py` | Shared saved ACL/owned transaction for native financial/default/metadata reads, exact dynamic family/cross-parent binding, late drift/interruptions and one Arabic display |
+| `test_calculation_financial_access_mariadb.py` | New guarded combined SQL: native child changes/RC insert without parent revision, callback rechecks/rollback, lock coexistence, pending parent/owned work, cleanup denial and old advance/zero-payment observations |
 | `test_preparation_custody_access.py` | Saved WRITE/related READ before scoped keys, protected ciphertext retrieval, exact internal recovery, mandatory evidence, late source/ACL drift, uncertain commit/interrupt/parent cleanup and one Arabic display summary; native chain suite adds real SQL visibility/contention, crash/restart, corruption and unknown commits |
 | `test_issuing_chain_mariadb.py` (separate opt-in) | Owned-private head/original atomicity, preparation contention, independent units, durable pre-build holds, commit/close uncertainty, exact reconciliation, cooperating-writer refusal, corruption and owned-server crash recovery |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |

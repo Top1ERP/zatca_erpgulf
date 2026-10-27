@@ -1,4 +1,4 @@
-"""Uninstalled saved-READ acquisition of defaults and selected source metadata.
+"""Uninstalled saved-READ acquisition of defaults, metadata and financial rows.
 
 Administrator/System Manager and exact invoice/Company READ precede explicit
 owned SQL and cache dependencies. No certificate/route/acceptance requirement,
@@ -7,6 +7,7 @@ Factory/cache provenance and complete preparation source guards remain gates.
 """
 
 from dataclasses import dataclass, field
+import json
 from types import MappingProxyType
 
 import frappe
@@ -19,6 +20,11 @@ from .archive_source_access import (
 )
 from .calculation_defaults import CalculationDefaultsRows, MariaDBCalculationDefaultsReader, _pin_rows
 from .credential_bundle_access import CredentialStorageScope
+from . import financial_source_observation as financial
+from .financial_source_sql import (
+    LockedInvoiceFinancialRead, MariaDBInvoiceFinancialReader,
+    _manifest as _financial_manifest, _pin_read as _pin_financial_read,
+)
 from .metadata_source import (
     MariaDBMetadataSourceReader, SelectedMetadataRows, _pin_rows as _pin_metadata_rows,
 )
@@ -28,6 +34,8 @@ from .source_metadata import _pin_metadata
 
 DENIED_MESSAGE = "You do not have permission to read ZATCA calculation defaults for this saved invoice."
 FAILED_MESSAGE = "ZATCA calculation defaults could not be confirmed. No settings or invoice were changed and no request was sent."
+FINANCIAL_DENIED_MESSAGE = "You do not have permission to read ZATCA financial data for this saved invoice."
+FINANCIAL_FAILED_MESSAGE = "ZATCA invoice financial data and calculation settings could not be confirmed. No settings or invoice were changed and no request was sent."
 FIELDS = MappingProxyType({
     "Sales Invoice": ("company", "docstatus"),
     "POS Invoice": ("company", "docstatus"),
@@ -153,6 +161,52 @@ class SavedCalculationContextRead:
         raise TypeError("calculation_context_access_not_serializable")
 
 
+@dataclass(frozen=True, repr=False)
+class SavedCalculationFinancialRead:
+    """Protected PARTIAL native financial/default binding, never build authority.
+
+    The overlapping invoice metadata, identity, revision, Company and status
+    must agree. Neither source hash is a complete preparation fingerprint.
+    Raw SQL scalars remain distinct from ORM values and fiscal XML formatting.
+    """
+
+    context: SavedCalculationContextRead = field(repr=False)
+    financial: LockedInvoiceFinancialRead = field(repr=False)
+
+    def __post_init__(self):
+        try:
+            if type(self.context) is not SavedCalculationContextRead:
+                raise ValueError
+            context = SavedCalculationContextRead(self.context.settings, self.context.metadata)
+            if context != self.context:
+                raise ValueError
+            observed = _pin_financial_read(self.financial)
+            invoice = context.settings.sources[1]
+            body = json.loads(observed.financial._payload)
+            header = dict(body["header"])
+            root_metadata = next(row for row in observed.metadata if row.applied.name == invoice.doctype)
+            if ((observed.financial.doctype, observed.financial.name) != (invoice.doctype, invoice.name)
+                    or _revision(financial._validate_scalar(body["modified"])) != invoice.revision
+                    or header["company"] != financial._scalar(invoice.values[0])
+                    or header["docstatus"] != financial._scalar(invoice.values[1])
+                    or root_metadata != context.metadata[1]):
+                raise ValueError
+        except Exception:
+            invalid = True
+        else:
+            invalid = False
+        if invalid:
+            raise CalculationDefaultsAccessError("calculation_financial_access_result")
+        object.__setattr__(self, "context", context)
+        object.__setattr__(self, "financial", observed)
+
+    def __repr__(self):
+        return "<SavedCalculationFinancialRead protected PARTIAL native SQL, NOT verified origin>"
+
+    def __reduce__(self):
+        raise TypeError("calculation_financial_access_not_serializable")
+
+
 class _SavedDefaultsSource(ArchiveInspectionEngine):
     ROW_TYPE = CalculationDefaultsSourceRow
     ERROR = CalculationDefaultsAccessError
@@ -219,33 +273,62 @@ class SavedCalculationDefaultsService:
         """
         return self._capture_display(invoice_name, doctype=doctype, include_metadata=True)
 
-    def _capture_display(self, invoice_name, *, doctype, include_metadata):
+    def capture_financial_context(self, invoice_name, *, erp_major, doctype="Sales Invoice"):
+        """Read invoice-owned native data and defaults on the same owned handle.
+
+        Explicit ERP major is a declaration, not an installed-version check.
+        Linked parties/templates/settings, ORM parity and fiscal policy remain
+        outside this partial read. There is no RPC or implicit runtime caller.
+        """
+        return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
+            include_financial=True, erp_major=erp_major)
+
+    def _capture_display(self, invoice_name, *, doctype, include_metadata,
+            include_financial=False, erp_major=None):
         try:
             with mute_operation_messages(frappe):
-                return self._capture_owned(invoice_name, doctype=doctype, include_metadata=include_metadata)
+                return self._capture_owned(invoice_name, doctype=doctype, include_metadata=include_metadata,
+                    include_financial=include_financial, erp_major=erp_major)
         except frappe.PermissionError:
             denied = True
         except Exception:
             denied = False
-        frappe.throw(_(DENIED_MESSAGE if denied else FAILED_MESSAGE),
+        denied_message = FINANCIAL_DENIED_MESSAGE if include_financial else DENIED_MESSAGE
+        failed_message = FINANCIAL_FAILED_MESSAGE if include_financial else FAILED_MESSAGE
+        frappe.throw(_(denied_message if denied else failed_message),
             frappe.PermissionError if denied else frappe.ValidationError)
 
-    def _applied_metadata(self, rows):
+    def _applied_metadata(self, rows, *, include_financial=False):
         if self._metadata is None:
             raise CalculationDefaultsAccessError("calculation_context_access_dependencies")
         required = tuple(row.doctype for row in rows)
+        pinned = self._metadata_family(required)
+        for row, meta in zip(rows, pinned):
+            if any(not meta.has_field(name) for name in row.fields):
+                raise CalculationDefaultsAccessError("calculation_context_access_metadata_fields")
+        if include_financial:
+            root = pinned[1]
+            children = tuple(sorted(financial._child_type(root.name, table)
+                for table in financial.TABLE_FIELDS if root.has_field(table)))
+            extended = self._metadata_family((*required, *children))
+            if extended[:2] != pinned:
+                raise CalculationDefaultsAccessError("calculation_context_access_metadata_drift")
+            _financial_manifest(root.name, {meta.name: meta for meta in extended[1:]})
+            return extended
+        return pinned
+
+    def _metadata_family(self, required):
+        """Pin exactly the server-derived type set; never accept extra records."""
         supplied = self._metadata(self._policy._scope, required)
         if type(supplied) is not dict or set(supplied) != set(required):
             raise CalculationDefaultsAccessError("calculation_context_access_metadata_scope")
         pinned = tuple(_pin_metadata(supplied[name]) for name in required)
         if tuple(meta.name for meta in pinned) != required:
             raise CalculationDefaultsAccessError("calculation_context_access_metadata_scope")
-        for row, meta in zip(rows, pinned):
-            if any(not meta.has_field(name) for name in row.fields):
-                raise CalculationDefaultsAccessError("calculation_context_access_metadata_fields")
         return pinned
 
-    def _capture_owned(self, invoice_name, *, doctype, include_metadata=False):
+    def _capture_owned(self, invoice_name, *, doctype, include_metadata=False,
+            include_financial=False, erp_major=None):
         """Recheck saved ACL/SQL membership/cache before protected disclosure.
 
         Fresh owned rollback excludes pre-existing pending defaults. Remaining
@@ -258,7 +341,9 @@ class SavedCalculationDefaultsService:
             policy = self._policy
             actor = policy._actor()
             rows, _records, recheck = policy._saved_selection(invoice_name, doctype, actor)
-            applied = self._applied_metadata(rows) if include_metadata else ()
+            if include_financial and (type(erp_major) is not int or erp_major not in (15, 16)):
+                raise CalculationDefaultsAccessError("calculation_financial_access_version")
+            applied = self._applied_metadata(rows, include_financial=include_financial) if include_metadata else ()
             if include_metadata:
                 recheck()
             parent = {"site": "__default", "global": "__global", "user": actor[1]}[self._parent_kind]
@@ -266,7 +351,18 @@ class SavedCalculationDefaultsService:
             _verify_rows(connection, rows)
             recheck()
             metadata_reader = MariaDBMetadataSourceReader(connection) if include_metadata else None
-            metadata = tuple(metadata_reader.load_for_update(meta) for meta in applied)
+            # The financial reader owns invoice/child metadata reads; avoid a
+            # second initial read of the same invoice declaration here.
+            metadata = tuple(metadata_reader.load_for_update(meta)
+                for meta in (applied[:1] if include_financial else applied))
+            if include_financial:
+                financial_reader = MariaDBInvoiceFinancialReader(connection)
+                observed_financial = financial_reader.load_for_update(doctype, invoice_name,
+                    erp_major=erp_major, applied_metadata={meta.name: meta for meta in applied[1:]})
+                root_metadata = next(row for row in observed_financial.metadata if row.applied.name == doctype)
+                context_metadata = (*metadata, root_metadata)
+            else:
+                context_metadata = metadata
             reader = MariaDBCalculationDefaultsReader(connection)
             observed = reader.load_for_update(parent)
             observed.require_cache_match(parent, self._cache(policy._scope, parent))
@@ -275,17 +371,21 @@ class SavedCalculationDefaultsService:
             reader.require_unchanged(observed)
             observed.require_cache_match(parent, self._cache(policy._scope, parent))
             if include_metadata:
-                if self._applied_metadata(rows) != applied:
+                if self._applied_metadata(rows, include_financial=include_financial) != applied:
                     raise CalculationDefaultsAccessError("calculation_context_access_metadata_drift")
                 recheck()
             _verify_rows(connection, rows)
             reader.require_unchanged(observed)
             for declaration in metadata:
                 metadata_reader.require_unchanged(declaration)
+            if include_financial:
+                financial_reader.require_unchanged(observed_financial)
             recheck()
             result = SavedCalculationDefaultsRead(policy._scope, actor[1], rows, observed)
             if include_metadata:
-                result = SavedCalculationContextRead(result, metadata)
+                result = SavedCalculationContextRead(result, context_metadata)
+            if include_financial:
+                result = SavedCalculationFinancialRead(result, observed_financial)
         except BaseException as error:
             failure = error
         finally:
