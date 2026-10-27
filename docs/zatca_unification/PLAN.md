@@ -19,6 +19,13 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 114 composes defaults and exact invoice/Company metadata in the existing
+permissioned transaction service. Reuse one ACL/acquisition/cleanup/display path,
+pin and recheck applied declarations and all selected SQL rows before protected
+disclosure. Keep the original defaults-only operation intact. Other financial/
+child/dependency reads and effective precision remain open; this is no complete
+preparation guard or runtime activation. See [CALCULATION_CONTEXT.md](CALCULATION_CONTEXT.md).
+
 Increment 113 adds selected locked DocType/DocField/Custom Field/Property Setter
 reads and raw membership/revision binding to the existing applied matcher.
 Preflight unsafe types before values and mask concurrent unsupported additions

@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and thirteen bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and fourteen bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2689,6 +2689,34 @@ restriction was waived. These are selected dependency queries with synthetic
 applied metadata, not installed ERP/schema/ACL, complete source, SDK or authority
 acceptance.
 
+## Increment 114: one permissioned defaults and invoice/Company metadata capture
+
+- Add an explicit combined capture to the existing defaults service; reuse one
+  saved READ/acquisition/transaction/cleanup/presentation path. The original
+  defaults-only method keeps its result and does not query metadata.
+- Derive exactly Company and saved invoice type after ordinary ACL checks, pin
+  exact server-supplied applied declarations, require minimal source-column
+  coverage and reject missing/extra/drifting declarations without discovery.
+- Use one owned SQL connection for source/defaults/metadata locks and boundary
+  rechecks, including callbacks that edit metadata or defaults near completion.
+  Preserve pending parent work and reject same-effect inserted raw membership.
+- Return an independently pinned PARTIAL settings/metadata context without a
+  full preparation fingerprint or issuance/provenance grant. Reuse single-message
+  muting and existing Arabic display translations; no new UI/provider is installed.
+  See [CALCULATION_CONTEXT.md](CALCULATION_CONTEXT.md).
+
+The first local run found two failures in the unrelated-type fixture helper;
+after correcting only that fixture, combined/local/native plus legacy access
+passed **352 cases in 7.91 seconds**. Added combined Arabic display and actual
+metadata/default lock coexistence tests passed **358 cases in 8.34 seconds**
+(114 new local + 46 new private SQL + 198 existing defaults-access cases).
+The full guarded run passed **19,918 local + 2,422 private SQL = 22,340 cases in
+290.83 seconds**, across eighteen private SQL suites with the external-network/
+site-init guard active. All nine Node VM scripts passed **1,444 cases**. No
+assertion, ordinary ACL, timeout, crypto or offline restriction was waived.
+Caches/ACL are not atomic SQL state, the source graph is incomplete, and
+installed ERP/SDK/authority proof is not claimed.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -3114,6 +3142,8 @@ endpoints remain untouched.
 | `test_calculation_defaults_access_mariadb.py` | New native SQL with synthetic ACL: owned pending rollback, untouched pending parent/borrow rejection, stale source/cache, RC membership changes, callback rollback and cleanup failure; no installed provider/tenant access |
 | `test_metadata_source.py` | All selected metadata types, standard/custom/raw origin, fixed SQL/preflight bounds, applied reconciliation, corrupt declarations/revisions, sensitive types and interruption/no-cleanup contracts |
 | `test_metadata_source_mariadb.py` | New guarded native metadata: selected scopes, current reads, actual row locks, same-effect phantom membership, Password field/setter SQL masking, exact UTF-8 bounds, nullable revisions and own pending writes; no installed metadata proof |
+| `test_calculation_context_access.py` | Same permissioned pipeline for exact source metadata/default context, unchanged defaults-only path, scope/column checks, late drift, protected independent result and one Arabic failure |
+| `test_calculation_context_access_mariadb.py` | New native combined SQL: one owned handle, pending rollback/parent continuity, metadata/default/source callback edits, same-effect RC insertion and simultaneous metadata/default locks until cleanup |
 | `test_preparation_custody_access.py` | Saved WRITE/related READ before scoped keys, protected ciphertext retrieval, exact internal recovery, mandatory evidence, late source/ACL drift, uncertain commit/interrupt/parent cleanup and one Arabic display summary; native chain suite adds real SQL visibility/contention, crash/restart, corruption and unknown commits |
 | `test_issuing_chain_mariadb.py` (separate opt-in) | Owned-private head/original atomicity, preparation contention, independent units, durable pre-build holds, commit/close uncertainty, exact reconciliation, cooperating-writer refusal, corruption and owned-server crash recovery |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |

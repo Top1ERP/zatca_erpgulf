@@ -2,6 +2,11 @@
 
 Increment 112 — 2026-10-27. Server-only development service; not installed.
 
+Increment 114 adds `capture_context` to the same transaction/presentation service,
+combining defaults with exactly invoice/Company metadata and their final SQL
+rechecks. The original `capture` remains defaults-only. See
+[CALCULATION_CONTEXT.md](CALCULATION_CONTEXT.md).
+
 ## Responsibility and composition
 
 `calculation_defaults_access.py` composes the scoped defaults SQL reader with

@@ -2,6 +2,10 @@
 
 Increment 113 — 2026-10-27. Uninstalled dependency reader; caller-owned transaction.
 
+Increment 114 composes this reader with saved-source READ and defaults in one
+owned transaction for invoice/Company metadata. Other dependencies and complete
+preparation locking remain open. See [CALCULATION_CONTEXT.md](CALCULATION_CONTEXT.md).
+
 ## Responsibility
 
 `metadata_source.py` reads selected DocType, DocField, Custom Field and Property

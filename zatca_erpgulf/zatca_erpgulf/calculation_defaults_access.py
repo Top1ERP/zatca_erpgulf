@@ -1,4 +1,4 @@
-"""Uninstalled saved-READ acquisition of protected calculation defaults only.
+"""Uninstalled saved-READ acquisition of defaults and selected source metadata.
 
 Administrator/System Manager and exact invoice/Company READ precede explicit
 owned SQL and cache dependencies. No certificate/route/acceptance requirement,
@@ -19,8 +19,12 @@ from .archive_source_access import (
 )
 from .calculation_defaults import CalculationDefaultsRows, MariaDBCalculationDefaultsReader, _pin_rows
 from .credential_bundle_access import CredentialStorageScope
+from .metadata_source import (
+    MariaDBMetadataSourceReader, SelectedMetadataRows, _pin_rows as _pin_metadata_rows,
+)
 from .operation_messages import mute_operation_messages
 from .primary_receipt_access import _owned_saved_receipt_connection
+from .source_metadata import _pin_metadata
 
 DENIED_MESSAGE = "You do not have permission to read ZATCA calculation defaults for this saved invoice."
 FAILED_MESSAGE = "ZATCA calculation defaults could not be confirmed. No settings or invoice were changed and no request was sent."
@@ -101,6 +105,54 @@ class SavedCalculationDefaultsRead:
         raise TypeError("calculation_defaults_access_not_serializable")
 
 
+def _pin_saved_defaults(observed):
+    if type(observed) is not SavedCalculationDefaultsRead:
+        raise ValueError
+    pinned = SavedCalculationDefaultsRead(observed.scope, observed.actor, observed.sources, observed.defaults)
+    if pinned != observed:
+        raise ValueError
+    return pinned
+
+
+@dataclass(frozen=True, repr=False)
+class SavedCalculationContextRead:
+    """Protected PARTIAL defaults plus invoice/Company metadata, not issuance.
+
+    The two source metadata types are exact, independently pinned and must cover
+    every minimal saved-row column. Other financial dependencies are not claimed.
+    """
+
+    settings: SavedCalculationDefaultsRead = field(repr=False)
+    metadata: tuple[SelectedMetadataRows, ...] = field(repr=False)
+
+    def __post_init__(self):
+        try:
+            settings = _pin_saved_defaults(self.settings)
+            expected = tuple(row.doctype for row in settings.sources)
+            if type(self.metadata) is not tuple or len(self.metadata) != len(expected):
+                raise ValueError
+            metadata = tuple(_pin_metadata_rows(row) for row in self.metadata)
+            if tuple(row.applied.name for row in metadata) != expected:
+                raise ValueError
+            for selected, schema in zip(settings.sources, metadata):
+                if any(not schema.applied.has_field(name) for name in selected.fields):
+                    raise ValueError
+        except Exception:
+            invalid = True
+        else:
+            invalid = False
+        if invalid:
+            raise CalculationDefaultsAccessError("calculation_context_access_result")
+        object.__setattr__(self, "settings", settings)
+        object.__setattr__(self, "metadata", metadata)
+
+    def __repr__(self):
+        return "<SavedCalculationContextRead protected PARTIAL declarations, NOT verified origin>"
+
+    def __reduce__(self):
+        raise TypeError("calculation_context_access_not_serializable")
+
+
 class _SavedDefaultsSource(ArchiveInspectionEngine):
     ROW_TYPE = CalculationDefaultsSourceRow
     ERROR = CalculationDefaultsAccessError
@@ -139,11 +191,15 @@ class SavedCalculationDefaultsService:
     handles are never cleaned. No commit, cache refresh or source write occurs.
     """
 
-    def __init__(self, scope, connection_factory, cache_reader, *, parent_kind="site"):
+    def __init__(self, scope, connection_factory, cache_reader, *,
+            parent_kind="site", applied_metadata_reader=None):
         if type(parent_kind) is not str or parent_kind not in PARENT_KINDS or not callable(cache_reader):
             raise CalculationDefaultsAccessError("calculation_defaults_access_dependencies")
         self._policy = _SavedDefaultsSource(scope, connection_factory)
+        if applied_metadata_reader is not None and not callable(applied_metadata_reader):
+            raise CalculationDefaultsAccessError("calculation_context_access_dependencies")
         self._cache, self._parent_kind = cache_reader, parent_kind
+        self._metadata = applied_metadata_reader
 
     def __repr__(self):
         return "<SavedCalculationDefaultsService permissioned protected local read>"
@@ -153,9 +209,20 @@ class SavedCalculationDefaultsService:
 
     def capture(self, invoice_name, *, doctype="Sales Invoice"):
         """Display one localized failure, keeping parent flags/messages intact."""
+        return self._capture_display(invoice_name, doctype=doctype, include_metadata=False)
+
+    def capture_context(self, invoice_name, *, doctype="Sales Invoice"):
+        """Explicit metadata/default composition on ONE owned SQL transaction.
+
+        The server must configure an applied_metadata_reader(scope, types).
+        No request selects arbitrary metadata types or supplies framework Meta.
+        """
+        return self._capture_display(invoice_name, doctype=doctype, include_metadata=True)
+
+    def _capture_display(self, invoice_name, *, doctype, include_metadata):
         try:
             with mute_operation_messages(frappe):
-                return self._capture_owned(invoice_name, doctype=doctype)
+                return self._capture_owned(invoice_name, doctype=doctype, include_metadata=include_metadata)
         except frappe.PermissionError:
             denied = True
         except Exception:
@@ -163,7 +230,22 @@ class SavedCalculationDefaultsService:
         frappe.throw(_(DENIED_MESSAGE if denied else FAILED_MESSAGE),
             frappe.PermissionError if denied else frappe.ValidationError)
 
-    def _capture_owned(self, invoice_name, *, doctype):
+    def _applied_metadata(self, rows):
+        if self._metadata is None:
+            raise CalculationDefaultsAccessError("calculation_context_access_dependencies")
+        required = tuple(row.doctype for row in rows)
+        supplied = self._metadata(self._policy._scope, required)
+        if type(supplied) is not dict or set(supplied) != set(required):
+            raise CalculationDefaultsAccessError("calculation_context_access_metadata_scope")
+        pinned = tuple(_pin_metadata(supplied[name]) for name in required)
+        if tuple(meta.name for meta in pinned) != required:
+            raise CalculationDefaultsAccessError("calculation_context_access_metadata_scope")
+        for row, meta in zip(rows, pinned):
+            if any(not meta.has_field(name) for name in row.fields):
+                raise CalculationDefaultsAccessError("calculation_context_access_metadata_fields")
+        return pinned
+
+    def _capture_owned(self, invoice_name, *, doctype, include_metadata=False):
         """Recheck saved ACL/SQL membership/cache before protected disclosure.
 
         Fresh owned rollback excludes pre-existing pending defaults. Remaining
@@ -176,10 +258,15 @@ class SavedCalculationDefaultsService:
             policy = self._policy
             actor = policy._actor()
             rows, _records, recheck = policy._saved_selection(invoice_name, doctype, actor)
+            applied = self._applied_metadata(rows) if include_metadata else ()
+            if include_metadata:
+                recheck()
             parent = {"site": "__default", "global": "__global", "user": actor[1]}[self._parent_kind]
             connection = _owned_saved_receipt_connection(policy, recheck)
             _verify_rows(connection, rows)
             recheck()
+            metadata_reader = MariaDBMetadataSourceReader(connection) if include_metadata else None
+            metadata = tuple(metadata_reader.load_for_update(meta) for meta in applied)
             reader = MariaDBCalculationDefaultsReader(connection)
             observed = reader.load_for_update(parent)
             observed.require_cache_match(parent, self._cache(policy._scope, parent))
@@ -187,10 +274,18 @@ class SavedCalculationDefaultsService:
             _verify_rows(connection, rows)
             reader.require_unchanged(observed)
             observed.require_cache_match(parent, self._cache(policy._scope, parent))
+            if include_metadata:
+                if self._applied_metadata(rows) != applied:
+                    raise CalculationDefaultsAccessError("calculation_context_access_metadata_drift")
+                recheck()
             _verify_rows(connection, rows)
             reader.require_unchanged(observed)
+            for declaration in metadata:
+                metadata_reader.require_unchanged(declaration)
             recheck()
             result = SavedCalculationDefaultsRead(policy._scope, actor[1], rows, observed)
+            if include_metadata:
+                result = SavedCalculationContextRead(result, metadata)
         except BaseException as error:
             failure = error
         finally:
