@@ -224,3 +224,25 @@ def test_format_metadata_uses_the_existing_property_setter_reconciliation(connec
     with case.connection.cursor() as cursor:
         cursor.execute("UPDATE `tabProperty Setter` SET value='CHANGED'")
     failure(lambda: case.reader.require_unchanged(observed), "currency_format_source_changed")
+
+
+def test_missing_check_with_other_singleton_storage_gets_a_value_free_witness(connections):
+    case = native_case(connections)
+    with case.connection.cursor() as cursor: cursor.execute("DELETE FROM `tabSingles` WHERE field=%s", (source.FLAG,))
+    wrapped, calls, returned = instrument(case.connection)
+    reader = source.MariaDBCurrencyFormatReader(wrapped, allow_missing_check=True)
+    observed = load(case, reader)
+    assert observed.context.use_currency_format is False
+    assert json.loads(observed._payload)["profile"] == source.ABSENT_PROFILE
+    assert "PRIVATE-NEVER-RETURN" not in repr(returned)
+    witness = [sql for sql, _ in calls if "FROM `tabSingles`" in sql and "`field`=%s" not in sql]
+    assert witness and all("`value`" not in sql and "`field`" not in sql for sql in witness)
+    reader.require_unchanged(observed)
+    with case.connection.cursor() as cursor: cursor.execute("DELETE FROM `tabSingles`")
+    failure(lambda: reader.require_unchanged(observed), "currency_format_source_changed")
+
+
+def test_real_empty_singleton_still_refuses_new_doc_default_hydration(connections):
+    case = native_case(connections)
+    with case.connection.cursor() as cursor: cursor.execute("DELETE FROM `tabSingles`")
+    failure(lambda: load(case, source.MariaDBCurrencyFormatReader(case.connection, allow_missing_check=True)))

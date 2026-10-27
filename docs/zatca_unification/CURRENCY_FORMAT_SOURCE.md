@@ -77,15 +77,19 @@ DDL/index/charset/provisioning attestation.
 
 ## Persisted Check and optional currency semantics
 
-Only a PRESENT selected Singleton row is supported here. Persisted NULL, blank
+The increment118 default supports only a PRESENT selected Singleton row. Persisted NULL, blank
 and `"0"` resolve to false, while `"1"` resolves to true; all raw distinctions
 remain in the fingerprint. Other text is refused, without pretending it is valid
 configuration merely because a permissive cint could produce zero.
 
-Absence is not synthesized as zero: framework Singleton loading can use new_doc
+Increment119 adds an explicit opt-in for witnessed NONEMPTY Singleton storage
+with an absent Check. Raw absence has a separate payload profile; legacy present
+bytes and strict defaults remain. See [CALCULATION_FORMAT_ACCESS.md](CALCULATION_FORMAT_ACCESS.md).
+
+Unwitnessed absence is not synthesized as zero: framework Singleton loading can use new_doc
 defaults when storage is empty. Existing nonempty Singleton/missing-Check and
-full empty-Singleton/default hydration need an explicit normalization/witness
-bridge before wider adoption. This internal supported-subset boundary neither
+full empty-Singleton/default hydration remain distinct. The former now has the
+explicit bridge; the latter remains refused. This internal supported-subset boundary neither
 imposes a ZATCA requirement nor asks an operator to change a working setting.
 
 No Currency identity means no Currency metadata/data query. An enabled format
@@ -124,9 +128,10 @@ default 0 and Language/Currency number_format are Select fields:
 Those public reads contacted GitHub only. Tests use synthetic schema/metadata on
 a NEW guard-owned TCP-disabled server, not an installed tenant or v16 runtime.
 
-Next compose ordinary related READ permissions, effective actor/language and
-field-currency resolution, selected cache provenance and this reader with the
-financial/default acquisition on one owned transaction. Preserve legacy v1
+Increment119 composes ordinary related READ, effective actor/language and invoice
+currency with this reader in the existing owned service. Other field-currency
+resolution and broader source adoption remain gates. Next complete
+field-currency resolution and selected cache provenance. Preserve legacy v1
 settings bytes. Complete native/ORM/Singleton normalization and linked graph
 locking before preparation/runtime adoption. No complete source/committed-origin,
 historical epoch, accounting/XML/SDK or remote acceptance is claimed.

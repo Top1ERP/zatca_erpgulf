@@ -19,6 +19,7 @@ from .metadata_source import (
 from .source_metadata import FORMAT_PROFILE, _pin_metadata
 
 PROFILE = "currency-format-source-sql/v1"
+ABSENT_PROFILE = "currency-format-source-sql/absent-check-v1"
 FLAG = "use_number_format_from_currency"
 MAX_VALUE_BYTES = 4096
 MAX_PAYLOAD_BYTES = 65536
@@ -61,7 +62,7 @@ def _value(encoded, signature):
     return value
 
 
-def _context(language, currency, records):
+def _context(language, currency, records, *, absent_check=False):
     expected = [(name, language if name == "Language" else currency if name == "Currency" else name)
         for name in _types(language, currency)]
     if type(records) is not list or [(row.get("doctype"), row.get("name")) for row in records] != expected:
@@ -70,13 +71,21 @@ def _context(language, currency, records):
     for row, (doctype, name) in zip(records, expected):
         keys = {"doctype", "name", "field", "value", "sql_type"}
         if doctype != "System Settings": keys.add("modified")
+        if doctype == "System Settings" and absent_check:
+            keys.add("singleton_nonempty")
         if set(row) != keys or row["field"] != (FLAG if doctype == "System Settings" else "number_format"):
             raise ValueError
         if doctype != "System Settings": _modified(row["modified"])
-        values[doctype] = _value(row["value"], row["sql_type"])
+        if doctype == "System Settings" and absent_check:
+            if row["value"] != ["absent"] or row["singleton_nonempty"] is not True:
+                raise ValueError
+            _value(["null"], row["sql_type"])  # Validate text descriptor, without inventing NULL storage.
+            values[doctype] = None
+        else:
+            values[doctype] = _value(row["value"], row["sql_type"])
     raw_flag = values["System Settings"]
-    # Reviewed persisted Check subset; absence is NEVER synthesized. If the
-    # whole Singleton is absent, Frappe can call new_doc and apply other defaults.
+    # A witnessed NONEMPTY Singleton initializes an absent Check to zero. A
+    # wholly empty Singleton can run new_doc defaults and remains unsupported.
     if raw_flag not in (None, "", "0", "1"):
         raise ValueError
     return CurrencyFormatContext(language, values["Language"], raw_flag == "1",
@@ -107,11 +116,12 @@ class LockedCurrencyFormatRead:
                 raise ValueError
             body = json.loads(self._payload)
             if (type(body) is not dict or set(body) != {"profile", "language", "currency", "metadata", "records"}
-                    or body["profile"] != PROFILE or (body["language"], body["currency"]) != (self.language, self.currency)
+                    or body["profile"] not in (PROFILE, ABSENT_PROFILE)
+                    or (body["language"], body["currency"]) != (self.language, self.currency)
                     or body["metadata"] != [[row.applied.name, row.sha256] for row in metadata]
                     or _canonical(body) != self._payload):
                 raise ValueError
-            context = _context(self.language, self.currency, body["records"])
+            context = _context(self.language, self.currency, body["records"], absent_check=body["profile"] == ABSENT_PROFILE)
         except Exception:
             invalid = True
         else:
@@ -163,10 +173,11 @@ class MariaDBCurrencyFormatReader:
     visible and RC phantoms still require completion checks. No cleanup/retry.
     """
 
-    def __init__(self, connection):
-        if not callable(getattr(connection, "cursor", None)):
+    def __init__(self, connection, *, allow_missing_check=False):
+        if not callable(getattr(connection, "cursor", None)) or type(allow_missing_check) is not bool:
             raise CurrencyFormatSourceError("currency_format_source_connection")
         self._connection, self._failed = connection, False
+        self._allow_missing_check = allow_missing_check
 
     def __repr__(self):
         return "<MariaDBCurrencyFormatReader explicit caller-owned transaction>"
@@ -185,6 +196,23 @@ class MariaDBCurrencyFormatReader:
         cursor.execute("SELECT " + ids + "," + projection + length + " FROM `tab" + table + "` WHERE "
             + where + " LIMIT %s FOR UPDATE", (*params, 2))
         rows = cursor.fetchall()
+        if type(rows) in (tuple, list) and not rows and singleton and self._allow_missing_check:
+            signature = None
+            if full:
+                descriptor = cursor.description[2]
+                signature = [descriptor[1], descriptor[4], descriptor[5], descriptor[6]]
+                _value(["null"], signature)
+            # Fetch NO field name or value from the witness row. A nonempty
+            # Singles dictionary skips new_doc and _fix_numeric_types sets the
+            # missing Check to zero in the inspected framework implementations.
+            cursor.execute("SELECT SUBSTRING(`doctype`,1,141) FROM `tabSingles` WHERE `doctype`=%s LIMIT 1 FOR UPDATE",
+                (doctype,))
+            witness = cursor.fetchall()
+            if type(witness) not in (tuple, list) or tuple(witness) != ((doctype,),):
+                raise ValueError
+            record = None if not full else dict(doctype=doctype, name=name, field=FLAG,
+                value=["absent"], sql_type=signature, singleton_nonempty=True)
+            return ("absent-check",), record
         if type(rows) not in (tuple, list) or len(rows) != 1:
             raise ValueError  # Missing/duplicate/collation-variant sources are never invented.
         row = rows[0]
@@ -225,7 +253,8 @@ class MariaDBCurrencyFormatReader:
             if before != after: raise ValueError
             records.append(record)
         for row in metadata: metadata_reader.require_unchanged(row)
-        payload = _canonical(dict(profile=PROFILE, language=language, currency=currency,
+        profile = ABSENT_PROFILE if any(row.get("singleton_nonempty") is True for row in records) else PROFILE
+        payload = _canonical(dict(profile=profile, language=language, currency=currency,
             metadata=[[row.applied.name, row.sha256] for row in metadata], records=records))
         return LockedCurrencyFormatRead(language, currency, metadata, payload)
 

@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 119 composes invoice-currency/locale formats with normal related READ
+and the existing owned financial/default transaction. Pin source/currency/locale/
+cache/revisions; recheck through cleanup and keep legacy capture methods intact.
+Add an explicit nonempty-Singleton missing-Check witness without creating settings
+or changing present v1 bytes. Restrict precision use to root Currency fields with
+explicit invoice-currency options. Next complete Company/base/child currency,
+other settings and whole-empty Singleton policy. See
+[CALCULATION_FORMAT_ACCESS.md](CALCULATION_FORMAT_ACCESS.md).
+
 Increment 118 adds a separate narrow format-metadata profile and reuses the shared
 metadata SQL/customization engine, preserving all legacy v1 bytes. Read selected
 Language/Currency and tabSingles values with native text signatures, bounded

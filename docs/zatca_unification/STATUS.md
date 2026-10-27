@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and eighteen bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and nineteen bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2862,6 +2862,47 @@ alter a working setting. Related READ/actor/language/field-currency/cache bindin
 missing/empty Singleton hydration, native/ORM/full source integration and actual
 installed v15/v16/GL/VAT/XML/SDK/authority acceptance remain gates.
 
+## Increment 119: permissioned invoice-currency acquisition and absent-Check witness
+
+- Add explicit v16/site invoice-currency acquisition in the existing calculation
+  service. Use the shared normal saved READ engine for Currency, Language and
+  System Settings before format metadata/cache/SQL. No ignore-permission flag,
+  second connection/cleanup policy or new UI/RPC/provider is introduced.
+- Pin effective locale and saved invoice currency, require native financial
+  currency agreement before format reads, and bind related ordinary revisions/
+  values without a fake Singleton timestamp. Recheck ACL/source/locale/currency
+  through final owned cleanup before returning a protected partial result.
+- Restrict its precision consumer to root Currency fields explicitly using
+  invoice-currency options. Preserve original defaults/metadata/financial-only
+  capture methods, messages, dependencies and result contracts. Reuse one Arabic
+  display failure and English internal codes; no monetary/XML/GL/VAT change.
+- Add constructor-only opt-in for an absent Check in witnessed NONEMPTY Singles
+  storage. Fetch no unrelated field name/value; preserve raw absence in a separate
+  payload profile and all present v1 bytes. Reject whole-empty storage and detect
+  subsequent explicit zero insertion even when effective values agree.
+  See [CALCULATION_FORMAT_ACCESS.md](CALCULATION_FORMAT_ACCESS.md).
+
+Initial permissioned local tests passed **116 cases in 25.39 seconds** on the
+first run. Native combined/low-level format tests passed **120 cases in 49.25
+seconds**. After adding actual installed-v15/pinned-v16 numeric normalization and
+no-fabricated-Singleton-revision cases, the local resolver/access/legacy financial
+selection passed **384 cases in 57.57 seconds**. Final full guarded verification
+passed **20,812 local + 2,664 private SQL = 23,476 cases in 440.67 seconds**, across
+twenty-two private SQL suites. New cases total **197** (123 local + 74 native SQL).
+The external-network/site-init guard remained active; no assertion, normal ACL,
+timeout, crypto or offline restriction was waived. Syntax/JSON/diff checks passed.
+Frontend files were unchanged, so Node VM suites were not repeated.
+
+The v16 numeric-fix excerpt comes from the same previously pinned public source
+and full-file hash, with MIT attribution retained; no complete v16 module was
+imported. Tests use synthetic metadata, ACL documents and new guard-owned
+TCP-disabled SQL only. No installed source/site/data/config/schema, credentials,
+Bench/worker or authority operation occurs. Complete Company/base/child currency,
+empty Singleton hydration, source/cache/provider provenance, native/ORM/whole
+graph integration and actual installed v15/v16/GL/VAT/XML/SDK/authority acceptance
+remain gates. Ordinary runtime user authorization is not changed by this
+administrative staging service.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -3296,6 +3337,8 @@ endpoints remain untouched.
 | `test_calculation_precision.py` | Actual installed v15/pinned v16 helper parity, zero/explicit/default/locale/currency precedence, strict scope/type/format bounds and actual stale document cache; no full v16 runtime or amount rounding |
 | `test_currency_format_source.py` | Explicit separate metadata profile, six old hash goldens, typed raw/native context, scope/bounds/poisoning and strict cache/reconstruction; old catalog remains unchanged |
 | `test_currency_format_source_mariadb.py` | New owned SQL: actual text/Singleton storage and locks, same-effective raw drift, RC duplicate insertion, oversized CASE masking, NULL physical family changes, pending work and shared setter matching |
+| `test_calculation_format_access.py` | Shared related saved READ before dependencies, pinned locale/currency/revisions, one owned cleanup/display, strict result/precision scope and unchanged legacy operations |
+| `test_calculation_format_access_mariadb.py` | New owned combined SQL: format/default/financial/metadata callback rollback and locks, parent work/borrow refusal, close-time drift, missing Check witness and RC explicit-zero insertion |
 | `test_preparation_custody_access.py` | Saved WRITE/related READ before scoped keys, protected ciphertext retrieval, exact internal recovery, mandatory evidence, late source/ACL drift, uncertain commit/interrupt/parent cleanup and one Arabic display summary; native chain suite adds real SQL visibility/contention, crash/restart, corruption and unknown commits |
 | `test_issuing_chain_mariadb.py` (separate opt-in) | Owned-private head/original atomicity, preparation contention, independent units, durable pre-build holds, commit/close uncertainty, exact reconciliation, cooperating-writer refusal, corruption and owned-server crash recovery |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |

@@ -16,7 +16,7 @@ from zatca_erpgulf.zatca_erpgulf import financial_source_observation as financia
 from zatca_erpgulf.zatca_erpgulf.calculation_precision import FieldPrecisionResolution
 from zatca_erpgulf.zatca_erpgulf.tests.test_source_metadata import AppliedMeta, project
 from zatca_erpgulf.zatca_erpgulf.tests.test_financial_source_sql import observed_metadata
-from zatca_erpgulf.zatca_erpgulf.tests.test_calculation_precision import declarations
+from zatca_erpgulf.zatca_erpgulf.tests.test_calculation_precision import declarations, upstream16
 
 NOW = datetime(2026, 10, 27, 18, 0, 0)
 
@@ -33,7 +33,7 @@ def scenario(*, currency="SAR", flag="1", language_format="#,###.##", currency_f
     records = {"Language": [(language, NOW, language_format)], "System Settings": [("System Settings", source.FLAG, flag)]}
     if currency is not None: records["Currency"] = [(currency, NOW, currency_format)]
     connection = SimpleNamespace(queries=[], records=records, hook=None, autocommit=(0,), error=None,
-        commit=Mock(), rollback=Mock(), close=Mock(), value_code=FT.BLOB)
+        commit=Mock(), rollback=Mock(), close=Mock(), value_code=FT.BLOB, singleton_nonempty=True)
     class Cursor:
         def __enter__(self): return self
         def __exit__(self, *args): pass
@@ -43,6 +43,9 @@ def scenario(*, currency="SAR", flag="1", language_format="#,###.##", currency_f
             if sql == "SELECT @@session.autocommit": return
             table = sql.split("FROM `tab", 1)[1].split("`", 1)[0]
             doctype = "System Settings" if table == "Singles" else table
+            if table == "Singles" and "`field`=%s" not in sql:
+                self.rows = (("System Settings",),) if connection.singleton_nonempty else ()
+                return
             full = "CASE WHEN" in sql
             if connection.hook: connection.hook(doctype, full)
             self.rows = []
@@ -250,3 +253,59 @@ def test_format_read_view_only_exposes_its_explicit_selected_fields():
     with pytest.raises(schema.SourceMetadataError): view.get("api_secret")
     object.__setattr__(case.metas["Language"], "profile", schema.PROFILE)
     with pytest.raises(ValueError): schema._pin_metadata(case.metas["Language"])
+
+
+def test_opt_in_missing_check_requires_nonempty_storage_and_retains_absence(monkeypatch):
+    case = scenario(flag="0")
+    handle, _ = reader(case, monkeypatch)
+    present = load(case, handle)
+    compatible = load(case, source.MariaDBCurrencyFormatReader(case.connection, allow_missing_check=True))
+    assert (compatible._payload, compatible.sha256) == (present._payload, present.sha256)
+    case.records["System Settings"] = []
+    opted = source.MariaDBCurrencyFormatReader(case.connection, allow_missing_check=True)
+    observed = load(case, opted)
+    assert observed.context.use_currency_format is False
+    body = json.loads(observed._payload)
+    assert body["profile"] == source.ABSENT_PROFILE
+    assert body["records"][-1]["value"] == ["absent"]
+    assert body["records"][-1]["singleton_nonempty"] is True
+    opted.require_unchanged(observed)
+    case.records["System Settings"] = [("System Settings", source.FLAG, "0")]
+    failure(lambda: opted.require_unchanged(observed), "currency_format_source_changed")
+
+
+def test_empty_singleton_is_not_hydrated_from_defaults(monkeypatch):
+    case = scenario()
+    case.records["System Settings"] = []
+    case.connection.singleton_nonempty = False
+    reader(case, monkeypatch)
+    handle = source.MariaDBCurrencyFormatReader(case.connection, allow_missing_check=True)
+    failure(lambda: load(case, handle))
+
+
+def test_absence_profile_refuses_fabricated_or_missing_witness(monkeypatch):
+    case = scenario()
+    case.records["System Settings"] = []
+    reader(case, monkeypatch)
+    handle = source.MariaDBCurrencyFormatReader(case.connection, allow_missing_check=True)
+    observed = load(case, handle)
+    body = json.loads(observed._payload)
+    body["records"][-1]["singleton_nonempty"] = False
+    failure(lambda: replace(observed, _payload=financial._canonical(body)), "currency_format_source_rows")
+
+
+@pytest.mark.parametrize("major", [15, 16])
+def test_inspected_framework_numeric_fix_sets_a_missing_check_to_zero(upstream16, major):
+    import frappe
+    from frappe.model.base_document import BaseDocument
+    values = {"existing_setting": "SYNTHETIC"}
+    definition = frappe._dict(fieldname=source.FLAG, fieldtype="Check", default="1")
+    doc = SimpleNamespace(meta=SimpleNamespace(get=lambda *args: [definition]),
+        get=values.get, set=values.__setitem__, docstatus=0)
+    if major == 15:
+        BaseDocument._fix_numeric_types(doc)
+    else:
+        upstream16["numeric_fieldtypes"] = ("Check", "Int", "Float", "Currency", "Percent")
+        upstream16["_fix_numeric_types"](doc)
+    assert values[source.FLAG] == 0 and type(values[source.FLAG]) is int
+    assert values["existing_setting"] == "SYNTHETIC"
