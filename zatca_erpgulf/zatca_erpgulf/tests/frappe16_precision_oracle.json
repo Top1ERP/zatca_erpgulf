@@ -1,0 +1,41 @@
+{
+  "upstream": "https://github.com/frappe/frappe",
+  "commit": "e8d41dd0061a32ee781caefe5d0b0d2bb7c15362",
+  "license": "The MIT License\n\nCopyright (c) 2016-2021 Frappe Technologies Pvt. Ltd. <developers@frappe.io>\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in\nall copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN\nTHE SOFTWARE.\n",
+  "files": {
+    "model/meta.py": {
+      "sha256": "80c16cb2e4294589ad49c2e0ca286dcb304f9826179c54c52df557ce7d34b101",
+      "excerpts": {
+        "get_field_precision": "def get_field_precision(df, doc=None, currency=None):\n\t\"\"\"get precision based on DocField options and fieldvalue in doc\"\"\"\n\tif df.precision:\n\t\tprecision = cint(df.precision)\n\n\telif df.fieldtype == \"Currency\":\n\t\tcurrency_precision = get_currency_precision()\n\t\tif currency_precision is not None:\n\t\t\tprecision = currency_precision\n\t\telse:\n\t\t\tprecision = get_precision_from_currency_format(currency or get_field_currency(df, doc))\n\telse:\n\t\tprecision = cint(frappe.db.get_default(\"float_precision\")) or 3\n\n\treturn precision",
+        "get_precision_from_currency_format": "def get_precision_from_currency_format(currency: str) -> int:\n\t\"\"\"Get precision from currency format string if applicable.\"\"\"\n\tfrom frappe.locale import get_number_format\n\tfrom frappe.utils.number_format import NumberFormat\n\n\tuse_format_from_currency = frappe.get_system_settings(\"use_number_format_from_currency\")\n\tnumber_format = get_number_format()\n\tif use_format_from_currency:\n\t\tcurrency_format = frappe.db.get_value(\"Currency\", currency, \"number_format\", cache=True)\n\t\tnumber_format = NumberFormat.from_string(currency_format) if currency_format else number_format\n\treturn number_format.precision"
+      }
+    },
+    "model/document.py": {
+      "sha256": "4c1bf95413517c7deed5ae2edd24a38cadf0e21869e0710c80ad62aaada459b3",
+      "excerpts": {
+        "precision": "def precision(self, fieldname, parentfield=None) -> int | None:\n\t\"\"\"Return float precision for a particular field (or get global default).\n\n\t:param fieldname: Fieldname for which precision is required.\n\t:param parentfield: If fieldname is in child table.\"\"\"\n\tfrom frappe.model.meta import get_field_precision\n\n\tif parentfield and not isinstance(parentfield, str) and parentfield.get(\"parentfield\"):\n\t\tparentfield = parentfield.parentfield\n\n\tcache_key = parentfield or \"main\"\n\n\tif not hasattr(self, \"_precision\"):\n\t\tself._precision = _dict()\n\n\tif cache_key not in self._precision:\n\t\tself._precision[cache_key] = _dict()\n\n\tif fieldname not in self._precision[cache_key]:\n\t\tself._precision[cache_key][fieldname] = None\n\n\t\tdoctype = self.meta.get_field(parentfield).options if parentfield else self.doctype\n\t\tdf = frappe.get_meta(doctype).get_field(fieldname)\n\n\t\tif df and df.fieldtype in (\"Currency\", \"Float\", \"Percent\"):\n\t\t\tself._precision[cache_key][fieldname] = get_field_precision(df, self)\n\n\treturn self._precision[cache_key][fieldname]"
+      }
+    },
+    "utils/data.py": {
+      "sha256": "b3a005c11cb6a42a92838711b509ecfff568455c54f9923070fc4e1651848284",
+      "excerpts": {
+        "cint": "def cint(s: NumericType | str | None, default: int = 0) -> int:\n\t\"\"\"Convert to integer.\n\n\t:param s: Number in string or other numeric format.\n\t:returns: Converted number in python integer type.\n\n\tReturn default if input cannot be converted to integer.\n\n\tExamples:\n\t>>> cint(\"100\")\n\t100\n\t>>> cint(\"a\")\n\t0\n\t>>> cint(None)\n\t0\n\n\t\"\"\"\n\tif s is None:\n\t\treturn default\n\n\ttry:\n\t\treturn int(s)\n\texcept Exception:\n\t\ttry:\n\t\t\treturn int(float(s))\n\t\texcept Exception:\n\t\t\treturn default",
+        "get_currency_precision": "def get_currency_precision() -> int | None:\n\t\"\"\"Return the configured Currency Precision, or None if it isn't set.\"\"\"\n\tcurrency_precision = frappe.db.get_default(\"currency_precision\")\n\treturn cint(currency_precision) if currency_precision not in (None, \"\") else None"
+      }
+    },
+    "locale.py": {
+      "sha256": "ac46224ff69a095f767674b3daa96ca6d4dd2f7d32d8a885756026dfdc2bc20f",
+      "excerpts": {
+        "get_number_format": "def get_number_format(language: str | None = None) -> NumberFormat:\n\t\"\"\"Return the number format for the given language.\n\n\t:param language: The language code to get the value for. Defaults to the current user's language.\n\t:return: The number format. Defaults to \"#,###.##\" if not found.\n\t\"\"\"\n\tnumber_format = get_locale_value(\"number_format\", language) or \"#,###.##\"\n\treturn NumberFormat.from_string(number_format)",
+        "get_locale_value": "def get_locale_value(key: str, language: str | None = None) -> str | None:\n\t\"\"\"Return the value of the key from the Language record or System Settings.\n\n\t:param key: The settings key to get the value for.\n\t:param language: The language code to get the value for. Defaults to the current user's language.\n\t\"\"\"\n\tlang = language or frappe.local.lang\n\tif lang:\n\t\tvalue = frappe.client_cache.get_doc(\"Language\", lang).get(key)\n\n\treturn value or frappe.db.get_default(key)"
+      }
+    },
+    "utils/number_format.py": {
+      "sha256": "40371f6ae3e4825a2ee50c37d541db36a2cc56df8e9f862dcf33f9cf70a66cc4",
+      "excerpts": {
+        "NumberFormat": "class NumberFormat:\n\tprecision: int\n\tdecimal_separator: str\n\tthousands_separator: str\n\tstring: str\n\n\t@classmethod\n\tdef from_string(cls, number_format: str) -> \"NumberFormat\":\n\t\tdecimal_separator, thousands_separator, precision = NUMBER_FORMAT_MAP[number_format]\n\t\treturn NumberFormat(\n\t\t\tprecision=precision,\n\t\t\tdecimal_separator=decimal_separator,\n\t\t\tthousands_separator=thousands_separator,\n\t\t\tstring=number_format,\n\t\t)\n\n\tdef __str__(self) -> str:\n\t\treturn self.string",
+        "NUMBER_FORMAT_MAP": "NUMBER_FORMAT_MAP = {\n\t\"#,###.##\": (\".\", \",\", 2),\n\t\"#.###,##\": (\",\", \".\", 2),\n\t\"# ###.##\": (\".\", \" \", 2),\n\t\"# ###,##\": (\",\", \" \", 2),\n\t\"#'###.##\": (\".\", \"'\", 2),\n\t\"#, ###.##\": (\".\", \", \", 2),\n\t\"#,##,###.##\": (\".\", \",\", 2),\n\t\"#,###.###\": (\".\", \",\", 3),\n\t\"#.###\": (\"\", \".\", 0),\n\t\"#,###\": (\"\", \",\", 0),\n\t\"#.########\": (\".\", \"\", 8),\n}"
+      }
+    }
+  }
+}

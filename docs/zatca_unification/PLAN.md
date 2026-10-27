@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 117 resolves field precision from exact applied metadata and site
+defaults, with a concrete caller on the protected financial result. Distinguish
+v15 from pinned v16 zero/default/locale/currency behavior and detect stale document
+precision cache without refreshing it. Preserve old snapshot bytes and raw
+amounts; this is not fiscal/XML rounding. Add versioned locale/currency/system
+acquisition before claiming complete v16 settings. See
+[CALCULATION_PRECISION.md](CALCULATION_PRECISION.md).
+
 Increment 116 composes native invoice/child data with the existing permissioned
 defaults/metadata service on one fresh owned transaction. Pin exact overlapping
 identity/revision/Company/status/metadata, preserve Decimal scale and parent pending

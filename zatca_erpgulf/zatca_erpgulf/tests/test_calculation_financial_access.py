@@ -245,3 +245,29 @@ def test_minimal_to_extended_root_metadata_drift_fails_before_sql(defaults_opera
     case.factory.assert_not_called()
     case.cache.assert_not_called()
     one_failure(defaults_operator, access.FINANCIAL_FAILED_MESSAGE)
+
+
+@pytest.mark.parametrize("major", [15, 16])
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+def test_captured_native_precision_uses_exact_metadata_and_defaults_without_io(defaults_operator, monkeypatch, major, doctype):
+    case = scenario(defaults_operator, monkeypatch, doctype=doctype)
+    result = capture(case, major)
+    queries = tuple(defaults_operator.sql), tuple(case.data.connection.queries)
+    reads = case.cache.call_count, case.metadata_provider.call_count
+    header = result.resolve_precision(case.invoice.doctype, "grand_total")
+    tax = result.resolve_precision("Sales Taxes and Charges", "tax_amount")
+    assert header.precision == tax.precision == 2
+    assert header.defaults == result.context.settings.defaults
+    assert queries == (tuple(defaults_operator.sql), tuple(case.data.connection.queries))
+    assert reads == (case.cache.call_count, case.metadata_provider.call_count)
+
+
+@pytest.mark.parametrize("fault", ["unrelated", "field", "scope", "corrupt"])
+def test_captured_precision_never_uses_an_unbound_type_or_default_scope(defaults_operator, monkeypatch, fault):
+    case = scenario(defaults_operator, monkeypatch, parent_kind="global" if fault == "scope" else "site")
+    result = capture(case)
+    if fault == "corrupt": object.__setattr__(result.financial, "sha256", "f" * 64)
+    with pytest.raises(access.CalculationDefaultsAccessError) as caught:
+        result.resolve_precision("Company" if fault == "unrelated" else case.invoice.doctype,
+            "PRIVATE" if fault == "field" else "grand_total")
+    assert str(caught.value) == "calculation_financial_precision" and caught.value.__context__ is None

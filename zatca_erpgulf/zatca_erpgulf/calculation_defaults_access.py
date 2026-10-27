@@ -19,6 +19,7 @@ from .archive_source_access import (
     _discard, _name, _revision, _value, _verify_rows,
 )
 from .calculation_defaults import CalculationDefaultsRows, MariaDBCalculationDefaultsReader, _pin_rows
+from .calculation_precision import FieldPrecisionResolution
 from .credential_bundle_access import CredentialStorageScope
 from . import financial_source_observation as financial
 from .financial_source_sql import (
@@ -205,6 +206,29 @@ class SavedCalculationFinancialRead:
 
     def __reduce__(self):
         raise TypeError("calculation_financial_access_not_serializable")
+
+    def resolve_precision(self, doctype, fieldname, *, currency_context=None):
+        """Resolve one captured invoice/child field without another SQL/ORM read.
+
+        A v16 currency fallback needs explicit trusted format declarations;
+        field-currency/locale acquisition is not guessed here. The result is
+        fresh precision, not a stored document cache or authority XML rule.
+        """
+        try:
+            pinned = SavedCalculationFinancialRead(self.context, self.financial)
+            if pinned != self or type(doctype) is not str:
+                raise ValueError
+            metadata = {row.applied.name: row.applied for row in pinned.financial.metadata}
+            result = FieldPrecisionResolution(metadata[doctype], fieldname,
+                pinned.context.settings.defaults, pinned.financial.financial.erp_major,
+                currency_context)
+        except Exception:
+            invalid = True
+        else:
+            invalid = False
+        if invalid:
+            raise CalculationDefaultsAccessError("calculation_financial_precision")
+        return result
 
 
 class _SavedDefaultsSource(ArchiveInspectionEngine):

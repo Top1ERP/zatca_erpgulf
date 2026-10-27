@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and sixteen bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and seventeen bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2784,6 +2784,44 @@ Bench or authority operation occurs. Source/provider provenance, complete linked
 graph/effective precision, native/ORM parity, installed ERP15/16, GL/VAT/XML/SDK
 and authority acceptance remain integration gates.
 
+## Increment 117: concrete v15/v16 field precision and stale-cache checks
+
+- Add a pure field-precision resolver from exact applied metadata and site-scoped
+  calculation defaults. Distinguish absent/non-numeric fields, explicit string
+  zero versus integer zero, float fallback and version-specific Currency rules.
+  No raw amount conversion, monetary rounding or old snapshot changes occur.
+- Inspect installed Frappe15 helpers and pin public Frappe16 commit
+  `e8d41dd0061a32ee781caefe5d0b0d2bb7c15362`. Retain selected helper excerpts,
+  full-file source hashes and MIT license for fully offline comparison. This
+  does not install/run a v16 bench or execute its complete newer-Python modules.
+- V16 keeps configured Currency precision zero and can use Language/locale and
+  Currency formats; v15 falls back to site format for zero. Require explicit
+  v16 fallback context instead of assuming v15 dependencies, guessing field
+  currency or silently accepting an unknown v16 number format.
+- Add a concrete method on the protected native financial result, limited to
+  captured invoice/child metadata and exact site defaults, without new SQL/ORM/
+  cache reads. Compare supplied existing document precision with fresh resolution
+  using strict types, without clearing/filling the document's stale cache.
+  See [CALCULATION_PRECISION.md](CALCULATION_PRECISION.md).
+
+The new pure suite passed **471 cases in 1.31 seconds** on its first run. After
+adding saved Sales/POS/native integration and scope/parent-corruption cases,
+the targeted guarded selection passed **743 cases in 73.28 seconds** (new resolver
+plus existing financial access suites). Final full guarded verification passed
+**20,610 local + 2,544 native SQL = 23,154 cases in 359.36 seconds**, across the
+same twenty private SQL suites. This includes **495 new cases** (487 local + 8
+native SQL). The external-network/site-init guard remained active; no assertion,
+normal ACL, timeout, crypto or offline restriction was waived. Frontend files
+were unchanged, so Node VM suites were not repeated. Syntax/JSON/diff checks passed.
+
+The five public source downloads and commit lookup contacted GitHub only, before
+offline tests. No authority request, installed app/site/config/schema/data,
+credential, worker or Bench operation occurred. System flag/Language/Currency
+committed acquisition and field-currency provenance remain explicit v16 gates;
+the old calculation-settings v1 profile was not silently expanded. Native/ORM,
+complete effective settings, GL/VAT/XML rounding fixtures, actual installed
+ERP15/16 integration and SDK/authority acceptance remain open.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -3215,6 +3253,7 @@ endpoints remain untouched.
 | `test_financial_source_sql_mariadb.py` | New guarded synthetic financial SQL: direct-value oracle/Frappe-decoder difference, child drift/locks, scoped same-name invoices, oversized RC masking, decimal scale with NULL, old refs/zero/subcent and pending work |
 | `test_calculation_financial_access.py` | Shared saved ACL/owned transaction for native financial/default/metadata reads, exact dynamic family/cross-parent binding, late drift/interruptions and one Arabic display |
 | `test_calculation_financial_access_mariadb.py` | New guarded combined SQL: native child changes/RC insert without parent revision, callback rechecks/rollback, lock coexistence, pending parent/owned work, cleanup denial and old advance/zero-payment observations |
+| `test_calculation_precision.py` | Actual installed v15/pinned v16 helper parity, zero/explicit/default/locale/currency precedence, strict scope/type/format bounds and actual stale document cache; no full v16 runtime or amount rounding |
 | `test_preparation_custody_access.py` | Saved WRITE/related READ before scoped keys, protected ciphertext retrieval, exact internal recovery, mandatory evidence, late source/ACL drift, uncertain commit/interrupt/parent cleanup and one Arabic display summary; native chain suite adds real SQL visibility/contention, crash/restart, corruption and unknown commits |
 | `test_issuing_chain_mariadb.py` (separate opt-in) | Owned-private head/original atomicity, preparation contention, independent units, durable pre-build holds, commit/close uncertainty, exact reconciliation, cooperating-writer refusal, corruption and owned-server crash recovery |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |

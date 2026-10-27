@@ -107,3 +107,9 @@ See [FINANCIAL_SOURCE_SQL.md](FINANCIAL_SOURCE_SQL.md),
 [CALCULATION_CONTEXT.md](CALCULATION_CONTEXT.md), [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md)
 and [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md). Executed totals are in
 [STATUS.md](STATUS.md).
+
+Increment 117 adds `resolve_precision` on this protected result. It selects only
+captured invoice/child metadata and exact site defaults, with no new SQL/cache
+read. See [CALCULATION_PRECISION.md](CALCULATION_PRECISION.md) for pinned v15/v16
+differences, explicit v16 locale/currency declarations and remaining acquisition
+gates. It does not round amounts, refresh document caches or change old snapshots.

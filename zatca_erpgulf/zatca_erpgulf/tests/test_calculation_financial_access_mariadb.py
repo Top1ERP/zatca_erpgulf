@@ -275,3 +275,15 @@ def test_old_advance_refs_and_zero_payments_are_preserved_without_resolution(def
     assert dict(tables["payments"]["rows"][0][2])["amount"] == ["decimal", "0E-9"]
     assert dict(tables["custom_zatca_advance_deduction_details"]["rows"][0][2])["advance_invoice"] == ["str", "SYNTHETIC-ADV-2020-0001"]
     untouched(defaults_operator, case)
+
+
+@pytest.mark.parametrize("major", [15, 16])
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+def test_closed_owned_read_can_resolve_pinned_header_and_tax_precision_without_new_sql(defaults_operator, connections, major, doctype):
+    case = native_case(defaults_operator, connections, doctype=doctype)
+    result = capture(case, major)
+    assert result.resolve_precision(doctype, "grand_total").precision == 2
+    assert result.resolve_precision("Sales Taxes and Charges", "tax_amount").precision == 2
+    assert len(case.opened) == 1 and case.metadata_provider.call_count == 4
+    assert result.context.settings.defaults.parent == "__default"
+    untouched(defaults_operator, case)
