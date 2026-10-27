@@ -22,6 +22,7 @@ A DEV branch source push is not deployment or permission to send.
 | Routing and declarations | api_routing.py, credential_material.py, credential_settings.py, scheduling.py | Reuse these policies; do not invent parallel environment/owner/window selectors |
 | Field compatibility | ksa_compliance/field_alias_registry.py and field_compat.py | One registry; pure names separated from Frappe schema/lookup operations |
 | Financial observations | financial_source_observation.py, tax_dependency_observation.py, issuing_settings_observation.py | Pure PARTIAL immutable declarations, not complete committed source guards |
+| Invoice-owned native SQL | financial_source_sql.py | Caller-owned selected header/child reads, exact metadata, bounded length/value passes, native type/scale and child revision binding; no ORM coercion or complete preparation proof |
 | Party/address graph | party_address_observation.py | Pins settings/financial parent; exact records/current links and declared candidate order, NOT an address resolver or complete-query proof |
 | Calculation declarations | calculation_settings_observation.py | Explicit Singleton/Currency/POS/profile-tax records; not effective precision, timezone interpretation or fiscal validity |
 | Applied metadata adapter | source_metadata.py | Explicit base/default fields plus immutable applied properties; narrow read view, not physical schema, raw Setter provenance or committed values |

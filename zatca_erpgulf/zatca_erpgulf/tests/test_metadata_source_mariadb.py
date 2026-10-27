@@ -73,6 +73,8 @@ def native_case(connections, doctype="Sales Invoice", isolation="REPEATABLE READ
 def instrument(connection, hook=None):
     calls, returned = [], []
     class Cursor:
+        @property
+        def description(self): return self.raw.description
         def __enter__(self):
             self.raw = connection.cursor()
             return self

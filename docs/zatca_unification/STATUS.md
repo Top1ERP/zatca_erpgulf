@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and fourteen bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and fifteen bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2717,6 +2717,37 @@ assertion, ordinary ACL, timeout, crypto or offline restriction was waived.
 Caches/ACL are not atomic SQL state, the source graph is incomplete, and
 installed ERP/SDK/authority proof is not claimed.
 
+## Increment 115: native invoice-owned financial SQL and child evidence
+
+- Read selected invoice header and exact present child tables with shared metadata
+  and financial profiles. Pin required columns, optional table/schema presence,
+  parent/parenttype/parentfield, contiguous indices and native child revisions.
+  No linked advance lookup, allocation or existing fiscal/settlement change.
+- Preflight locked identities/lengths before values; enforce per-cell/aggregate/
+  total-row bounds and SQL-mask oversized concurrent values. Child scopes include
+  invoice type, so another type's legitimate same-name source is not adopted.
+- Bind native result type/precision/scale/nullability to raw financial/metadata
+  evidence. Preserve Decimal/zero/subcent/date/time values without coercion;
+  actual installed Frappe DECIMAL-to-float conversion is tested and refused in
+  this explicit native mode. Keep existing profile codecs and old golden bytes.
+- Repeat metadata/data membership checks on the caller-owned transaction, with
+  no commit/cleanup/retry or UI/provider activation. Native tests cover row locks,
+  child drift without parent revision, NULL-value physical scale changes, old
+  advance/payment refs and pending-write visibility. See
+  [FINANCIAL_SOURCE_SQL.md](FINANCIAL_SOURCE_SQL.md).
+
+The local suite first passed **37 cases in 3.55 seconds**. Native tests exposed a
+missing description property in the shared test cursor wrapper; after correcting
+that wrapper, **66 local/native cases passed in 13.19 seconds**. Added advance/
+zero/subcent/physical-scale/interruption tests passed **71 cases in 14.26 seconds**
+(39 local + 32 private SQL) after correcting a fixture's zero-Decimal expectation
+to the EXISTING `0E-9` codec. The full guarded run passed **19,957 local + 2,454
+private SQL = 22,411 cases in 288.31 seconds**, across nineteen private SQL suites
+with the external-network/site-init guard active. All nine Node VM scripts passed
+**1,444 cases**. No assertion, ordinary ACL, timeout, crypto or offline restriction
+was waived. This is raw dependency evidence, not ORM equivalence, complete source,
+installed ERP, settlement/GL/VAT parity, SDK or authority acceptance.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -3144,6 +3175,8 @@ endpoints remain untouched.
 | `test_metadata_source_mariadb.py` | New guarded native metadata: selected scopes, current reads, actual row locks, same-effect phantom membership, Password field/setter SQL masking, exact UTF-8 bounds, nullable revisions and own pending writes; no installed metadata proof |
 | `test_calculation_context_access.py` | Same permissioned pipeline for exact source metadata/default context, unchanged defaults-only path, scope/column checks, late drift, protected independent result and one Arabic failure |
 | `test_calculation_context_access_mariadb.py` | New native combined SQL: one owned handle, pending rollback/parent continuity, metadata/default/source callback edits, same-effect RC insertion and simultaneous metadata/default locks until cleanup |
+| `test_financial_source_sql.py` | Native typed financial/metadata binding, optional-table presence, scope/order/length budgets, lossy decoder refusal, private reconstruction and caller cleanup ownership |
+| `test_financial_source_sql_mariadb.py` | New guarded synthetic financial SQL: direct-value oracle/Frappe-decoder difference, child drift/locks, scoped same-name invoices, oversized RC masking, decimal scale with NULL, old refs/zero/subcent and pending work |
 | `test_preparation_custody_access.py` | Saved WRITE/related READ before scoped keys, protected ciphertext retrieval, exact internal recovery, mandatory evidence, late source/ACL drift, uncertain commit/interrupt/parent cleanup and one Arabic display summary; native chain suite adds real SQL visibility/contention, crash/restart, corruption and unknown commits |
 | `test_issuing_chain_mariadb.py` (separate opt-in) | Owned-private head/original atomicity, preparation contention, independent units, durable pre-build holds, commit/close uncertainty, exact reconciliation, cooperating-writer refusal, corruption and owned-server crash recovery |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |

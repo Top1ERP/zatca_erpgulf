@@ -19,6 +19,13 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 115 adds native invoice-owned header/child SQL acquisition with exact
+metadata, ordered scope/membership/revision checks and bounded preflight/value
+projections. Preserve native Decimal scale and temporal types; reject lossy
+decoders instead of guessing ORM normalization. No settlement/fiscal policy or
+runtime is changed. Permissioned composition, linked dependencies, ORM bridge
+and financial/XML parity remain gates. See [FINANCIAL_SOURCE_SQL.md](FINANCIAL_SOURCE_SQL.md).
+
 Increment 114 composes defaults and exact invoice/Company metadata in the existing
 permissioned transaction service. Reuse one ACL/acquisition/cleanup/display path,
 pin and recheck applied declarations and all selected SQL rows before protected

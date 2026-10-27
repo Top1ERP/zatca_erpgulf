@@ -2,6 +2,11 @@
 
 Increment 104 — 2026-10-25. Offline development, not runtime activation.
 
+Increment 115 adds a selected native SQL reader with metadata, preflight lengths,
+driver type/scale and child revision evidence. It preserves this profile's codec
+and makes the raw/ORM distinction explicit; no silent normalization is introduced.
+See [FINANCIAL_SOURCE_SQL.md](FINANCIAL_SOURCE_SQL.md).
+
 Follow-up increment 105 adds explicit protected observations of the exact
 referenced invoice/item tax templates, including ordered taxes rows. It reuses
 child capture/validation without changing this profile's wire bytes or digest;
