@@ -8,6 +8,7 @@ write, transaction cleanup, rounding, XML generation or authority I/O occurs.
 from dataclasses import dataclass, field
 import hashlib
 import json
+from types import MappingProxyType
 
 from .calculation_precision import CurrencyFormatContext, _pin_currency
 from .financial_source_observation import _canonical, _name, _scalar, _validate_scalar
@@ -23,6 +24,7 @@ ABSENT_PROFILE = "currency-format-source-sql/absent-check-v1"
 FLAG = "use_number_format_from_currency"
 MAX_VALUE_BYTES = 4096
 MAX_PAYLOAD_BYTES = 65536
+TEXT_FIELDS = MappingProxyType({"Currency": "number_format", "Language": "number_format", "Company": "default_currency"})
 
 
 class CurrencyFormatSourceError(ValueError):
@@ -187,7 +189,7 @@ class MariaDBCurrencyFormatReader:
 
     def _select(self, cursor, doctype, name, *, full):
         singleton = doctype == "System Settings"
-        table, column = ("Singles", "value") if singleton else (doctype, "number_format")
+        table, column = ("Singles", "value") if singleton else (doctype, TEXT_FIELDS[doctype])
         ids = "SUBSTRING(`doctype`,1,141),SUBSTRING(`field`,1,141)" if singleton else "SUBSTRING(`name`,1,141),`modified`"
         length = "OCTET_LENGTH(`" + column + "`)"
         projection = ("CASE WHEN " + length + "<=4096 OR `" + column + "` IS NULL THEN `"
@@ -230,7 +232,7 @@ class MariaDBCurrencyFormatReader:
         if signature[0] not in TEXT_CODES: raise ValueError
         value = _value(_scalar(row[2]), signature)
         if count != (None if value is None else len(value.encode("utf-8"))): raise ValueError
-        record = dict(doctype=doctype, name=name, field=FLAG if singleton else "number_format",
+        record = dict(doctype=doctype, name=name, field=FLAG if singleton else column,
             value=_scalar(value), sql_type=signature)
         if not singleton: record["modified"] = _scalar(row[1])
         return (row[0], row[1], count), record

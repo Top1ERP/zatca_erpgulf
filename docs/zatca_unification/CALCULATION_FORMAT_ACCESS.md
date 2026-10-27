@@ -2,6 +2,12 @@
 
 Increment 119 — 2026-10-27. Uninstalled composition in the existing owned service.
 
+Increment120 extends this SAME pipeline with Company-currency evidence and
+explicit parent-document child-field precision. The shared result is named
+SavedFieldCurrencyRead; SavedInvoiceCurrencyRead is its compatibility alias.
+See [FIELD_CURRENCY_ACCESS.md](FIELD_CURRENCY_ACCESS.md) for supported scopes and
+remaining direct child-document currency/cache gates.
+
 ## Delivered operation and scope
 
 `SavedCalculationDefaultsService.capture_currency_context` adds one explicit v16

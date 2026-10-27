@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and nineteen bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and twenty bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2903,6 +2903,44 @@ graph integration and actual installed v15/v16/GL/VAT/XML/SDK/authority acceptan
 remain gates. Ordinary runtime user authorization is not changed by this
 administrative staging service.
 
+## Increment 120: Company currency proof and parent-document child precision
+
+- Add a narrow Company default-currency reader using already selected Company
+  metadata and the shared bounded/native text projection. Pin exact Company,
+  link, revision, text signature and metadata, without a second cleanup policy.
+- Add explicit base-currency capture on the same permissioned owned pipeline.
+  Preserve separate invoice and source Company currencies; require saved/native
+  Company link/revision agreement before reading currency formats and recheck
+  after callbacks. No linked credential Company, FX lookup or guessed fallback.
+- Use one shared SavedFieldCurrencyRead implementation; the increment119 result
+  name remains an alias. Add parentfield precision for captured child metadata
+  using explicit invoice/Company options. This models parent.precision(field,
+  parentfield), not standalone row.precision(field); direct-child scope remains
+  separate. Add strict supplied field-currency cache comparison without repair.
+  See [FIELD_CURRENCY_ACCESS.md](FIELD_CURRENCY_ACCESS.md).
+
+The first Company source/helper suite passed **25 cases in 0.45 seconds** and
+the existing format-access suite passed **118 in 30.01 seconds**. The new scoped
+permissioned local suite passed **46 in 19.78 seconds**. The first private SQL run
+exposed a synthetic fixture's positional Company INSERT after adding a test-only
+column; corrected only that fixture to name its existing columns. Native scoped
+tests then passed **32 cases in 27.12 seconds**. Added two actual-v15/pinned-v16
+stale field-currency cache cases are included in final full guarded verification:
+**20,885 local + 2,696 private SQL = 23,581 passed in 518.88 seconds**, across
+twenty-three private SQL suites. New cases total **105** (73 local + 32 native SQL).
+The external-network/site-init guard remained active; no assertion, normal ACL,
+timeout, crypto or offline restriction was waived. Syntax/JSON/diff checks passed.
+Frontend files were unchanged, so Node VM scripts were not repeated.
+
+Source inspection used local ERPNext15 JSON and the previously pinned Frappe16
+file; the existing MIT-attributed oracle now includes get_field_currency under
+the same full-file hash. No complete v16 module was run or remote source/authority
+request made in this increment. No installed source/site/config/schema/data,
+credential, Bench or worker change occurred. Direct child-document currency/cache
+inheritance, other settings, whole-empty Singleton policy, source/cache/provider
+provenance, complete native/ORM/accounting/XML/SDK and installed v15/v16/authority
+acceptance remain gates. No money conversion, rounding or runtime activation.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -3339,6 +3377,9 @@ endpoints remain untouched.
 | `test_currency_format_source_mariadb.py` | New owned SQL: actual text/Singleton storage and locks, same-effective raw drift, RC duplicate insertion, oversized CASE masking, NULL physical family changes, pending work and shared setter matching |
 | `test_calculation_format_access.py` | Shared related saved READ before dependencies, pinned locale/currency/revisions, one owned cleanup/display, strict result/precision scope and unchanged legacy operations |
 | `test_calculation_format_access_mariadb.py` | New owned combined SQL: format/default/financial/metadata callback rollback and locks, parent work/borrow refusal, close-time drift, missing Check witness and RC explicit-zero insertion |
+| `test_company_currency_source.py` | Bounded native Company link/metadata/revision evidence, reconstruction/poisoning/ownership, actual-v15/pinned-v16 parent field-currency semantics and stale field-currency cache |
+| `test_field_currency_access.py` | Distinct invoice/Company scopes for parent and child metadata, normal READ, link/revision drift, exact result proof and supplied cache mismatch without repair |
+| `test_field_currency_access_mariadb.py` | New owned SQL: Sales/POS/RC/RR scopes, native Company/meta/format/financial drift rollback, stale-link refusal before currency reads, retained Company locks and pending parent work |
 | `test_preparation_custody_access.py` | Saved WRITE/related READ before scoped keys, protected ciphertext retrieval, exact internal recovery, mandatory evidence, late source/ACL drift, uncertain commit/interrupt/parent cleanup and one Arabic display summary; native chain suite adds real SQL visibility/contention, crash/restart, corruption and unknown commits |
 | `test_issuing_chain_mariadb.py` (separate opt-in) | Owned-private head/original atomicity, preparation contention, independent units, durable pre-build holds, commit/close uncertainty, exact reconciliation, cooperating-writer refusal, corruption and owned-server crash recovery |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |

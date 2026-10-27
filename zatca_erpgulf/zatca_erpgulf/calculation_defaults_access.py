@@ -321,12 +321,17 @@ class SavedCalculationDefaultsService:
         return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
             include_financial=True, include_formats=True, erp_major=erp_major)
 
+    def capture_base_currency_context(self, invoice_name, *, doctype="Sales Invoice", erp_major=16):
+        """Explicit Company-currency acquisition; reuse the same owned pipeline."""
+        return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
+            include_financial=True, include_formats=True, format_scope="company", erp_major=erp_major)
+
     def _capture_display(self, invoice_name, *, doctype, include_metadata,
-            include_financial=False, include_formats=False, erp_major=None):
+            include_financial=False, include_formats=False, format_scope="invoice", erp_major=None):
         try:
             with mute_operation_messages(frappe):
                 return self._capture_owned(invoice_name, doctype=doctype, include_metadata=include_metadata,
-                    include_financial=include_financial, include_formats=include_formats, erp_major=erp_major)
+                    include_financial=include_financial, include_formats=include_formats, format_scope=format_scope, erp_major=erp_major)
         except frappe.PermissionError:
             denied = True
         except Exception:
@@ -366,7 +371,7 @@ class SavedCalculationDefaultsService:
         return pinned
 
     def _capture_owned(self, invoice_name, *, doctype, include_metadata=False,
-            include_financial=False, include_formats=False, erp_major=None):
+            include_financial=False, include_formats=False, format_scope="invoice", erp_major=None):
         """Recheck saved ACL/SQL membership/cache before protected disclosure.
 
         Fresh owned rollback excludes pre-existing pending defaults. Remaining
@@ -384,7 +389,8 @@ class SavedCalculationDefaultsService:
             if include_formats:
                 if erp_major != 16 or self._parent_kind != "site":
                     raise CalculationDefaultsAccessError("calculation_format_access_profile")
-                formats = FormatAcquisition(policy, actor, invoice_name, doctype, self._format_metadata, self._format_cache)
+                formats = FormatAcquisition(policy, actor, invoice_name, doctype, self._format_metadata, self._format_cache,
+                    currency_scope=format_scope)
                 base_recheck = recheck
                 def recheck():
                     base_recheck()
@@ -407,6 +413,8 @@ class SavedCalculationDefaultsService:
                     erp_major=erp_major, applied_metadata={meta.name: meta for meta in applied[1:]})
                 if include_formats:
                     formats.require_financial_currency(observed_financial.financial)
+                    if format_scope == "company":
+                        formats.load_company_currency(connection, metadata[0])
                     observed_formats = formats.load_for_update(connection)
                     formats.check_cache(observed_formats)
                 root_metadata = next(row for row in observed_financial.metadata if row.applied.name == doctype)
@@ -434,6 +442,8 @@ class SavedCalculationDefaultsService:
             if include_financial:
                 financial_reader.require_unchanged(observed_financial)
             if include_formats:
+                if formats.company_source is not None:
+                    formats.company_reader.require_unchanged(formats.company_source)
                 formats.reader.require_unchanged(observed_formats)
             recheck()
             result = SavedCalculationDefaultsRead(policy._scope, actor[1], rows, observed)
@@ -442,7 +452,7 @@ class SavedCalculationDefaultsService:
             if include_financial:
                 result = SavedCalculationFinancialRead(result, observed_financial)
             if include_formats:
-                result = SavedInvoiceCurrencyRead(result, formats.rows, observed_formats)
+                result = SavedInvoiceCurrencyRead(result, formats.rows, observed_formats, formats.company_source)
         except BaseException as error:
             failure = error
         finally:

@@ -62,7 +62,7 @@ def native_case(operator, connections, *, doctype="Sales Invoice", optional=True
     setup = connections()
     with setup.cursor() as cursor:
         cursor.execute("UPDATE `tab" + doctype + "` SET modified=%s", (case.invoice.modified,))
-        cursor.execute("INSERT INTO `tabCompany` VALUES (%s,%s)", (case.company.name, case.company.modified))
+        cursor.execute("INSERT INTO `tabCompany` (name,modified) VALUES (%s,%s)", (case.company.name, case.company.modified))
     company_metadata = json.loads(case.observations["Company"]._payload)
     raw = company_metadata["doctype"]
     insert_meta(setup, "doctype", [dict(name=raw["name"], modified=financial._validate_scalar(raw["modified"]),

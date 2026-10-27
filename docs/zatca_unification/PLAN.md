@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 120 adds native Company default-currency proof to the SAME owned
+permissioned format pipeline, with explicit separate invoice/Company scopes.
+Resolve captured child-field metadata in parent-document precision calls and
+compare a supplied field-currency cache without repair. Preserve the old result
+name as an alias to one shared implementation and leave old payloads unchanged.
+Direct child-document/cache inheritance, other settings and accounting/XML parity
+remain gates. See [FIELD_CURRENCY_ACCESS.md](FIELD_CURRENCY_ACCESS.md).
+
 Increment 119 composes invoice-currency/locale formats with normal related READ
 and the existing owned financial/default transaction. Pin source/currency/locale/
 cache/revisions; recheck through cleanup and keep legacy capture methods intact.
