@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 118 adds a separate narrow format-metadata profile and reuses the shared
+metadata SQL/customization engine, preserving all legacy v1 bytes. Read selected
+Language/Currency and tabSingles values with native text signatures, bounded
+preflight/CASE projections, exact presence and same-transaction rechecks. Return
+the explicit v16 precision context without currency/locale discovery or cache
+repair. Next bind related ACL, actor/lookup provenance, field-currency resolution
+and Singleton normalization in the financial acquisition. See
+[CURRENCY_FORMAT_SOURCE.md](CURRENCY_FORMAT_SOURCE.md).
+
 Increment 117 resolves field precision from exact applied metadata and site
 defaults, with a concrete caller on the protected financial result. Distinguish
 v15 from pinned v16 zero/default/locale/currency behavior and detect stale document

@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and seventeen bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and eighteen bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2822,6 +2822,46 @@ the old calculation-settings v1 profile was not silently expanded. Native/ORM,
 complete effective settings, GL/VAT/XML rounding fixtures, actual installed
 ERP15/16 integration and SDK/authority acceptance remain open.
 
+## Increment 118: native format sources and compatible explicit metadata profile
+
+- Add a separate three-type format-metadata profile without changing the legacy
+  field catalog, payload bytes or hash domain. Reuse the same field definitions,
+  Custom Field/Property Setter matcher and selected locked metadata SQL engine;
+  bind profile identity explicitly and refuse mixed-profile reconciliation.
+- Read exact Language/Currency formats and the persisted System Check in
+  tabSingles, without fictional Singleton revisions or source discovery.
+  Pin native text type signatures, including NULL, and distinct raw flag values.
+  Bound length/identity passes and SQL CASE masking before returned values.
+- Recheck metadata/data on the caller-owned non-autocommit transaction. Preserve
+  parent pending work and row locks until caller cleanup; poison on failure or
+  interruption without commit/rollback/close/retry. No field-currency/ACL/cache
+  provider or runtime caller is installed. The protected context feeds the
+  existing pure precision resolver; supplied cache projections can be compared
+  without fetching/refreshing. See [CURRENCY_FORMAT_SOURCE.md](CURRENCY_FORMAT_SOURCE.md).
+
+Initial local tests identified two fixture assumptions: the shared synthetic
+metadata builder hardcoded non-Singleton storage, and a legacy-only helper could
+not construct Language. Corrected those fixtures while retaining legacy bytes.
+The selected new/legacy metadata suites passed **1,102 cases in 43.82 seconds**;
+the first native suite passed **45 cases in 6.16 seconds**. A guarded read-only
+comparison with committed **8b504a8** matched bytes and hashes across **44 legacy
+cases**. Six fixed baseline hashes and cross-profile/view/setter tests then
+passed **125 local/native cases in 5.53 seconds** (79 local + 46 private SQL).
+Full guarded verification passed **20,689 local + 2,590 private SQL = 23,279
+cases in 368.99 seconds**, across twenty-one private SQL suites. This includes
+**125 new cases** (79 local + 46 native SQL). The external-network/site-init
+guard remained active; no assertion, normal ACL, timeout, crypto or offline
+restriction was waived. Syntax/diff checks passed. Frontend files were unchanged;
+Node VM suites were not repeated.
+
+Pinned public Frappe16 schema reads confirmed Check/Select storage declarations;
+those requests contacted GitHub only. No installed source/site/data/config/schema,
+credential, Bench/worker or authority operation occurred. A missing Singleton
+flag is currently an explicit unsupported normalization case, not a request to
+alter a working setting. Related READ/actor/language/field-currency/cache binding,
+missing/empty Singleton hydration, native/ORM/full source integration and actual
+installed v15/v16/GL/VAT/XML/SDK/authority acceptance remain gates.
+
 ## Verification
 
 The initial regression suite reproduced **19 failures and 12 passes** on the
@@ -3254,6 +3294,8 @@ endpoints remain untouched.
 | `test_calculation_financial_access.py` | Shared saved ACL/owned transaction for native financial/default/metadata reads, exact dynamic family/cross-parent binding, late drift/interruptions and one Arabic display |
 | `test_calculation_financial_access_mariadb.py` | New guarded combined SQL: native child changes/RC insert without parent revision, callback rechecks/rollback, lock coexistence, pending parent/owned work, cleanup denial and old advance/zero-payment observations |
 | `test_calculation_precision.py` | Actual installed v15/pinned v16 helper parity, zero/explicit/default/locale/currency precedence, strict scope/type/format bounds and actual stale document cache; no full v16 runtime or amount rounding |
+| `test_currency_format_source.py` | Explicit separate metadata profile, six old hash goldens, typed raw/native context, scope/bounds/poisoning and strict cache/reconstruction; old catalog remains unchanged |
+| `test_currency_format_source_mariadb.py` | New owned SQL: actual text/Singleton storage and locks, same-effective raw drift, RC duplicate insertion, oversized CASE masking, NULL physical family changes, pending work and shared setter matching |
 | `test_preparation_custody_access.py` | Saved WRITE/related READ before scoped keys, protected ciphertext retrieval, exact internal recovery, mandatory evidence, late source/ACL drift, uncertain commit/interrupt/parent cleanup and one Arabic display summary; native chain suite adds real SQL visibility/contention, crash/restart, corruption and unknown commits |
 | `test_issuing_chain_mariadb.py` (separate opt-in) | Owned-private head/original atomicity, preparation contention, independent units, durable pre-build holds, commit/close uncertainty, exact reconciliation, cooperating-writer refusal, corruption and owned-server crash recovery |
 | `test_generation_routes.py` | Four remaining reporting adapters, six generator diversion boundaries, confirmed outcomes/errors, real temporary sample bridge, ordinary signing source, mode deferral |

@@ -2,6 +2,11 @@
 
 Increment 113 — 2026-10-27. Uninstalled dependency reader; caller-owned transaction.
 
+Increment 118 makes selected-field scope follow the explicitly pinned applied
+metadata profile. The separate format profile reuses this SAME preflight/masking/
+matching engine, with no new interpretation or legacy wire-format change. See
+[CURRENCY_FORMAT_SOURCE.md](CURRENCY_FORMAT_SOURCE.md).
+
 Increment 114 composes this reader with saved-source READ and defaults in one
 owned transaction for invoice/Company metadata. Other dependencies and complete
 preparation locking remain open. See [CALCULATION_CONTEXT.md](CALCULATION_CONTEXT.md).

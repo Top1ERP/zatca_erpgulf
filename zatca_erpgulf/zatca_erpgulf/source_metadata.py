@@ -17,6 +17,7 @@ from . import calculation_settings_observation as calculation
 from . import tax_dependency_observation as tax
 
 PROFILE = "source-applied-field-metadata/v1"
+FORMAT_PROFILE = "source-precision-format-metadata/v1"
 PROPERTIES = ("fieldtype", "options", "precision", "default", "reqd", "read_only",
     "hidden", "non_negative", "allow_on_submit", "is_custom_field")
 BASE_TYPES = MappingProxyType({"docstatus":"Int", "creation":"Datetime"})
@@ -42,6 +43,12 @@ def _profiles():
 
 
 SOURCE_FIELDS=_profiles()
+FORMAT_FIELDS=MappingProxyType({
+    "System Settings": ("use_number_format_from_currency",),
+    "Language": ("number_format",),
+    "Currency": ("number_format",),
+})
+PROFILE_FIELDS=MappingProxyType({PROFILE: SOURCE_FIELDS, FORMAT_PROFILE: FORMAT_FIELDS})
 SINGLETONS=calculation.SINGLETONS
 CHILD_TYPES=frozenset({
     *(financial._child_type(dt,table) for dt in ("Sales Invoice","POS Invoice") for table in financial.TABLE_FIELDS),
@@ -120,22 +127,26 @@ class SourceMetadata:
     issingle:bool=field(init=False)
     istable:bool=field(init=False)
     sha256:str=field(init=False)
+    profile:str=field(init=False)
 
     def __post_init__(self):
         try:
-            if (type(self.name) is not str or self.name not in SOURCE_FIELDS or type(self._payload) is not bytes
+            if (type(self.name) is not str or type(self._payload) is not bytes
                 or not 0<len(self._payload)<=financial.MAX_PAYLOAD_BYTES):
                 raise ValueError
             body=json.loads(self._payload)
             if (type(body) is not dict or set(body)!={"profile","doctype","issingle","istable","fields"}
-                or body["profile"]!=PROFILE or body["doctype"]!=self.name
+                or type(body["profile"]) is not str or body["profile"] not in PROFILE_FIELDS):
+                raise ValueError
+            selected=PROFILE_FIELDS[body["profile"]]
+            if (self.name not in selected or body["doctype"]!=self.name
                 or type(body["issingle"]) is not bool or body["issingle"]!=(self.name in SINGLETONS)
                 or type(body["istable"]) is not bool or body["istable"]!=(self.name in CHILD_TYPES)
-                or type(body["fields"]) is not list or len(body["fields"])!=len(SOURCE_FIELDS[self.name])
+                or type(body["fields"]) is not list or len(body["fields"])!=len(selected[self.name])
                 or financial._canonical(body)!=self._payload):
                 raise ValueError
             fields={}
-            for entry,name in zip(body["fields"],SOURCE_FIELDS[self.name]):
+            for entry,name in zip(body["fields"],selected[self.name]):
                 if type(entry) is not list or len(entry)!=2 or entry[0]!=name:
                     raise ValueError
                 if entry[1]==["absent"]:
@@ -153,6 +164,7 @@ class SourceMetadata:
         if invalid:
             raise SourceMetadataError("source_metadata_projection")
         object.__setattr__(self,"_fields",MappingProxyType(fields))
+        object.__setattr__(self,"profile",body["profile"])
         object.__setattr__(self,"issingle",body["issingle"])
         object.__setattr__(self,"istable",body["istable"])
         object.__setattr__(self,"sha256",hashlib.sha256(
@@ -181,7 +193,7 @@ def _pin_metadata(metadata):
     return pinned
 
 
-def project_source_metadata(meta,*,base_fields):
+def project_source_metadata(meta,*,base_fields,profile=PROFILE):
     """Capture selected applied definitions, explicitly supplement base fields.
 
     base_fields must contain EXACTLY the selected default/base field names.
@@ -190,16 +202,19 @@ def project_source_metadata(meta,*,base_fields):
     """
     try:
         doctype=meta.name
-        if type(doctype) is not str or doctype not in SOURCE_FIELDS or type(base_fields) is not dict:
+        if type(profile) is not str or profile not in PROFILE_FIELDS:
             raise ValueError
-        expected=set(SOURCE_FIELDS[doctype])&set(BASE_TYPES)
+        selected=PROFILE_FIELDS[profile]
+        if type(doctype) is not str or doctype not in selected or type(base_fields) is not dict:
+            raise ValueError
+        expected=set(selected[doctype])&set(BASE_TYPES)
         if set(base_fields)!=expected:
             raise ValueError
         single,child=getattr(meta,"issingle",0),getattr(meta,"istable",0)
         if any(type(flag) not in (bool,int) or flag not in (0,1) for flag in (single,child)):
             raise ValueError
         entries=[]
-        for name in SOURCE_FIELDS[doctype]:
+        for name in selected[doctype]:
             present=financial._present(meta,name)
             if name in base_fields:
                 if present: raise ValueError
@@ -216,7 +231,7 @@ def project_source_metadata(meta,*,base_fields):
             if fieldtype=="Password": raise ValueError  # Before reading defaults.
             values=[[prop,financial._scalar(definition.get(prop))] for prop in PROPERTIES]
             entries.append([name,values])
-        result=SourceMetadata(doctype,financial._canonical(dict(profile=PROFILE,doctype=doctype,
+        result=SourceMetadata(doctype,financial._canonical(dict(profile=profile,doctype=doctype,
             issingle=bool(single),istable=bool(child),fields=entries)))
     except Exception:
         invalid=True
@@ -253,7 +268,7 @@ class SourceDocumentView:
         object.__setattr__(self,"name",name)
 
     def get(self,name):
-        allowed=(*SOURCE_FIELDS[self.doctype],"name","doctype","modified","creation",
+        allowed=(*PROFILE_FIELDS[self.meta.profile][self.doctype],"name","doctype","modified","creation",
             "docstatus","parent","parenttype","parentfield","idx")
         if type(name) is not str or name not in allowed:
             raise SourceMetadataError("source_metadata_field_access")

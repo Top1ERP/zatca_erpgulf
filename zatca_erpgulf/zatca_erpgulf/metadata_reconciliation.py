@@ -16,7 +16,7 @@ from .financial_source_observation import (
     MAX_PAYLOAD_BYTES,_canonical,_name,_scalar,_validate_projection,_validate_scalar,
 )
 from .source_metadata import (
-    BASE_TYPES,PROPERTIES,SOURCE_FIELDS,SourceFieldDefinition,SourceMetadata,_pin_metadata,
+    BASE_TYPES,PROPERTIES,SOURCE_FIELDS,PROFILE_FIELDS,SourceFieldDefinition,SourceMetadata,_pin_metadata,
 )
 
 PROFILE="source-field-customization-match/v1"
@@ -56,7 +56,8 @@ def _marker(value):
 
 
 def _compare(base,applied,custom_fields,setters):
-    if base.name!=applied.name or (base.issingle,base.istable)!=(applied.issingle,applied.istable):
+    if (base.name!=applied.name or base.profile!=applied.profile
+        or (base.issingle,base.istable)!=(applied.issingle,applied.istable)):
         raise ValueError
     if type(custom_fields) is not list or len(custom_fields)>MAX_CUSTOM_FIELDS or type(setters) is not list or len(setters)>MAX_SETTERS:
         raise ValueError
@@ -166,13 +167,13 @@ def reconcile_field_customizations(base,applied,*,custom_fields,property_setters
         captured=[]
         for document in custom_fields:
             # Scope/type checks precede reading a potentially sensitive default.
-            if (document.get("dt")!=base.name or document.get("fieldname") not in SOURCE_FIELDS[base.name]
+            if (document.get("dt")!=base.name or document.get("fieldname") not in PROFILE_FIELDS[base.profile][base.name]
                 or document.get("fieldtype")=="Password"):
                 raise ValueError
             captured.append(_capture_row(document,"Custom Field",CUSTOM_FIELDS))
         setters=[]
         for document in property_setters:
-            if (document.get("doc_type")!=base.name or document.get("field_name") not in SOURCE_FIELDS[base.name]
+            if (document.get("doc_type")!=base.name or document.get("field_name") not in PROFILE_FIELDS[base.profile][base.name]
                 or document.get("property") not in EDITABLE or document.get("property_type") not in CAST_TYPES):
                 raise ValueError
             setters.append(_capture_row(document,"Property Setter",SETTER_FIELDS))

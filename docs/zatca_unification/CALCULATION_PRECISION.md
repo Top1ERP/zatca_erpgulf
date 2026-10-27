@@ -106,9 +106,11 @@ supplied defaults change to 4 and that the mismatch is detected.
 
 ## Remaining gates
 
-No Singleton, Language, Currency, field-currency or timezone reader is added here.
+No Singleton, Language, Currency, field-currency or timezone reader is added by
+increment117 itself. Increment118 supplies an explicit caller-owned reader and
+separate format metadata profile; see [CURRENCY_FORMAT_SOURCE.md](CURRENCY_FORMAT_SOURCE.md).
 The existing calculation-settings v1 profile does not capture the new v16 system
-flag or Language record. Add a separately versioned compatible acquisition before
+flag or Language record. Compose the new explicit reader with permissioned acquisition before
 claiming a complete v16 settings graph; do not silently change old profile bytes.
 Provider/cache/normal-ACL/source provenance and late drift must be bound to that
 acquisition. Precise document currency resolution, native/ORM parity, rounding

@@ -2,6 +2,11 @@
 
 Increment 109 — 2026-10-25. Read-only compatibility foundation, uninstalled.
 
+Increment 118 adds an explicit separate FORMAT_PROFILE for the v16 Language/
+Currency/System format inputs, while preserving the default legacy catalog and
+every v1 byte/hash. The same adapter and matchers handle both declarations; no
+automatic profile upgrade occurs. See [CURRENCY_FORMAT_SOURCE.md](CURRENCY_FORMAT_SOURCE.md).
+
 Increment 110 adds explicit baseline/raw/applied declaration matching with the
 installed non-temporal Frappe cast subset, plus actual defaults API behavior
 tests. It does not establish committed provenance or resolve defaults. See

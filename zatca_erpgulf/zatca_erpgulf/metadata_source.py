@@ -22,7 +22,10 @@ from .metadata_reconciliation import (
     CAST_TYPES, EDITABLE, FRAMEWORK_VERSION, MAX_CUSTOM_FIELDS,
     MAX_SETTERS, SETTER_FIELDS, FieldCustomizationMatch, reconcile_field_customizations,
 )
-from .source_metadata import BASE_TYPES, PROPERTIES, SOURCE_FIELDS, SourceMetadata, _pin_metadata, project_source_metadata
+from .source_metadata import (
+    BASE_TYPES, PROPERTIES, SOURCE_FIELDS, PROFILE_FIELDS, PROFILE as APPLIED_PROFILE,
+    SourceMetadata, _pin_metadata, project_source_metadata,
+)
 
 PROFILE = "selected-metadata-sql-rows/v1"
 MAX_TEXT_BYTES = 8192
@@ -80,8 +83,8 @@ def _record(record, fields, *, nullable=False):
     return values
 
 
-def _scope(doctype, group, values):
-    selected = SOURCE_FIELDS[doctype]
+def _scope(doctype, group, values, *, profile=APPLIED_PROFILE):
+    selected = PROFILE_FIELDS[profile][doctype]
     if group == "doctype":
         if values["is_virtual"] != 0 or any(type(values[name]) is not int for name in TYPE_FIELDS):
             raise ValueError
@@ -101,16 +104,16 @@ def _scope(doctype, group, values):
             raise ValueError
 
 
-def _rows(doctype, group, records, *, preflight=False):
+def _rows(doctype, group, records, *, preflight=False, profile=APPLIED_PROFILE):
     fields = PREFLIGHT[group] if preflight else SPECS[group][1]
-    limit = {"docfields": len(SOURCE_FIELDS[doctype]), "custom_fields": MAX_CUSTOM_FIELDS,
+    limit = {"docfields": len(PROFILE_FIELDS[profile][doctype]), "custom_fields": MAX_CUSTOM_FIELDS,
         "property_setters": MAX_SETTERS}[group]
     if type(records) is not list or len(records) > limit:
         raise ValueError
     names, fieldnames, order = set(), set(), []
     for record in records:
         values = _record(record, fields, nullable=group == "docfields")
-        _scope(doctype, group, values)
+        _scope(doctype, group, values, profile=profile)
         name = record["name"]
         if name in names:
             raise ValueError
@@ -131,7 +134,7 @@ def _document(group, record):
         get=lambda name: _validate_scalar(record["modified"]) if name == "modified" else values.get(name))
 
 
-def _baseline(doctype, type_values, records):
+def _baseline(doctype, type_values, records, *, profile=APPLIED_PROFILE):
     definitions = {}
     for record in records:
         values = {name: _validate_scalar(value) for name, value in record["header"]}
@@ -139,8 +142,8 @@ def _baseline(doctype, type_values, records):
     meta = SimpleNamespace(name=doctype, issingle=type_values["issingle"], istable=type_values["istable"],
         has_field=definitions.__contains__, get_field=definitions.get)
     # Actual framework helper only; no Meta construction, site or schema guess.
-    bases = {name: get_default_df(name) for name in BASE_TYPES if name in SOURCE_FIELDS[doctype]}
-    return project_source_metadata(meta, base_fields=bases)
+    bases = {name: get_default_df(name) for name in BASE_TYPES if name in PROFILE_FIELDS[profile][doctype]}
+    return project_source_metadata(meta, base_fields=bases, profile=profile)
 
 
 @dataclass(frozen=True, repr=False)
@@ -167,10 +170,10 @@ class SelectedMetadataRows:
             type_values = _record(body["doctype"], TYPE_FIELDS)
             if body["doctype"]["name"] != doctype:
                 raise ValueError
-            _scope(doctype, "doctype", type_values)
+            _scope(doctype, "doctype", type_values, profile=applied.profile)
             for group in PREFLIGHT:
-                _rows(doctype, group, body[group])
-            base = _baseline(doctype, type_values, body["docfields"])
+                _rows(doctype, group, body[group], profile=applied.profile)
+            base = _baseline(doctype, type_values, body["docfields"], profile=applied.profile)
             matched = reconcile_field_customizations(base, applied,
                 custom_fields=[_document("custom_fields", row) for row in body["custom_fields"]],
                 property_setters=[_document("property_setters", row) for row in body["property_setters"]])
@@ -243,11 +246,11 @@ class MariaDBMetadataSourceReader:
     def __reduce__(self):
         raise TypeError("metadata_source_reader_not_serializable")
 
-    def _select(self, cursor, doctype, group, *, preflight=False):
+    def _select(self, cursor, doctype, group, *, preflight=False, profile=APPLIED_PROFILE):
         table, fields = SPECS[group]
         if preflight:
             fields = PREFLIGHT[group]
-        selected = SOURCE_FIELDS[doctype]
+        selected = PROFILE_FIELDS[profile][doctype]
         placeholders = ",".join("%s" for _ in selected)
         if group == "doctype":
             where, params, limit = "`name`=%s", (doctype,), 1
@@ -283,16 +286,16 @@ class MariaDBMetadataSourceReader:
             setting = cursor.fetchone()
             if type(setting) is not tuple or len(setting) != 1 or type(setting[0]) is not int or setting[0] != 0:
                 raise ValueError
-            records = self._select(cursor, doctype, "doctype")
+            records = self._select(cursor, doctype, "doctype", profile=applied.profile)
             if len(records) != 1 or records[0]["name"] != doctype:
                 raise ValueError
             values = _record(records[0], TYPE_FIELDS)
-            _scope(doctype, "doctype", values)
+            _scope(doctype, "doctype", values, profile=applied.profile)
             body = dict(profile=PROFILE, framework_version=FRAMEWORK_VERSION, doctype=records[0])
             for group in PREFLIGHT:
-                preflight = self._select(cursor, doctype, group, preflight=True)
-                _rows(doctype, group, preflight, preflight=True)
-                complete = self._select(cursor, doctype, group)
+                preflight = self._select(cursor, doctype, group, preflight=True, profile=applied.profile)
+                _rows(doctype, group, preflight, preflight=True, profile=applied.profile)
+                complete = self._select(cursor, doctype, group, profile=applied.profile)
                 projected = [dict(name=row["name"], modified=row["modified"],
                     header=[[name, value] for name, value in row["header"] if name in PREFLIGHT[group]]) for row in complete]
                 if projected != preflight:

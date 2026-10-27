@@ -28,8 +28,12 @@ def fieldtype(name):
     return "Data"
 
 
-def observed_metadata(raw):
-    applied = project(raw)
+def observed_metadata(raw, *, profile=None):
+    if profile is None:
+        applied = project(raw)
+    else:
+        from zatca_erpgulf.zatca_erpgulf.source_metadata import project_source_metadata
+        applied = project_source_metadata(raw, base_fields={}, profile=profile)
     records = []
     for index, (name, definition) in enumerate(sorted(raw.definitions.items())):
         values = {prop: definition.get(prop) for prop in metadata.EDITABLE}
@@ -40,7 +44,7 @@ def observed_metadata(raw):
     payload = financial._canonical(dict(profile=metadata.PROFILE, framework_version=metadata.FRAMEWORK_VERSION,
         source_doctype=raw.name, doctype=dict(name=raw.name, modified=financial._scalar(NOW),
             header=[[key, financial._scalar(value)] for key, value in dict(
-                issingle=0, istable=int(raw.istable), is_virtual=0, custom=0).items()]),
+                issingle=int(raw.issingle), istable=int(raw.istable), is_virtual=0, custom=0).items()]),
         docfields=records, custom_fields=[], property_setters=[]))
     return metadata.SelectedMetadataRows(applied, payload)
 
