@@ -19,6 +19,13 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 113 adds selected locked DocType/DocField/Custom Field/Property Setter
+reads and raw membership/revision binding to the existing applied matcher.
+Preflight unsafe types before values and mask concurrent unsupported additions
+inside SQL too; reject ambiguous changes without repair or schema writes.
+This is a caller-owned dependency reader, not complete authorized source proof
+or runtime activation. See [METADATA_SOURCE.md](METADATA_SOURCE.md).
+
 Increment 112 composes defaults reads with saved invoice/Company READ, an explicit
 fresh owned transaction and cache source, and protected actor/source binding.
 Share one saved-record ACL/drift mechanism; keep the new graph free of CSID/owner/

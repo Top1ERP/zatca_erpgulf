@@ -2,6 +2,11 @@
 
 Increment 110 — 2026-10-25. Development only; no runtime caller or installation.
 
+Increment 113 supplies selected locked DocType/DocField/customization queries,
+sensitive-value preflight/SQL masking and raw membership binding before this
+matcher. Authorized fresh acquisition and full source composition remain gates.
+See [METADATA_SOURCE.md](METADATA_SOURCE.md).
+
 Increment 111 adds a bounded selected-default SQL reader and supplied-cache
 comparison on an explicit caller-owned transaction. It does not complete
 authorized committed acquisition or effective precision. See
