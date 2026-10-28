@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and twenty-one bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and twenty-two bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2972,6 +2972,46 @@ source profile and same-owned-pipeline permissioned acquisition remain next.
 No installed app/site/config/schema/data/credential, Bench/worker or authority
 operation occurred. No new private SQL schema, Decimal conversion, monetary
 rounding, signing/XML/QR behavior or runtime activation is introduced.
+
+## Increment 122: native own-child currency and Company evidence
+
+- Add a separate narrow child-link metadata profile, reusing the existing selected
+  customization/metadata engine. Keep legacy fields/payloads/fingerprints intact.
+- Compose the native financial reader's bounded identity/length/CASE/value
+  projection on the caller's unchanged handle. Check exact selected physical
+  column membership after normal table acquisition; refuse orphaned/missing
+  columns and unreviewed types/options without guessing or repairing the schema.
+- Bind the full financial parent, selected metadata, physical signatures and
+  exact ordered child name/index/revision/link values. Advance-deduction currency
+  is ALREADY in the financial profile: require identical definition/presence/value
+  in both profiles. No inconsistent second currency proof is permitted.
+- Delegate saved child declarations/resolution to the increment121 pure contract.
+  An explicit own-Company proof must match the child link; saved capture has no
+  implicit parent Company or in-memory parent_doc fallback. Recheck changes
+  without timestamp changes, preserve pending work and poison failed readers.
+  See [CHILD_CURRENCY_SOURCE.md](CHILD_CURRENCY_SOURCE.md).
+
+Focused guarded verification passed **74 local + 42 private SQL = 116 cases in
+59.43 seconds**, including all declared financial table bindings, Sales/POS and
+declared versions, RR/RC changes, metadata insertion, empty optional tables,
+advance overlap, Company binding, orphan/missing/type/length refusals, caller
+pending work and row/metadata/table-lock lifetime. A first added native empty-table
+case used the fixture's replaced child reader through the old financial helper;
+corrected that test adapter to explicitly use the financial reader. Final full
+guarded verification passed **21,246 local + 2,738 private SQL = 23,984 cases in
+562.14 seconds**, across twenty-four private SQL suites. All 116 new cases passed;
+the network/site-init guard remained active and no normal permission, timeout,
+crypto or offline restriction was waived. AST syntax and diff checks passed.
+Frontend files were unchanged, so the previously passing Node VM scripts were
+not rerun.
+
+This is a caller-owned native staging reader, not a saved child ACL/provider or
+complete preparation graph. Shared saved READ/late disclosure, Company/format/
+cache/source provenance, other settings and accounting/XML/installed v15/v16/SDK
+acceptance remain gates. All SQL DDL/DML in tests belongs to NEW guard-owned
+TCP-disabled temporary fixtures only. No installed app/site/config/schema/data,
+Company/credential, Bench/worker or authority operation occurred. No financial
+Decimal conversion/rounding, signing/XML/QR or runtime activation was introduced.
 
 ## Verification
 

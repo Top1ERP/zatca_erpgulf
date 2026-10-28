@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 122 adds caller-owned native child currency/Company evidence using
+the existing financial preflight/value and metadata readers. Bind exact table/
+row/index/revision and physical column membership without changing legacy bytes.
+Require overlapping advance-deduction currency definitions/values to match the
+financial parent. Delegate saved child inputs to the increment121 pure contract;
+normal saved child READ, related formats and cache/provider composition on the
+shared owned service remain next. See [CHILD_CURRENCY_SOURCE.md](CHILD_CURRENCY_SOURCE.md).
+
 Increment 121 characterizes direct child-document currency and cache semantics
 in a pure staged contract, reusing the shared precision policy. Verify own/parent
 currency, child-only Company lookup, v16 parent_doc fallback, effective cache

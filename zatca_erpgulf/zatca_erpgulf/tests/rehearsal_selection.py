@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "child_currency_source",
     "child_field_currency",
     "field_currency_access",
     "company_currency_source",
@@ -90,6 +91,7 @@ LOCAL_SUITES = (
     "zatca_response", "compatibility_hardening",
 )
 PRIVATE_SUITES = (
+    "child_currency_source_mariadb",
     "field_currency_access_mariadb",
     "calculation_format_access_mariadb",
     "currency_format_source_mariadb",

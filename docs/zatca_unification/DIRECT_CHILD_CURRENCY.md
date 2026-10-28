@@ -15,11 +15,13 @@ Currency DocField, determines the fresh currency/cache owner, compares supplied
 cache slots, and delegates numeric precision to the existing
 `FieldPrecisionResolution`. It does not introduce another precision formula.
 
-The reviewed test manifest is the only current caller. The intended consumer is
-a future authorized direct-child acquisition adapter on the SAME owned financial
-service. This is not a second installed capture service, public endpoint, button,
-provider or transaction owner. If that adapter is not adopted, remove this staged
-contract and its manifest/tests/docs together; it has no legacy runtime callers.
+Increment122's caller-owned `child_currency_source.py` now constructs these inputs
+and delegates currency resolution here. The intended authorized consumer is a
+future adapter on the SAME owned financial service. This is not a second installed
+capture service, public endpoint, button, provider or transaction owner. If that
+adapter is not adopted, remove the staging contracts and their manifest/tests/docs
+together; they have no legacy runtime callers. See
+[CHILD_CURRENCY_SOURCE.md](CHILD_CURRENCY_SOURCE.md).
 
 ## Source-backed semantics
 
@@ -98,8 +100,9 @@ Protected repr/pickle refusal is not a sandbox against trusted in-process code.
    The inspected Frappe15 child-permission engine derives parent permission using
    parenttype/parentfield and valid Table metadata; a raw child name is insufficient.
 2. Capture own currency/Company under a separate narrow versioned metadata/source
-   profile. Legacy financial v1 intentionally does not select these child fields;
-   its metadata absence is not evidence about them. Frappe can load a leftover
+   profile. Most legacy financial v1 child profiles do not select these fields;
+   advance-deduction currency is already selected and must agree in both profiles.
+   Legacy metadata absence is not evidence about unselected fields. Frappe can load a leftover
    physical column even after its DocField is removed. Establish explicit bounded
    physical-column evidence or refuse disagreement; do not silently use the parent.
 3. Capture/recheck selected parent currency, metadata and any supplied in-memory
@@ -112,9 +115,11 @@ Protected repr/pickle refusal is not a sandbox against trusted in-process code.
    through cleanup; compose numeric precision-cache checks separately. Do not use
    a matching number as proof of a matching currency or a frozen source graph.
 
-These gates remain open. No saved/native direct-child currency capture is claimed
-by this increment. Other effective settings, complete accounting/XML/native-ORM
-parity, installed v15/v16 rehearsals and SDK acceptance also remain open.
+Increment121 did not implement these gates. Increment122 now implements the native
+child-link/physical-column reader and binds rows to locked financial evidence;
+the saved authorization/format/cache service composition remains open. Other
+effective settings, complete accounting/XML/native-ORM parity, installed v15/v16
+rehearsals and SDK acceptance also remain open.
 
 ## Executed evidence and safety
 
