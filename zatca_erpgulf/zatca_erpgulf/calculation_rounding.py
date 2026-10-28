@@ -25,6 +25,19 @@ def _text(value):
         raise ValueError
 
 
+def _select_method(raw, override):
+    """Shared declared/native selection; never discover or normalize a value."""
+    _text(override)
+    if override:
+        method, origin = override, "EXPLICIT_OVERRIDE"
+    else:
+        _text(raw)
+        method, origin = (raw, "SYSTEM_SETTING") if raw else (LEGACY_METHOD, "LEGACY_DEFAULT")
+    if method not in METHODS:
+        raise ValueError
+    return method, origin
+
+
 @dataclass(frozen=True, repr=False)
 class RoundingMethodResolution:
     """Method from explicit supplied settings, NOT authorized effective source.
@@ -56,15 +69,7 @@ class RoundingMethodResolution:
                 if record["doctype"] == "System Settings")
             encoded = dict(system["header"])["rounding_method"]
             raw = _validate_scalar(encoded, absent=True)
-            if self.override:
-                method, origin = self.override, "EXPLICIT_OVERRIDE"
-            else:
-                # Restrict consumed Select values to text/NULL. Never coerce
-                # malformed numbers/flags to an apparently valid default.
-                _text(raw)
-                method, origin = (raw, "SYSTEM_SETTING") if raw else (LEGACY_METHOD, "LEGACY_DEFAULT")
-            if method not in METHODS:
-                raise ValueError
+            method, origin = _select_method(raw, self.override)
             major = settings.settings.financial.erp_major
             payload = _canonical(dict(profile="declared-rounding-method/v1", erp_major=major,
                 settings_sha256=settings.sha256, override=self.override, method=method, origin=origin))

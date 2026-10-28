@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and twenty-seven bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and twenty-eight bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -3220,6 +3220,49 @@ or runtime adoption.
 DEV only. Live stays at the independent ba51f25 Phase-1 address hotfix. No installed
 source, site/config/schema/data/Company/credential, Bench/worker or authority
 operation occurred. Existing fictional-Company/pilot/adoption gates remain.
+
+## Increment 128: permissioned native rounding setting on the shared service
+
+- Add explicit capture_rounding_context on the SAME saved metadata/default
+  transaction/ACL/display pipeline. Normal System Settings and selected field
+  READ precede all callbacks/SQL. Narrow versioned metadata binds the Select's
+  type/options/default; keep all previous profile names/field catalogs unchanged.
+- Reuse bounded format text/native/witness SQL and the shared metadata reader,
+  plus the existing pure method selector. Preserve stored NULL/blank versus absent
+  rows; absence needs a nonempty Singleton witness that reads no secret field.
+  Refuse empty/duplicate/case-variant/oversized/unknown/inconsistent sources.
+- A valid explicit override acquires no unused System READ/schema/cache/SQL.
+  Old service methods keep their dependencies/return types. No financial amounts
+  are returned, no fake full calculation-settings observation is constructed and
+  no live provider/RPC/runtime caller is installed. Known staged callers and
+  integration gates are in [CALCULATION_ROUNDING.md](CALCULATION_ROUNDING.md).
+- Keep trusted metadata/cache callbacks before final cross-source SQL checks.
+  Recheck native setting/metadata before cleanup and ordinary access through close;
+  check rounding cache again after close and then source access. One existing
+  translated summary handles errors; interrupts retain priority. The borrowed
+  reader preserves parent pending work and poisons itself on failure; the shared
+  owned service discards pending acquisition work with rollback/close.
+
+Initial existing-source smoke verification passed **962 cases in 12.78s**.
+New focused suites initially passed **152 local in 8.50s** and **118 native SQL in
+13.07s**. A test helper initially dropped its requested parent scope; corrected
+the helper and reran. Cross-source callback ordering review added regression
+cases and placed all metadata callbacks before final native checks. Final focused
+composition passed **280 cases in 22.19s**; another **6 native presence/initial
+rollback cases passed in 2.76s**, totaling **156 local + 130 native = 286 new cases**.
+Native tests use NEW guard-owned TCP-disabled SQL only, including RR/RC and actual
+same-handle edits without modified changes. Full guarded regression passed
+**22,062 local + 3,008 private SQL = 25,070 cases in 1,166.50 seconds**, across
+twenty-eight private SQL suites. The network/site-init guard stayed active.
+AST/diff checks passed; legacy catalog/project/pin functions remain identical
+by AST. No frontend source changed, so prior Node VM tests were not rerun.
+
+Live stays at the separate ba51f25 Phase-1 address hotfix. No additional installed
+source/site/config/schema/data/Company/credential, Bench/worker or authority
+operation occurred. Complete source/provider/cache provenance, empty-Singleton
+defaults, other rounding/POS/row-wise-tax controls, native/ORM/GL/VAT/XML parity,
+runtime adoption and installed15/16/SDK/performance/release gates remain before a
+separately approved fictional-Company rehearsal and adoption/cancellation choice.
 
 ## Verification
 

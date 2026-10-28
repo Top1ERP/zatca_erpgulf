@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment128 acquires the selected saved/native rounding setting on the SAME
+context/defaults service. Reuse bounded format text/witness SQL, shared metadata/
+normal READ and cleanup. Compare exact consumed caches across close, distinguish
+missing/stored NULL, skip unused System dependencies under explicit overrides,
+and finish trusted callbacks before final cross-source checks. No amounts/runtime
+activation; provider provenance, remaining rounding controls, complete monetary
+parity and installed/release gates remain. See [CALCULATION_ROUNDING.md](CALCULATION_ROUNDING.md).
+
 Increment127 adds pure settings/version-bound rounding-method selection without
 amount conversion or old observation/default profile changes. Characterize
 override/System/legacy precedence, exact consumed cache projection and actual

@@ -187,14 +187,17 @@ class MariaDBCurrencyFormatReader:
     def __reduce__(self):
         raise TypeError("currency_format_source_not_serializable")
 
-    def _select(self, cursor, doctype, name, *, full):
+    def _select(self, cursor, doctype, name, *, full, singleton_field=FLAG):
         singleton = doctype == "System Settings"
+        if (type(singleton_field) is not str or singleton_field not in (FLAG, "rounding_method")
+                or (not singleton and singleton_field != FLAG)):
+            raise ValueError
         table, column = ("Singles", "value") if singleton else (doctype, TEXT_FIELDS[doctype])
         ids = "SUBSTRING(`doctype`,1,141),SUBSTRING(`field`,1,141)" if singleton else "SUBSTRING(`name`,1,141),`modified`"
         length = "OCTET_LENGTH(`" + column + "`)"
         projection = ("CASE WHEN " + length + "<=4096 OR `" + column + "` IS NULL THEN `"
             + column + "` ELSE NULL END,") if full else ""
-        where, params = ("`doctype`=%s AND `field`=%s", (doctype, FLAG)) if singleton else ("`name`=%s", (name,))
+        where, params = ("`doctype`=%s AND `field`=%s", (doctype, singleton_field)) if singleton else ("`name`=%s", (name,))
         cursor.execute("SELECT " + ids + "," + projection + length + " FROM `tab" + table + "` WHERE "
             + where + " LIMIT %s FOR UPDATE", (*params, 2))
         rows = cursor.fetchall()
@@ -204,23 +207,23 @@ class MariaDBCurrencyFormatReader:
                 descriptor = cursor.description[2]
                 signature = [descriptor[1], descriptor[4], descriptor[5], descriptor[6]]
                 _value(["null"], signature)
-            # Fetch NO field name or value from the witness row. A nonempty
-            # Singles dictionary skips new_doc and _fix_numeric_types sets the
-            # missing Check to zero in the inspected framework implementations.
+            # Fetch NO field name/value from the witness. A nonempty Singles
+            # dictionary skips new_doc. The format caller interprets its absent
+            # Check as zero; the rounding caller keeps an absent Select as None.
             cursor.execute("SELECT SUBSTRING(`doctype`,1,141) FROM `tabSingles` WHERE `doctype`=%s LIMIT 1 FOR UPDATE",
                 (doctype,))
             witness = cursor.fetchall()
             if type(witness) not in (tuple, list) or tuple(witness) != ((doctype,),):
                 raise ValueError
-            record = None if not full else dict(doctype=doctype, name=name, field=FLAG,
+            record = None if not full else dict(doctype=doctype, name=name, field=singleton_field,
                 value=["absent"], sql_type=signature, singleton_nonempty=True)
-            return ("absent-check",), record
+            return ("absent-check" if singleton_field == FLAG else "absent-text",), record
         if type(rows) not in (tuple, list) or len(rows) != 1:
             raise ValueError  # Missing/duplicate/collation-variant sources are never invented.
         row = rows[0]
         if type(row) is not tuple or len(row) != (4 if full else 3): raise ValueError
         if singleton:
-            if row[:2] != (doctype, FLAG): raise ValueError
+            if row[:2] != (doctype, singleton_field): raise ValueError
         else:
             if row[0] != name: raise ValueError
             _modified(_scalar(row[1]))
@@ -232,7 +235,7 @@ class MariaDBCurrencyFormatReader:
         if signature[0] not in TEXT_CODES: raise ValueError
         value = _value(_scalar(row[2]), signature)
         if count != (None if value is None else len(value.encode("utf-8"))): raise ValueError
-        record = dict(doctype=doctype, name=name, field=FLAG if singleton else column,
+        record = dict(doctype=doctype, name=name, field=singleton_field if singleton else column,
             value=_scalar(value), sql_type=signature)
         if not singleton: record["modified"] = _scalar(row[1])
         return (row[0], row[1], count), record

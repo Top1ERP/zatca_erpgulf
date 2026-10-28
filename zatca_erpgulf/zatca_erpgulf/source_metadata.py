@@ -19,6 +19,7 @@ from . import tax_dependency_observation as tax
 PROFILE = "source-applied-field-metadata/v1"
 FORMAT_PROFILE = "source-precision-format-metadata/v1"
 CHILD_CURRENCY_PROFILE = "source-child-currency-metadata/v1"
+ROUNDING_PROFILE = "source-rounding-method-metadata/v1"
 PROPERTIES = ("fieldtype", "options", "precision", "default", "reqd", "read_only",
     "hidden", "non_negative", "allow_on_submit", "is_custom_field")
 BASE_TYPES = MappingProxyType({"docstatus":"Int", "creation":"Datetime"})
@@ -54,8 +55,9 @@ CHILD_CURRENCY_FIELDS=MappingProxyType({
     for dt in sorted({financial._child_type(root, table)
         for root in ("Sales Invoice", "POS Invoice") for table in financial.TABLE_FIELDS})
 })
+ROUNDING_FIELDS=MappingProxyType({"System Settings": ("rounding_method",)})
 PROFILE_FIELDS=MappingProxyType({PROFILE: SOURCE_FIELDS, FORMAT_PROFILE: FORMAT_FIELDS,
-    CHILD_CURRENCY_PROFILE: CHILD_CURRENCY_FIELDS})
+    CHILD_CURRENCY_PROFILE: CHILD_CURRENCY_FIELDS, ROUNDING_PROFILE: ROUNDING_FIELDS})
 SINGLETONS=calculation.SINGLETONS
 CHILD_TYPES=frozenset({
     *(financial._child_type(dt,table) for dt in ("Sales Invoice","POS Invoice") for table in financial.TABLE_FIELDS),
