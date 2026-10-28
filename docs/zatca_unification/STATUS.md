@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and twenty-six bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and twenty-seven bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -3178,6 +3178,48 @@ data/schema/Company/credential, Bench/worker or authority operation occurred.
 Remaining effective settings, full source/native/ORM/accounting/XML parity,
 common runtime adoption, performance reduction and installed15/16/SDK/release
 evidence remain gates before a separately approved fictional-Company rehearsal.
+
+## Increment 127: source-bound declared rounding-method selection
+
+- Add pure RoundingMethodResolution consuming the EXISTING typed calculation
+  settings observation. Pin its version/source identity and choose explicit
+  override, System Settings or legacy fallback without altering financial,
+  issuing, calculation/default metadata bytes or amounts. Unknown/malformed
+  consumed Select values are refused; valid overrides do not consume an unused
+  system value. Do not add a rounding-method key to precision DefaultValue SQL.
+- Compare explicit consumed system-cache projections exactly, preserving blank
+  versus API None and original absent/NULL/blank source tags. Reconstruct before
+  comparison, protect repr/pickle, retain static English internal errors, and
+  provide no runtime/permission/source-discovery or UI endpoint. Known staged
+  caller and native/integration/removal gates are documented in
+  [CALCULATION_ROUNDING.md](CALCULATION_ROUNDING.md).
+- Verify the exact existing pinned Frappe16 data.py hash against official public
+  source; add four MIT excerpts to the existing offline oracle, preserving all
+  older excerpts/hashes/license. Compare precedence with actual15/pinned16
+  helpers. Characterize positive/negative ties and a synthetic floating-point
+  boundary where the same method name has different versioned amount behavior.
+  These tests do not convert native financial Decimal sources or establish
+  invoice range/GL/VAT/XML parity.
+
+Initial new-policy verification passed **220 cases in 2.99s**; related observation/
+precision regression passed **2,811 cases in 18.95s**. After adding the actual
+version-difference probe, final guarded dependency verification passed **3,409
+local cases in 97.55s**, including **224 new cases**, across nine suites covering
+rounding, precision, calculation/issuing/financial observations and all local
+consumers of the expanded helper oracle. Guarded site/network restrictions stayed
+active. AST/diff and old-oracle preservation checks passed.
+
+The full 24,560-case result above is the previous increment126 run, NOT a new full
+run for this commit. SQL, transaction/access pipeline, runtime and frontend source
+are unchanged; no private SQL/Node/full rehearsal was repeated for this isolated
+staged policy. Complete installed ERP16, SDK and amount/accounting parity remain
+unproven. Next acquire native/effective rounding settings on the shared service
+and cover currency fraction/POS/rounded-total/row-wise-tax controls before amount
+or runtime adoption.
+
+DEV only. Live stays at the independent ba51f25 Phase-1 address hotfix. No installed
+source, site/config/schema/data/Company/credential, Bench/worker or authority
+operation occurred. Existing fictional-Company/pilot/adoption gates remain.
 
 ## Verification
 

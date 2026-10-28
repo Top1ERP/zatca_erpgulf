@@ -6,6 +6,11 @@ Increment 109 adds explicit applied-field/base-field metadata adaptation, includ
 the raw Meta/default-field distinction. It does NOT resolve defaults or prove
 Property Setter provenance; see [SOURCE_METADATA.md](SOURCE_METADATA.md).
 
+Increment127 adds a separate pure interpretation of the existing declared
+rounding-method field without changing this observation's bytes. See
+[CALCULATION_ROUNDING.md](CALCULATION_ROUNDING.md). Native/effective source proof
+and all amount computation remain separate gates.
+
 ## Delivered dependency boundary
 
 The component pins an independent issuing-settings/financial parent and requires

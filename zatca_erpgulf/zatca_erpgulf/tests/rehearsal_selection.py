@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "calculation_rounding",
     "calculation_child_cache",
     "customer_address_phase_policy",
     "calculation_child_format_access",

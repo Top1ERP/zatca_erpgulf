@@ -19,6 +19,13 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment127 adds pure settings/version-bound rounding-method selection without
+amount conversion or old observation/default profile changes. Characterize
+override/System/legacy precedence, exact consumed cache projection and actual
+versioned helper behavior with pinned sources. Native System Settings capture,
+currency-fraction/POS/rounded-total/row-wise-tax controls and complete monetary
+parity remain before runtime adoption. See [CALCULATION_ROUNDING.md](CALCULATION_ROUNDING.md).
+
 Increment126 admits proved missing own child Company links on the SAME selected
 field/cache operations. Reuse version15 site precision; under version16 authorize
 only Language/System Settings with the currency-format flag disabled. Do not
