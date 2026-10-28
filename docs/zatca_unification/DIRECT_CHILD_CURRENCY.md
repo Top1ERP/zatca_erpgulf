@@ -117,9 +117,11 @@ Protected repr/pickle refusal is not a sandbox against trusted in-process code.
 
 Increment121 did not implement these gates. Increment122 now implements the native
 child-link/physical-column reader and binds rows to locked financial evidence;
-the saved authorization/format/cache service composition remains open. Other
+increment123 adds explicit saved graph/field READ composition in the shared
+service. Related own-Company/format/cache composition remains open. Other
 effective settings, complete accounting/XML/native-ORM parity, installed v15/v16
 rehearsals and SDK acceptance also remain open.
+See [CHILD_CALCULATION_ACCESS.md](CHILD_CALCULATION_ACCESS.md).
 
 ## Executed evidence and safety
 

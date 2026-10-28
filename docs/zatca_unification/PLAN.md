@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 123 composes saved child capture in the SAME defaults/financial service.
+Authorize every financial table/row and selected field level before providers/
+SQL, including empty tables; bind the applied metadata graph before opening the
+owned handle. Recheck source/ACL through cleanup, reuse one localized summary and
+return a protected full table-membership binding. Compare table permission behavior
+against actual15/pinned16 helpers. Related own-Company/format/cache acquisition
+and adoption by all final runtime paths remain gates. See
+[CHILD_CALCULATION_ACCESS.md](CHILD_CALCULATION_ACCESS.md).
+
 Increment 122 adds caller-owned native child currency/Company evidence using
 the existing financial preflight/value and metadata readers. Bind exact table/
 row/index/revision and physical column membership without changing legacy bytes.

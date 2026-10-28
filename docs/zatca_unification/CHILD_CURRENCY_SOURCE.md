@@ -23,11 +23,13 @@ The explicit API is:
   `ChildFieldCurrencyResolution`; its precision operation delegates further to
   the existing shared `FieldPrecisionResolution`.
 
-Only reviewed tests call the staging reader today. The planned production
-consumer is the existing saved calculation service after its child READ/cache/
-source guards are implemented. No whitelist, hook, button, provider registration,
-migration or installed entry point changes. If the integration is abandoned,
-remove this staging reader and its narrow profile/tests/docs together.
+Increment123 now calls this reader from `capture_child_context` through the
+existing saved calculation service, with explicit table/row/field READ and saved
+graph binding. Related own-Company/format/cache acquisition and installed runtime
+adoption remain gates. No whitelist, hook, button, provider registration, migration
+or installed entry point changes. If the integration is abandoned, remove these
+staging components and their narrow profile/tests/docs together. See
+[CHILD_CALCULATION_ACCESS.md](CHILD_CALCULATION_ACCESS.md).
 
 ## Separate metadata profile
 
@@ -101,11 +103,11 @@ rollback or close occurs. Caller-owned dirty work remains pending.
 
 ## Remaining gates
 
-- Compose normal saved parent/child READ with the existing actor/site/role,
-  owned-connection, message aggregation and late disclosure checks. This reader
-  accepts declarations and a handle; it is NOT standalone saved authorization.
-- Bind actual authorized saved child values and provider metadata to this native
-  evidence. Include child permlevel/parentfield behavior in v15/v16 rehearsals.
+- Increment123 supplies normal saved parent/table/child/field READ, graph/value
+  binding and late disclosure checks for an explicit shared-service operation.
+  This low-level reader still accepts declarations/handle and is not standalone
+  saved authorization. Complete installed v15/v16 graph/ACL/customization rehearsals
+  and adoption by all intended runtime paths remain gates.
 - Reuse the selected Company/Currency/Language/System readers for the exact own
   child currency/Company on the same handle, with trusted cache-key/presence
   providers and separate numeric precision-cache checks.

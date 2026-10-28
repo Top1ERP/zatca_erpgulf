@@ -21,6 +21,7 @@ from .archive_source_access import (
 from .calculation_defaults import CalculationDefaultsRows, MariaDBCalculationDefaultsReader, _pin_rows
 from .calculation_precision import FieldPrecisionResolution
 from .calculation_format_access import FormatAcquisition, SavedInvoiceCurrencyRead
+from .calculation_child_access import ChildAcquisition, SavedChildCalculationRead
 from .credential_bundle_access import CredentialStorageScope
 from . import financial_source_observation as financial
 from .financial_source_sql import (
@@ -44,6 +45,7 @@ FIELDS = MappingProxyType({
     "Company": (),
 })
 PARENT_KINDS = ("site", "global", "user")
+_NO_CHILD = object()
 
 
 class CalculationDefaultsAccessError(ArchiveSourceAccessError):
@@ -272,7 +274,7 @@ class SavedCalculationDefaultsService:
 
     def __init__(self, scope, connection_factory, cache_reader, *,
             parent_kind="site", applied_metadata_reader=None,
-            format_metadata_reader=None, format_cache_reader=None):
+            format_metadata_reader=None, format_cache_reader=None, child_metadata_reader=None):
         if type(parent_kind) is not str or parent_kind not in PARENT_KINDS or not callable(cache_reader):
             raise CalculationDefaultsAccessError("calculation_defaults_access_dependencies")
         self._policy = _SavedDefaultsSource(scope, connection_factory)
@@ -283,6 +285,9 @@ class SavedCalculationDefaultsService:
         if any(reader is not None and not callable(reader) for reader in (format_metadata_reader, format_cache_reader)):
             raise CalculationDefaultsAccessError("calculation_format_access_dependencies")
         self._format_metadata, self._format_cache = format_metadata_reader, format_cache_reader
+        if child_metadata_reader is not None and not callable(child_metadata_reader):
+            raise CalculationDefaultsAccessError("calculation_child_access_dependencies")
+        self._child_metadata = child_metadata_reader
 
     def __repr__(self):
         return "<SavedCalculationDefaultsService permissioned protected local read>"
@@ -326,12 +331,23 @@ class SavedCalculationDefaultsService:
         return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
             include_financial=True, include_formats=True, format_scope="company", erp_major=erp_major)
 
+    def capture_child_context(self, invoice_name, parentfield, *, erp_major, doctype="Sales Invoice"):
+        """Explicit saved child READ/native links on the SAME owned pipeline.
+
+        parentfield is restricted to the declared financial tables. Providers
+        are constructor-only; no request supplies a row, Meta, cache or handle.
+        Related Company/format/cache acquisition remains a separate operation.
+        """
+        return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
+            include_financial=True, child_table=parentfield, erp_major=erp_major)
+
     def _capture_display(self, invoice_name, *, doctype, include_metadata,
-            include_financial=False, include_formats=False, format_scope="invoice", erp_major=None):
+            include_financial=False, include_formats=False, format_scope="invoice", erp_major=None, child_table=_NO_CHILD):
         try:
             with mute_operation_messages(frappe):
                 return self._capture_owned(invoice_name, doctype=doctype, include_metadata=include_metadata,
-                    include_financial=include_financial, include_formats=include_formats, format_scope=format_scope, erp_major=erp_major)
+                    include_financial=include_financial, include_formats=include_formats, format_scope=format_scope,
+                    erp_major=erp_major, child_table=child_table)
         except frappe.PermissionError:
             denied = True
         except Exception:
@@ -371,7 +387,7 @@ class SavedCalculationDefaultsService:
         return pinned
 
     def _capture_owned(self, invoice_name, *, doctype, include_metadata=False,
-            include_financial=False, include_formats=False, format_scope="invoice", erp_major=None):
+            include_financial=False, include_formats=False, format_scope="invoice", erp_major=None, child_table=_NO_CHILD):
         """Recheck saved ACL/SQL membership/cache before protected disclosure.
 
         Fresh owned rollback excludes pre-existing pending defaults. Remaining
@@ -383,19 +399,28 @@ class SavedCalculationDefaultsService:
         try:
             policy = self._policy
             actor = policy._actor()
-            rows, _records, recheck = policy._saved_selection(invoice_name, doctype, actor)
+            rows, _records, source_recheck = policy._saved_selection(invoice_name, doctype, actor)
             if include_financial and (type(erp_major) is not int or erp_major not in (15, 16)):
                 raise CalculationDefaultsAccessError("calculation_financial_access_version")
+            children, formats = None, None
+            if child_table is not _NO_CHILD:
+                if not include_financial or include_formats:
+                    raise CalculationDefaultsAccessError("calculation_child_access_profile")
+                children = ChildAcquisition(policy, actor, invoice_name, doctype, child_table, self._child_metadata)
             if include_formats:
                 if erp_major != 16 or self._parent_kind != "site":
                     raise CalculationDefaultsAccessError("calculation_format_access_profile")
                 formats = FormatAcquisition(policy, actor, invoice_name, doctype, self._format_metadata, self._format_cache,
                     currency_scope=format_scope)
-                base_recheck = recheck
-                def recheck():
-                    base_recheck()
+            def recheck():
+                source_recheck()
+                if children is not None:
+                    children.recheck_access()
+                if formats is not None:
                     formats.recheck_access()
             applied = self._applied_metadata(rows, include_financial=include_financial) if include_metadata else ()
+            if children is not None:
+                children.require_financial_metadata(applied[1:])
             if include_metadata:
                 recheck()
             parent = {"site": "__default", "global": "__global", "user": actor[1]}[self._parent_kind]
@@ -411,6 +436,8 @@ class SavedCalculationDefaultsService:
                 financial_reader = MariaDBInvoiceFinancialReader(connection)
                 observed_financial = financial_reader.load_for_update(doctype, invoice_name,
                     erp_major=erp_major, applied_metadata={meta.name: meta for meta in applied[1:]})
+                if children is not None:
+                    observed_children = children.load_for_update(connection, observed_financial)
                 if include_formats:
                     formats.require_financial_currency(observed_financial.financial)
                     if format_scope == "company":
@@ -431,6 +458,8 @@ class SavedCalculationDefaultsService:
             if include_formats:
                 formats.check_cache(observed_formats)
                 formats.require_metadata_unchanged()
+            if children is not None:
+                children.require_metadata_unchanged()
             if include_metadata:
                 if self._applied_metadata(rows, include_financial=include_financial) != applied:
                     raise CalculationDefaultsAccessError("calculation_context_access_metadata_drift")
@@ -441,6 +470,8 @@ class SavedCalculationDefaultsService:
                 metadata_reader.require_unchanged(declaration)
             if include_financial:
                 financial_reader.require_unchanged(observed_financial)
+            if children is not None:
+                children.reader.require_unchanged(observed_children)
             if include_formats:
                 if formats.company_source is not None:
                     formats.company_reader.require_unchanged(formats.company_source)
@@ -453,6 +484,8 @@ class SavedCalculationDefaultsService:
                 result = SavedCalculationFinancialRead(result, observed_financial)
             if include_formats:
                 result = SavedInvoiceCurrencyRead(result, formats.rows, observed_formats, formats.company_source)
+            if children is not None:
+                result = SavedChildCalculationRead(result, observed_children, children.tables)
         except BaseException as error:
             failure = error
         finally:

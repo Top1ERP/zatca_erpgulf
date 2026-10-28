@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and twenty-two bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and twenty-three bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -3012,6 +3012,52 @@ acceptance remain gates. All SQL DDL/DML in tests belongs to NEW guard-owned
 TCP-disabled temporary fixtures only. No installed app/site/config/schema/data,
 Company/credential, Bench/worker or authority operation occurred. No financial
 Decimal conversion/rounding, signing/XML/QR or runtime activation was introduced.
+
+## Increment 123: shared saved child/table/field READ composition
+
+- Add explicit capture_child_context to the SAME saved defaults/financial service.
+  Reuse its actor/site/role, quiet normal READ, one owned connection, rollback/
+  close, aggregated localized summary and post-cleanup disclosure boundary.
+- Authorize ALL present financial tables/rows, including empty tables, before
+  metadata providers/SQL. Use a parent-bound framework table READ probe plus
+  actual saved child READ; never adopt ignore_permissions or a document shortcut.
+- Check selected header/child/link field READ levels using the parent's ordinary
+  field-permission levels. Pin field presence/levels and table/row binding; before
+  SQL require applied financial/narrow metadata to describe exactly the authorized
+  graph. Recheck membership, source, ACL and callbacks through cleanup.
+- Bind all returned saved table rows to the native financial parent and target
+  link proof. Reuse the pure currency/precision/cache comparison contracts; no
+  unpermissioned caller Company proof or guessed related format is added.
+  See [CHILD_CALCULATION_ACCESS.md](CHILD_CALCULATION_ACCESS.md).
+
+Focused final guarded verification passed **196 local + 62 native SQL = 258 cases
+in 153.81 seconds**. Tests include both quiet signatures, actual installed15 and
+the pinned16 child permission helper, field levels, all returned tables/rows,
+empty target/other tables, pre-SQL metadata graph disagreement, saved/native
+mismatch, callback/cleanup revocation, one Arabic display summary, protected
+result binding, native rollback and preservation of pending ambient work.
+The first synthetic adapter accidentally routed a DefaultValue query through its
+native child cursor; corrected only the fixture routing. Temporary diagnostic
+tracing was removed. An initial full regression was deliberately interrupted at
+the exact owned DEV pytest process after review identified the additional field
+READ requirement; it is not counted as completed evidence. Final full guarded
+verification passed **21,442 local + 2,800 private SQL = 24,242 cases in 705.42
+seconds**, across twenty-five private SQL suites. All 258 new cases passed with
+the network/site-init guard active. No ordinary permission, crypto, timeout or
+offline restriction was waived. AST/JSON/diff checks passed. Frontend files were
+unchanged, so the previously passing Node VM scripts were not rerun.
+
+Pinned source verification fetched ONLY the public MIT-licensed Frappe16
+permissions.py at the existing exact commit; no authority endpoint was queried.
+Its selected unchanged helper/full-file hash extends the existing licensed oracle.
+No full ERP16 module or installed bench was run. No new translation string,
+financial Decimal conversion/rounding, signing/XML/QR or runtime activation.
+The added graph checks apply to this explicit operation, not a claim that all
+older capture/runtime APIs already use them. Related Company/format/cache/source
+provenance, common runtime promotion, accounting/XML/installed v15/v16/SDK and
+acceptance remain gates. No installed app/site/config/schema/data/credential,
+Company, Bench or worker changed; no authority request was made. All native SQL
+work belongs to NEW guard-owned TCP-disabled temporary fixtures only.
 
 ## Verification
 
