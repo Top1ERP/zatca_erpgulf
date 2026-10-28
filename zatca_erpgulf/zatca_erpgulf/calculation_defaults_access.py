@@ -23,6 +23,7 @@ from .calculation_precision import FieldPrecisionResolution
 from .calculation_format_access import FormatAcquisition, SavedInvoiceCurrencyRead
 from .calculation_child_access import ChildAcquisition, SavedChildCalculationRead
 from .calculation_child_format_access import SavedChildFieldRead
+from .calculation_child_cache import observe_child_caches
 from .credential_bundle_access import CredentialStorageScope
 from . import financial_source_observation as financial
 from .financial_source_sql import (
@@ -353,13 +354,20 @@ class SavedCalculationDefaultsService:
             include_financial=True, include_formats=type(erp_major) is int and erp_major == 16,
             format_scope="child", child_table=parentfield, child_field=(row_name, fieldname), erp_major=erp_major)
 
+    def capture_child_cached_context(self, invoice_name, parentfield, row_name, fieldname, *, erp_major, doctype="Sales Invoice"):
+        """Also inspect existing request-local caches without calling precision()."""
+        return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
+            include_financial=True, include_formats=type(erp_major) is int and erp_major == 16,
+            format_scope="child", child_table=parentfield, child_field=(row_name, fieldname),
+            erp_major=erp_major, include_child_cache=True)
+
     def _capture_display(self, invoice_name, *, doctype, include_metadata,
-            include_financial=False, include_formats=False, format_scope="invoice", erp_major=None, child_table=_NO_CHILD, child_field=None):
+            include_financial=False, include_formats=False, format_scope="invoice", erp_major=None, child_table=_NO_CHILD, child_field=None, include_child_cache=False):
         try:
             with mute_operation_messages(frappe):
                 return self._capture_owned(invoice_name, doctype=doctype, include_metadata=include_metadata,
                     include_financial=include_financial, include_formats=include_formats, format_scope=format_scope,
-                    erp_major=erp_major, child_table=child_table, child_field=child_field)
+                    erp_major=erp_major, child_table=child_table, child_field=child_field, include_child_cache=include_child_cache)
         except frappe.PermissionError:
             denied = True
         except Exception:
@@ -399,7 +407,7 @@ class SavedCalculationDefaultsService:
         return pinned
 
     def _capture_owned(self, invoice_name, *, doctype, include_metadata=False,
-            include_financial=False, include_formats=False, format_scope="invoice", erp_major=None, child_table=_NO_CHILD, child_field=None):
+            include_financial=False, include_formats=False, format_scope="invoice", erp_major=None, child_table=_NO_CHILD, child_field=None, include_child_cache=False):
         """Recheck saved ACL/SQL membership/cache before protected disclosure.
 
         Fresh owned rollback excludes pre-existing pending defaults. Remaining
@@ -407,7 +415,7 @@ class SavedCalculationDefaultsService:
         are not sandboxed. SQL and cache are not locked atomically, and results
         can become stale after cleanup. Never use this as complete source proof.
         """
-        connection, failure, cleanup_failure, result = None, None, None, None
+        connection, failure, cleanup_failure, result, cache_read = None, None, None, None, None
         try:
             policy = self._policy
             actor = policy._actor()
@@ -415,6 +423,8 @@ class SavedCalculationDefaultsService:
             if include_financial and (type(erp_major) is not int or erp_major not in (15, 16)):
                 raise CalculationDefaultsAccessError("calculation_financial_access_version")
             children, formats = None, None
+            if include_child_cache and child_field is None:
+                raise CalculationDefaultsAccessError("calculation_child_cache_profile")
             if child_field is not None and self._parent_kind != "site":
                 raise CalculationDefaultsAccessError("calculation_child_field_profile")
             if include_formats and (erp_major != 16 or self._parent_kind != "site"):
@@ -472,6 +482,24 @@ class SavedCalculationDefaultsService:
             reader = MariaDBCalculationDefaultsReader(connection)
             observed = reader.load_for_update(parent)
             observed.require_cache_match(parent, self._cache(policy._scope, parent))
+            def build_result():
+                captured = SavedCalculationDefaultsRead(policy._scope, actor[1], rows, observed)
+                if include_metadata:
+                    captured = SavedCalculationContextRead(captured, context_metadata)
+                if include_financial:
+                    captured = SavedCalculationFinancialRead(captured, observed_financial)
+                if include_formats and children is None:
+                    captured = SavedInvoiceCurrencyRead(captured, formats.rows, observed_formats, formats.company_source)
+                if children is not None:
+                    captured = SavedChildCalculationRead(captured, observed_children, children.tables)
+                    if children.field_source is not None:
+                        selected = children.field_source
+                        captured = SavedChildFieldRead(captured, selected.row.name, selected.fieldname,
+                            selected.company_source, selected.company_rows,
+                            None if formats is None else observed_formats, () if formats is None else formats.rows)
+                return captured
+            if include_child_cache:
+                cache_read = observe_child_caches(build_result(), children.field_source)
             recheck()
             _verify_rows(connection, rows)
             reader.require_unchanged(observed)
@@ -485,6 +513,8 @@ class SavedCalculationDefaultsService:
                 if self._applied_metadata(rows, include_financial=include_financial) != applied:
                     raise CalculationDefaultsAccessError("calculation_context_access_metadata_drift")
                 recheck()
+            if include_child_cache and observe_child_caches(build_result(), children.field_source) != cache_read:
+                raise CalculationDefaultsAccessError("calculation_child_cache_changed")
             _verify_rows(connection, rows)
             reader.require_unchanged(observed)
             for declaration in metadata:
@@ -500,20 +530,7 @@ class SavedCalculationDefaultsService:
                     formats.company_reader.require_unchanged(formats.company_source)
                 formats.reader.require_unchanged(observed_formats)
             recheck()
-            result = SavedCalculationDefaultsRead(policy._scope, actor[1], rows, observed)
-            if include_metadata:
-                result = SavedCalculationContextRead(result, context_metadata)
-            if include_financial:
-                result = SavedCalculationFinancialRead(result, observed_financial)
-            if include_formats and children is None:
-                result = SavedInvoiceCurrencyRead(result, formats.rows, observed_formats, formats.company_source)
-            if children is not None:
-                result = SavedChildCalculationRead(result, observed_children, children.tables)
-                if children.field_source is not None:
-                    selected = children.field_source
-                    result = SavedChildFieldRead(result, selected.row.name, selected.fieldname,
-                        selected.company_source, selected.company_rows,
-                        None if formats is None else observed_formats, () if formats is None else formats.rows)
+            result = build_result() if cache_read is None else cache_read
         except BaseException as error:
             failure = error
         finally:
@@ -522,6 +539,8 @@ class SavedCalculationDefaultsService:
         if failure is None and cleanup_failure is None:
             try:
                 recheck()  # Deny disclosure on source/actor/ACL drift during close.
+                if cache_read is not None and observe_child_caches(cache_read.field, children.field_source) != cache_read:
+                    raise CalculationDefaultsAccessError("calculation_child_cache_changed")
                 return result
             except BaseException as error:
                 failure = error

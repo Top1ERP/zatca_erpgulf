@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and twenty-four bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and twenty-five bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -70,7 +70,9 @@ and explicit CSID local/transport outcome presentation with progress cleanup,
 and shared CSID form guards without implicit save/reload or full Company reads)
 are complete in development. ICV continuity has been characterized, not migrated.
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
-has been deployed to the running application or sent to ZATCA. Increment 16 uses
+has been rolled out as the development release or sent to ZATCA. The separately
+authorized one-file current-version Phase-1 address hotfix is the only live
+exception; see [PHASE1_ADDRESS_HOTFIX.md](PHASE1_ADDRESS_HOTFIX.md). Increment 16 uses
 a new private MariaDB test subprocess, never a tenant database or live service.
 The current user mandate forbids ALL working/production environment changes and
 agent-initiated authority requests, including Sandbox/Simulation. Development
@@ -96,7 +98,9 @@ does not authorize a live write or request. See
 
 ### Git evidence
 
-- Deployed branch stays at `2e97708e115e31c675182647d10829d6175e7449`.
+- Original deployed baseline: `2e97708e115e31c675182647d10829d6175e7449`.
+  The 2026-10-28 authorized current-version one-file address hotfix is now live
+  at `ba51f2587763a4e9db045f57e1b8ee2bc29ea77c`; DEV remains uninstalled.
 - Development base: origin/main `2c38ff1b984f8b8f961fa7bc8d028576d2195cab`.
 - The two revisions have the same tree:
   `529d3cb16fbc6ba3687397ba0adfc60688564fc8`.
@@ -3098,6 +3102,47 @@ conversion/rounding, FX, GL/VAT/XML/QR/signing or runtime activation. Actual
 field/precision cache sampling/provenance, unresolved-currency locale-only
 acquisition, common runtime promotion, complete accounting/XML/native-ORM and
 installed v15/v16/SDK/performance/release evidence remain gates.
+
+## Increment 125: read-only selected child caches and independent Phase-1 hotfix
+
+- Add explicit capture_child_cached_context on the SAME owned service. Retain
+  the exact initial authorized direct child/parent-child objects, sample only
+  selected request-local currency and nested main/field precision slots, and
+  reuse existing pure currency/precision checks. No precision() call, cache
+  population, refresh, repair, source discovery or new transaction pipeline.
+- Bind slot declarations and ephemeral object/container identities to the exact
+  source/actor/scope/row/field/default/Company/format evidence. Reject malformed,
+  stale or changed caches across callbacks and after owned cleanup, including
+  numerically correct warmup/equivalent container replacement. Existing capture
+  methods keep their result types and do not acquire extra caches. See
+  [CHILD_CACHE_OBSERVATION.md](CHILD_CACHE_OBSERVATION.md).
+- Correct the address integration preflight to skip known Phase-1 while keeping
+  Phase-2, B2C, disabled and unknown-phase behavior. By explicit user approval,
+  deploy ONLY that tested file on an independent hotfix branch from the old live
+  baseline for all shared Bench sites. Protected backup, byte/AST comparisons,
+  graceful web-only reload and dar-ana HTTP200/pong evidence are documented in
+  [PHASE1_ADDRESS_HOTFIX.md](PHASE1_ADDRESS_HOTFIX.md). No development rollout.
+
+Focused guarded tests passed **54 cache unit cases in 89.68s**, **8 NEW private
+SQL cases in 19.66s**, and **14 new phase-policy + 4 existing address cases in
+0.09s**. A synthetic exception stub initially discarded its message; corrected
+only the fixture and reran. The phase test has no dependency on a temporary
+checkout; the candidate/current code was independently compared byte-for-byte
+with tested DEV code and its phase/enablement helpers compared by AST before
+deployment. Final full guarded verification passed **21,626 local + 2,850 private
+SQL = 24,476 cases in 958.95 seconds**, across twenty-seven private SQL suites.
+The 76 new cases comprise 14 phase-policy, 54 local cache and 8 native cache cases.
+The network/site-init guard stayed active; no ordinary permission, crypto,
+timeout or offline restriction was waived. AST/diff checks passed. Frontend
+files were unchanged, so previously passing Node VM scripts were not rerun.
+
+Live is intentionally pinned to the independent address hotfix. No other live
+code/config/schema/data/Company/credential or queue/scheduler/Redis/Bench change
+occurred; no authority request was made. DEV cache work remains uninstalled.
+Unresolved-currency locale-only policy, remaining settings, full source/native/
+ORM/accounting/XML parity, one runtime pipeline, performance reduction and
+installed v15/v16/SDK/release evidence remain gates before a separately approved
+isolated fictional-Company rehearsal and adoption decision.
 
 ## Verification
 

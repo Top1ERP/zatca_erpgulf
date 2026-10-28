@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment125 adds exact selected request-local field-currency and numeric
+precision cache observations on the SAME service, retaining initial authorized
+objects and rejecting drift through cleanup without cache population/repair.
+The Phase-1 address guard is corrected in DEV and, by separate explicit approval,
+as an independent one-file current-version hotfix for all shared Bench sites.
+This is not a DEV rollout. See [CHILD_CACHE_OBSERVATION.md](CHILD_CACHE_OBSERVATION.md)
+and [PHASE1_ADDRESS_HOTFIX.md](PHASE1_ADDRESS_HOTFIX.md).
+
 Increment 124 adds exact saved child-field selection and own-Company/native
 currency proof to the SAME pipeline. Reuse format acquisition for version16's
 selected Currency/Language/System context and cache; preserve version15's site

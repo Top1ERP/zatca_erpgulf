@@ -12,6 +12,8 @@ Do not touch an installed app/site/configuration/schema, restart Bench/workers,
 create a fictional Company on a working bench or request any authority API.
 Sandbox/Simulation, OTP/CSID and Compliance are included in that prohibition.
 A DEV branch source push is not deployment or permission to send.
+The only explicit live exception is the independent current-version
+[Phase-1 address hotfix](PHASE1_ADDRESS_HOTFIX.md); no DEV rollout was authorized.
 
 ## Functional map
 
@@ -37,6 +39,7 @@ A DEV branch source push is not deployment or permission to send.
 | Native child currency source | child_currency_source.py; source_metadata.py CHILD_CURRENCY_PROFILE | Same-handle financial/metadata/physical-column/own-link evidence, overlap checks for advance currency and pure resolver delegation; saved ACL/format/cache integration remains open. See CHILD_CURRENCY_SOURCE.md |
 | Saved child calculation graph | calculation_child_access.py; capture_child_context | Explicit shared-service operation with normal parent/table/row/field READ for all returned financial tables, exact pre-SQL metadata graph and post-cleanup checks; related Company/format/cache capture and runtime promotion remain open. See CHILD_CALCULATION_ACCESS.md |
 | Selected child field formats | calculation_child_format_access.py; capture_child_field_context; FormatAcquisition child scope | Normal own-Company/related field READ before providers, same-handle Company proof and v16 formats/cache, v15 site precision without format reads; actual field/precision cache sampling and runtime adoption remain open. See CHILD_FIELD_FORMAT_ACCESS.md |
+| Selected local cache observation | calculation_child_cache.py; capture_child_cached_context | Fixed read-only field_currency/direct-row precision slots on initial authorized objects, source-bound snapshots across callbacks/cleanup; no cache population or runtime adoption. See CHILD_CACHE_OBSERVATION.md |
 | Selected metadata SQL | metadata_source.py | Bounded DocType/DocField/customization preflight/full reads, guarded defaults, raw membership rechecks and applied-declaration matching; caller supplies ACL/owned transaction/provenance |
 | Original preparation/history | issuance_candidate.py, issuance_preparation.py, issuing_chain*.py, preparation_hold.py | Explicit identity/chain contracts and local durable holds; not integrated issuance authorization |
 | Protected recovery | preparation_review_access.py, preparation_recovery_access.py, preparation_custody*.py | Opt-in source/ACL/evidence boundaries; no default trusted provider/runtime caller |

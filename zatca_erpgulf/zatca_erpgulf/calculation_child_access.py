@@ -108,13 +108,18 @@ class _SavedTableAccess:
         self._load, finalize = self._children._saved_record_access(actor)
         table, refs = self._membership()
         self._table = table
-        rows = []
+        rows, documents = [], []
         for ref in refs:
-            row = SavedChildCurrencyRow.from_document(self._load(self.childtype, ref.name))
+            doc = self._load(self.childtype, ref.name)
+            row = SavedChildCurrencyRow.from_document(doc)
             if SavedChildCurrencyRow.from_document(ref) != row:
                 raise CalculationChildAccessError("calculation_child_access_saved_mismatch")
             rows.append(row)
+            documents.append(doc)
         self.rows = tuple(rows)
+        # Keep the exact initial authorized objects; later rechecks load fresh
+        # documents but must not replace the cache sources being inspected.
+        self.documents, self.references = tuple(documents), tuple(refs)
         _, _, self._children_recheck = finalize()
         self.recheck_access()
 

@@ -1,5 +1,17 @@
 # Offline development mandate and release sequence — increment 27
 
+## Explicit narrow live exception — 2026-10-28
+
+The user authorized ONLY the customer-address preflight Phase-1 correction on
+the installed CURRENT version for all sites on this shared Bench, separately
+from DEV. Live is now `ba51f2587763a4e9db045f57e1b8ee2bc29ea77c`, exactly one
+source file beyond the old `2e97708` baseline. Only web workers were gracefully
+reloaded; no queue/scheduler/Redis/Bench restart, site/config/schema/data change
+or authority request. See [PHASE1_ADDRESS_HOTFIX.md](PHASE1_ADDRESS_HOTFIX.md).
+This does NOT authorize a DEV rollout or further live changes on "continue".
+All other restrictions and the separate fictional-Company/pilot gates below
+remain in force. No DEV cache/source framework was deployed.
+
 ## Current user restriction, effective 2026-10-10
 
 The user forbids applying development results to ANY working/production

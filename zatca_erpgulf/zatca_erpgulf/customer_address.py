@@ -16,7 +16,11 @@ from frappe import _
 from frappe.utils import cint
 
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
-from zatca_erpgulf.zatca_erpgulf.zatca_runtime import is_zatca_invoice_enabled
+from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
+    PHASE_1_VALUE,
+    is_zatca_invoice_enabled,
+    resolve_zatca_phase,
+)
 
 
 def _value(doc: Any, fieldname: str, default: Any = None) -> Any:
@@ -174,12 +178,11 @@ def get_customer_address(sales_invoice_doc: Any, customer_doc: Any):
 
 
 def validate_customer_address_for_zatca(invoice: Any, event: str | None = None):
-    """Validate customer-address presence before a ZATCA invoice is submitted.
+    """Check buyer-address presence outside the known Phase-1 QR flow.
 
-    ERPNext permits a draft Sales Invoice without a customer address.  ZATCA
-    requires one for non-B2C invoices, so this preflight prevents a missing
-    address from being discovered only after the document is submitted.  The
-    detailed field checks remain in the XML/signing paths.
+    Phase-1 issuance must not run this Phase-2 integration preflight. Unknown
+    or missing phase settings retain the existing check. Ordinary ERPNext
+    validation and detailed XML/signing checks are not changed here.
     """
     if not _value(invoice, "customer") or not _value(invoice, "company"):
         return None
@@ -190,6 +193,9 @@ def validate_customer_address_for_zatca(invoice: Any, event: str | None = None):
         return None
 
     if not is_zatca_invoice_enabled(company):
+        return None
+
+    if resolve_zatca_phase(company) == PHASE_1_VALUE:
         return None
 
     customer = frappe.get_doc("Customer", _value(invoice, "customer"))
