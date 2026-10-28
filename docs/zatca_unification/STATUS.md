@@ -1,8 +1,8 @@
-# Implementation status — 2026-10-27
+# Implementation status — 2026-10-28
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and twenty bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and twenty-one bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -2940,6 +2940,38 @@ credential, Bench or worker change occurred. Direct child-document currency/cach
 inheritance, other settings, whole-empty Singleton policy, source/cache/provider
 provenance, complete native/ORM/accounting/XML/SDK and installed v15/v16/authority
 acceptance remain gates. No money conversion, rounding or runtime activation.
+
+## Increment 121: direct child-document currency and cache presence
+
+- Add a pure staged direct-child contract distinct from the parent-document
+  parentfield operation. Reuse the existing precision resolver rather than adding
+  another formula. Pin own/parent currency, exact own child Company lookup and
+  the version-specific parent_doc fallback, without inferring the parent Company.
+- Compare effective tagged row/parent cache slots using the child DocType.
+  Preserve slot absence versus NULL/blank; the first oracle comparison exposed
+  setdefault retaining a falsey slot after successful lookup. Correct that model,
+  cover owner/precedence/equal-name cases and never mutate framework caches.
+- Bind consumed v16 format currency to the declared direct-child currency.
+  Configured precision remains independent of an unresolved currency. Preserve
+  existing payloads, monetary values, default rules and all runtime entry points.
+  See [DIRECT_CHILD_CURRENCY.md](DIRECT_CHILD_CURRENCY.md).
+
+Focused guarded verification passed **287 cases in 0.90 seconds** against
+actual installed Frappe15 and pinned Frappe16 helper control flow with synthetic
+dependencies. Final full guarded verification passed **21,172 local + 2,696
+private SQL = 23,868 cases in 506.15 seconds**, across the unchanged twenty-three
+private SQL suites. All 287 new cases are local; no private suite/schema was added.
+The network/site-init guard remained active; no permission, timeout, crypto or
+offline restriction was waived. AST syntax and diff checks passed. Frontend
+files were unchanged, so the previously passing Node VM scripts were not rerun.
+
+This increment supplies no native child-field reader, saved child ACL/provider
+or complete source provenance. Legacy metadata absence does not establish that
+own child currency/Company physical columns are absent; a separate bounded
+source profile and same-owned-pipeline permissioned acquisition remain next.
+No installed app/site/config/schema/data/credential, Bench/worker or authority
+operation occurred. No new private SQL schema, Decimal conversion, monetary
+rounding, signing/XML/QR behavior or runtime activation is introduced.
 
 ## Verification
 

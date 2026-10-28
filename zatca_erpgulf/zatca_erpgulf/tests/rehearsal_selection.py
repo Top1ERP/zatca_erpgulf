@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "child_field_currency",
     "field_currency_access",
     "company_currency_source",
     "calculation_format_access",

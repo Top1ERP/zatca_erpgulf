@@ -84,6 +84,8 @@ the child's DocField is passed to get_field_precision with the parent document.
 It does NOT claim the same behavior as `row.precision(fieldname)` on an independent
 child document. Child-local currency/Company fields, missing parent links and
 framework parent-cache inheritance need their own source evidence and remain gates.
+Increment121 adds the pure direct-child rule/cache contract in
+[DIRECT_CHILD_CURRENCY.md](DIRECT_CHILD_CURRENCY.md); it does not add that reader.
 
 Local installed ERPNext15 JSON confirms Company default_currency is Link/Currency,
 ordinary item amount options are currency, and base_amount/base_grand_total use

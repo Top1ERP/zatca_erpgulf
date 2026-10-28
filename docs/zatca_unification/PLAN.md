@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 121 characterizes direct child-document currency and cache semantics
+in a pure staged contract, reusing the shared precision policy. Verify own/parent
+currency, child-only Company lookup, v16 parent_doc fallback, effective cache
+precedence and present-but-empty setdefault behavior against actual15/pinned16.
+Native/permissioned child-field acquisition remains the next explicit gate;
+legacy financial metadata does not prove absent own child fields. See
+[DIRECT_CHILD_CURRENCY.md](DIRECT_CHILD_CURRENCY.md).
+
 Increment 120 adds native Company default-currency proof to the SAME owned
 permissioned format pipeline, with explicit separate invoice/Company scopes.
 Resolve captured child-field metadata in parent-document precision calls and
