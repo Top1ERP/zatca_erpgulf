@@ -91,6 +91,11 @@ Company proof through this wrapper. Saved capture still has no implicit in-memor
 `parent_doc.currency` fallback. A matching numeric precision does not prove the
 field currency or source identity is correct.
 
+Increment124 now supplies explicit own-Company and versioned format/cache
+composition through `capture_child_field_context`, without changing this operation's
+API or accepting caller-supplied proofs. Actual field/precision cache providers
+and runtime adoption remain gates. See [CHILD_FIELD_FORMAT_ACCESS.md](CHILD_FIELD_FORMAT_ACCESS.md).
+
 These ephemeral results are protected from ordinary repr/pickle export, not
 sandboxed against trusted in-process code. Normal permission metadata/caches and
 SQL are not atomically frozen; results may become stale after cleanup. This is

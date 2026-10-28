@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment 124 adds exact saved child-field selection and own-Company/native
+currency proof to the SAME pipeline. Reuse format acquisition for version16's
+selected Currency/Language/System context and cache; preserve version15's site
+precision without unused format reads. Check related field READ before every
+provider/SQL boundary and keep metadata/native/locale/ACL rechecks through cleanup.
+Actual field/precision cache sampling, unresolved-currency locale-only policy,
+common runtime adoption and installed/accounting/XML/performance gates remain.
+See [CHILD_FIELD_FORMAT_ACCESS.md](CHILD_FIELD_FORMAT_ACCESS.md).
+
 Increment 123 composes saved child capture in the SAME defaults/financial service.
 Authorize every financial table/row and selected field level before providers/
 SQL, including empty tables; bind the applied metadata graph before opening the

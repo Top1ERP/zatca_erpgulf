@@ -188,7 +188,7 @@ def _require_graph_match(tables, financial):
 class ChildAcquisition:
     """Authorize ALL tables read by the financial parent, then one link profile."""
 
-    def __init__(self, policy, actor, invoice_name, doctype, parentfield, metadata_reader):
+    def __init__(self, policy, actor, invoice_name, doctype, parentfield, metadata_reader, *, field_target=None, defer_metadata=False):
         if type(parentfield) is not str or parentfield not in TABLE_FIELDS or not callable(metadata_reader):
             raise CalculationChildAccessError("calculation_child_access_dependencies")
         self._policy, self._metadata = policy, metadata_reader
@@ -202,6 +202,17 @@ class ChildAcquisition:
         self.rows = dict(self.tables)[parentfield]
         self.childtype = _child_type(doctype, parentfield)
         self._fields = self._field_graph()
+        self.field_source = None
+        if field_target is not None:
+            from .calculation_child_format_access import ChildFieldAcquisition
+            if type(field_target) is not tuple or len(field_target) != 2:
+                raise CalculationChildAccessError("calculation_child_field_selection")
+            self.field_source = ChildFieldAcquisition(self, policy, actor, *field_target)
+        self.recheck_access()
+        if not defer_metadata:
+            self.prepare_metadata()
+
+    def prepare_metadata(self):
         self.recheck_access()
         self.applied = self._applied()
         self.recheck_access()
@@ -217,6 +228,8 @@ class ChildAcquisition:
             access.recheck_access()
         if self._field_graph() != self._fields:
             raise CalculationChildAccessError("calculation_child_access_field_drift")
+        if self.field_source is not None:
+            self.field_source.recheck_access()
 
     def _field_graph(self):
         """Normal document READ does not imply READ of every higher-level field.

@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and twenty-three bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and twenty-four bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -3058,6 +3058,46 @@ provenance, common runtime promotion, accounting/XML/installed v15/v16/SDK and
 acceptance remain gates. No installed app/site/config/schema/data/credential,
 Company, Bench or worker changed; no authority request was made. All native SQL
 work belongs to NEW guard-owned TCP-disabled temporary fixtures only.
+
+## Increment 124: selected child own-Company and versioned format context
+
+- Add exact saved row/field selection on the SAME saved calculation pipeline.
+  Require a reviewed Currency definition, preserve its typed precision/options
+  and select only own row currency or the explicitly linked own Company currency.
+- Authorize own Company/default-currency field and, under version16, selected
+  Currency/Language/System format fields BEFORE all trusted metadata callbacks
+  or SQL. Defer child metadata explicitly for this operation; old methods retain
+  their normal API/provider/result contracts. Refuse unresolved links and
+  financial/normal definition disagreement instead of guessing a parent Company.
+- Reuse the existing native Company reader, format acquisition/cache and pure
+  child/precision policies. Bind saved/native Company revision/currency/metadata
+  to the selected child field on the owned handle; require native resolution to
+  match before format SQL. Recheck related fields, locale, native sources and
+  providers through cleanup. Version15 uses site defaults without unused format
+  dependencies; version16 captures selected format evidence. Non-site defaults
+  are refused. Existing native/default/metadata payload formats remain unchanged.
+  See [CHILD_FIELD_FORMAT_ACCESS.md](CHILD_FIELD_FORMAT_ACCESS.md).
+
+Focused guarded verification passed **116 local + 42 private SQL = 158 new cases**.
+The first 98 local cases passed in 71.00s, eight additional cases in 8.75s and ten
+scope/disabled-format cases in 4.90s. Native cases passed in 59.00s. They cover
+Sales/POS, declared versions, different own/invoice/Company currencies, normal
+record/field READ before providers, missing links, metadata mismatch, callback/
+cleanup drift, source changes without timestamps, rollback, protected evidence
+and separate currency versus numeric precision cache checks. Final full guarded
+verification passed **21,558 local + 2,842 private SQL = 24,400 cases in 839.06
+seconds**, across twenty-six private SQL suites. All 158 new cases passed with
+the network/site-init guard active. No ordinary permission, crypto, timeout or
+offline restriction was waived. AST/diff checks passed. Frontend files were
+unchanged, so the previously passing Node VM scripts were not rerun.
+
+No installed app/site/config/schema/data/credential, Company, Bench or worker
+changed. No authority request, including Sandbox/Simulation, occurred. Native
+SQL uses NEW guard-owned TCP-disabled temporary fixtures only. No monetary
+conversion/rounding, FX, GL/VAT/XML/QR/signing or runtime activation. Actual
+field/precision cache sampling/provenance, unresolved-currency locale-only
+acquisition, common runtime promotion, complete accounting/XML/native-ORM and
+installed v15/v16/SDK/performance/release evidence remain gates.
 
 ## Verification
 
