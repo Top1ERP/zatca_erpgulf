@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and twenty-eight bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and twenty-nine bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -3263,6 +3263,51 @@ operation occurred. Complete source/provider/cache provenance, empty-Singleton
 defaults, other rounding/POS/row-wise-tax controls, native/ORM/GL/VAT/XML parity,
 runtime adoption and installed15/16/SDK/performance/release gates remain before a
 separately approved fictional-Company rehearsal and adoption/cancellation choice.
+
+## Increment 129: versioned rounded-total dependency and control plans
+
+- Add pure RoundedTotalControl over the EXISTING calculation/settings/financial
+  declarations plus an explicit Boolean consolidation flag. Preserve guard order,
+  invoice-field presence over Global Defaults, exact selected Check tags and the
+  final invoice currency rather than its Company/Profile/global alternatives.
+  Keep all old financial/metadata/settings bytes and acquisition APIs unchanged.
+- Classify zero/positive normalized currency fraction using the existing scalar
+  bounds and shared rounding-method selector, without casting Decimal amounts,
+  adding a new range rule or calculating totals. A nonzero fraction still consumes
+  the method through final field normalization. Reject missing/unsupported
+  consumed controls while leaving skipped dependencies unexamined.
+- Record different15/16 disabled direct-zero and base-conversion plans. Observe
+  normal POS copy lists and separately execute the explicit Profile-to-merged-
+  invoice assignment. Returns retain negative original Decimal amounts. The
+  additional consolidation declaration is NOT native provenance: the old parent
+  snapshot does not contain that flag and cannot silently authorize False.
+- Pin official ERPNext16 source at ade850bbd6a7412e9994a9637d2c5c713771632a with
+  source hashes, notices and embedded GPLv3 license for isolated test excerpts;
+  execute only small reviewed control methods/assignment with synthetic data.
+  Add two hash-verified MIT Frappe16 helper excerpts to the existing oracle without
+  changing its prior excerpts/license/hashes. Complete ERP16 is not installed.
+  Caller inventory, data domain and native/integration/removal gates are documented
+  in [ROUNDED_TOTAL_CONTROL.md](ROUNDED_TOTAL_CONTROL.md).
+
+Focused verification initially passed **197 cases in 4.34s**, then **3,622 related
+cases in 101.06s**. Separate POS-merge coverage brought the new suite to **233 cases
+in 4.99s**. Final combined guarded verification passed **3,642 local cases in
+99.86s**, including all 233 new cases, across ten affected/related suites. An early
+negative fixture exceeded pre-existing parent Decimal bounds; kept parent bounds
+strict and tested accepted extreme scalar probes instead. AST/diff and old-oracle
+preservation checks passed; the network/site-init guard remained active.
+
+The previous increment128 full **25,070-case** run is historical, NOT a new full
+run for this commit. No shared acquisition/SQL/runtime/frontend code changed;
+private SQL/full/Node tests were not repeated for this isolated staged policy.
+No application caller, provider, whitelist, schema or site is installed/changed.
+Live remains the independent ba51f25 Phase-1 address hotfix; no Bench/worker or
+authority operation occurred.
+
+Native/effective consolidation/Check/fraction/settings capture, missing Singleton
+defaults, browser/merge/amount/FX/GL/VAT/XML/QR/signature parity, installed15/16,
+SDK/performance and release evidence remain gates before a separately approved
+isolated fictional-Company rehearsal and adoption/cancellation decision.
 
 ## Verification
 

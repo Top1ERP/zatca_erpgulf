@@ -134,13 +134,16 @@ Installed15 source review also identifies a presence-sensitive next dependency:
 its metadata HAS `disable_rounded_total`; only a missing field consults Global
 Defaults. Therefore invoice zero/NULL cannot be replaced by a truthy global value.
 The existing financial observation already preserves this field and its absence.
-Confirm the corresponding ERPNext16 controller before implementing a shared rule;
-the pinned Frappe16 numeric helpers alone do not prove ERPNext controller parity.
+Increment129 verifies the pinned ERPNext16 controller and adds a separate pure
+control plan for these priorities and the versioned disabled base effects. See
+[ROUNDED_TOTAL_CONTROL.md](ROUNDED_TOTAL_CONTROL.md). Native/effective controls and
+full controller/installed parity remain separate from Frappe numeric-helper proof.
 
 `taxes_and_totals.set_rounded_total` separately checks consolidated invoices and
 rounded-total field presence, then calls currency-fraction rounding. Its row-wise
 tax setting comes from `Accounts Settings.round_row_wise_tax`. These inspected15
-paths are a closing checklist, not newly adopted amount logic in this increment.
+paths remain amount-integration gates; increment129 records control flow without
+adopting amount logic or changing existing callers.
 
 - Actual runtime adapter/factory/cache provenance, whole-empty Singleton/default
   policy, and composition with the remaining financial/settings/party graph.

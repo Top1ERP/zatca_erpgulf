@@ -19,6 +19,13 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment129 pins ERPNext16 controller evidence and adds a pure rounded-total
+control plan. Preserve consolidated/metadata guards, invoice field presence over
+global/POS settings, actual invoice currency, fraction-plus-final-method dependency
+and different disabled base effects in15/16. No amount conversion, old profile
+change or runtime adoption. Native/effective controls, frontend/merge/amount/GL/
+VAT/XML parity and release gates remain. See [ROUNDED_TOTAL_CONTROL.md](ROUNDED_TOTAL_CONTROL.md).
+
 Increment128 acquires the selected saved/native rounding setting on the SAME
 context/defaults service. Reuse bounded format text/witness SQL, shared metadata/
 normal READ and cleanup. Compare exact consumed caches across close, distinguish
