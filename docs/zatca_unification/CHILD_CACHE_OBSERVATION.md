@@ -69,7 +69,11 @@ precision without format reads; version16 still uses its captured related format
 context. No financial value, Decimal scale, quantization, FX, GL/VAT, XML, QR,
 signature, counter, request route or authority behavior changes.
 
-Next review unresolved-currency locale-only acquisition, remaining effective
+Increment126 also admits proved unresolved child currency with version15 site
+precision or version16 disabled-currency-format locale context. Existing slots
+are compared without filling/clearing them; see [CHILD_FIELD_FORMAT_ACCESS.md](CHILD_FIELD_FORMAT_ACCESS.md).
+
+Next review remaining effective
 settings, full native/ORM/accounting/XML parity and integration into one actual
 pipeline. Measure/reduce repeated source/metadata reconstruction and query costs
 at reviewed validation boundaries before claiming a lighter release. Complete

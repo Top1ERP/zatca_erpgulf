@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment126 admits proved missing own child Company links on the SAME selected
+field/cache operations. Reuse version15 site precision; under version16 authorize
+only Language/System Settings with the currency-format flag disabled. Do not
+substitute parent Company/currency or query Currency(None). Preserve normal/native
+graph checks, cache-presence semantics and rechecks through owned cleanup.
+Remaining effective settings, complete source/accounting/XML parity, runtime
+adoption and installed15/16/performance/release gates remain. See
+[CHILD_FIELD_FORMAT_ACCESS.md](CHILD_FIELD_FORMAT_ACCESS.md).
+
 Increment125 adds exact selected request-local field-currency and numeric
 precision cache observations on the SAME service, retaining initial authorized
 objects and rejecting drift through cleanup without cache population/repair.
@@ -32,8 +41,9 @@ currency proof to the SAME pipeline. Reuse format acquisition for version16's
 selected Currency/Language/System context and cache; preserve version15's site
 precision without unused format reads. Check related field READ before every
 provider/SQL boundary and keep metadata/native/locale/ACL rechecks through cleanup.
-Actual field/precision cache sampling, unresolved-currency locale-only policy,
-common runtime adoption and installed/accounting/XML/performance gates remain.
+At that increment, actual field/precision cache sampling and unresolved-currency
+locale-only policy remained open; increments125/126 address these scoped cases.
+Common runtime adoption and installed/accounting/XML/performance gates remain.
 See [CHILD_FIELD_FORMAT_ACCESS.md](CHILD_FIELD_FORMAT_ACCESS.md).
 
 Increment 123 composes saved child capture in the SAME defaults/financial service.

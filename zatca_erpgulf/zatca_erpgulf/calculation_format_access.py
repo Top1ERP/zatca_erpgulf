@@ -60,13 +60,16 @@ def _pin_row(row):
 
 
 def _row_context(rows):
-    if type(rows) is not tuple or len(rows) != 3:
+    if type(rows) is not tuple or len(rows) not in (2, 3):
         raise ValueError
     pinned = tuple(_pin_row(row) for row in rows)
-    currency, language, system = pinned
-    if tuple(row.doctype for row in pinned) != ("Currency", "Language", "System Settings"):
+    types = tuple(row.doctype for row in pinned)
+    if types not in (("Currency", "Language", "System Settings"), ("Language", "System Settings")):
         raise ValueError
-    return CurrencyFormatContext(language.name, language.values[0], bool(system.values[0]), currency.name, currency.values[0])
+    language, system = pinned[-2:]
+    currency = pinned[0] if len(pinned) == 3 else None
+    return CurrencyFormatContext(language.name, language.values[0], bool(system.values[0]),
+        None if currency is None else currency.name, None if currency is None else currency.values[0])
 
 
 def _require_related_match(rows, formats):
@@ -234,12 +237,16 @@ class FormatAcquisition:
             self.currency = child_source.currency
         related = _RelatedFormatPolicy(policy)
         load, finalize = related._saved_record_access(actor)
-        load("Currency", self.currency)
+        if self.currency is not None:
+            load("Currency", self.currency)
         load("Language", self.language)
         load("System Settings", "System Settings")
         self.rows, _, self._related_recheck = finalize()
         self._related_load = load
         self._field_levels = self._related_field_levels() if child_source is not None else None
+        # A missing child currency permits locale-only context only when the
+        # saved system flag disables currency formats. Refuse before providers.
+        _row_context(self.rows)
         self.recheck_access()
         self.applied = self._applied()
         self.recheck_access()

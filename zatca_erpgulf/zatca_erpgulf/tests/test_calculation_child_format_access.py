@@ -74,7 +74,8 @@ def bind_sources(case, operator, *, scope="company", row_currency="USD"):
 
 
 def scenario(operator, monkeypatch, **options):
-    case = child_case(operator, monkeypatch, doctype=options.pop("doctype", "Sales Invoice"))
+    case = child_case(operator, monkeypatch, doctype=options.pop("doctype", "Sales Invoice"),
+        present=options.pop("present", ("currency", "company")))
     bind_sources(case, operator, **options)
     native_cursor, format_cursor = case.database.cursor, case.format_data.connection.cursor
     class Cursor:
@@ -161,16 +162,132 @@ def test_callbacks_and_cleanup_recheck_selected_company_formats_and_locale(defau
     one_failure(defaults_operator, access.FINANCIAL_DENIED_MESSAGE if denied else access.FINANCIAL_FAILED_MESSAGE)
 
 
-@pytest.mark.parametrize("fault", ["row", "field", "missing_company", "unreviewed_options"])
-def test_unresolved_or_unbound_field_selection_never_guesses_a_parent_company(defaults_operator, monkeypatch, fault):
+@pytest.mark.parametrize("fault", ["row", "field", "unreviewed_options"])
+def test_unbound_field_selection_never_guesses_a_parent_company(defaults_operator, monkeypatch, fault):
     case = scenario(defaults_operator, monkeypatch)
-    if fault == "missing_company":
-        case.refs["items"][0].company = case.saved["items", "items-1"].company = None
-    elif fault == "unreviewed_options":
+    if fault == "unreviewed_options":
         case.field_overrides[case.data.own.applied.name, "amount"] = Document(fieldtype="Currency", options="unknown_currency", precision=None)
     with pytest.raises(InspectionFailed): capture(case, row="OTHER" if fault == "row" else "items-1", field="unselected" if fault == "field" else "amount")
     case.factory.assert_not_called()
     case.child_metadata.assert_not_called()
+
+
+def unresolved_sources(case, *, company=None, flag=0):
+    """Keep native/saved child links empty; prove locale without Currency rows."""
+    case.refs["items"][0].company = case.saved["items", "items-1"].company = company
+    case.data.records["items"][0]["company"] = company
+    case.expected_currency = None
+    case.format_data.records["Language"] = [("ar", NOW, "#,###.###")]
+    case.format_data.records["System Settings"] = [("System Settings", format_sql.FLAG, str(flag))]
+    case.related["Language"].number_format = "#,###.###"
+    setattr(case.related["System Settings"], format_sql.FLAG, flag)
+    case.format_metadata.side_effect = lambda *args: {name: meta for name, meta in case.format_data.metas.items() if name != "Currency"}
+    case.format_cache.side_effect = lambda *args: formats.CurrencyFormatContext("ar",
+        case.related["Language"].number_format, bool(case.related["System Settings"].get(format_sql.FLAG)), None, None)
+    return case
+
+
+def selected_capture(case, *, major, cached=False):
+    method = case.service.capture_child_cached_context if cached else case.service.capture_child_field_context
+    return method(case.invoice.name, "items", "items-1", "amount", doctype=case.invoice.doctype, erp_major=major)
+
+
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("major", [15, 16])
+@pytest.mark.parametrize("company", [None, ""])
+@pytest.mark.parametrize("cached", [False, True])
+def test_unresolved_own_company_uses_versioned_precision_without_guessing_a_currency(defaults_operator, monkeypatch, doctype, major, company, cached):
+    case = unresolved_sources(scenario(defaults_operator, monkeypatch, doctype=doctype), company=company)
+    if major == 16:
+        case.database.defaults = [(*row[:-1], "") for row in case.database.defaults]
+        case.cache.return_value = {"currency_precision": ""}
+    result = selected_capture(case, major=major, cached=cached)
+    bound = result.field if cached else result
+    assert result.resolve_currency().currency is None and result.resolve_currency().origin == "UNRESOLVED"
+    assert result.resolve_precision().precision == (2 if major == 15 else 3)
+    assert bound.company is None and bound.company_rows == ()
+    if major == 16:
+        assert tuple(row.doctype for row in bound.related) == ("Language", "System Settings")
+        assert bound.formats.context.currency is None
+        assert case.format_metadata.call_args.args[1] == ("Language", "System Settings")
+        assert case.format_cache.call_args.args[-1] is None
+    else:
+        assert bound.formats is None and bound.related == ()
+        case.format_metadata.assert_not_called()
+        case.format_cache.assert_not_called()
+    assert not any(call.args[0] == "Currency" or call.args == ("Company", case.own_company.name)
+        for call in defaults_operator.runtime.get_doc.call_args_list)
+    assert not any("FROM `tabCurrency`" in sql for sql, _ in case.format_data.connection.queries)
+    assert not hasattr(defaults_operator.runtime.local, "field_currency")
+    assert all("_precision" not in vars(doc) for doc in (case.refs["items"][0], case.saved["items", "items-1"]))
+    untouched(defaults_operator, case)
+
+
+def test_unresolved_currency_override_is_refused_before_providers_or_sql(defaults_operator, monkeypatch):
+    case = unresolved_sources(scenario(defaults_operator, monkeypatch), flag=1)
+    with pytest.raises(InspectionFailed): capture(case)
+    for provider in (case.child_metadata, case.metadata_provider, case.format_metadata, case.format_cache, case.factory):
+        provider.assert_not_called()
+    one_failure(defaults_operator, access.FINANCIAL_FAILED_MESSAGE)
+
+
+@pytest.mark.parametrize("major", [15, 16])
+def test_absent_child_company_field_is_proved_absent_in_metadata_and_storage(defaults_operator, monkeypatch, major):
+    case = unresolved_sources(scenario(defaults_operator, monkeypatch, present=("currency",)))
+    result = selected_capture(case, major=major, cached=True)
+    assert result.resolve_currency().inputs.row_company == ("absent",)
+    assert result.resolve_currency().currency is None
+    assert result.resolve_precision().precision == 2
+    untouched(defaults_operator, case)
+
+
+@pytest.mark.parametrize("slot", [None, ""])
+def test_unresolved_parent_cache_null_and_blank_keep_framework_presence_semantics(defaults_operator, monkeypatch, slot):
+    case = unresolved_sources(scenario(defaults_operator, monkeypatch))
+    values = {(case.data.own.applied.name, case.invoice.name): {"amount": slot}}
+    defaults_operator.runtime.local.field_currency = values
+    before = deepcopy(values)
+    if slot is None:
+        for doc in (case.refs["items"][0], case.saved["items", "items-1"]): doc._precision = {"main": {"amount": 2}}
+        assert selected_capture(case, major=16, cached=True).resolve_currency().currency is None
+    else:
+        with pytest.raises(InspectionFailed): selected_capture(case, major=16, cached=True)
+        one_failure(defaults_operator, access.FINANCIAL_FAILED_MESSAGE)
+    assert defaults_operator.runtime.local.field_currency == before
+    untouched(defaults_operator, case)
+
+
+@pytest.mark.parametrize("changed", ["flag", "language_permission", "language_field", "close_locale", "stale_cache"])
+def test_locale_only_scope_rejects_setting_permission_cleanup_and_cache_drift(defaults_operator, monkeypatch, changed):
+    case = unresolved_sources(scenario(defaults_operator, monkeypatch))
+    if changed == "stale_cache":
+        defaults_operator.runtime.local.field_currency = {(case.data.own.applied.name, "items-1"): {"amount": "SAR"}}
+    elif changed == "close_locale":
+        case.database.close.side_effect = lambda: setattr(defaults_operator.runtime.local, "lang", "en")
+    else:
+        original = case.format_cache.side_effect
+        def read(*args):
+            result = original(*args)
+            if changed == "flag": setattr(case.related["System Settings"], format_sql.FLAG, 1)
+            elif changed == "language_permission": defaults_operator.denied.add(("Language", "ar"))
+            else: case.format_fields["Language"].permlevel = 1
+            return result
+        case.format_cache.side_effect = read
+    denied = changed in ("language_permission", "language_field")
+    with pytest.raises(PermissionDenied if denied else InspectionFailed): selected_capture(case, major=16, cached=True)
+    one_failure(defaults_operator, access.FINANCIAL_DENIED_MESSAGE if denied else access.FINANCIAL_FAILED_MESSAGE)
+    untouched(defaults_operator, case)
+
+
+@pytest.mark.parametrize("fault", ["company", "formats", "related"])
+def test_unresolved_result_cannot_acquire_an_unrelated_company_or_currency(defaults_operator, monkeypatch, fault):
+    resolved = capture(scenario(defaults_operator, monkeypatch))
+    # Use a fresh synthetic graph so the first result is not the selected source.
+    defaults_operator.runtime.get_doc.reset_mock()
+    result = capture(unresolved_sources(scenario(defaults_operator, monkeypatch)))
+    changes = {"company": resolved.company, "company_rows": resolved.company_rows} if fault == "company" else {fault: getattr(resolved, fault)}
+    with pytest.raises(child_formats.CalculationChildAccessError, match="calculation_child_field_result"):
+        replace(result, **changes)
 
 
 @pytest.mark.parametrize("fault", ["company", "company_rows", "formats", "related", "row", "field"])

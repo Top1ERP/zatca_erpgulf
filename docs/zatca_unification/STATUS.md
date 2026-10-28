@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and twenty-five bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and twenty-six bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -3143,6 +3143,41 @@ Unresolved-currency locale-only policy, remaining settings, full source/native/
 ORM/accounting/XML parity, one runtime pipeline, performance reduction and
 installed v15/v16/SDK/release evidence remain gates before a separately approved
 isolated fictional-Company rehearsal and adoption decision.
+
+## Increment 126: unresolved child currency with authorized locale-only formats
+
+- Admit proved absent/NULL/blank own child Company links on the SAME selected
+  field and cached-field service operations. Keep the fresh currency unresolved;
+  do not substitute the parent Company/currency, accept an unrelated Company
+  proof, query Currency(None), or repair an old cache.
+- Reuse version15 site precision without format dependencies. Under declared16,
+  authorize Language/System Settings and their field READ levels with the saved
+  currency-format Check disabled before provider/SQL callbacks. Capture exactly
+  those two format metadata/records, preserving the shared native reader, format
+  cache comparisons and cleanup pipeline. Configured precision still wins over
+  locale precision; no fiscal monetary rounding rule changes.
+- Bind missing-link membership/value through the existing normal/native child
+  graph, metadata/physical-column evidence and final rechecks. Preserve NULL/
+  blank cache presence, reject stale cached currencies and source/settings/ACL/
+  locale drift, including edits without modified changes. See
+  [CHILD_FIELD_FORMAT_ACCESS.md](CHILD_FIELD_FORMAT_ACCESS.md).
+
+Focused guarded verification passed **50 local cases in 99.03s**, **8 additional
+local absence/cache cases in 24.31s**, and **28 NEW private native cases in
+72.93s**. An initial fixture used an unsupported number-format spelling; corrected
+it to the pinned supported three-decimal format and reran. Two older missing-link
+refusal cases were replaced, for a net increase of 84 cases. Full guarded
+verification passed **21,682 local + 2,878 private SQL = 24,560 cases in 1,133.35
+seconds**, using the existing twenty-seven private SQL suites. Network/site-init
+restrictions remained active. AST and diff checks passed. No JavaScript changed,
+so previously passing Node VM scripts were not rerun.
+
+This is uninstalled DEV work. The current shared live source stays at the separate
+Phase-1 address hotfix ba51f25; no additional installed-source/site/configuration/
+data/schema/Company/credential, Bench/worker or authority operation occurred.
+Remaining effective settings, full source/native/ORM/accounting/XML parity,
+common runtime adoption, performance reduction and installed15/16/SDK/release
+evidence remain gates before a separately approved fictional-Company rehearsal.
 
 ## Verification
 

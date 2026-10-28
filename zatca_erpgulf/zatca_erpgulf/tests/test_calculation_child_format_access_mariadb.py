@@ -7,7 +7,9 @@ import pytest
 
 from zatca_erpgulf.zatca_erpgulf import calculation_defaults_access as access
 from zatca_erpgulf.zatca_erpgulf import financial_source_observation as financial
-from zatca_erpgulf.zatca_erpgulf.tests.test_calculation_child_format_access import bind_sources, capture
+from zatca_erpgulf.zatca_erpgulf.tests.test_calculation_child_format_access import (
+    bind_sources, capture, unresolved_sources, selected_capture,
+)
 from zatca_erpgulf.zatca_erpgulf.tests.test_calculation_defaults_access import (
     defaults_operator, operator, one_failure, PermissionDenied, InspectionFailed,
 )
@@ -133,3 +135,58 @@ def test_cleanup_never_discloses_after_selected_related_access_drift(defaults_op
     with pytest.raises(PermissionDenied if denied else InspectionFailed): capture(case)
     one_failure(defaults_operator, access.FINANCIAL_DENIED_MESSAGE if denied else access.FINANCIAL_FAILED_MESSAGE)
     untouched(defaults_operator, case)
+
+
+def native_unresolved(operator, connections, *, doctype="Sales Invoice", major=16, company=None, isolation="REPEATABLE READ"):
+    case = unresolved_sources(native_case(operator, connections, doctype=doctype, major=major, isolation=isolation), company=company)
+    setup = connections()
+    with setup.cursor() as cursor:
+        cursor.execute("UPDATE `tab" + case.data.own.applied.name + "` SET company=%s", (company,))
+        cursor.execute("UPDATE `tabLanguage` SET number_format='#,###.###'")
+        cursor.execute("UPDATE `tabSingles` SET value='0' WHERE field='use_number_format_from_currency'")
+        cursor.execute("DELETE FROM `tabCurrency`")
+    setup.commit()  # NEW synthetic fixture setup only.
+    setup.close()
+    return case
+
+
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("major", [15, 16])
+@pytest.mark.parametrize("company", [None, ""])
+def test_native_unresolved_child_uses_locale_and_keeps_caches_empty(defaults_operator, connections, doctype, major, company):
+    case = native_unresolved(defaults_operator, connections, doctype=doctype, major=major, company=company)
+    result = selected_capture(case, major=major, cached=True)
+    assert result.resolve_currency().currency is None
+    assert result.resolve_precision().precision == (2 if major == 15 else 3)
+    assert result.field.company is None and result.field.company_rows == ()
+    assert len(case.opened) == 1 and case.opened[0].rollback.call_count == 2
+    assert not hasattr(defaults_operator.runtime.local, "field_currency")
+    assert all("_precision" not in vars(doc) for doc in (case.refs["items"][0], case.saved["items", "items-1"]))
+    untouched(defaults_operator, case)
+
+
+@pytest.mark.parametrize("isolation", ["REPEATABLE READ", "READ COMMITTED"])
+@pytest.mark.parametrize("changed", ["child_company", "flag", "language"])
+def test_native_locale_only_changes_without_modified_are_refused_and_rolled_back(defaults_operator, connections, isolation, changed):
+    case = native_unresolved(defaults_operator, connections, isolation=isolation)
+    original = case.format_cache.side_effect
+    def read(*args):
+        result = original(*args)
+        if case.format_cache.call_count == 2:
+            with case.opened[0].cursor() as cursor:
+                if changed == "child_company": cursor.execute("UPDATE `tabSales Invoice Item` SET company='SYNTHETIC-CHILD-CO'")
+                elif changed == "flag": cursor.execute("UPDATE `tabSingles` SET value='1' WHERE field='use_number_format_from_currency'")
+                else: cursor.execute("UPDATE `tabLanguage` SET number_format='#.########'")
+        return result
+    case.format_cache.side_effect = read
+    with pytest.raises(InspectionFailed): selected_capture(case, major=16, cached=True)
+    one_failure(defaults_operator, access.FINANCIAL_FAILED_MESSAGE)
+    untouched(defaults_operator, case)
+    observer = connections()
+    with observer.cursor() as cursor:
+        cursor.execute("SELECT company FROM `tabSales Invoice Item`")
+        assert cursor.fetchall() == ((None,),)
+        cursor.execute("SELECT value FROM `tabSingles` WHERE field='use_number_format_from_currency'")
+        assert cursor.fetchall() == (("0",),)
+        cursor.execute("SELECT number_format FROM `tabLanguage`")
+        assert cursor.fetchall() == (("#,###.###",),)

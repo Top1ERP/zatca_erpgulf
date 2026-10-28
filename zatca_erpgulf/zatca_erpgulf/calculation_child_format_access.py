@@ -93,13 +93,18 @@ class ChildFieldAcquisition:
         if options == "currency":
             self.currency = _name(self.row.values[4] or self.invoice_currency)
         elif options == "Company:company:default_currency":
-            self.company_name = _name(self.row.values[5])
-            company = _CompanyPolicy(policy)
-            self._company_load, finalize = company._saved_record_access(actor)
-            doc = self._company_load("Company", self.company_name)
-            self.currency = _name(doc.get("default_currency"))
-            self.company_level = self._company_field(doc)
-            self.company_rows, _, self._company_recheck = finalize()
+            self.currency = None
+            # Frappe resolves this option from the CHILD's own Company only.
+            # An absent/NULL/blank link is a valid unresolved selection, not
+            # permission to read the parent Company or Currency(None).
+            if self.row.values[5] not in (None, ""):
+                self.company_name = _name(self.row.values[5])
+                company = _CompanyPolicy(policy)
+                self._company_load, finalize = company._saved_record_access(actor)
+                doc = self._company_load("Company", self.company_name)
+                self.currency = _name(doc.get("default_currency"))
+                self.company_level = self._company_field(doc)
+                self.company_rows, _, self._company_recheck = finalize()
         else:
             raise CalculationChildAccessError("calculation_child_field_options")
         self.recheck_access()
@@ -178,7 +183,8 @@ class SavedChildFieldRead:
             company = None if self.company is None else _pin_company(self.company)
             rows = tuple(_pin_company_row(row) for row in self.company_rows)
             resolved = parent.child.resolve_currency(self.row_name, self.fieldname, company_currency=company)
-            _name(resolved.currency)
+            if resolved.currency is not None:
+                _name(resolved.currency)
             if company is not None and resolved.metadata.get_field(self.fieldname).options != "Company:company:default_currency":
                 raise ValueError
             if company is None:
