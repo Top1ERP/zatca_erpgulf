@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment130 adds bounded native Global Defaults rounded-total Check evidence
+and an exact comparison to the consumed pure control plan. Preserve missing/NULL/
+blank/zero identities, but match get_single_value's normalized int API result:
+even an empty Singleton needs no document-default witness for this API. Reuse
+the existing SQL transport and metadata reader; no independent acquisition engine
+or runtime provider is installed. Compose normal READ/cache/source provenance,
+invoice/consolidation/fraction controls and final rechecks into the existing
+owned service before adoption. See [GLOBAL_ROUNDING_SOURCE.md](GLOBAL_ROUNDING_SOURCE.md).
+
 Increment129 pins ERPNext16 controller evidence and adds a pure rounded-total
 control plan. Preserve consolidated/metadata guards, invoice field presence over
 global/POS settings, actual invoice currency, fraction-plus-final-method dependency

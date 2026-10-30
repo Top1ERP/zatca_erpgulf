@@ -188,8 +188,12 @@ class MariaDBCurrencyFormatReader:
         raise TypeError("currency_format_source_not_serializable")
 
     def _select(self, cursor, doctype, name, *, full, singleton_field=FLAG):
-        singleton = doctype == "System Settings"
-        if (type(singleton_field) is not str or singleton_field not in (FLAG, "rounding_method")
+        single_value_check = doctype == "Global Defaults"
+        singleton = doctype == "System Settings" or single_value_check
+        if single_value_check:
+            if name != doctype or type(singleton_field) is not str or singleton_field != "disable_rounded_total":
+                raise ValueError
+        elif (type(singleton_field) is not str or singleton_field not in (FLAG, "rounding_method")
                 or (not singleton and singleton_field != FLAG)):
             raise ValueError
         table, column = ("Singles", "value") if singleton else (doctype, TEXT_FIELDS[doctype])
@@ -201,6 +205,17 @@ class MariaDBCurrencyFormatReader:
         cursor.execute("SELECT " + ids + "," + projection + length + " FROM `tab" + table + "` WHERE "
             + where + " LIMIT %s FOR UPDATE", (*params, 2))
         rows = cursor.fetchall()
+        if type(rows) in (tuple, list) and not rows and single_value_check:
+            # get_single_value casts a missing Check directly, even when the
+            # entire Singleton is empty. It never invokes new_doc defaults.
+            signature = None
+            if full:
+                descriptor = cursor.description[2]
+                signature = [descriptor[1], descriptor[4], descriptor[5], descriptor[6]]
+                _value(["null"], signature)
+            record = None if not full else dict(doctype=doctype, name=name, field=singleton_field,
+                value=["absent"], sql_type=signature)
+            return ("absent-single-value",), record
         if type(rows) in (tuple, list) and not rows and singleton and self._allow_missing_check:
             signature = None
             if full:

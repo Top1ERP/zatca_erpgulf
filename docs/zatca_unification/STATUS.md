@@ -1,8 +1,8 @@
-# Implementation status — 2026-10-28
+# Implementation status — 2026-10-30
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and twenty-nine bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and thirty bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -3308,6 +3308,51 @@ Native/effective consolidation/Check/fraction/settings capture, missing Singleto
 defaults, browser/merge/amount/FX/GL/VAT/XML/QR/signature parity, installed15/16,
 SDK/performance and release evidence remain gates before a separately approved
 isolated fictional-Company rehearsal and adoption/cancellation decision.
+
+## Increment 130: native global rounded-total Check and consumed-plan binding
+
+- Add one narrow Global Defaults Check metadata profile and a caller-owned
+  native reader using the existing bounded Singleton text/metadata transport.
+  Keep previous profile catalogs/bytes and public capture APIs unchanged.
+- Match get_single_value rather than whole-Singleton document semantics:
+  missing/NULL/blank/zero project to int0, even in wholly empty storage and with
+  a metadata default of1. Preserve their different raw identities. No nonempty
+  witness or document default is invented for this API.
+- Revalidate exact supplied int cache projections and compare only a consumed
+  global-origin RoundedTotalControl. Reject unused global evidence, stale real
+  API cache hits, raw NULL/bool lookalikes and tampered parents. No full settings
+  graph is fabricated from the partial dependency.
+- Check native metadata, exact identities, duplicate rows, size/type bounds and
+  presence/value drift before caller cleanup. Preserve borrowed pending work,
+  poison failed readers, retain interrupt priority and characterize RC phantom
+  insertions plus value/metadata/RR-gap locks on NEW private SQL only.
+- Verify actual installed15 and pinned16 get_single_value/cast behavior with
+  synthetic queries/cache objects. Add only exact reviewed MIT oracle excerpts;
+  prior hashes/excerpts/license are preserved. No full ERP16 runtime is imported.
+  Caller inventory, accepted storage, API-specific absence policy and composition
+  gates are documented in [GLOBAL_ROUNDING_SOURCE.md](GLOBAL_ROUNDING_SOURCE.md).
+
+The new suites contain **138 local and 45 private-SQL cases**. The early six-suite
+guarded run passed **555 cases in 30.96s** before the plan/cache bridge was added.
+The final new local suite passed **138 cases in 2.15s**. An integration fixture
+initially attempted to remove an already-removed optional field twice; reuse its
+existing settings graph for the second observation instead of weakening product
+validation. Final guarded verification passed **2,673 cases in 82.32s** across
+fifteen affected/related local and private-SQL suites, including all **183 new
+cases**. Network/site-init denial stayed active throughout.
+
+AST/diff checks passed, all old oracle entries stayed unchanged, and added
+excerpts match their independently hashed pinned full files. No frontend/Node
+change or full-manifest rerun is claimed for this scoped change. The prior
+increment128 **25,070-case** full run remains historical.
+
+Live stays at the separately authorized ba51f25 address hotfix. No installed app,
+site/data/config/schema/Company/credential, Bench/worker or authority operation
+occurred. Global native evidence is staged: normal record/field READ, provider/
+cache provenance and cleanup checks must be composed into the SAME owned service
+alongside invoice/consolidation/Currency-fraction and row-wise-tax sources. Full
+financial/accounting/XML/signature/installed15/16/SDK/performance/release evidence
+remains before a separately approved fictional-Company rehearsal/adoption choice.
 
 ## Verification
 

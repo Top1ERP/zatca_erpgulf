@@ -111,5 +111,12 @@ amount/FX/GL/VAT/XML/QR/signature and frontend parity, installed15/16/SDK/perfor
 then separately approved isolated fictional-Company rehearsal and adoption choice.
 This partial plan is not complete source evidence or permission to submit.
 
+Increment130 adds a separate bounded native Global Defaults Check and a consumed
+plan comparison; see [GLOBAL_ROUNDING_SOURCE.md](GLOBAL_ROUNDING_SOURCE.md).
+For that get_single_value API, missing storage normalizes to int0 even in an
+empty Singleton. Do not copy the whole-document/default witness requirement to
+that path. This one native dependency does not close the remaining graph/ACL/
+cache provenance, invoice/consolidation/fraction or runtime integration gates.
+
 See [STATUS.md](STATUS.md) for observed verification and
 [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md) for the current deployment/send ban.
