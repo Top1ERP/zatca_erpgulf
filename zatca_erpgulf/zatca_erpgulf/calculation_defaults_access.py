@@ -25,6 +25,7 @@ from .calculation_child_access import ChildAcquisition, SavedChildCalculationRea
 from .calculation_child_format_access import SavedChildFieldRead
 from .calculation_child_cache import observe_child_caches
 from .calculation_rounding_access import RoundingAcquisition, SavedRoundingContext
+from .calculation_global_rounding_access import GlobalRoundingAcquisition, SavedGlobalRoundingContext
 from .credential_bundle_access import CredentialStorageScope
 from . import financial_source_observation as financial
 from .financial_source_sql import (
@@ -278,7 +279,8 @@ class SavedCalculationDefaultsService:
     def __init__(self, scope, connection_factory, cache_reader, *,
             parent_kind="site", applied_metadata_reader=None,
             format_metadata_reader=None, format_cache_reader=None, child_metadata_reader=None,
-            rounding_metadata_reader=None, rounding_cache_reader=None):
+            rounding_metadata_reader=None, rounding_cache_reader=None,
+            global_rounding_metadata_reader=None, global_rounding_cache_reader=None):
         if type(parent_kind) is not str or parent_kind not in PARENT_KINDS or not callable(cache_reader):
             raise CalculationDefaultsAccessError("calculation_defaults_access_dependencies")
         self._policy = _SavedDefaultsSource(scope, connection_factory)
@@ -295,6 +297,10 @@ class SavedCalculationDefaultsService:
         if any(reader is not None and not callable(reader) for reader in (rounding_metadata_reader, rounding_cache_reader)):
             raise CalculationDefaultsAccessError("calculation_rounding_dependencies")
         self._rounding_metadata, self._rounding_cache = rounding_metadata_reader, rounding_cache_reader
+        if any(reader is not None and not callable(reader)
+                for reader in (global_rounding_metadata_reader, global_rounding_cache_reader)):
+            raise CalculationDefaultsAccessError("calculation_global_rounding_dependencies")
+        self._global_rounding_metadata, self._global_rounding_cache = global_rounding_metadata_reader, global_rounding_cache_reader
 
     def __repr__(self):
         return "<SavedCalculationDefaultsService permissioned protected local read>"
@@ -347,6 +353,16 @@ class SavedCalculationDefaultsService:
         return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
             include_financial=True, include_formats=True, format_scope="company", erp_major=erp_major)
 
+    def capture_global_rounding_context(self, invoice_name, *, erp_major, doctype="Sales Invoice"):
+        """Inspect the global Check on the SAME context/defaults transaction.
+
+        Explicit inspection, not a decision to use it for this invoice. A
+        document's default Check value is never substituted for the verified
+        get_single_value projection. No financial amounts or runtime caller.
+        """
+        return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
+            include_global_rounding=True, erp_major=erp_major)
+
     def capture_child_context(self, invoice_name, parentfield, *, erp_major, doctype="Sales Invoice"):
         """Explicit saved child READ/native links on the SAME owned pipeline.
 
@@ -378,13 +394,14 @@ class SavedCalculationDefaultsService:
     def _capture_display(self, invoice_name, *, doctype, include_metadata,
             include_financial=False, include_formats=False, format_scope="invoice", erp_major=None,
             child_table=_NO_CHILD, child_field=None, include_child_cache=False,
-            include_rounding=False, rounding_override=None):
+            include_rounding=False, rounding_override=None, include_global_rounding=False):
         try:
             with mute_operation_messages(frappe):
                 return self._capture_owned(invoice_name, doctype=doctype, include_metadata=include_metadata,
                     include_financial=include_financial, include_formats=include_formats, format_scope=format_scope,
                     erp_major=erp_major, child_table=child_table, child_field=child_field, include_child_cache=include_child_cache,
-                    include_rounding=include_rounding, rounding_override=rounding_override)
+                    include_rounding=include_rounding, rounding_override=rounding_override,
+                    include_global_rounding=include_global_rounding)
         except frappe.PermissionError:
             denied = True
         except Exception:
@@ -426,7 +443,7 @@ class SavedCalculationDefaultsService:
     def _capture_owned(self, invoice_name, *, doctype, include_metadata=False,
             include_financial=False, include_formats=False, format_scope="invoice", erp_major=None,
             child_table=_NO_CHILD, child_field=None, include_child_cache=False,
-            include_rounding=False, rounding_override=None):
+            include_rounding=False, rounding_override=None, include_global_rounding=False):
         """Recheck saved ACL/SQL membership/cache before protected disclosure.
 
         Fresh owned rollback excludes pre-existing pending defaults. Remaining
@@ -439,14 +456,19 @@ class SavedCalculationDefaultsService:
             policy = self._policy
             actor = policy._actor()
             rows, _records, source_recheck = policy._saved_selection(invoice_name, doctype, actor)
-            if (include_financial or include_rounding) and (type(erp_major) is not int or erp_major not in (15, 16)):
+            if (include_financial or include_rounding or include_global_rounding) and (type(erp_major) is not int or erp_major not in (15, 16)):
                 raise CalculationDefaultsAccessError("calculation_financial_access_version")
             children, formats, rounding = None, None, None
-            if include_rounding:
+            if include_rounding or include_global_rounding:
                 if (self._parent_kind != "site" or not include_metadata or include_financial or include_formats
-                        or child_table is not _NO_CHILD or child_field is not None or include_child_cache):
+                        or child_table is not _NO_CHILD or child_field is not None or include_child_cache
+                        or include_rounding and include_global_rounding
+                        or include_global_rounding and rounding_override is not None):
                     raise CalculationDefaultsAccessError("calculation_rounding_profile")
-                rounding = RoundingAcquisition(policy, actor, self._rounding_metadata, self._rounding_cache, rounding_override)
+                if include_global_rounding:
+                    rounding = GlobalRoundingAcquisition(policy, actor, self._global_rounding_metadata, self._global_rounding_cache)
+                else:
+                    rounding = RoundingAcquisition(policy, actor, self._rounding_metadata, self._rounding_cache, rounding_override)
             if include_child_cache and child_field is None:
                 raise CalculationDefaultsAccessError("calculation_child_cache_profile")
             if child_field is not None and self._parent_kind != "site":
@@ -530,7 +552,10 @@ class SavedCalculationDefaultsService:
                             selected.company_source, selected.company_rows,
                             None if formats is None else observed_formats, () if formats is None else formats.rows)
                 if rounding is not None:
-                    captured = SavedRoundingContext(captured, erp_major, rounding_override, observed_rounding, rounding.rows)
+                    if include_global_rounding:
+                        captured = SavedGlobalRoundingContext(captured, erp_major, observed_rounding, rounding.rows)
+                    else:
+                        captured = SavedRoundingContext(captured, erp_major, rounding_override, observed_rounding, rounding.rows)
                 return captured
             if include_child_cache:
                 cache_read = observe_child_caches(build_result(), children.field_source)

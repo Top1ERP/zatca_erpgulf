@@ -30,52 +30,56 @@ class _RoundingPolicy(_RelatedFormatPolicy):
     ROW_TYPE = RoundingSourceRow
 
 
-def _definition(df):
-    if df is None or df.fieldtype != "Select":
+def _definition(df, fieldtype="Select"):
+    if df is None or df.fieldtype != fieldtype:
         raise ValueError
     return _canonical([_scalar(df.fieldtype), _scalar(df.options), _scalar(df.get("default"))])
 
 
-class RoundingAcquisition:
-    """Related record/field READ precedes all trusted metadata/cache/SQL calls."""
+class _SingletonSettingAcquisition:
+    """Shared selected-setting lifecycle; subclasses fix policy and projection.
 
-    def __init__(self, policy, actor, metadata_reader, cache_reader, override):
-        _select_method(None, override)  # Validate even when the setting is skipped.
-        self.override, self.rows, self.reader = override, (), None
+    Reuse ordinary record/field READ and callback ordering on the parent's owned
+    transaction. Concrete classes distinguish document and single-value APIs;
+    no request can select a field, metadata profile, SQL reader or ACL engine.
+    """
+
+    def __init__(self, policy, actor, metadata_reader, cache_reader, *, active=True):
+        self.rows, self.reader = (), None
         self._policy, self._actor = policy, actor
-        self.active = not bool(override)
+        self.active = active
         if not self.active:
             return
         if not callable(metadata_reader) or not callable(cache_reader):
-            raise CalculationFormatAccessError("calculation_rounding_dependencies")
+            raise CalculationFormatAccessError(self.ERROR_PREFIX + "_dependencies")
         self._metadata, self._cache = metadata_reader, cache_reader
-        related = _RoundingPolicy(policy)
+        related = self.POLICY(policy)
         self._load, finalize = related._saved_record_access(actor)
         self._runtime = policy._dependencies()[0]
-        doc = self._load("System Settings", "System Settings")
+        doc = self._load(self.DOCTYPE, self.DOCTYPE)
         self.definition, self.level = self._field(doc)
-        _select_method(doc.get("rounding_method"), None)
+        self._validate_document(doc)
         self.rows, _, self._recheck = finalize()
         self.recheck_access()
 
     def _field(self, doc):
-        definition = _definition(doc.meta.get_field("rounding_method"))
-        level = require_field_read(doc, "rounding_method", self._actor, self._runtime, self._policy.DENIED_MESSAGE)
+        definition = _definition(doc.meta.get_field(self.FIELD), self.FIELDTYPE)
+        level = require_field_read(doc, self.FIELD, self._actor, self._runtime, self._policy.DENIED_MESSAGE)
         return definition, level
 
     def recheck_access(self):
         if not self.active:
             return
         self._recheck()
-        if self._field(self._load("System Settings", "System Settings")) != (self.definition, self.level):
-            raise CalculationFormatAccessError("calculation_rounding_field_drift")
+        if self._field(self._load(self.DOCTYPE, self.DOCTYPE)) != (self.definition, self.level):
+            raise CalculationFormatAccessError(self.ERROR_PREFIX + "_field_drift")
 
     def _applied(self):
-        supplied = self._metadata(self._policy._scope, ("System Settings",))
-        if type(supplied) is not dict or set(supplied) != {"System Settings"}:
+        supplied = self._metadata(self._policy._scope, (self.DOCTYPE,))
+        if type(supplied) is not dict or set(supplied) != {self.DOCTYPE}:
             raise ValueError
-        applied = _meta(supplied["System Settings"])
-        if _definition(applied.get_field("rounding_method")) != self.definition:
+        applied = self.PIN_META(supplied[self.DOCTYPE])
+        if _definition(applied.get_field(self.FIELD), self.FIELDTYPE) != self.definition:
             raise ValueError
         return applied
 
@@ -87,26 +91,23 @@ class RoundingAcquisition:
     def load_for_update(self, connection):
         if not self.active:
             return None
-        self.reader = MariaDBRoundingSettingReader(connection)
+        self.reader = self.READER(connection)
         return self.reader.load_for_update(applied_metadata=self.applied)
 
     def check_cache(self, observed):
         if not self.active:
             return
-        observed = _pin_read(observed)
-        if self.rows[0].values != (observed.value,):
-            raise CalculationFormatAccessError("calculation_rounding_native_mismatch")
+        observed = self.PIN_READ(observed)
+        self._require_saved_match(observed)
         cached = self._cache(self._policy._scope)
-        _text(cached)
-        if cached != observed.value:
-            raise CalculationFormatAccessError("calculation_rounding_cache_mismatch")
+        self._require_cache_match(observed, cached)
         self.recheck_access()
 
     def require_metadata_unchanged(self):
         if not self.active:
             return
         if self._applied() != self.applied:
-            raise CalculationFormatAccessError("calculation_rounding_metadata_drift")
+            raise CalculationFormatAccessError(self.ERROR_PREFIX + "_metadata_drift")
         self.recheck_access()
 
     def require_unchanged(self, observed):
@@ -114,6 +115,32 @@ class RoundingAcquisition:
             return
         self.reader.require_unchanged(observed)
         self.recheck_access()
+
+
+class RoundingAcquisition(_SingletonSettingAcquisition):
+    """System document rounding Select; a valid override skips the dependency."""
+
+    DOCTYPE, FIELD, FIELDTYPE = "System Settings", "rounding_method", "Select"
+    POLICY, READER = _RoundingPolicy, MariaDBRoundingSettingReader
+    PIN_META, PIN_READ = staticmethod(_meta), staticmethod(_pin_read)
+    ERROR_PREFIX = "calculation_rounding"
+
+    def __init__(self, policy, actor, metadata_reader, cache_reader, override):
+        _select_method(None, override)
+        self.override = override
+        super().__init__(policy, actor, metadata_reader, cache_reader, active=not bool(override))
+
+    def _validate_document(self, doc):
+        _select_method(doc.get(self.FIELD), None)
+
+    def _require_saved_match(self, observed):
+        if self.rows[0].values != (observed.value,):
+            raise CalculationFormatAccessError("calculation_rounding_native_mismatch")
+
+    def _require_cache_match(self, observed, cached):
+        _text(cached)
+        if cached != observed.value:
+            raise CalculationFormatAccessError("calculation_rounding_cache_mismatch")
 
 
 @dataclass(frozen=True, repr=False)

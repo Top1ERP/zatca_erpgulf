@@ -159,3 +159,10 @@ No whitelist, hook, runtime provider, frontend, installed schema/migration,
 Bench/worker or authority operation is added. See [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md) and
 [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md). Verification is recorded in
 [STATUS.md](STATUS.md), separating focused, full-regression and installed evidence.
+
+Increment131 extracts the existing ordinary Singleton field acquisition lifecycle
+into `_SingletonSettingAcquisition`. RoundingAcquisition keeps the same fixed
+System Select projection, override priority, exact saved/native/cache comparison,
+callback ordering and cleanup checks. The new Global Check inspection reuses that
+lifecycle but has a different API projection: normal document access identity
+does not certify the single-value Check. See [GLOBAL_ROUNDING_SOURCE.md](GLOBAL_ROUNDING_SOURCE.md).

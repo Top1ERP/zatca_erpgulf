@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment131 composes native global Check inspection into the SAME saved service
+with ordinary invoice/Company/Global record and selected-field READ, pinned field
+definitions/levels and cache/source checks through cleanup. Share Singleton-setting
+acquisition with the existing method path. Never substitute a normal document
+default for get_single_value's effective int projection. This optional inspection
+does not choose the active invoice branch; native invoice/consolidation/fraction
+sources and consumed-dependency selection remain next. No runtime provider or
+rollout is installed. See [GLOBAL_ROUNDING_SOURCE.md](GLOBAL_ROUNDING_SOURCE.md).
+
 Increment130 adds bounded native Global Defaults rounded-total Check evidence
 and an exact comparison to the consumed pure control plan. Preserve missing/NULL/
 blank/zero identities, but match get_single_value's normalized int API result:

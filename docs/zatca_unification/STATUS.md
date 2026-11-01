@@ -1,8 +1,8 @@
-# Implementation status — 2026-10-30
+# Implementation status — 2026-11-01
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and thirty bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and thirty-one bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -3353,6 +3353,62 @@ cache provenance and cleanup checks must be composed into the SAME owned service
 alongside invoice/consolidation/Currency-fraction and row-wise-tax sources. Full
 financial/accounting/XML/signature/installed15/16/SDK/performance/release evidence
 remains before a separately approved fictional-Company rehearsal/adoption choice.
+
+## Increment 131: permissioned global Check inspection on the shared service
+
+- Add optional capture_global_rounding_context and SavedGlobalRoundingContext
+  on the existing saved context/defaults transaction. Require normal actor/role,
+  invoice/Company/Global Defaults record READ and selected Check field READ before
+  all providers. Pin definition/default/options and field permission level.
+- Distinguish normal Singleton access from the get_single_value projection:
+  normal READ evidence carries identity only, without a fabricated revision or
+  document-default value. Wholly empty native storage can correctly yield API0
+  while the normal document has default1. Never substitute that document value.
+- Extract the existing method acquisition lifecycle into one internal fixed-
+  subclass Singleton setting helper. Reuse ACL, metadata/source/cache sampling
+  and final rechecks; preserve the System Select behavior and override skip.
+  The new operation has no caller-selected field/profile/reader or second
+  connection/cleanup/ACL/display engine. Existing APIs ignore unused new adapters.
+- Recheck global native presence/value/metadata and all existing source evidence
+  after trusted callbacks, with ordinary access and exact API cache checks
+  through close. Preserve pending ambient work; exclude pending owned work with
+  initial rollback. Keep one translated failure summary and parent messages,
+  static English internal codes, protected results and interrupt priority.
+- Document the inspection/source/active-policy boundaries and next composition
+  order in [GLOBAL_ROUNDING_SOURCE.md](GLOBAL_ROUNDING_SOURCE.md). This operation
+  is NOT a decision to select global settings for an invoice, does not return a
+  disabled branch or amount, and is not installed as a runtime provider/RPC/hook.
+
+Focused refactor verification passed **294 cases in 10.41s**. The initial new
+local suite passed **162 cases in 8.41s**, then combined acquisition verification
+passed **596 cases in 45.51s**, including **148 new native private-SQL cases**.
+Two additional scenarios (four parametrized cases) cover the unchanged explicit
+method skip and one translated failure without internal-value disclosure. Final
+new selection is **166 local + 148 private-SQL = 314 new cases**.
+
+Final full guarded verification passed **25,800 cases in 1,226.20s (20m26s)**,
+including all **314 new cases**, with thirty private-SQL suites in the reviewed
+manifest. Network/site-init denial stayed active; SQL fixtures used only NEW
+guard-owned TCP-disabled servers. AST/diff checks passed. Nine previous public
+capture methods and the prior rounding result/row/policy ASTs stayed unchanged;
+the forty reachable modules had no eager relative-import cycle. Existing native
+SQL/metadata/financial/settings profiles and pinned test oracles are unchanged.
+No frontend/Node change or newly installed15/16 runtime is claimed; no Decimal
+money conversion or new fiscal calculation is introduced.
+
+Read-only standard schema review found that installed15/pinned16 POS Invoice
+lacks the consolidation/disable fields present on Sales Invoice. A Sales Invoice
+using is_pos retains the Sales Invoice schema. Source links/full-file hashes and
+the limits of this baseline versus applied site customizations are recorded in
+the global source guide; no downloaded JSON is installed or imported as code.
+
+Live stays at the independent ba51f25 Phase-1 address hotfix. No installed app,
+site/data/config/schema/Company/credential, Bench/worker or authority operation
+occurred. Active invoice/global source selection still needs native invoice
+Check/consolidation/optional physical-field and Currency-fraction proof, plus
+trusted runtime adapter/cache provenance in the SAME owned pipeline. Complete
+amount/FX/GL/VAT/XML/signature/installed15/16/SDK/performance/release gates precede
+separately approved fictional-Company rehearsal and adoption/cancellation choice.
 
 ## Verification
 

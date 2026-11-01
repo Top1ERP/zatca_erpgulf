@@ -118,5 +118,12 @@ empty Singleton. Do not copy the whole-document/default witness requirement to
 that path. This one native dependency does not close the remaining graph/ACL/
 cache provenance, invoice/consolidation/fraction or runtime integration gates.
 
+Increment131 adds permissioned global Check inspection on the SAME owned context
+service, sharing its acquisition lifecycle with the existing System method path.
+It pins normal record/field READ and definitions/levels, but intentionally does
+not substitute a normal document-default value for the single-value API result.
+The inspection does not choose the active invoice/global branch. Native invoice/
+consolidation/fraction and consumed-related-source selection remain before use.
+
 See [STATUS.md](STATUS.md) for observed verification and
 [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md) for the current deployment/send ban.
