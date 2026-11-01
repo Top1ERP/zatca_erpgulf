@@ -27,6 +27,7 @@ from .calculation_child_cache import observe_child_caches
 from .calculation_rounding_access import RoundingAcquisition, SavedRoundingContext
 from .calculation_global_rounding_access import GlobalRoundingAcquisition, SavedGlobalRoundingContext
 from .calculation_invoice_rounding_access import InvoiceRoundingAcquisition, SavedInvoiceRoundingContext
+from .calculation_fraction_access import FractionAcquisition, SavedCurrencyFractionContext
 from .credential_bundle_access import CredentialStorageScope
 from . import financial_source_observation as financial
 from .financial_source_sql import (
@@ -282,7 +283,7 @@ class SavedCalculationDefaultsService:
             format_metadata_reader=None, format_cache_reader=None, child_metadata_reader=None,
             rounding_metadata_reader=None, rounding_cache_reader=None,
             global_rounding_metadata_reader=None, global_rounding_cache_reader=None,
-            invoice_rounding_metadata_reader=None):
+            invoice_rounding_metadata_reader=None, fraction_metadata_reader=None, fraction_cache_reader=None):
         if type(parent_kind) is not str or parent_kind not in PARENT_KINDS or not callable(cache_reader):
             raise CalculationDefaultsAccessError("calculation_defaults_access_dependencies")
         self._policy = _SavedDefaultsSource(scope, connection_factory)
@@ -306,6 +307,9 @@ class SavedCalculationDefaultsService:
         if invoice_rounding_metadata_reader is not None and not callable(invoice_rounding_metadata_reader):
             raise CalculationDefaultsAccessError("calculation_invoice_rounding_dependencies")
         self._invoice_rounding_metadata = invoice_rounding_metadata_reader
+        if any(reader is not None and not callable(reader) for reader in (fraction_metadata_reader, fraction_cache_reader)):
+            raise CalculationDefaultsAccessError("calculation_fraction_dependencies")
+        self._fraction_metadata, self._fraction_cache = fraction_metadata_reader, fraction_cache_reader
 
     def __repr__(self):
         return "<SavedCalculationDefaultsService permissioned protected local read>"
@@ -399,6 +403,16 @@ class SavedCalculationDefaultsService:
             include_financial=True, include_formats=type(erp_major) is int and erp_major == 16,
             format_scope="child", child_table=parentfield, child_field=(row_name, fieldname), erp_major=erp_major)
 
+    def capture_currency_fraction_context(self, invoice_name, *, erp_major, doctype="Sales Invoice"):
+        """Inspect authorized invoice-Currency fraction on ONE owned handle.
+
+        Normal related READ protects the exact consumed post-flt DB API value;
+        a Currency document default never replaces that projection. This does
+        not choose an active rounding branch or recalculate financial amounts.
+        """
+        return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
+            include_financial=True, include_currency_fraction=True, erp_major=erp_major)
+
     def capture_child_cached_context(self, invoice_name, parentfield, row_name, fieldname, *, erp_major, doctype="Sales Invoice"):
         """Also inspect existing request-local caches without calling precision()."""
         return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
@@ -409,14 +423,16 @@ class SavedCalculationDefaultsService:
     def _capture_display(self, invoice_name, *, doctype, include_metadata,
             include_financial=False, include_formats=False, format_scope="invoice", erp_major=None,
             child_table=_NO_CHILD, child_field=None, include_child_cache=False,
-            include_rounding=False, rounding_override=None, include_global_rounding=False, include_invoice_rounding=False):
+            include_rounding=False, rounding_override=None, include_global_rounding=False, include_invoice_rounding=False,
+            include_currency_fraction=False):
         try:
             with mute_operation_messages(frappe):
                 return self._capture_owned(invoice_name, doctype=doctype, include_metadata=include_metadata,
                     include_financial=include_financial, include_formats=include_formats, format_scope=format_scope,
                     erp_major=erp_major, child_table=child_table, child_field=child_field, include_child_cache=include_child_cache,
                     include_rounding=include_rounding, rounding_override=rounding_override,
-                    include_global_rounding=include_global_rounding, include_invoice_rounding=include_invoice_rounding)
+                    include_global_rounding=include_global_rounding, include_invoice_rounding=include_invoice_rounding,
+                    include_currency_fraction=include_currency_fraction)
         except frappe.PermissionError:
             denied = True
         except Exception:
@@ -458,7 +474,8 @@ class SavedCalculationDefaultsService:
     def _capture_owned(self, invoice_name, *, doctype, include_metadata=False,
             include_financial=False, include_formats=False, format_scope="invoice", erp_major=None,
             child_table=_NO_CHILD, child_field=None, include_child_cache=False,
-            include_rounding=False, rounding_override=None, include_global_rounding=False, include_invoice_rounding=False):
+            include_rounding=False, rounding_override=None, include_global_rounding=False, include_invoice_rounding=False,
+            include_currency_fraction=False):
         """Recheck saved ACL/SQL membership/cache before protected disclosure.
 
         Fresh owned rollback excludes pre-existing pending defaults. Remaining
@@ -474,13 +491,18 @@ class SavedCalculationDefaultsService:
             if (include_financial or include_rounding or include_global_rounding) and (type(erp_major) is not int or erp_major not in (15, 16)):
                 raise CalculationDefaultsAccessError("calculation_financial_access_version")
             children, formats, rounding = None, None, None
-            invoice_controls = None
-            if include_invoice_rounding:
+            financial_extension = None
+            if include_invoice_rounding or include_currency_fraction:
                 if (self._parent_kind != "site" or not include_metadata or not include_financial or include_formats
                         or include_rounding or include_global_rounding or rounding_override is not None
-                        or child_table is not _NO_CHILD or child_field is not None or include_child_cache):
-                    raise CalculationDefaultsAccessError("calculation_invoice_rounding_profile")
-                invoice_controls = InvoiceRoundingAcquisition(policy, actor, invoice_name, doctype, self._invoice_rounding_metadata)
+                        or child_table is not _NO_CHILD or child_field is not None or include_child_cache
+                        or include_invoice_rounding and include_currency_fraction):
+                    raise CalculationDefaultsAccessError("calculation_financial_extension_profile")
+                if include_currency_fraction:
+                    financial_extension = FractionAcquisition(policy, actor, invoice_name, doctype,
+                        self._fraction_metadata, self._fraction_cache)
+                else:
+                    financial_extension = InvoiceRoundingAcquisition(policy, actor, invoice_name, doctype, self._invoice_rounding_metadata)
             if include_rounding or include_global_rounding:
                 if (self._parent_kind != "site" or not include_metadata or include_financial or include_formats
                         or child_table is not _NO_CHILD or child_field is not None or include_child_cache
@@ -515,17 +537,17 @@ class SavedCalculationDefaultsService:
                     formats.recheck_access()
                 if rounding is not None:
                     rounding.recheck_access()
-                if invoice_controls is not None:
-                    invoice_controls.recheck_access()
+                if financial_extension is not None:
+                    financial_extension.recheck_access()
             if rounding is not None:
                 rounding.prepare_metadata()
                 recheck()
-            if invoice_controls is not None:
-                invoice_controls.prepare_metadata()
+            if financial_extension is not None:
+                financial_extension.prepare_metadata()
                 recheck()
             applied = self._applied_metadata(rows, include_financial=include_financial) if include_metadata else ()
-            if invoice_controls is not None:
-                invoice_controls.require_financial_metadata(applied[1:])
+            if financial_extension is not None:
+                financial_extension.require_financial_metadata(applied[1:])
             if children is not None:
                 children.require_financial_metadata(applied[1:])
                 if children.field_source is not None:
@@ -545,8 +567,8 @@ class SavedCalculationDefaultsService:
                 financial_reader = MariaDBInvoiceFinancialReader(connection)
                 observed_financial = financial_reader.load_for_update(doctype, invoice_name,
                     erp_major=erp_major, applied_metadata={meta.name: meta for meta in applied[1:]})
-                if invoice_controls is not None:
-                    observed_controls = invoice_controls.load_for_update(connection, observed_financial)
+                if financial_extension is not None:
+                    observed_extension = financial_extension.load_for_update(connection, observed_financial)
                 if children is not None:
                     observed_children = children.load_for_update(connection, observed_financial)
                     if children.field_source is not None:
@@ -587,8 +609,12 @@ class SavedCalculationDefaultsService:
                         captured = SavedGlobalRoundingContext(captured, erp_major, observed_rounding, rounding.rows)
                     else:
                         captured = SavedRoundingContext(captured, erp_major, rounding_override, observed_rounding, rounding.rows)
-                if invoice_controls is not None:
-                    captured = SavedInvoiceRoundingContext(captured, observed_controls, invoice_controls.tables, invoice_controls.checks)
+                if financial_extension is not None:
+                    if include_currency_fraction:
+                        captured = SavedCurrencyFractionContext(captured, observed_extension, financial_extension.tables,
+                            financial_extension.rows, financial_extension.currency)
+                    else:
+                        captured = SavedInvoiceRoundingContext(captured, observed_extension, financial_extension.tables, financial_extension.checks)
                 return captured
             if include_child_cache:
                 cache_read = observe_child_caches(build_result(), children.field_source)
@@ -606,9 +632,9 @@ class SavedCalculationDefaultsService:
                 rounding.require_metadata_unchanged()
             if children is not None:
                 children.require_metadata_unchanged()
-            if invoice_controls is not None:
-                invoice_controls.check_getters(observed_controls)
-                invoice_controls.require_metadata_unchanged()
+            if financial_extension is not None:
+                financial_extension.check_getters(observed_extension)
+                financial_extension.require_metadata_unchanged()
             if include_metadata:
                 if self._applied_metadata(rows, include_financial=include_financial) != applied:
                     raise CalculationDefaultsAccessError("calculation_context_access_metadata_drift")
@@ -631,8 +657,8 @@ class SavedCalculationDefaultsService:
                 formats.reader.require_unchanged(observed_formats)
             if rounding is not None:
                 rounding.require_unchanged(observed_rounding)
-            if invoice_controls is not None:
-                invoice_controls.require_unchanged(observed_controls)
+            if financial_extension is not None:
+                financial_extension.require_unchanged(observed_extension)
             recheck()
             result = build_result() if cache_read is None else cache_read
         except BaseException as error:
@@ -646,8 +672,8 @@ class SavedCalculationDefaultsService:
                 if rounding is not None:
                     rounding.check_cache(observed_rounding)
                     recheck()
-                if invoice_controls is not None:
-                    invoice_controls.check_getters(observed_controls)
+                if financial_extension is not None:
+                    financial_extension.check_getters(observed_extension)
                     recheck()
                 if cache_read is not None and observe_child_caches(cache_read.field, children.field_source) != cache_read:
                     raise CalculationDefaultsAccessError("calculation_child_cache_changed")

@@ -9,11 +9,14 @@ its precision-free flt projection to existing native financial evidence. Reuse
 the existing financial bounded SQL and metadata readers; do not add another SQL
 transport, settings discovery or amount calculator.
 
-Known callers are `tests/test_currency_fraction_source.py` and its `_mariadb`
-suite in the offline manifest. Normal Currency/field READ, original/cache/API
-provenance and consumed-dependency composition into the SAME saved service remain
-gates. Integration or removal is required before runtime adoption. No provider,
-RPC, hook, frontend, schema or authority operation is installed.
+Known callers are `tests/test_currency_fraction_source.py`, its `_mariadb` suite
+and increment135's `calculation_fraction_access.FractionAcquisition`, all covered
+by the offline manifest. The latter composes normal Currency/field READ and
+original/fresh/API comparison on the SAME saved service; see
+[CURRENCY_FRACTION_ACCESS.md](CURRENCY_FRACTION_ACCESS.md). Trusted concrete API
+provenance and consumed-dependency composition remain gates. Integration or
+removal is required before runtime adoption. No provider, RPC, hook, frontend,
+schema or authority operation is installed.
 
 ## Exact source and metadata
 
@@ -88,11 +91,10 @@ zero, metadata/descriptor/revision/parent-child drift, masking of oversized data
 pending work preservation and source/metadata/invoice locks until caller cleanup.
 Complete installed16 behavior and monetary/GL/XML parity are not claimed.
 
-Next compose normal Currency record/field READ and original/API observations in
-the existing owned service, selecting this source only when earlier consolidated,
-rounded-field and disable guards require it. Bind the original invoice currency
-and recheck all source/definition/permission/cache evidence through cleanup.
-Then compose the existing method source without fabricating a full calculation
+Increment135 adds normal Currency record/field READ and original/API observations
+in the existing owned service. Next select this source only when earlier
+consolidated, rounded-field and disable guards require it, then compose the
+existing method source without fabricating a full calculation
 settings graph. Complete amount/FX/GL/VAT/advance/XML/signature/browser, trusted
 provider, installed15/16/SDK/performance and release gates remain before separately
 approved fictional-Company rehearsal/adoption.

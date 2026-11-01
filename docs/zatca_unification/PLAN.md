@@ -19,12 +19,22 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment135 adds optional permissioned invoice-Currency fraction inspection on
+the SAME owned financial/defaults service. Reuse full financial graph and related
+record/field READ before all callbacks; bind original/fresh invoice currency,
+definitions/levels and Currency revision, then compare native configuration to
+the exact consumed post-flt API value through cleanup. No document default or
+ORM value replaces that API projection. Old operations acquire no new dependency.
+Consumed guarded composition, provider/role review and release gates remain.
+See [CURRENCY_FRACTION_ACCESS.md](CURRENCY_FRACTION_ACCESS.md).
+
 Increment134 adds bounded native invoice-Currency fraction evidence, including
 exact Link/currency identity, required metadata and separate raw/precision-free
 flt configuration projection. Reuse financial SQL and the declared fraction
 classifier, preserve money/old profiles and compare supplied effective floats
-without cache lookup. Normal related READ/API provenance and consumed guarded
-composition remain in the SAME owned-service plan. See [CURRENCY_FRACTION_SOURCE.md](CURRENCY_FRACTION_SOURCE.md).
+without cache lookup. Increment135 composes normal related READ and exact API
+comparison; concrete provider provenance and consumed guarded composition remain.
+See [CURRENCY_FRACTION_SOURCE.md](CURRENCY_FRACTION_SOURCE.md).
 
 Increment133 composes invoice-control inspection on the SAME saved financial/
 defaults service. Reuse extracted financial graph READ, including empty-table

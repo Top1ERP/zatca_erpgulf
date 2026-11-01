@@ -193,8 +193,9 @@ def _require_graph_match(tables, financial):
 class FinancialGraphAccess:
     """Normal READ of every financial table/row/field, without linked-source SQL.
 
-    Share membership, saved-row and field permission checks across child links
-    and invoice controls. The parent service owns metadata callbacks and SQL.
+    Share membership, saved-row and field permission checks across child links,
+    invoice controls and Currency fraction. The parent service owns callbacks
+    and SQL.
     """
 
     def __init__(self, policy, actor, invoice_name, doctype, *, selected_table=None):

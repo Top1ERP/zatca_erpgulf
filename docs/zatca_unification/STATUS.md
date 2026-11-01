@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and thirty-four bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and thirty-five bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -3551,6 +3551,65 @@ guarded consumed-source selection and method acquisition in the SAME owned
 service. Complete ERP amount/cache/advance/FX/GL/VAT/XML/signature/browser,
 installed15/16/SDK/performance/release gates remain before a separately approved
 fictional-Company rehearsal/adoption decision.
+
+## Increment 135: permissioned invoice-Currency fraction inspection
+
+- Add optional capture_currency_fraction_context/SavedCurrencyFractionContext on
+  the SAME owned financial/defaults service. Reuse FinancialGraphAccess and the
+  existing related record/field READ engines before metadata/cache/factory calls;
+  authorize all returned financial tables/rows/fields, including empty tables.
+- Bind initial and fresh invoice owner/revision, full selected Link definition,
+  permission level and actual currency; require exact native financial metadata
+  agreement. Bind normal Currency identity/revision and full fraction definition/
+  level through cleanup. A fresh equal document cannot hide original-view drift.
+- Read native fraction evidence on the SAME handle and compare the exact consumed
+  post-flt API float, including signed zero. Never read or substitute the normal
+  Currency document's fraction getter. Never round/cast/recalculate invoice money.
+  Unused Global/System/locale/POS/child-link dependencies are not acquired.
+- Reuse one extension lifecycle for existing invoice controls and the new fraction
+  inspection rather than duplicate SQL ownership, final checks, cleanup or UI.
+  Trusted metadata/cache callbacks finish BEFORE final checks of every native
+  source; fraction require_unchanged performs no late trusted cache callback.
+  Recheck normal access/API projection after close. Fresh pending work is rolled
+  back; recognizable ambient work is refused without commit/rollback/close.
+- Reconstruct and bind the protected financial parent, native fraction, table
+  graph, one normal Currency row and invoice currency. Refuse dropped/rebound
+  sources and serialization. Reuse the existing single localized financial
+  summary, static English internal codes and interrupt priority.
+- Document server dependencies, known staging callers and remaining gates in
+  [CURRENCY_FRACTION_ACCESS.md](CURRENCY_FRACTION_ACCESS.md). No installed provider,
+  RPC, hook, frontend, schema, monetary policy or authority operation is added.
+
+The first synthetic local fixture had a duplicate fieldname keyword; correct
+that fixture only. Initial local verification passed **168 cases in 73.41s**,
+then final field-level/metadata/API-boundary/interrupt coverage and protected
+related-row reconstruction passed **194 cases in 78.95s**. The new private SQL
+suite passed **94 cases in 118.85s** before the final related-row reconstruction;
+the full guarded run below includes that final code. External network/site
+initialization stayed denied; native fixtures were NEW guard-owned TCP-disabled
+servers only. All eleven prior public capture methods retain their exact ASTs;
+only one optional operation is added.
+
+Final full guarded verification passed **26,647 cases in 1,791.13s (29m51s)**
+across all **139 local suites and 34 private SQL suites**, including **288 new
+cases: 194 local + 94 native**. This run includes the final protected related-row
+reconstruction and all prior service/native/profile contracts. External network
+and site initialization remained denied; SQL fixtures were NEW guard-owned
+TCP-disabled temporary servers. No tenant database or authority API was used.
+
+Static import review found no eager relative-import cycle across forty-four
+reachable modules. Native financial/fraction/control SQL, existing metadata
+profiles, pure amount/control contracts and pinned framework oracles are
+unchanged. Caller inventory finds no new runtime hook/button/whitelisted entry
+or provider installation; the optional service and reviewed test suites are the
+staging callers. Frontend/Node and full installed16 evidence are not claimed.
+
+Live stays at the independent ba51f25 Phase-1 address hotfix. No installed app,
+site/data/config/schema/Company/credential, Bench/worker or authority operation
+occurred. Next compose the consumed guarded invoice/global/fraction/method plan
+on this SAME service. Concrete provider/role/ERP amount/cache/FX/GL/VAT/advance/
+XML/QR/signature/browser, installed15/16/SDK/performance and final caller/dead-code
+release audits remain before a separately approved fictional-Company rehearsal.
 
 ## Verification
 
