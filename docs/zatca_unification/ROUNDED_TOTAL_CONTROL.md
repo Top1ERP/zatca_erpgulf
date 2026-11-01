@@ -125,5 +125,10 @@ not substitute a normal document-default value for the single-value API result.
 The inspection does not choose the active invoice/global branch. Native invoice/
 consolidation/fraction and consumed-related-source selection remain before use.
 
+Increment132 adds bound native invoice controls and physical-column evidence in
+[INVOICE_ROUNDING_SOURCE.md](INVOICE_ROUNDING_SOURCE.md). Raw native Check values
+and normalized getters remain distinct, so neither source changes the old
+financial declaration or fabricates a complete normalized calculation graph.
+
 See [STATUS.md](STATUS.md) for observed verification and
 [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md) for the current deployment/send ban.

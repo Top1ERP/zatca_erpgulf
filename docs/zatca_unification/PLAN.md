@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment132 adds native optional invoice rounding controls bound to the existing
+financial graph. Prove metadata and physical column membership, exact overlapping
+definitions/values/descriptors and original revision; retain raw Check/amount
+tags and separate normalized Check getters. Reuse financial bounded SQL without
+changing old profile bytes, calculating amounts or installing a provider. Normal
+selected-field READ/getters and consumed global/fraction/method composition stay
+in the existing owned-service plan. See [INVOICE_ROUNDING_SOURCE.md](INVOICE_ROUNDING_SOURCE.md).
+
 Increment131 composes native global Check inspection into the SAME saved service
 with ordinary invoice/Company/Global record and selected-field READ, pinned field
 definitions/levels and cache/source checks through cleanup. Share Singleton-setting

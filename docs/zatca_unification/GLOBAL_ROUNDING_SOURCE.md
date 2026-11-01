@@ -178,3 +178,9 @@ row-wise tax controls, complete amount/FX/GL/VAT/XML/QR/signature parity, instal
 15/16/SDK/performance and release evidence remain separate gates. See
 [ROUNDED_TOTAL_CONTROL.md](ROUNDED_TOTAL_CONTROL.md), [PLAN.md](PLAN.md),
 [STATUS.md](STATUS.md) and [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md).
+
+Increment132 supplies the native invoice-control side of this gate, preserving
+optional physical membership and raw financial overlap while separately deriving
+normalized Check getters. See [INVOICE_ROUNDING_SOURCE.md](INVOICE_ROUNDING_SOURCE.md).
+Normal selected-field READ, original getter/cache provenance and consumed-source
+selection still require composition into the existing owned service.

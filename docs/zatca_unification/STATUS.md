@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and thirty-one bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and thirty-two bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -3409,6 +3409,52 @@ Check/consolidation/optional physical-field and Currency-fraction proof, plus
 trusted runtime adapter/cache provenance in the SAME owned pipeline. Complete
 amount/FX/GL/VAT/XML/signature/installed15/16/SDK/performance/release gates precede
 separately approved fictional-Company rehearsal and adoption/cancellation choice.
+
+## Increment 132: financial-bound native optional invoice rounding controls
+
+- Add a narrow invoice metadata profile and caller-owned reader for consolidation,
+  rounding adjustment, rounded total and disable-rounded-total. Preserve all old
+  financial/metadata/settings profile catalogs and bytes; is_consolidated remains
+  an explicit additional source rather than a guessed value from old omission.
+- Reuse bounded financial SQL and metadata readers on the same handle. Require
+  exact optional physical column membership after financial table locks, repeat
+  membership/value checks and bind original revision/native descriptors. Match
+  all overlapping definitions/raw tags/descriptors against the financial parent
+  and recheck its complete existing invoice/child graph before disclosure.
+- Retain original native amounts and Check absence/NULL/zero/one. Derive separate
+  normalized saved-getter Check projections, without amount conversion or a full
+  fabricated ERP view. Compare only exact supplied two-Check getter observations;
+  never read/populate/repair a cache. Actual15/pinned16 numeric-fix probes verify
+  the accepted normalization, including absent fields and present NULL.
+- Refuse orphan/missing/case-variant columns, changed native types or overlapping
+  values, noncanonical Check storage and forged bindings. Preserve caller work,
+  poison failed readers and retain interrupt priority; own pending changes remain
+  visible until caller cleanup. Add no transaction/cleanup/ACL/UI/RPC/runtime
+  service or fiscal branch selector. Staging purpose/callers and integration/
+  removal gates are in [INVOICE_ROUNDING_SOURCE.md](INVOICE_ROUNDING_SOURCE.md).
+
+Initial local verification passed **113 cases in 39.51s**. The expanded local/
+native selection passed **178 cases in 97.27s** before final native case-variant
+and invalid-Check coverage. Final guarded affected-suite verification passed
+**2,029 cases in 226.44s** across fourteen local/private-SQL suites, including
+all **182 new cases (125 local + 57 native)**. The guard denied external network
+and site initialization; private SQL used NEW TCP-disabled fixture servers only.
+Old profile goldens and shared financial/metadata/child/global/declared-control
+checks remain green. The only later test cleanup removes an unused import,
+without changing test bodies or application code.
+
+This scope adds one metadata profile and a staged native reader; shared SQL,
+saved acquisition services, amounts, runtime/frontend and pinned oracles are
+unchanged. The increment131 **25,800-case** full run is historical, not a full
+run for this commit. No new Node/full-manifest/installed-runtime claim is made.
+
+Live stays at the independent ba51f25 Phase-1 address hotfix. No installed app,
+site/data/config/schema/Company/credential, Bench/worker or authority operation
+occurred. Next compose normal selected-field READ, original getter/cache/metadata
+and permission-level provenance into the SAME owned service, followed by consumed
+global/Currency-fraction/method selection. Complete amount/FX/GL/VAT/XML/signature/
+browser/installed15/16/SDK/performance/release gates remain before a separately
+approved fictional-Company rehearsal/adoption decision.
 
 ## Verification
 
