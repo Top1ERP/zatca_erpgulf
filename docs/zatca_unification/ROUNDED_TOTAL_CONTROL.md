@@ -136,5 +136,11 @@ normal Check getters and native controls with the existing financial graph and
 shared cleanup. This remains inspection, without an active rounding branch or
 Global Defaults/fraction/method acquisition.
 
+Increment134 adds native invoice-Currency fraction evidence with a separate
+precision-free configuration flt projection and exact supplied API/cache comparison.
+See [CURRENCY_FRACTION_SOURCE.md](CURRENCY_FRACTION_SOURCE.md). It reuses this
+policy's classifier; it does not acquire normal related access, choose the active
+invoice branch or calculate/convert invoice amounts.
+
 See [STATUS.md](STATUS.md) for observed verification and
 [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md) for the current deployment/send ban.

@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and thirty-three bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and thirty-four bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -3504,6 +3504,53 @@ occurred. Active consumed-dependency policy, Currency fraction/method, complete
 ERP money/cache/advance/FX/GL/VAT/XML/signature/browser parity and audited runtime
 providers remain gates, followed by installed15/16/SDK/performance/release and
 separately approved fictional-Company rehearsal/adoption decisions.
+
+## Increment 134: invoice-bound native Currency fraction configuration
+
+- Add a narrow Currency fraction profile and caller-owned native reader. Require
+  the financial header's Link-to-Currency definition and exact invoice currency
+  name/revision, with no Company/POS/global fallback or unselected field/record
+  discovery. Reuse existing financial bounded SQL and metadata/financial graph
+  rechecks without modifying their implementations or old profile catalogs.
+- Preserve native Decimal/float/NULL and scale. Derive a separate precision-free
+  flt CONFIGURATION value, not a money conversion or recalculation. Share the
+  existing fraction route classifier and reject missing/invalid metadata, absent
+  Currency, negative config, wrong names/descriptors or inconsistent source data.
+- Compare exact finite supplied post-flt configuration floats, including signed
+  zero, without cache lookup/refresh. Handle large valid native Decimal projections
+  without weakening the raw-float scalar bound. Reconstruct private bindings and
+  detect tampered derived zero signs despite ordinary float equality.
+- Retain borrowed pending work/locks, poison failed reads and preserve interrupts.
+  Bind the complete financial parent and detect its currency/child changes as
+  well as fraction/metadata/revision drift. No ACL/transaction/cleanup/UI engine,
+  runtime provider/RPC/hook, amount policy or authority operation is installed.
+  Staging callers and integration/removal gates are documented in
+  [CURRENCY_FRACTION_SOURCE.md](CURRENCY_FRACTION_SOURCE.md).
+
+The first local helper probe found an incomplete synthetic runtime for actual15
+flt(None)'s exception-type check; add the missing exception class to the fixture,
+without changing product validation or normalizer behavior. Combined new guarded
+local/private verification then passed **141 cases in 70.66s**. Final affected-
+suite verification passed **2,386 cases in 146.04s** across fourteen local/private
+suites, including **94 new local + 47 new native = 141 new cases**. Tests exercise
+actual15/pinned16 precision-free flt, native Decimal/double/NULL, large/tiny config,
+signed zero, exact source selection, drift, bounded projection and caller cleanup.
+External network/site initialization remained denied; SQL fixtures were NEW
+guard-owned TCP-disabled servers only.
+
+Old source/profile goldens, native financial/metadata/format/global and declared
+control checks remain green. This staged reader adds one metadata profile, leaving
+shared SQL, saved services, financial/settings observations, oracles, frontend and
+runtime unchanged. The increment133 **26,218-case** full run is historical, not a
+new full run for this commit; no new Node/full/installed-runtime claim is made.
+
+Live stays at the independent ba51f25 Phase-1 address hotfix. No installed app,
+site/data/config/schema/Company/credential, Bench/worker or authority operation
+occurred. Next compose normal Currency/field READ and API/provider provenance,
+guarded consumed-source selection and method acquisition in the SAME owned
+service. Complete ERP amount/cache/advance/FX/GL/VAT/XML/signature/browser,
+installed15/16/SDK/performance/release gates remain before a separately approved
+fictional-Company rehearsal/adoption decision.
 
 ## Verification
 

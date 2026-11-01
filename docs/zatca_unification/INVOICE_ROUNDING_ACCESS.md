@@ -105,3 +105,8 @@ runtime installation, real isolated15/16/SDK/performance and release evidence
 remain before separately approved fictional-Company rehearsal/adoption.
 See [PLAN.md](PLAN.md), [STATUS.md](STATUS.md) and
 [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md).
+
+Increment134 adds the staged native fraction source in
+[CURRENCY_FRACTION_SOURCE.md](CURRENCY_FRACTION_SOURCE.md). The current inspection
+does not start acquiring it implicitly; related normal READ and guarded selection
+must be composed explicitly before runtime adoption.

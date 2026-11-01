@@ -19,6 +19,13 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment134 adds bounded native invoice-Currency fraction evidence, including
+exact Link/currency identity, required metadata and separate raw/precision-free
+flt configuration projection. Reuse financial SQL and the declared fraction
+classifier, preserve money/old profiles and compare supplied effective floats
+without cache lookup. Normal related READ/API provenance and consumed guarded
+composition remain in the SAME owned-service plan. See [CURRENCY_FRACTION_SOURCE.md](CURRENCY_FRACTION_SOURCE.md).
+
 Increment133 composes invoice-control inspection on the SAME saved financial/
 defaults service. Reuse extracted financial graph READ, including empty-table
 and field checks; bind initial and fresh invoice definitions/levels/owner and
