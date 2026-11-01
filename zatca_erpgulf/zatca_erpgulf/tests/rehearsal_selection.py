@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "calculation_invoice_rounding_access",
     "invoice_rounding_source",
     "calculation_global_rounding_access",
     "global_rounding_source",
@@ -101,6 +102,7 @@ LOCAL_SUITES = (
     "zatca_response", "compatibility_hardening",
 )
 PRIVATE_SUITES = (
+    "calculation_invoice_rounding_access_mariadb",
     "invoice_rounding_source_mariadb",
     "calculation_global_rounding_access_mariadb",
     "global_rounding_source_mariadb",

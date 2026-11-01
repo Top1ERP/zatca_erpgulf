@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and thirty-two bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and thirty-three bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -3455,6 +3455,55 @@ and permission-level provenance into the SAME owned service, followed by consume
 global/Currency-fraction/method selection. Complete amount/FX/GL/VAT/XML/signature/
 browser/installed15/16/SDK/performance/release gates remain before a separately
 approved fictional-Company rehearsal/adoption decision.
+
+## Increment 133: permissioned invoice controls and original getter binding
+
+- Add optional capture_invoice_rounding_context/SavedInvoiceRoundingContext on
+  the SAME owned financial/defaults service. Reuse ordinary actor/role, invoice/
+  Company, all financial table/row/field READ and the extra control-field READ
+  BEFORE every metadata/cache/factory callback, including empty-table probes.
+- Extract existing graph membership/field access into FinancialGraphAccess,
+  keeping ChildAcquisition's link work separate and its public contract intact.
+  The new operation uses no child metadata provider or child-link SQL and does
+  not acquire unused Global/System/locale/Currency/method settings.
+- Pin selected normal applied definitions, permission levels and the initial
+  invoice owner/revision/status plus canonical Check getters. Recheck BOTH the
+  initial authorized object and fresh access through close, preventing a fresh
+  equal document from hiding changes in the original getter view. Bind normal
+  metadata identity to the invoice and compare exact native Check projections.
+- Finish trusted metadata/cache callbacks before final native checks of ALL
+  financial/child/default/control/metadata sources, using the existing rollback/
+  close and one translated financial error summary. Retain parent messages and
+  interrupt priority; never repair a Check or read/coerce normal money getters.
+  Protected reconstruction binds financial parent, controls, graph and getters.
+- Record scope/callers and remaining active-policy/provenance gates in
+  [INVOICE_ROUNDING_ACCESS.md](INVOICE_ROUNDING_ACCESS.md). This is an inspection
+  operation, not an installed provider/RPC/hook or active rounding calculator.
+
+Existing financial/child refactor verification passed **378 cases in 107.21s**.
+An initial new local fixture failed when its SQL multiplexer did not recognize
+the two-column native query used with all four controls absent. Fix that fixture
+routing without weakening native/ACL checks. Combined local/private verification
+then passed **220 cases in 195.34s**. Final definition-identity, empty-table,
+absent-getter and scope coverage brings the selection to **236 new cases:
+152 local and 84 native**, confirmed by guarded collection.
+
+Final full guarded verification passed **26,218 cases in 1,513.28s (25m13s)**,
+including all **236 new cases**, across the manifest's thirty-two private-SQL
+suites and all local suites. External network/site initialization remained denied;
+private SQL used NEW TCP-disabled guard-owned servers only. AST/diff checks
+passed, with no eager relative-import cycle across forty-two reachable modules.
+Ten old public capture methods, saved-child result/row/table contracts and the
+moved graph selection/field methods keep their prior ASTs; native financial/
+control SQL, source metadata/profiles and pinned oracles are unchanged. No
+frontend, money, fiscal calculation or complete installed15/16 proof is introduced.
+
+Live stays at the independent ba51f25 Phase-1 address hotfix. No installed app,
+site/data/config/schema/Company/credential, Bench/worker or authority operation
+occurred. Active consumed-dependency policy, Currency fraction/method, complete
+ERP money/cache/advance/FX/GL/VAT/XML/signature/browser parity and audited runtime
+providers remain gates, followed by installed15/16/SDK/performance/release and
+separately approved fictional-Company rehearsal/adoption decisions.
 
 ## Verification
 

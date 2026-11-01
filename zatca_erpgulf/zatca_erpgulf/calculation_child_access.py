@@ -190,37 +190,23 @@ def _require_graph_match(tables, financial):
                 raise ValueError
 
 
-class ChildAcquisition:
-    """Authorize ALL tables read by the financial parent, then one link profile."""
+class FinancialGraphAccess:
+    """Normal READ of every financial table/row/field, without linked-source SQL.
 
-    def __init__(self, policy, actor, invoice_name, doctype, parentfield, metadata_reader, *, field_target=None, defer_metadata=False):
-        if type(parentfield) is not str or parentfield not in TABLE_FIELDS or not callable(metadata_reader):
-            raise CalculationChildAccessError("calculation_child_access_dependencies")
-        self._policy, self._metadata = policy, metadata_reader
-        self._name, self._doctype, self.parentfield = invoice_name, doctype, parentfield
+    Share membership, saved-row and field permission checks across child links
+    and invoice controls. The parent service owns metadata callbacks and SQL.
+    """
+
+    def __init__(self, policy, actor, invoice_name, doctype, *, selected_table=None):
+        self._policy = policy
+        self._name, self._doctype = invoice_name, doctype
         self._parent_load, _ = policy._saved_record_access(actor)
         present = self._present_tables()
-        if parentfield not in present:
+        if selected_table is not None and selected_table not in present:
             raise CalculationChildAccessError("calculation_child_access_table")
         self._tables = tuple((name, _SavedTableAccess(policy, actor, invoice_name, doctype, name)) for name in present)
         self.tables = tuple((name, access.rows) for name, access in self._tables)
-        self.rows = dict(self.tables)[parentfield]
-        self.childtype = _child_type(doctype, parentfield)
         self._fields = self._field_graph()
-        self.field_source = None
-        if field_target is not None:
-            from .calculation_child_format_access import ChildFieldAcquisition
-            if type(field_target) is not tuple or len(field_target) != 2:
-                raise CalculationChildAccessError("calculation_child_field_selection")
-            self.field_source = ChildFieldAcquisition(self, policy, actor, *field_target)
-        self.recheck_access()
-        if not defer_metadata:
-            self.prepare_metadata()
-
-    def prepare_metadata(self):
-        self.recheck_access()
-        self.applied = self._applied()
-        self.recheck_access()
 
     def _present_tables(self):
         parent = self._parent_load(self._doctype, self._name)
@@ -233,8 +219,6 @@ class ChildAcquisition:
             access.recheck_access()
         if self._field_graph() != self._fields:
             raise CalculationChildAccessError("calculation_child_access_field_drift")
-        if self.field_source is not None:
-            self.field_source.recheck_access()
 
     def _field_graph(self):
         """Normal document READ does not imply READ of every higher-level field.
@@ -273,6 +257,52 @@ class ChildAcquisition:
             runtime.throw(self._policy.DENIED_MESSAGE, runtime.PermissionError)
         return tuple(graph)
 
+    def _require_financial_metadata(self, metadata):
+        """Every table the SQL parent will read must be authorized BEFORE SQL."""
+        root = metadata[0]
+        if root.name != self._doctype or tuple(name for name in TABLE_FIELDS if root.has_field(name)) != tuple(name for name, _ in self._tables):
+            raise CalculationChildAccessError("calculation_child_access_metadata_graph")
+        metas = {meta.name: meta for meta in metadata}
+        for dt, fields in self._fields:
+            names = HEADER_FIELDS if dt == self._doctype else TABLE_FIELDS[next(name for name, _ in self._tables if _child_type(self._doctype, name) == dt)]
+            if any(metas[dt].has_field(name) != (dict(fields)[name] is not None) for name in names):
+                raise CalculationChildAccessError("calculation_child_access_metadata_fields")
+
+    def require_financial_metadata(self, metadata):
+        self._require_financial_metadata(metadata)
+        self.recheck_access()
+
+
+class ChildAcquisition(FinancialGraphAccess):
+    """Authorize ALL tables read by the financial parent, then one link profile."""
+
+    def __init__(self, policy, actor, invoice_name, doctype, parentfield, metadata_reader, *, field_target=None, defer_metadata=False):
+        if type(parentfield) is not str or parentfield not in TABLE_FIELDS or not callable(metadata_reader):
+            raise CalculationChildAccessError("calculation_child_access_dependencies")
+        self._metadata, self.parentfield = metadata_reader, parentfield
+        super().__init__(policy, actor, invoice_name, doctype, selected_table=parentfield)
+        self.rows = dict(self.tables)[parentfield]
+        self.childtype = _child_type(doctype, parentfield)
+        self.field_source = None
+        if field_target is not None:
+            from .calculation_child_format_access import ChildFieldAcquisition
+            if type(field_target) is not tuple or len(field_target) != 2:
+                raise CalculationChildAccessError("calculation_child_field_selection")
+            self.field_source = ChildFieldAcquisition(self, policy, actor, *field_target)
+        self.recheck_access()
+        if not defer_metadata:
+            self.prepare_metadata()
+
+    def recheck_access(self):
+        super().recheck_access()
+        if self.field_source is not None:
+            self.field_source.recheck_access()
+
+    def prepare_metadata(self):
+        self.recheck_access()
+        self.applied = self._applied()
+        self.recheck_access()
+
     def _applied(self):
         supplied = self._metadata(self._policy._scope, (self.childtype,))
         if type(supplied) is not dict or set(supplied) != {self.childtype}:
@@ -288,16 +318,8 @@ class ChildAcquisition:
         self.recheck_access()
 
     def require_financial_metadata(self, metadata):
-        """Every table the SQL parent will read must be authorized BEFORE SQL."""
-        root = metadata[0]
-        if root.name != self._doctype or tuple(name for name in TABLE_FIELDS if root.has_field(name)) != tuple(name for name, _ in self._tables):
-            raise CalculationChildAccessError("calculation_child_access_metadata_graph")
-        metas = {meta.name: meta for meta in metadata}
+        self._require_financial_metadata(metadata)
         levels = {dt: dict(fields) for dt, fields in self._fields}
-        for dt, fields in self._fields:
-            names = HEADER_FIELDS if dt == self._doctype else TABLE_FIELDS[next(name for name, _ in self._tables if _child_type(self._doctype, name) == dt)]
-            if any(metas[dt].has_field(name) != (dict(fields)[name] is not None) for name in names):
-                raise CalculationChildAccessError("calculation_child_access_metadata_fields")
         if any(self.applied.has_field(name) != (levels[self.childtype][name] is not None) for name in ("currency", "company")):
             raise CalculationChildAccessError("calculation_child_access_metadata_fields")
         self.recheck_access()

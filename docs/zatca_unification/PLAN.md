@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment133 composes invoice-control inspection on the SAME saved financial/
+defaults service. Reuse extracted financial graph READ, including empty-table
+and field checks; bind initial and fresh invoice definitions/levels/owner and
+canonical Check getters through cleanup. Acquire no unused child-link/global/
+format/method source, change no raw amounts and preserve existing child entry
+contracts. Active policy, fraction/method/ERP amount provenance and release gates
+remain. See [INVOICE_ROUNDING_ACCESS.md](INVOICE_ROUNDING_ACCESS.md).
+
 Increment132 adds native optional invoice rounding controls bound to the existing
 financial graph. Prove metadata and physical column membership, exact overlapping
 definitions/values/descriptors and original revision; retain raw Check/amount

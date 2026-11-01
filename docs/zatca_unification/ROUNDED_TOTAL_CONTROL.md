@@ -130,5 +130,11 @@ Increment132 adds bound native invoice controls and physical-column evidence in
 and normalized getters remain distinct, so neither source changes the old
 financial declaration or fabricates a complete normalized calculation graph.
 
+Increment133 adds the optional permissioned invoice-control operation described
+in [INVOICE_ROUNDING_ACCESS.md](INVOICE_ROUNDING_ACCESS.md). It binds selected
+normal Check getters and native controls with the existing financial graph and
+shared cleanup. This remains inspection, without an active rounding branch or
+Global Defaults/fraction/method acquisition.
+
 See [STATUS.md](STATUS.md) for observed verification and
 [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md) for the current deployment/send ban.

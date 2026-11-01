@@ -9,10 +9,10 @@ metadata, physical columns and the original invoice revision. It reuses the
 financial reader's bounded SQL projection; no second generic SQL reader, amount
 calculator, settings resolver or transaction/cleanup engine is introduced.
 
-Current callers are `tests/test_invoice_rounding_source.py` and its `_mariadb`
-suite, both in the reviewed offline manifest. Retain this stage for composition
-into the SAME saved calculation service with ordinary selected-field READ and
-normal document/API observations. Integration or removal is required before
+Current callers are `calculation_invoice_rounding_access.InvoiceRoundingAcquisition`
+and the source/access test suites in the reviewed offline manifest. Increment133
+composes this stage into the SAME saved calculation service with ordinary graph/
+selected-field READ and original/fresh Check getters. Integration or removal is required before
 runtime promotion; it is not evidence of a completed source graph or an installed
 invoice hook, RPC, provider, XML/QR/signing or submission path.
 
@@ -94,9 +94,10 @@ values, pending edits without modified changes, parent-work preservation and
 value/metadata locks through caller rollback. No tenant data or tax-authority
 request is used.
 
-Next require ordinary invoice/table/field READ and bind initial authorized normal
-document getters, metadata and permission levels in the existing owned service.
-Then choose consumed dependencies in controller guard order: consolidation and
+Ordinary invoice/table/field READ and binding of initial authorized normal Check
+getters, metadata and permission levels are now composed in increment133; see
+[INVOICE_ROUNDING_ACCESS.md](INVOICE_ROUNDING_ACCESS.md).
+Next choose consumed dependencies in controller guard order: consolidation and
 existing adjustment, rounded-field presence, invoice Check presence, conditional
 Global Defaults, then actual invoice Currency fraction and method. Keep cache,
 provider and all-source rechecks through cleanup; do not attach an unconsumed
