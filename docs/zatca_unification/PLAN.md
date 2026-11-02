@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment138 adds complete selected real-number getter views bound to native
+financial evidence. SAVED preserves raw type/scale/sign/NULL; explicit fixed
+observations compare only the framework's precision-free representation. Compose
+saved header/direct-child/reference equality on the SAME owned financial service,
+reusing graph READ, metadata, native SQL and cleanup with no extra native query/provider.
+Preserve all native/profile bytes; no document fix or fiscal math is introduced.
+Actual controller-stage provenance, effective settings and accounting/XML gates
+remain. See [FINANCIAL_NUMERIC_VIEWS.md](FINANCIAL_NUMERIC_VIEWS.md).
+
 Increment137 distinguishes ordinary saved Check getters from explicit numeric-
 fix projections in actual15/pinned16 scalar loading. Bind observed None only to
 proved native NULL/absence, retain exact saved values and the old strict fixed

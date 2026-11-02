@@ -95,3 +95,8 @@ separately approved fictional-Company rehearsal and adoption decision. Live
 changes and authority requests remain prohibited. See [STATUS.md](STATUS.md),
 [ROUNDED_TOTAL_ACCESS.md](ROUNDED_TOTAL_ACCESS.md) and
 [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md).
+
+Increment138 adds selected real-number SAVED getter acquisition on the same
+financial service and explicit supplied numeric-fix comparisons; see
+[FINANCIAL_NUMERIC_VIEWS.md](FINANCIAL_NUMERIC_VIEWS.md). It does not invoke numeric
+fixing on a captured document or treat a representation witness as fiscal math.

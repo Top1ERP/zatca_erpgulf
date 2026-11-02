@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and thirty-seven bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and thirty-eight bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -3749,6 +3749,65 @@ occurred. Monetary equality/normalization, controller overrides/setup and child/
 lazy/default/cache/precision/FX/GL/VAT/advance/XML/QR/signature/browser evidence,
 provider/role/caller/dead-code/performance and installed15/16/SDK gates remain
 before separately approved fictional-Company rehearsal and adoption/cancellation.
+
+## Increment 138: native-bound saved and explicit fixed numeric views
+
+- Add InvoiceNumericView for the applied financial metadata's real-valued fields
+  across header/items/taxes/payments/advances/deductions. SAVED requires exact raw
+  type/scale/sign/NULL. Explicit NUMERIC_FIXED observations match precision-free
+  Currency/Float/Percent conversion, retaining NULL and unchanged Rating/Duration.
+  Keep native originals/profile bytes and distinguish representation from math.
+- Validate a complete ordered saved-row/field getter set, with no omitted/rebound
+  cells, type repair, tolerance, tax/currency rounding or XML conversion. A valid
+  large native Decimal's derived float can exceed the raw-float bound; compare
+  that finite hex witness in the new profile without weakening old raw scalars.
+- Add optional capture_numeric_context on the SAME financial/defaults service.
+  Reuse FinancialGraphAccess, ordinary record/table/row/field READ, native data,
+  final SQL checks, cleanup and one existing translated summary. No new native
+  query, connection owner, settings/cache provider, RPC, hook or runtime writer.
+  Ordinary Frappe document reloads remain part of READ rechecks, not a no-I/O claim.
+- Bind original/fresh saved header, direct child and embedded reference getters,
+  selected full definitions/types and table/revision membership. Reject equal-
+  valued but type/scale/sign-different data, inconsistent child views, late source/
+  getter/metadata/ACL drift and fresh objects hiding an altered original.
+- Reconstruct the saved financial/context/default/view/table binding. Protected
+  repr and refused serialization remain. Explicit supplied fixed comparisons
+  do not attest the actual caller stage or run a numeric fix on an ERP document.
+  Scope, callers and closing gates are recorded in
+  [FINANCIAL_NUMERIC_VIEWS.md](FINANCIAL_NUMERIC_VIEWS.md).
+
+Initial local verification passed **111 cases in 30.07s**. Initial new native
+verification passed **60 cases in 45.00s**, including populated payment/advance/
+deduction rows, both Sales/POS and declared15/16/isolation levels, late callback
+source mutation refusal, rollback/close and caller pending-work preservation.
+Additional actual15/pinned16 field-type/NULL/large-float probes and metadata/
+version/interrupt checks are included in the final affected run below.
+
+Final affected-suite verification passed **1,236 cases in 594.48s (9m54s)**:
+**1,176 local + 60 native** across **eight local and one private SQL suite**,
+including **207 new cases: 147 local + 60 native**. All prior selected financial/
+child/control/consumed-rounding/defaults APIs and offline guard/manifest checks
+passed. The final run includes five real field types, actual15/pinned16 fixing,
+NULL/sign/scale/large-derived-float checks, metadata/version/interrupt gates and
+populated payment/advance/deduction native fixtures. External network/site init
+remained denied; SQL was NEW guard-owned TCP-disabled temporary fixture only.
+The full manifest now has 143 local and 36 private suites; the nine affected
+suites above, not a new whole-manifest run, provide this increment's final evidence.
+
+All thirteen old capture method ASTs remain unchanged; the new operation has no
+server dependency beyond the existing financial pipeline. Native financial SQL,
+source/profile/oracle bytes, amount calculators, XML/QR/signing and frontend are
+unchanged. The earlier **26,647-case** full rehearsal remains historical; no new
+full/Node/browser/installed16/SDK/remote acceptance result is implied.
+No eager relative-import cycle exists across forty-eight reachable modules.
+
+Live remains the independent ba51f25 Phase-1 address hotfix. No installed app,
+site/config/schema/Company/credential, Bench/worker or authority operation occurs.
+Actual controller/caller stage provenance and child/lazy behavior, effective
+precision/cache/default/FX sources, tax/discount/GL/VAT/advance/XML/QR/signature/
+browser parity, whole-worker/custody integration and provider/role/caller/dead-
+code/performance/installed15/16/SDK gates remain before separately approved
+fictional-Company rehearsal and adoption/cancellation decisions.
 
 ## Verification
 

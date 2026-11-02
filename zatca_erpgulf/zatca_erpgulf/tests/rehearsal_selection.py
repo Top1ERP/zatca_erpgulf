@@ -1,6 +1,8 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "financial_numeric_view",
+    "calculation_numeric_access",
     "invoice_check_loading",
     "calculation_rounded_total_access",
     "calculation_fraction_access",
@@ -106,6 +108,7 @@ LOCAL_SUITES = (
     "zatca_response", "compatibility_hardening",
 )
 PRIVATE_SUITES = (
+    "calculation_numeric_access_mariadb",
     "calculation_rounded_total_access_mariadb",
     "calculation_fraction_access_mariadb",
     "currency_fraction_source_mariadb",
