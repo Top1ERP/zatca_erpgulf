@@ -18,6 +18,11 @@ fixing skips a NULL monetary getter. It is not precision rounding, quantization,
 currency/VAT calculation or XML formatting. Preserve native Decimal amounts and
 their hashes unchanged; no ERP document or database value is fixed or replaced.
 
+Increment139 characterizes the distinct precision-rounding operation and adds
+an explicit scalar primitive; see [FIELD_ROUNDING.md](FIELD_ROUNDING.md).
+In particular, round_floats_in converts NULL to zero and uses owner precision.
+Neither fact changes these two existing stages or promotes them to fiscal math.
+
 `from_values(financial, stage=..., values=...)` requires the exact ordered tuple
 of (group, saved row name, fieldname, observed value) entries, covering every
 selected field of every native row. Unknown, duplicate, missing, reordered or

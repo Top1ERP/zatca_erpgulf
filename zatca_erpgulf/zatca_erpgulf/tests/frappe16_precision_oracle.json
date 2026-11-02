@@ -13,6 +13,11 @@
     },
     "model/document.py": {
       "sha256": "4c1bf95413517c7deed5ae2edd24a38cadf0e21869e0710c80ad62aaada459b3",
+      "field_rounding": {
+        "excerpts": {
+          "round_floats_in": "def round_floats_in(self, doc, fieldnames=None, do_not_round_fields=None):\n\t\"\"\"Round floats for all `Currency`, `Float`, `Percent` fields for the given doc.\n\n\t:param doc: Document whose numeric properties are to be rounded.\n\t:param fieldnames: [Optional] List of fields to be rounded.\"\"\"\n\tif not fieldnames:\n\t\tfieldnames = (\n\t\t\tdf.fieldname\n\t\t\tfor df in doc.meta.get(\"fields\", {\"fieldtype\": [\"in\", [\"Currency\", \"Float\", \"Percent\"]]})\n\t\t)\n\n\t# PERF: flt internally has to resolve this if we don't specify it.\n\trounding_method = frappe.get_system_settings(\"rounding_method\")\n\tfor fieldname in fieldnames:\n\t\tif do_not_round_fields and fieldname in do_not_round_fields:\n\t\t\tcontinue\n\n\t\tdoc.set(\n\t\t\tfieldname,\n\t\t\tflt(\n\t\t\t\tdoc.get(fieldname),\n\t\t\t\tself.precision(fieldname, doc.get(\"parentfield\")),\n\t\t\t\trounding_method=rounding_method,\n\t\t\t),\n\t\t)"
+        }
+      },
       "saved_loading": {
         "cached_properties": [
           "meta",

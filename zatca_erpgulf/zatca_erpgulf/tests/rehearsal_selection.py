@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "field_rounding",
     "financial_numeric_view",
     "calculation_numeric_access",
     "invoice_check_loading",

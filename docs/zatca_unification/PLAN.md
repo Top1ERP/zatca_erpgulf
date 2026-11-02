@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment139 adds a pure explicit versioned field-rounding primitive, sharing
+the unchanged legacy kernel and retaining verified15/16 Banker's/Commercial
+differences. Compare real numeric helpers and Document.round_floats_in for NULL,
+owner precision, default/explicit field order, upfront setting lookup and16 skip
+semantics. No runtime registration or source-profile change. Bind actual caller
+stage/effective precision-cache/source provenance before adopting it for amounts,
+tax, advances or XML. See [FIELD_ROUNDING.md](FIELD_ROUNDING.md).
+
 Increment138 adds complete selected real-number getter views bound to native
 financial evidence. SAVED preserves raw type/scale/sign/NULL; explicit fixed
 observations compare only the framework's precision-free representation. Compose

@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and thirty-eight bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and thirty-nine bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -3806,6 +3806,49 @@ site/config/schema/Company/credential, Bench/worker or authority operation occur
 Actual controller/caller stage provenance and child/lazy behavior, effective
 precision/cache/default/FX sources, tax/discount/GL/VAT/advance/XML/QR/signature/
 browser parity, whole-worker/custody integration and provider/role/caller/dead-
+code/performance/installed15/16/SDK gates remain before separately approved
+fictional-Company rehearsal and adoption/cancellation decisions.
+
+## Increment 139: explicit versioned field-rounding primitive
+
+- Add pure round_field_value with supplied version, precision and method. Reuse
+  existing method names and numeric scalar bounds, allow the derived float1e64
+  boundary, preserve upstream result type/bits/sign and reject invalid inputs
+  with a static English diagnostic rather than silently coercing them to zero.
+  Native data, all old financial/profile bytes and acquisition APIs are unchanged.
+- Share the identical upstream legacy algorithm once; retain verified15/16
+  Banker's and Commercial differences, including16 ULP/exact-Decimal behavior.
+  Retain MIT attribution and full notice. No installed helper is silently used
+  for the other declared version and no generic Decimal rule replaces them.
+- Add a verbatim round_floats_in peer excerpt to the already pinned16 oracle,
+  preserving every old excerpt. Execute actual15/pinned16 bodies with synthetic
+  documents to characterize parent-owned precision, NULL-to-zero, default versus
+  explicit field order, upfront method lookup even without processed fields,
+  missing-field conversion and16-only skipping. Keep these semantics distinct
+  from the previous explicit NUMERIC_FIXED view, which preserves NULL.
+- Test tie neighbors, negative values, signed zero, subnormals, native Decimal
+  scale/large-value boundaries, precisionNone/0/1/2/9/64 and consumed precision
+  resolution. Verify16 Decimal context restoration, strict invalid-domain
+  refusal, upfront setting failure and unexecuted unknown-method cases.
+  The core makes no source/cache/transaction/controller-stage authority claim.
+- Document purpose, supported domain, provenance, staged caller and adoption
+  gate in [FIELD_ROUNDING.md](FIELD_ROUNDING.md); update the functional map and
+  stage guidance. The only new caller is the offline suite, not a runtime writer.
+
+Initial new-suite verification passed **721 cases in 1.00s**. After adding
+subnormal/negative-boundary/Decimal-boundary and effective-zero-default probes,
+final affected verification passed **1,688 cases in 13.95s**, including **833 new
+cases**, across six local suites: field rounding, method selection, precision,
+numeric views, saved Check loading and offline guard/manifest. The guard denied
+external network/site initialization. No native SQL suite was needed for this
+pure change; no new full-manifest/Node/browser/installed16/SDK/remote acceptance
+claim is made. The manifest now contains 144 local and 36 private SQL suites.
+
+Live remains the independent ba51f25 Phase-1 address hotfix. No installed app,
+site/config/schema/Company/credential, Bench/worker or authority operation occurs.
+Actual caller-stage/effective precision/cache provenance must next be bound to
+the owned source/settings pipeline. Complete tax/discount/GL/VAT/advance/XML/QR/
+signature parity, whole-worker/custody integration and provider/role/caller/dead-
 code/performance/installed15/16/SDK gates remain before separately approved
 fictional-Company rehearsal and adoption/cancellation decisions.
 
