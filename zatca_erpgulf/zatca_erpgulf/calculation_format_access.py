@@ -212,7 +212,8 @@ SavedInvoiceCurrencyRead = SavedFieldCurrencyRead
 class FormatAcquisition:
     """Compose normal related READ, locale/currency guards and one SQL reader."""
 
-    def __init__(self, policy, actor, invoice_name, doctype, metadata_reader, cache_reader, *, currency_scope="invoice", child_source=None):
+    def __init__(self, policy, actor, invoice_name, doctype, metadata_reader, cache_reader, *, currency_scope="invoice", child_source=None,
+            require_fields=False):
         if not callable(metadata_reader) or not callable(cache_reader) or currency_scope not in ("invoice", "company", "child"):
             raise CalculationFormatAccessError("calculation_format_access_dependencies")
         if currency_scope == "child":
@@ -222,6 +223,9 @@ class FormatAcquisition:
         elif child_source is not None:
             raise CalculationFormatAccessError("calculation_format_access_dependencies")
         self._child_source = child_source
+        if type(require_fields) is not bool:
+            raise CalculationFormatAccessError("calculation_format_access_dependencies")
+        self._require_fields = require_fields
         self._policy, self._actor, self._cache, self._metadata = policy, actor, cache_reader, metadata_reader
         self._runtime = policy._dependencies()[0]
         self.language = _name(getattr(self._runtime.local, "lang", None))
@@ -232,6 +236,7 @@ class FormatAcquisition:
         self.currency_scope, self.company_source = currency_scope, None
         self._company_load, _ = policy._saved_record_access(actor)
         company = self._company_load("Company", self.company_name) if currency_scope == "company" else None
+        self._company_level = self._company_field_level(company) if require_fields and company is not None else None
         self.currency = _name(company.get("default_currency")) if company is not None else self.invoice_currency
         if child_source is not None:
             self.currency = child_source.currency
@@ -243,7 +248,7 @@ class FormatAcquisition:
         load("System Settings", "System Settings")
         self.rows, _, self._related_recheck = finalize()
         self._related_load = load
-        self._field_levels = self._related_field_levels() if child_source is not None else None
+        self._field_levels = self._related_field_levels() if child_source is not None or require_fields else None
         # A missing child currency permits locale-only context only when the
         # saved system flag disables currency formats. Refuse before providers.
         _row_context(self.rows)
@@ -260,11 +265,19 @@ class FormatAcquisition:
             raise CalculationFormatAccessError("calculation_format_access_currency_drift")
         if self.currency_scope == "company" and self._company_load("Company", self.company_name).get("default_currency") != self.currency:
             raise CalculationFormatAccessError("calculation_format_access_company_currency_drift")
+        if self._require_fields and self.currency_scope == "company":
+            if self._company_field_level(self._company_load("Company", self.company_name)) != self._company_level:
+                raise CalculationFormatAccessError("calculation_format_access_field_drift")
         self._related_recheck()
         if self._child_source is not None:
             self._child_source.recheck_access()
+        if self._child_source is not None or self._require_fields:
             if self._related_field_levels() != self._field_levels:
                 raise CalculationFormatAccessError("calculation_format_access_field_drift")
+
+    def _company_field_level(self, company):
+        from .calculation_child_format_access import require_field_read
+        return require_field_read(company, "default_currency", self._actor, self._runtime, self._policy.DENIED_MESSAGE)
 
     def _related_field_levels(self):
         from .calculation_child_format_access import require_field_read

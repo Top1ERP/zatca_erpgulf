@@ -122,6 +122,12 @@ def _pin_currency(context):
         context.use_currency_format, context.currency, context.currency_number_format)
 
 
+def _requires_currency_format(definition, defaults, major):
+    """Exact lazy dependency branch; inputs are already pinned declarations."""
+    return (major == 16 and definition is not None and definition.fieldtype == "Currency"
+        and not definition.get("precision") and _default(defaults, "currency_precision") in (None, ""))
+
+
 def _resolve(definition, defaults, major, context):
     if definition is None:
         return None, "ABSENT_FIELD"
@@ -142,7 +148,7 @@ def _resolve(definition, defaults, major, context):
         return FORMAT_PRECISIONS.get(number_format, 2), "SITE_NUMBER_FORMAT"
     # Version 16 preserves configured zero and malformed-but-present text's cint
     # result. Only None/blank falls through to the locale/currency format branch.
-    if raw not in (None, ""):
+    if not _requires_currency_format(definition, defaults, major):
         return precision, "CURRENCY_DEFAULT"
     if context is None:
         raise ValueError

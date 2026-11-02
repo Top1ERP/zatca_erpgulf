@@ -534,7 +534,8 @@ class SavedCalculationDefaultsService:
                     raise CalculationDefaultsAccessError("calculation_financial_extension_profile")
                 if field_rounding_target is not None:
                     financial_extension = FieldRoundingAcquisition(policy, actor, invoice_name, doctype,
-                        field_rounding_target, self._rounding_metadata, self._rounding_cache)
+                        field_rounding_target, self._rounding_metadata, self._rounding_cache,
+                        format_metadata=self._format_metadata, format_cache=self._format_cache)
                 elif include_numeric:
                     financial_extension = NumericAcquisition(policy, actor, invoice_name, doctype)
                 elif include_rounded_total:
@@ -634,6 +635,9 @@ class SavedCalculationDefaultsService:
             reader = MariaDBCalculationDefaultsReader(connection)
             observed = reader.load_for_update(parent)
             observed.require_cache_match(parent, self._cache(policy._scope, parent))
+            if field_rounding_target is not None:
+                observed_extension = financial_extension.complete_defaults(connection, observed_extension,
+                    observed, context_metadata[0])
             def build_result():
                 captured = SavedCalculationDefaultsRead(policy._scope, actor[1], rows, observed)
                 if include_metadata:

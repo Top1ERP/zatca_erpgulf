@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and forty bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and forty-one bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -3909,6 +3909,65 @@ remain next, followed by complete tax/discount/GL/VAT/advance/XML/QR/signature
 parity, whole-worker/custody integration and provider/role/caller/dead-code/
 performance/installed15/16/SDK gates before separately approved fictional-Company
 rehearsal and adoption/cancellation decisions.
+
+## Increment 141: lazy owner-field Currency formats on the same pipeline
+
+- Complete standard invoice-currency and Company-base-currency formats in the
+  existing selected-field capture, including parent-owned child-field precision.
+  Share the pure resolver's exact fallback selector and select only after native
+  site defaults on THIS owned handle. Version15, explicit/configured precision
+  and Float/Percent skip format providers; no new capture API or source reader.
+- Compose existing FormatAcquisition/native format/Company/cache components with
+  opt-in normal related-field READ. Preserve existing caller defaults and direct-
+  child checks. Pin metadata, formats, locale, Company link/revision, default,
+  method and financial evidence through final checks/cleanup on one owner.
+- Reuse cache-state helpers to sample the original parent's field_currency key,
+  also for a child definition. Pin container/bucket identities and selected slot;
+  reject stale/blocked entries, replacements and mid-read warmup without calling
+  currency/precision helpers or populating a cache. Preserve absence/NULL states.
+- Bind optional SavedFieldCurrencyRead to the exact numeric/method/default
+  context, and use its field-option validation/precision resolver. Keep locale
+  fallback for disabled/missing flags and NULL/blank Currency formats. Compare
+  existing owner precision against that fresh result. Source profiles, oracle
+  bytes, fiscal writers, XML/QR/signing and frontend remain unchanged.
+- Add real installed15/pinned16 owner-key probes and unit/native composition
+  checks. Document the supported two option branches and remaining active-
+  controller/API-cache/unknown-option/batching/performance gates in
+  [FIELD_ROUNDING.md](FIELD_ROUNDING.md). No runtime provider or issuance path.
+
+Initial new local verification passed **90 cases in 86.66s**; initial native
+verification passed **58 cases in 82.14s**. Final distinct affected verification
+passed **1,436 cases: 1,362 local + 74 native**, including **192 new cases:
+118 local + 74 native**, across eight local and one private SQL suite.
+The main local run passed **1,356 in 646.16s (10m46s)** and the native run passed
+**70 in 99.23s (1m39s)**. Added locale-only probes were then run separately:
+**6 local in 8.72s (112 deselected)** and **4 native in 9.17s (70 deselected)**.
+These additional selections are disjoint from those main runs, not duplicate
+counts or a second whole-manifest rehearsal.
+
+Evidence covers both normal ACL signatures and declared versions, Sales/POS,
+root/parent-owned child invoice/base currency, exact owner cache keys, cached
+precision, related-field READ, locale/metadata/native/callback/cleanup drift,
+native method/default/Company/amount mutations with rollback, absent/zero flag,
+NULL/blank Currency format, interrupted callbacks and caller-owned pending work.
+Real installed15/pinned16 helpers confirm the cache owner key; they are not a
+complete installed16 runtime. Old selected-field, precision, format, field-
+currency, direct-child format/cache and guard suites pass. External network/site
+initialization remained denied; SQL used NEW guard-owned TCP-disabled temporary
+servers only. No new full/Node/browser/SDK/authority acceptance claim is made.
+
+All fifteen public capture method ASTs remain unchanged; there is no eager
+relative-import cycle across forty-nine reachable modules. The manifest now
+contains146 local and38 private suites. No native reader/profile/oracle bytes,
+writer, XML/QR/signing or frontend was changed. Whole-file/caller/dead-code and
+runtime-provider/performance review remain open; test volume does not close them.
+
+Live remains the independent ba51f25 Phase-1 address hotfix. No installed app,
+site/config/schema/Company/credential, Bench/worker or authority operation occurs.
+Actual controller/cache/API-provider provenance, unsupported owner-currency
+patterns, full tax/discount/GL/VAT/advance/XML/QR/signature parity, worker/custody
+integration and caller/dead-code/performance/installed15/16/SDK gates remain
+before separately approved fictional-Company rehearsal and adoption decisions.
 
 ## Verification
 

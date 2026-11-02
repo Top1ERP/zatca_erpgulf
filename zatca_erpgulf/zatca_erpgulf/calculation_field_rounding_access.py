@@ -1,17 +1,20 @@
 """One owned numeric/default/method read with a selected owner precision cache.
 
 Reuse existing acquisition lifecycles; do not combine independent captures or
-call precision(), controllers, writes or HTTP. Currency-format fallback remains
-unsupported here until its owner-field provenance is acquired on this pipeline.
+call precision(), controllers, writes or HTTP. Acquire owner-field formats only
+on the v16 fallback branch, after the same handle has captured native defaults.
 """
 
 from dataclasses import dataclass, field
+import json
 import math
 
 from .calculation_numeric_access import NumericAcquisition, SavedFinancialNumericRead
-from .calculation_child_cache import _precision
+from .calculation_child_cache import _precision, _MISSING, _state, _bucket, _slot
 from .calculation_rounding_access import RoundingAcquisition, SavedRoundingContext
-from .calculation_precision import FieldPrecisionResolution
+from .calculation_precision import FieldPrecisionResolution, _requires_currency_format
+from .calculation_defaults import _fold
+from .calculation_format_access import FormatAcquisition, SavedFieldCurrencyRead
 from .child_field_currency import ABSENT
 from .financial_numeric_view import FIXED_TYPES, _native_cells
 from .financial_source_observation import TABLE_FIELDS, _child_type, _name, _validate_scalar
@@ -48,14 +51,19 @@ def _target(target, schema, root_type, root_name, tables):
 class FieldRoundingAcquisition:
     """Compose one shared graph and existing System-setting acquisition."""
 
-    def __init__(self, policy, actor, invoice_name, doctype, target, metadata_reader, cache_reader):
+    def __init__(self, policy, actor, invoice_name, doctype, target, metadata_reader, cache_reader, *,
+            format_metadata=None, format_cache=None):
         self.root = NumericAcquisition(policy, actor, invoice_name, doctype)
+        self._actor = actor
         self.tables = self.root.tables
         self.target = _target(target, self.root.schema, doctype, invoice_name, self.tables)
         self.parentfield = target[0]
         self.owner_document = id(self.root.document)
         self.cache = self._cache()
         self.method = RoundingAcquisition(policy, actor, metadata_reader, cache_reader, None)
+        self.formats = None
+        self.currency_cache = None
+        self._format_metadata, self._format_cache = format_metadata, format_cache
         self.recheck_access()
 
     def _cache(self):
@@ -66,6 +74,22 @@ class FieldRoundingAcquisition:
         if id(self.root.document) != self.owner_document or self._cache() != self.cache:
             raise FieldRoundingAccessError("field_rounding_owner_cache_changed")
         self.method.recheck_access()
+        if self.currency_cache is not None and self._currency_cache() != self.currency_cache:
+            raise FieldRoundingAccessError("field_rounding_currency_cache_changed")
+        if self.formats is not None:
+            self.formats.recheck_access()
+
+    def _currency_cache(self):
+        doc = self.root.document
+        # The owner is a root invoice, never a child-shaped document with an
+        # unproved parent/parenttype fallback or an in-memory parent_doc.
+        if doc.get("parent") or doc.get("parenttype"):
+            raise FieldRoundingAccessError("field_rounding_currency_owner")
+        runtime = self.root._policy._dependencies()[0]
+        mapping = getattr(runtime.local, "field_currency", _MISSING)
+        state = _state(mapping, nullable=True)
+        bucket = _MISSING if mapping is _MISSING or mapping is None else _bucket(mapping, (doc.doctype, doc.name))
+        return (state, _state(bucket)), _slot(bucket, self.target[2])
 
     def prepare_metadata(self):
         self.root.prepare_metadata()
@@ -80,47 +104,93 @@ class FieldRoundingAcquisition:
         method = self.method.load_for_update(connection)
         self.method.check_cache(method)
         self.recheck_access()
-        return view, method
+        return view, method, None
+
+    def complete_defaults(self, connection, observed, defaults, company_metadata):
+        """Select lazy formats only after native site defaults on THIS handle."""
+        view, method, unused = observed
+        if unused is not None or self.formats is not None:
+            raise FieldRoundingAccessError("field_rounding_format_stage")
+        native = view.financial
+        doctype = native.financial.doctype if self.parentfield is None else _child_type(native.financial.doctype, self.parentfield)
+        meta = next(row.applied for row in native.metadata if row.applied.name == doctype)
+        definition = meta.get_field(self.target[2])
+        if not _requires_currency_format(definition, _fold(json.loads(defaults._payload)["rows"]), native.financial.erp_major):
+            return observed
+        scope = {"currency": "invoice", "Company:company:default_currency": "company"}.get(definition.options)
+        if scope is None:
+            raise FieldRoundingAccessError("field_rounding_currency_options")
+        self.currency_cache = self._currency_cache()
+        policy = self.root._policy
+        self.formats = FormatAcquisition(policy, self._actor, self.root._name, self.root._doctype,
+            self._format_metadata, self._format_cache, currency_scope=scope, require_fields=True)
+        self.formats.require_financial_currency(native.financial)
+        if scope == "company":
+            self.formats.load_company_currency(connection, company_metadata)
+        formats = self.formats.load_for_update(connection)
+        self.formats.check_cache(formats)
+        self.recheck_access()
+        return view, method, formats
 
     def check_getters(self, observed):
-        view, method = observed
+        view, method, formats = observed
         self.root.check_getters(view)
         self.method.check_cache(method)
+        if (self.formats is None) != (formats is None):
+            raise FieldRoundingAccessError("field_rounding_format_binding")
+        if self.formats is not None:
+            self.formats.check_cache(formats)
         self.recheck_access()
 
     def require_metadata_unchanged(self):
         self.root.require_metadata_unchanged()
         self.method.require_metadata_unchanged()
+        if self.formats is not None:
+            self.formats.require_metadata_unchanged()
         self.recheck_access()
 
     def require_unchanged(self, observed):
         # All trusted cache/metadata callbacks precede the parent's final SQL
         # checks. Reuse each source's final reader without another provider.
-        view, method = observed
+        view, method, formats = observed
         self.root.require_unchanged(view)
         self.method.require_unchanged(method)
+        if self.formats is not None:
+            if self.formats.company_source is not None:
+                self.formats.company_reader.require_unchanged(self.formats.company_source)
+            self.formats.reader.require_unchanged(formats)
         self.recheck_access()
 
     def build_result(self, financial, observed):
-        view, method = observed
+        view, method, formats = observed
         numeric = SavedFinancialNumericRead(financial, view, self.tables)
         context = SavedRoundingContext(financial.context, view.financial.financial.erp_major,
             None, method, self.method.rows)
-        return SavedFieldRoundingRead(numeric, context, self.target, self.owner_document, self.cache)
+        currency = None if self.formats is None else SavedFieldCurrencyRead(financial,
+            self.formats.rows, formats, self.formats.company_source)
+        return SavedFieldRoundingRead(numeric, context, self.target, self.owner_document, self.cache,
+            currency, self.currency_cache)
 
 
-def _require_cache(cache, resolution):
+def _cache_slot(cache, *, allow_null=False):
     if type(cache) is not tuple or len(cache) != 2:
         raise ValueError
     states, slot = cache
     if type(states) is not tuple or len(states) != 2 or type(slot) is not tuple:
         raise ValueError
-    for state in states:
+    for index, state in enumerate(states):
+        if allow_null and index == 0 and state == ("null",):
+            continue
         if state != ABSENT and (type(state) is not tuple or len(state) != 2 or state[0] != "dict"
                 or type(state[1]) is not int or not 0 < state[1] < 2**64):
             raise ValueError
-    if states[0] == ABSENT and states[1] != ABSENT or states[1] == ABSENT and slot != ABSENT:
+    if states[0] in (ABSENT, ("null",)) and states[1] != ABSENT or states[1] == ABSENT and slot != ABSENT:
         raise ValueError
+    return slot
+
+
+def _require_cache(cache, resolution):
+    slot = _cache_slot(cache)
     if slot != ABSENT:
         resolution.require_cached_match(_validate_scalar(list(slot)))
 
@@ -147,6 +217,8 @@ class SavedFieldRoundingRead:
     target: tuple = field(repr=False)
     owner_document: int = field(repr=False)
     cache: tuple = field(repr=False)
+    formats: SavedFieldCurrencyRead | None = field(default=None, repr=False)
+    currency_cache: tuple | None = field(default=None, repr=False)
     precision: FieldPrecisionResolution = field(init=False, repr=False)
     rounded_value: int | float = field(init=False, repr=False)
 
@@ -173,9 +245,25 @@ class SavedFieldRoundingRead:
             if _target(supplied, schema, native.financial.doctype, native.financial.name, numeric.tables) != self.target:
                 raise ValueError
             cell = next(cell for cell in _native_cells(native) if cell[:3] == self.target)
-            # v16 format-dependent precision deliberately fails closed here;
-            # do not substitute the invoice currency for a child owner's field.
-            precision = numeric.financial.resolve_precision(doctype, name)
+            needs_formats = _requires_currency_format(meta.get_field(name),
+                _fold(json.loads(numeric.financial.context.settings.defaults._payload)["rows"]), method.erp_major)
+            formats = None
+            if needs_formats:
+                if type(self.formats) is not SavedFieldCurrencyRead:
+                    raise ValueError
+                formats = SavedFieldCurrencyRead(self.formats.financial, self.formats.related,
+                    self.formats.formats, self.formats.company_currency)
+                if formats != self.formats or formats.financial != numeric.financial:
+                    raise ValueError
+                parentfield = None if group == "header" else group
+                precision = formats.resolve_precision(name, parentfield=parentfield)
+                cached = _cache_slot(self.currency_cache, allow_null=True)
+                if cached != ABSENT:
+                    formats.require_field_currency_match(name, _validate_scalar(list(cached)), parentfield=parentfield)
+            else:
+                if self.formats is not None or self.currency_cache is not None:
+                    raise ValueError
+                precision = numeric.financial.resolve_precision(doctype, name)
             _require_cache(self.cache, precision)
             result = round_field_value(_validate_scalar(cell[4]), precision=precision.precision,
                 method=method.method, erp_major=method.erp_major)
@@ -187,13 +275,15 @@ class SavedFieldRoundingRead:
             raise FieldRoundingAccessError("field_rounding_saved_result")
         object.__setattr__(self, "numeric", numeric)
         object.__setattr__(self, "method", method)
+        object.__setattr__(self, "formats", formats)
         object.__setattr__(self, "precision", precision)
         object.__setattr__(self, "rounded_value", result)
 
     def require_result_match(self, value):
         """Compare an explicitly supplied stage result, never read/mutate it."""
         try:
-            pinned = SavedFieldRoundingRead(self.numeric, self.method, self.target, self.owner_document, self.cache)
+            pinned = SavedFieldRoundingRead(self.numeric, self.method, self.target, self.owner_document, self.cache,
+                self.formats, self.currency_cache)
             if (pinned != self or _result_tag(self.rounded_value) != _result_tag(pinned.rounded_value)
                     or _result_tag(value) != _result_tag(pinned.rounded_value)):
                 raise ValueError

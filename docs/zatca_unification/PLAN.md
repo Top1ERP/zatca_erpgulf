@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment141 completes lazy v16 format acquisition for the two standard owner-
+field Currency option branches on the SAME field-rounding pipeline, after native
+site defaults. Reuse precision selection, normal field READ, format/Company SQL
+and cache/cleanup logic; pin the parent's field_currency cache key without
+population and keep locale fallback. No new capture API or runtime activation.
+Active controller/API-cache provenance, unsupported option/currency patterns,
+batching/performance and full fiscal parity remain. See [FIELD_ROUNDING.md](FIELD_ROUNDING.md).
+
 Increment140 composes a selected saved field's numeric/native graph, site
 defaults, System method and original owner's existing precision cache on ONE
 owned pipeline. Calculate only the selected comparison result, with exact type/

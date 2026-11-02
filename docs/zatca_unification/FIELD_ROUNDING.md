@@ -1,4 +1,4 @@
-# Versioned field rounding — increment139, 2026-11-02
+# Versioned field rounding and source bridge — 2026-11-02
 
 ## Purpose and boundary
 
@@ -129,8 +129,8 @@ result by type and float bits, rechecking reconstruction; Decimal/float/int
 equivalence and opposite signed zero do not pass. Protected repr and refused
 serialization keep this result out of normal UI/log/queue payloads.
 
-Version16 Currency precision needing locale/currency-format fallback is
-deliberately unsupported by this bridge. It fails through the existing single
+At increment140, Version16 Currency precision needing locale/currency-format
+fallback was deliberately unsupported. It failed through the existing single
 localized financial summary; it does not substitute invoice currency for the
 owner field's currency. Configured site precision, explicit field precision and
 Float/Percent precision do not need that missing dependency. Owner-field format
@@ -143,6 +143,61 @@ check consistency of supplied evidence, not independent atomic-origin proof or
 continued freshness after disclosure. Future runtime composition must audit
 providers and bind the active controller, field/currency and full amount stage.
 Final test counts and SQL isolation evidence are recorded in STATUS.md.
+
+## Lazy owner-field formats — increment141
+
+The same capture API now completes the two standard owner-field Currency format
+branches. Reuse `_requires_currency_format` in the pure precision resolver and
+the acquisition, so version15, Float/Percent, explicit field precision and a
+configured16 currency precision (including zero/malformed-but-present text)
+never acquire these format dependencies. No new capture/RPC/provider is added.
+
+After native site defaults on the SAME owned handle, `complete_defaults` chooses
+the option from the native field definition: `currency` means the parent invoice
+currency; `Company:company:default_currency` means its Company's base currency.
+The child row's own currency/Company is not the input to parent.precision().
+Unknown/blank option patterns and unresolved currencies remain unsupported.
+
+Reuse `FormatAcquisition`, its metadata/cache readers, normal related READ and
+native format/Company readers, with an opt-in field READ check. Authorize selected
+Currency/Language/System Settings fields and Company.default_currency before
+their format providers. Existing callers retain the previous default; direct-
+child format callers retain their original field checks. No parallel ACL, SQL,
+transaction or cleanup implementation is introduced. The existing format profile
+inspects Currency/Language/System settings together; this is not a claim of the
+minimum possible query set when the Currency-format flag is false.
+
+The protected result optionally binds `SavedFieldCurrencyRead` to its exact
+numeric/default/method parent and resolves root or parent-owned child precision
+through that contract. Retain locale fallback when the flag is disabled or the
+Currency number format is NULL/blank. Native flags absent from a nonempty System
+Singleton retain the existing zero/check witness, including when its rounding
+method supplies the nonempty witness. Old financial/native/profile/oracle bytes
+are unchanged; optional result fields are ephemeral, not new persistent payloads.
+
+Sample only the original owner's existing request-local field_currency key
+`(parent_doctype, parent_name)[fieldname]`, including for a child field definition.
+Reuse the existing cache-state/slot helpers without calling get_field_currency,
+populating keys or refreshing cached documents. Preserve absent versus NULL
+global containers and pin container/bucket IDs and selected values through all
+callbacks/close. A present slot must exactly match the fresh selected currency;
+stale, NULL/blank-blocked and invalid-type entries fail without repair. Other
+child-row cache keys are not this owner's cache source. Real installed15/pinned16
+helper probes establish that owner key, with only synthetic dependencies.
+
+The existing precision-cache observation remains separate and must agree with
+the newly resolved format precision. Recheck every format/Company/native/default/
+method/financial source after trusted callbacks. No controller, writer, Company
+creation, authority endpoint or installed runtime is activated.
+
+This remains a fresh source-backed comparison for an acquired saved owner, not
+proof of the active controller stage. Cache-reader provenance and the actual
+Company get_cached_value branch when the owner field-currency cache is absent
+still need runtime auditing; normal/native Company equality alone is not that
+API-cache proof. Unknown option/owner-currency patterns, complete controller
+membership/stage/cache identity, all-field batching/performance and fiscal/GL/
+advance/XML parity remain gates before adoption. Constructors do not establish
+atomic origin for independently supplied evidence or freshness after disclosure.
 
 See [FINANCIAL_NUMERIC_VIEWS.md](FINANCIAL_NUMERIC_VIEWS.md),
 [CALCULATION_PRECISION.md](CALCULATION_PRECISION.md),
