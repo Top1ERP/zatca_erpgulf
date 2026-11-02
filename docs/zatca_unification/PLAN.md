@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Combined batch145–147 adds one-owned explicit multi-field stage acquisition,
+ordered native/fixed before/after and precision/setting trace comparison, and
+actual15/pinned16 synthetic round_floats_in probes. Share one financial/method
+read and format sources by parent scope; preserve skip semantics and conditional
+raw-method fallback lookups. Default field order/outside-manifest fields and
+active controller/calculation/provenance remain gates; no execution/writer
+activation. See [ROUNDING_STAGE.md](ROUNDING_STAGE.md).
+
 Combined batch142–144 delivers three connected tasks before one checkpoint:
 reproducible pinned15/16 Currency metadata coverage, same-owned supplemental
 party_account_currency (including parent-owned advances), and conditional exact

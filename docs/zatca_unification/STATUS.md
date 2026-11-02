@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and forty-four bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and forty-seven bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -4033,6 +4033,66 @@ Actual controller/API-provider provenance, all-field batching/performance,
 applied custom patterns, full tax/discount/GL/VAT/advance/XML parity and remaining
 worker/custody/caller/dead-code/installed15/16/SDK gates stay open before separate
 fictional-Company rehearsal and adoption/cancellation approval.
+
+## Combined batch145–147: one-owned ordered rounding-stage comparison
+
+- **145 — bounded group acquisition:** add capture_rounding_stage_context for
+  one explicit target-document sequence. Reuse one NumericAcquisition/native
+  financial read and one method source on the same owned pipeline. Share each
+  invoice/Company/party format source by scope and recheck shared dependencies
+  once, retaining per-field owner/cache checks. Capture every consumed currency
+  slot before any format callback can warm a later field. No new native reader,
+  ACL engine, cleanup path, RPC, writer or installed provider.
+- **146 — stage observations:** bind complete ordered before/after getters,
+  source/version/default/method, explicit field names and16-only skips. Preserve
+  SAVED and NUMERIC_FIXED representations, processed-NULL0.0 and unmodified
+  skipped values. Check exact result types/float bits and parent-owned precision
+  arguments. Account for repeated raw None/blank method lookups inside rounded,
+  excluding NULL conversions, as well as the upfront read for all-skipped calls.
+  Supplied observations are not evidence of active controller identity/execution.
+- **147 — framework/native comparison:** execute installed15/pinned16 methods
+  only on unpersisted synthetic documents; exercise Sales/POS, root/child,
+  native/fixed inputs, known/None/blank settings and skips. Native fixtures check
+  same owned query count for a two-field group versus one field, single-source
+  same-scope formats, distinct invoice/base formats, all-skipped dependencies,
+  either-field/default/method mutations and caller-owned pending work.
+
+Final distinct affected verification passed **1,692 cases: 1,542 local + 150
+native**, including **188 new cases: 146 local + 42 native**. The main six-suite
+local run passed **1,538 in 613.66s (10m13s)**. Four subsequently added mixed-
+scope/cross-field-cache probes passed separately in **6.02s (142 deselected)**;
+these are disjoint from the142 stage cases collected in the main run. The final
+two-suite native regression passed **150 in 192.85s (3m12s)**, including both
+the42 new cases and108 previous single-field cases. An earlier native stage
+selection passed40 before the mixed-scope case was added.
+
+The guard denied external network/site initialization; SQL used NEW guard-owned
+TCP-disabled temporary servers only. Actual helper execution was limited to
+unpersisted synthetic documents. Core rounding, prior single-field/formats/party
+sources and guard/manifest regressions pass. Native query-count equality is
+demonstrated for two-field versus single-field small fixtures, not all workloads.
+The reviewed manifest now contains148 local and40 private SQL suites.
+
+An initial probe exposed repeated metadata checks on the shared method; the
+stage now rechecks shared sources once. Source equality checks then correctly
+rejected test fixtures that changed net_total's native declaration without its
+normal saved Meta view. Those fixtures were corrected using the existing field
+override; no matching rule was weakened. Temporary diagnostic instrumentation
+was removed and is not part of the application or committed rehearsal plugins.
+
+All fifteen previous public capture method ASTs remain unchanged; the explicit
+stage API is added as the sixteenth. No eager relative-import cycle exists
+across52 reachable modules. Original source/profile/oracle bytes, field rounding
+kernels, writers, XML/QR/signing and frontend are unchanged. This is not a full
+manifest/browser/installed16/SDK/authority acceptance result or a live performance
+benchmark. See [ROUNDING_STAGE.md](ROUNDING_STAGE.md) for scope and callers.
+
+Live remains the independent ba51f25 Phase-1 address hotfix. No installed app,
+site/config/schema/Company/credential, Bench/worker or authority operation occurs.
+Actual active controller/current-amount stage/default field order/provider and
+cache provenance, complete fiscal/GL/VAT/advance/XML parity and worker/custody/
+caller/dead-code/performance/installed15/16/SDK gates remain before separately
+approved fictional-Company rehearsal and adoption/cancellation.
 
 ## Verification
 

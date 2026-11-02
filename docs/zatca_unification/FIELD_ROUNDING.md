@@ -1,5 +1,9 @@
 # Versioned field rounding and source bridge — 2026-11-02
 
+The explicit multi-field extension and actual framework stage comparisons are
+documented in [ROUNDING_STAGE.md](ROUNDING_STAGE.md). Single-field capture and
+all previously versioned profile bytes remain available.
+
 ## Purpose and boundary
 
 `field_rounding.round_field_value(value, precision=..., method=..., erp_major=...)`

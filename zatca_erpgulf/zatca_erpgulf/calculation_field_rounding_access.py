@@ -53,37 +53,51 @@ class FieldRoundingAcquisition:
     """Compose one shared graph and existing System-setting acquisition."""
 
     def __init__(self, policy, actor, invoice_name, doctype, target, metadata_reader, cache_reader, *,
-            format_metadata=None, format_cache=None, owner_metadata=None, company_cache=None):
-        self.root = NumericAcquisition(policy, actor, invoice_name, doctype)
+            format_metadata=None, format_cache=None, owner_metadata=None, company_cache=None, _shared=None):
+        if _shared is None:
+            self.root = NumericAcquisition(policy, actor, invoice_name, doctype)
+            self.method = None
+        else:
+            self.root, self.method = _shared
+            if (type(self.root) is not NumericAcquisition or type(self.method) is not RoundingAcquisition
+                    or self.root._policy is not policy or self.method._policy is not policy
+                    or (self.root._name,self.root._doctype) != (invoice_name,doctype)):
+                raise FieldRoundingAccessError("field_rounding_shared_source")
         self._actor = actor
         self.tables = self.root.tables
         self.target = _target(target, self.root.schema, doctype, invoice_name, self.tables)
         self.parentfield = target[0]
         self.owner_document = id(self.root.document)
         self.cache = self._cache()
-        self.method = RoundingAcquisition(policy, actor, metadata_reader, cache_reader, None)
+        if self.method is None:
+            self.method = RoundingAcquisition(policy,actor,metadata_reader,cache_reader,None)
         self.formats = None
         self.currency_cache = None
         self._format_metadata, self._format_cache = format_metadata, format_cache
         self._owner_metadata, self._company_cache_reader = owner_metadata, company_cache
         self.owner_currency = None
         self.company_cache = None
-        self.recheck_access()
+        if _shared is None:
+            self.recheck_access()
 
     def _cache(self):
         return _precision(self.root.document, self.target[2], parentfield=self.parentfield)
 
     def recheck_access(self):
         self.root.recheck_access()
-        if id(self.root.document) != self.owner_document or self._cache() != self.cache:
-            raise FieldRoundingAccessError("field_rounding_owner_cache_changed")
         self.method.recheck_access()
-        if self.currency_cache is not None and self._currency_cache() != self.currency_cache:
-            raise FieldRoundingAccessError("field_rounding_currency_cache_changed")
+        self.recheck_local()
         if self.formats is not None:
             self.formats.recheck_access()
         if self.owner_currency is not None:
             self.owner_currency.recheck_access()
+
+    def recheck_local(self):
+        """Only this field's original owner/cache slots; shared sources outside."""
+        if id(self.root.document) != self.owner_document or self._cache() != self.cache:
+            raise FieldRoundingAccessError("field_rounding_owner_cache_changed")
+        if self.currency_cache is not None and self._currency_cache() != self.currency_cache:
+            raise FieldRoundingAccessError("field_rounding_currency_cache_changed")
 
     def _currency_cache(self):
         doc = self.root.document
@@ -112,21 +126,37 @@ class FieldRoundingAcquisition:
         self.recheck_access()
         return view, method, None
 
-    def complete_defaults(self, connection, observed, defaults, company_metadata):
+    def format_scope(self, view, defaults):
+        """Select one fresh precision dependency without acquiring its source."""
+        native = view.financial
+        doctype = native.financial.doctype if self.parentfield is None else _child_type(native.financial.doctype,self.parentfield)
+        meta = next(row.applied for row in native.metadata if row.applied.name == doctype)
+        definition = meta.get_field(self.target[2])
+        if not _requires_currency_format(definition,_fold(json.loads(defaults._payload)["rows"]),native.financial.erp_major):
+            return None
+        scope = PARENT_CURRENCY_SCOPES.get(definition.options)
+        if scope is None:
+            raise FieldRoundingAccessError("field_rounding_currency_options")
+        return scope
+
+    def complete_defaults(self, connection, observed, defaults, company_metadata, *, _pool=None):
         """Select lazy formats only after native site defaults on THIS handle."""
         view, method, unused = observed
         if unused is not None or self.formats is not None:
             raise FieldRoundingAccessError("field_rounding_format_stage")
         native = view.financial
-        doctype = native.financial.doctype if self.parentfield is None else _child_type(native.financial.doctype, self.parentfield)
-        meta = next(row.applied for row in native.metadata if row.applied.name == doctype)
-        definition = meta.get_field(self.target[2])
-        if not _requires_currency_format(definition, _fold(json.loads(defaults._payload)["rows"]), native.financial.erp_major):
-            return observed
-        scope = PARENT_CURRENCY_SCOPES.get(definition.options)
+        scope = self.format_scope(view,defaults)
         if scope is None:
-            raise FieldRoundingAccessError("field_rounding_currency_options")
-        self.currency_cache = self._currency_cache()
+            return observed
+        if self.currency_cache is None:
+            self.currency_cache = self._currency_cache()
+        elif self.currency_cache != self._currency_cache():
+            raise FieldRoundingAccessError("field_rounding_currency_cache_changed")
+        if _pool is not None and scope in _pool:
+            self.formats,self.owner_currency,formats = _pool[scope]
+            self._check_company_cache(initial=True)
+            self.recheck_access()
+            return view,method,formats
         policy = self.root._policy
         if scope == "owner":
             self.owner_currency = OwnerCurrencyAcquisition(self.root, self._actor, self._owner_metadata)
@@ -142,6 +172,8 @@ class FieldRoundingAcquisition:
         formats = self.formats.load_for_update(connection)
         self.formats.check_cache(formats)
         self.recheck_access()
+        if _pool is not None:
+            _pool[scope] = self.formats,self.owner_currency,formats
         return view, method, formats
 
     def _check_company_cache(self, *, initial=False):

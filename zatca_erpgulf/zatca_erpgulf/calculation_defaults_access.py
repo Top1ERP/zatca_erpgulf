@@ -31,6 +31,7 @@ from .calculation_fraction_access import FractionAcquisition, SavedCurrencyFract
 from .calculation_rounded_total_access import RoundedTotalAcquisition
 from .calculation_numeric_access import NumericAcquisition, SavedFinancialNumericRead
 from .calculation_field_rounding_access import FieldRoundingAcquisition
+from .calculation_rounding_stage import RoundingStageRequest, RoundingStageAcquisition
 from .credential_bundle_access import CredentialStorageScope
 from . import financial_source_observation as financial
 from .financial_source_sql import (
@@ -449,6 +450,17 @@ class SavedCalculationDefaultsService:
             include_financial=True, erp_major=erp_major,
             field_rounding_target=(parentfield, row_name, fieldname))
 
+    def capture_rounding_stage_context(self, invoice_name, fieldnames, *, erp_major,
+            doctype="Sales Invoice", parentfield=None, row_name=None, do_not_round_fields=None):
+        """One owned explicit ordered target-document stage, without execution.
+
+        A bounded nonempty tuple avoids guessing framework default field order.
+        Version16 alone supports skip fields. No doc, controller or cache write.
+        """
+        request = RoundingStageRequest(fieldnames,parentfield,row_name,do_not_round_fields)
+        return self._capture_display(invoice_name,doctype=doctype,include_metadata=True,
+            include_financial=True,erp_major=erp_major,field_rounding_target=request)
+
     def capture_child_cached_context(self, invoice_name, parentfield, row_name, fieldname, *, erp_major, doctype="Sales Invoice"):
         """Also inspect existing request-local caches without calling precision()."""
         return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
@@ -537,10 +549,15 @@ class SavedCalculationDefaultsService:
                             include_numeric, field_rounding_target is not None)) != 1):
                     raise CalculationDefaultsAccessError("calculation_financial_extension_profile")
                 if field_rounding_target is not None:
-                    financial_extension = FieldRoundingAcquisition(policy, actor, invoice_name, doctype,
-                        field_rounding_target, self._rounding_metadata, self._rounding_cache,
+                    dependencies = dict(metadata_reader=self._rounding_metadata,cache_reader=self._rounding_cache,
                         format_metadata=self._format_metadata, format_cache=self._format_cache,
                         owner_metadata=self._owner_currency_metadata, company_cache=self._company_currency_cache)
+                    if type(field_rounding_target) is RoundingStageRequest:
+                        financial_extension = RoundingStageAcquisition(policy,actor,invoice_name,doctype,
+                            field_rounding_target,erp_major,**dependencies)
+                    else:
+                        financial_extension = FieldRoundingAcquisition(policy,actor,invoice_name,doctype,
+                            field_rounding_target,**dependencies)
                 elif include_numeric:
                     financial_extension = NumericAcquisition(policy, actor, invoice_name, doctype)
                 elif include_rounded_total:
