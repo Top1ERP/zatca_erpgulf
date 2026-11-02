@@ -1,0 +1,902 @@
+{
+  "upstream": "https://github.com/frappe/erpnext",
+  "license": "GPL-3.0",
+  "license_reference": "erpnext16_rounded_total_oracle.json#license",
+  "scope": "Currency fields inside the unchanged native financial manifests; custom fields require applied metadata.",
+  "sources": [
+    {
+      "erp_major": 15,
+      "commit": "572d8530b6258231e31f294474cc1818f693d10b",
+      "path": "erpnext/accounts/doctype/pos_invoice/pos_invoice.json",
+      "sha256": "fbc29b6d3f6acf3a6b38e3d4a406ae6b3ec30860a48174f04903fe3630b6ac2c",
+      "doctype": "POS Invoice",
+      "fields": [
+        {
+          "fieldname": "base_total",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_net_total",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "total",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "net_total",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_total_taxes_and_charges",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "total_taxes_and_charges",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_discount_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "discount_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_grand_total",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_rounding_adjustment",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_rounded_total",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "grand_total",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "rounding_adjustment",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "rounded_total",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "total_advance",
+          "fieldtype": "Currency",
+          "options": "party_account_currency"
+        },
+        {
+          "fieldname": "outstanding_amount",
+          "fieldtype": "Currency",
+          "options": "party_account_currency"
+        },
+        {
+          "fieldname": "base_paid_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "paid_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_change_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "change_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        }
+      ],
+      "owner_link": {
+        "fieldname": "party_account_currency",
+        "fieldtype": "Link",
+        "options": "Currency",
+        "hidden": 1,
+        "read_only": 1
+      }
+    },
+    {
+      "erp_major": 15,
+      "commit": "572d8530b6258231e31f294474cc1818f693d10b",
+      "path": "erpnext/accounts/doctype/pos_invoice_item/pos_invoice_item.json",
+      "sha256": "0af498258589321edea5b6ff276f24e804ba4d26c33b0364dd0196ecc14bfd1e",
+      "doctype": "POS Invoice Item",
+      "fields": [
+        {
+          "fieldname": "price_list_rate",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_price_list_rate",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "discount_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "rate",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_rate",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "net_rate",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "net_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_net_rate",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_net_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "distributed_discount_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        }
+      ]
+    },
+    {
+      "erp_major": 15,
+      "commit": "572d8530b6258231e31f294474cc1818f693d10b",
+      "path": "erpnext/accounts/doctype/sales_invoice/sales_invoice.json",
+      "sha256": "5bc7467cc031f98df8476579ada32e50764ccbeadb0c6d0147146dbfa748355d",
+      "doctype": "Sales Invoice",
+      "owner_link": {
+        "fieldname": "party_account_currency",
+        "fieldtype": "Link",
+        "options": "Currency",
+        "hidden": 1,
+        "read_only": 1
+      },
+      "fields": [
+        {
+          "fieldname": "base_total",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_net_total",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "total",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "net_total",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_total_taxes_and_charges",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "total_taxes_and_charges",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_discount_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "discount_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_grand_total",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_rounding_adjustment",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_rounded_total",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "grand_total",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "rounding_adjustment",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "rounded_total",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "total_advance",
+          "fieldtype": "Currency",
+          "options": "party_account_currency"
+        },
+        {
+          "fieldname": "outstanding_amount",
+          "fieldtype": "Currency",
+          "options": "party_account_currency"
+        },
+        {
+          "fieldname": "base_paid_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "paid_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_change_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "change_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        }
+      ]
+    },
+    {
+      "erp_major": 15,
+      "commit": "572d8530b6258231e31f294474cc1818f693d10b",
+      "path": "erpnext/accounts/doctype/sales_invoice_advance/sales_invoice_advance.json",
+      "sha256": "64c82dc07b36a47f7be2003ea7fc8e9d991e05d82a168226f670345e63de46ae",
+      "doctype": "Sales Invoice Advance",
+      "fields": [
+        {
+          "fieldname": "advance_amount",
+          "fieldtype": "Currency",
+          "options": "party_account_currency"
+        },
+        {
+          "fieldname": "allocated_amount",
+          "fieldtype": "Currency",
+          "options": "party_account_currency"
+        }
+      ]
+    },
+    {
+      "erp_major": 15,
+      "commit": "572d8530b6258231e31f294474cc1818f693d10b",
+      "path": "erpnext/accounts/doctype/sales_invoice_item/sales_invoice_item.json",
+      "sha256": "ae3f842f5c74e09dfe2d08727c670bd3f7672afe2558f0e2ad675314f675f6ab",
+      "doctype": "Sales Invoice Item",
+      "fields": [
+        {
+          "fieldname": "price_list_rate",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_price_list_rate",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "discount_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "rate",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_rate",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "net_rate",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "net_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_net_rate",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_net_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "distributed_discount_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        }
+      ]
+    },
+    {
+      "erp_major": 15,
+      "commit": "572d8530b6258231e31f294474cc1818f693d10b",
+      "path": "erpnext/accounts/doctype/sales_invoice_payment/sales_invoice_payment.json",
+      "sha256": "b62dbaf8d6cb393f015d1a61fdff2c3d382f99c3fb72ec919bbc6963c09ef8ef",
+      "doctype": "Sales Invoice Payment",
+      "fields": [
+        {
+          "fieldname": "amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        }
+      ]
+    },
+    {
+      "erp_major": 15,
+      "commit": "572d8530b6258231e31f294474cc1818f693d10b",
+      "path": "erpnext/accounts/doctype/sales_taxes_and_charges/sales_taxes_and_charges.json",
+      "sha256": "732840ed96cd822bba041fb203f52cc04c58ab9b8cee140283af6c2d327bca07",
+      "doctype": "Sales Taxes and Charges",
+      "fields": [
+        {
+          "fieldname": "tax_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "total",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "tax_amount_after_discount_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_tax_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_total",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_tax_amount_after_discount_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        }
+      ]
+    },
+    {
+      "erp_major": 16,
+      "commit": "ade850bbd6a7412e9994a9637d2c5c713771632a",
+      "path": "erpnext/accounts/doctype/pos_invoice/pos_invoice.json",
+      "sha256": "29230bc0ee4863b870b7990936228ab24732ee90dea7777e7d3c7c5a745034e6",
+      "doctype": "POS Invoice",
+      "fields": [
+        {
+          "fieldname": "base_total",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_net_total",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "total",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "net_total",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_total_taxes_and_charges",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "total_taxes_and_charges",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_discount_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "discount_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_grand_total",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_rounding_adjustment",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_rounded_total",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "grand_total",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "rounding_adjustment",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "rounded_total",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "total_advance",
+          "fieldtype": "Currency",
+          "options": "party_account_currency"
+        },
+        {
+          "fieldname": "outstanding_amount",
+          "fieldtype": "Currency",
+          "options": "party_account_currency"
+        },
+        {
+          "fieldname": "base_paid_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "paid_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_change_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "change_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        }
+      ],
+      "owner_link": {
+        "fieldname": "party_account_currency",
+        "fieldtype": "Link",
+        "options": "Currency",
+        "hidden": 1,
+        "read_only": 1
+      }
+    },
+    {
+      "erp_major": 16,
+      "commit": "ade850bbd6a7412e9994a9637d2c5c713771632a",
+      "path": "erpnext/accounts/doctype/pos_invoice_item/pos_invoice_item.json",
+      "sha256": "1f0741d0e9315d3ed76e574556d9ad53968269db9574ebcc6b1ed327da14edb4",
+      "doctype": "POS Invoice Item",
+      "fields": [
+        {
+          "fieldname": "price_list_rate",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_price_list_rate",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "discount_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "rate",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_rate",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "net_rate",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "net_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_net_rate",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_net_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "distributed_discount_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        }
+      ]
+    },
+    {
+      "erp_major": 16,
+      "commit": "ade850bbd6a7412e9994a9637d2c5c713771632a",
+      "path": "erpnext/accounts/doctype/sales_invoice/sales_invoice.json",
+      "sha256": "e4071fb4132dc9d09141fd497c8faea1ff6e9dbf871aa09e6c662a6b61e7dff7",
+      "doctype": "Sales Invoice",
+      "owner_link": {
+        "fieldname": "party_account_currency",
+        "fieldtype": "Link",
+        "options": "Currency",
+        "hidden": 1,
+        "read_only": 1
+      },
+      "fields": [
+        {
+          "fieldname": "base_total",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_net_total",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "total",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "net_total",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_total_taxes_and_charges",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "total_taxes_and_charges",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_discount_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "discount_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_grand_total",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_rounding_adjustment",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_rounded_total",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "grand_total",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "rounding_adjustment",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "rounded_total",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "total_advance",
+          "fieldtype": "Currency",
+          "options": "party_account_currency"
+        },
+        {
+          "fieldname": "outstanding_amount",
+          "fieldtype": "Currency",
+          "options": "party_account_currency"
+        },
+        {
+          "fieldname": "base_paid_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "paid_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_change_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "change_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        }
+      ]
+    },
+    {
+      "erp_major": 16,
+      "commit": "ade850bbd6a7412e9994a9637d2c5c713771632a",
+      "path": "erpnext/accounts/doctype/sales_invoice_advance/sales_invoice_advance.json",
+      "sha256": "9233d4c55fb1d55169e6a4fe03072df4f7ea60bbd9b64e4e50f1cf02fe072efe",
+      "doctype": "Sales Invoice Advance",
+      "fields": [
+        {
+          "fieldname": "advance_amount",
+          "fieldtype": "Currency",
+          "options": "party_account_currency"
+        },
+        {
+          "fieldname": "allocated_amount",
+          "fieldtype": "Currency",
+          "options": "party_account_currency"
+        }
+      ]
+    },
+    {
+      "erp_major": 16,
+      "commit": "ade850bbd6a7412e9994a9637d2c5c713771632a",
+      "path": "erpnext/accounts/doctype/sales_invoice_item/sales_invoice_item.json",
+      "sha256": "f74af8d4f482ed02fce52fb9befc8f286e6a4f8b8e9bb50fd265cb785cc317a4",
+      "doctype": "Sales Invoice Item",
+      "fields": [
+        {
+          "fieldname": "price_list_rate",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_price_list_rate",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "discount_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "rate",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_rate",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "net_rate",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "net_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_net_rate",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_net_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "distributed_discount_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        }
+      ]
+    },
+    {
+      "erp_major": 16,
+      "commit": "ade850bbd6a7412e9994a9637d2c5c713771632a",
+      "path": "erpnext/accounts/doctype/sales_invoice_payment/sales_invoice_payment.json",
+      "sha256": "d989deb0effe2642a1312bd543f423669003e14e1ee0de78595fc71bf2ce8db4",
+      "doctype": "Sales Invoice Payment",
+      "fields": [
+        {
+          "fieldname": "amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        }
+      ]
+    },
+    {
+      "erp_major": 16,
+      "commit": "ade850bbd6a7412e9994a9637d2c5c713771632a",
+      "path": "erpnext/accounts/doctype/sales_taxes_and_charges/sales_taxes_and_charges.json",
+      "sha256": "a58829cb6fbce6885b1f0959eb05c90a7110e2c117f16a7966c28e3478708987",
+      "doctype": "Sales Taxes and Charges",
+      "fields": [
+        {
+          "fieldname": "tax_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "total",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "tax_amount_after_discount_amount",
+          "fieldtype": "Currency",
+          "options": "currency"
+        },
+        {
+          "fieldname": "base_tax_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_total",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        },
+        {
+          "fieldname": "base_tax_amount_after_discount_amount",
+          "fieldtype": "Currency",
+          "options": "Company:company:default_currency"
+        }
+      ]
+    }
+  ]
+}

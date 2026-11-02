@@ -23,6 +23,7 @@ ROUNDING_PROFILE = "source-rounding-method-metadata/v1"
 GLOBAL_ROUNDING_PROFILE = "source-global-rounding-check-metadata/v1"
 INVOICE_ROUNDING_PROFILE = "source-invoice-rounding-controls-metadata/v1"
 CURRENCY_FRACTION_PROFILE = "source-currency-rounding-fraction-metadata/v1"
+OWNER_CURRENCY_PROFILE = "source-owner-party-currency-metadata/v1"
 PROPERTIES = ("fieldtype", "options", "precision", "default", "reqd", "read_only",
     "hidden", "non_negative", "allow_on_submit", "is_custom_field")
 BASE_TYPES = MappingProxyType({"docstatus":"Int", "creation":"Datetime"})
@@ -64,10 +65,11 @@ INVOICE_ROUNDING_FIELDS=MappingProxyType({dt: (
     "is_consolidated", "rounding_adjustment", "rounded_total", "disable_rounded_total")
     for dt in ("Sales Invoice", "POS Invoice")})
 CURRENCY_FRACTION_FIELDS=MappingProxyType({"Currency": ("smallest_currency_fraction_value",)})
+OWNER_CURRENCY_FIELDS=MappingProxyType({dt: ("party_account_currency",) for dt in ("Sales Invoice", "POS Invoice")})
 PROFILE_FIELDS=MappingProxyType({PROFILE: SOURCE_FIELDS, FORMAT_PROFILE: FORMAT_FIELDS,
     CHILD_CURRENCY_PROFILE: CHILD_CURRENCY_FIELDS, ROUNDING_PROFILE: ROUNDING_FIELDS,
     GLOBAL_ROUNDING_PROFILE: GLOBAL_ROUNDING_FIELDS, INVOICE_ROUNDING_PROFILE: INVOICE_ROUNDING_FIELDS,
-    CURRENCY_FRACTION_PROFILE: CURRENCY_FRACTION_FIELDS})
+    CURRENCY_FRACTION_PROFILE: CURRENCY_FRACTION_FIELDS, OWNER_CURRENCY_PROFILE: OWNER_CURRENCY_FIELDS})
 SINGLETONS=calculation.SINGLETONS
 CHILD_TYPES=frozenset({
     *(financial._child_type(dt,table) for dt in ("Sales Invoice","POS Invoice") for table in financial.TABLE_FIELDS),

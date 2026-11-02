@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and forty-one bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and forty-four bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -3968,6 +3968,71 @@ Actual controller/cache/API-provider provenance, unsupported owner-currency
 patterns, full tax/discount/GL/VAT/advance/XML/QR/signature parity, worker/custody
 integration and caller/dead-code/performance/installed15/16/SDK gates remain
 before separately approved fictional-Company rehearsal and adoption decisions.
+
+## Combined batch 142–144: upstream coverage, party currency and Company API proof
+
+Delivered together, without pausing between each connected development task:
+
+- **142 — coverage audit:** pin seven upstream DocType JSONs/version and their
+  exact commit/file hashes. Verify selected declarations plus root party Link
+  type/options through a read-only reproducible tool. Both versions have74
+  selected Currency fields:36 invoice,32 Company-base and6 party-account
+  aliases. The v15 source hashes also match its Git commit; v16 files were read
+  from the official repository at the already pinned immutable commit. Centralize
+  the three parent option families in PARENT_CURRENCY_SCOPES, without changing
+  direct-child resolver semantics or old financial SOURCE_FIELDS.
+- **143 — party-account currency:** add a narrow supplemental root metadata
+  profile and typed Link proof, reusing the existing bounded Company link
+  validator/reader instead of copying its SQL/lifecycle. Normal party field READ,
+  original/fresh getters, selected definition/level, native root/revision/DocType
+  identity and cleanup checks compose on the SAME owned financial/defaults
+  handle. Bind invoice and parent-owned advance fields to the actual party
+  currency rather than invoice/base aliases. Missing or unknown links fail closed.
+- **144 — Company API witness:** add a trusted constructor-only projection
+  reader, required when fresh Company fallback lacks a local owner currency
+  entry. Compare its exact scalar to the native Company, retain/reconstruct the
+  witness and check callbacks/close drift. A valid local entry skips the unused
+  API; configured precision,15 and non-Company branches do not consume it. Do
+  not fabricate a value, reset a cache or call get_cached_value inside the reader.
+
+Initial targeted runs passed **43 local in 33.56s + 34 native in 54.76s**.
+After metadata/error/ownership/auditor checks were added, final affected runs
+passed **1,359 cases: 1,215 local in 165.27s (2m45s) + 144 native in 188.83s
+(3m08s)** across six local and three private SQL suites. This includes **100 new
+cases: 62 local + 38 native**. The final audit-only test was rerun separately
+after strengthening root-Link validation: **1 passed in 0.94s,61 deselected**;
+it repeats one of those cases and is not added to the total.
+
+Both CLI audits verify7 files and74 fields/version with no unsupported standard
+option names. Independent primary-file checks caught and corrected a misplaced
+root-Link fixture entry; both real-source audits and the strengthened isolated
+test then passed. Three guarded comparisons against the previous commit's
+Company reader preserve exact payload bytes and fingerprints for synthetic
+SAR/USD/Arabic currency identifiers. A first native suite selection named a
+nonexistent file and was refused by the guard before collection; the corrected
+reviewed selection produced the144 native passes above.
+
+Evidence covers Sales/POS, both ACL signatures/declared versions, root and actual
+advance-row targets, all-source late mutations with rollback, related field
+denial, Company cache mismatch/unused dependency, original getter/cache drift,
+missing/oversized links and caller-owned pending work. All SQL used NEW
+guard-owned TCP-disabled temporary servers; external network/site init stayed
+denied inside rehearsal. The manual public-source GitHub reads were metadata
+research only, not authority requests or runtime provider installation.
+
+All fifteen capture method ASTs and the old SOURCE_FIELDS builder remain
+unchanged. There is no eager relative-import cycle across51 reachable modules.
+The manifest now has147 local and39 private suites. Existing financial/Company
+profile bytes, amount writers, XML/QR/signing and frontend are unchanged. This
+is affected-suite evidence, not a new full/Node/browser/installed16/SDK/remote
+acceptance claim. See [OWNER_CURRENCY_AND_CACHE.md](OWNER_CURRENCY_AND_CACHE.md).
+
+Live remains the independent ba51f25 Phase-1 address hotfix. No installed app,
+site/config/schema/Company/credential, Bench/worker or authority operation occurs.
+Actual controller/API-provider provenance, all-field batching/performance,
+applied custom patterns, full tax/discount/GL/VAT/advance/XML parity and remaining
+worker/custody/caller/dead-code/installed15/16/SDK gates stay open before separate
+fictional-Company rehearsal and adoption/cancellation approval.
 
 ## Verification
 

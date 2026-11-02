@@ -203,3 +203,14 @@ See [FINANCIAL_NUMERIC_VIEWS.md](FINANCIAL_NUMERIC_VIEWS.md),
 [CALCULATION_PRECISION.md](CALCULATION_PRECISION.md),
 [CALCULATION_ROUNDING.md](CALCULATION_ROUNDING.md) and
 [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md).
+
+## Combined batch142–144 follow-up
+
+The shared parent registry now also covers party_account_currency, with a
+supplemental native Link bound to the same root and transaction. Source inventory
+checks cover all three standard option names across seven pinned public DocTypes
+per version. Company fallback now requires an exact server-supplied API-cache
+projection when no local owner field-currency entry applies. These changes do
+not establish an installed provider or actual controller-stage provenance.
+See [OWNER_CURRENCY_AND_CACHE.md](OWNER_CURRENCY_AND_CACHE.md) for the grouped
+implementation, byte-compatibility evidence and audit commands.

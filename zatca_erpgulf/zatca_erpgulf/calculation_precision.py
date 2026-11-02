@@ -16,6 +16,8 @@ from .source_metadata import SOURCE_FIELDS, SourceMetadata, _pin_metadata
 
 NUMERIC_TYPES = frozenset(("Currency", "Float", "Percent"))
 MAX_PRECISION = 64
+PARENT_CURRENCY_SCOPES = MappingProxyType({"currency": "invoice",
+    "Company:company:default_currency": "company", "party_account_currency": "owner"})
 # Shared supported spelling, independently checked against both pinned sources.
 FORMAT_PRECISIONS = MappingProxyType({
     "#,###.##": 2, "#.###,##": 2, "# ###.##": 2, "# ###,##": 2,

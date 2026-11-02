@@ -286,7 +286,8 @@ class SavedCalculationDefaultsService:
             format_metadata_reader=None, format_cache_reader=None, child_metadata_reader=None,
             rounding_metadata_reader=None, rounding_cache_reader=None,
             global_rounding_metadata_reader=None, global_rounding_cache_reader=None,
-            invoice_rounding_metadata_reader=None, fraction_metadata_reader=None, fraction_cache_reader=None):
+            invoice_rounding_metadata_reader=None, fraction_metadata_reader=None, fraction_cache_reader=None,
+            owner_currency_metadata_reader=None, company_currency_cache_reader=None):
         if type(parent_kind) is not str or parent_kind not in PARENT_KINDS or not callable(cache_reader):
             raise CalculationDefaultsAccessError("calculation_defaults_access_dependencies")
         self._policy = _SavedDefaultsSource(scope, connection_factory)
@@ -313,6 +314,9 @@ class SavedCalculationDefaultsService:
         if any(reader is not None and not callable(reader) for reader in (fraction_metadata_reader, fraction_cache_reader)):
             raise CalculationDefaultsAccessError("calculation_fraction_dependencies")
         self._fraction_metadata, self._fraction_cache = fraction_metadata_reader, fraction_cache_reader
+        if any(reader is not None and not callable(reader) for reader in (owner_currency_metadata_reader, company_currency_cache_reader)):
+            raise CalculationDefaultsAccessError("calculation_owner_currency_dependencies")
+        self._owner_currency_metadata, self._company_currency_cache = owner_currency_metadata_reader, company_currency_cache_reader
 
     def __repr__(self):
         return "<SavedCalculationDefaultsService permissioned protected local read>"
@@ -535,7 +539,8 @@ class SavedCalculationDefaultsService:
                 if field_rounding_target is not None:
                     financial_extension = FieldRoundingAcquisition(policy, actor, invoice_name, doctype,
                         field_rounding_target, self._rounding_metadata, self._rounding_cache,
-                        format_metadata=self._format_metadata, format_cache=self._format_cache)
+                        format_metadata=self._format_metadata, format_cache=self._format_cache,
+                        owner_metadata=self._owner_currency_metadata, company_cache=self._company_currency_cache)
                 elif include_numeric:
                     financial_extension = NumericAcquisition(policy, actor, invoice_name, doctype)
                 elif include_rounded_total:

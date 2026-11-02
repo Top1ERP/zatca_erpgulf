@@ -10,7 +10,7 @@ import json
 from types import MappingProxyType, SimpleNamespace
 
 from .archive_source_access import ArchiveInspectionEngine, ArchiveSourceAccessError, SavedSourceRow, _name, _revision
-from .calculation_precision import CurrencyFormatContext
+from .calculation_precision import CurrencyFormatContext, PARENT_CURRENCY_SCOPES
 from .currency_format_source import (
     FLAG, LockedCurrencyFormatRead, MariaDBCurrencyFormatReader, _metas,
     _pin_read as _pin_format_read,
@@ -20,6 +20,7 @@ from .financial_source_observation import TABLE_FIELDS, _child_type
 from .company_currency_source import (
     LockedCompanyCurrencyRead, MariaDBCompanyCurrencyReader, _pin_read as _pin_company_read,
 )
+from .owner_currency_source import LockedOwnerCurrencyRead, pin_owner_currency
 
 FIELDS = MappingProxyType({"Currency": ("number_format",), "Language": ("number_format",), "System Settings": (FLAG,)})
 
@@ -108,6 +109,7 @@ class SavedFieldCurrencyRead:
     related: tuple = field(repr=False)
     formats: LockedCurrencyFormatRead = field(repr=False)
     company_currency: LockedCompanyCurrencyRead | None = field(default=None, repr=False)
+    owner_currency: LockedOwnerCurrencyRead | None = field(default=None, repr=False)
 
     def __post_init__(self):
         try:
@@ -126,8 +128,15 @@ class SavedFieldCurrencyRead:
                     or financial.context.settings.defaults.parent != "__default"):
                 raise ValueError
             company = None if self.company_currency is None else _pin_company_read(self.company_currency)
+            owner = None if self.owner_currency is None else pin_owner_currency(self.owner_currency)
             header = dict(body["header"])
-            if company is None:
+            if owner is not None:
+                root_meta = next(row for row in financial.financial.metadata if row.applied.name == invoice.doctype)
+                if (company is not None or owner.metadata.applied.name != invoice.doctype or owner.name != invoice.name
+                        or owner.currency != formats.currency or owner.revision != financial.context.settings.sources[1].revision
+                        or json.loads(owner.metadata._payload)["doctype"] != json.loads(root_meta._payload)["doctype"]):
+                    raise ValueError
+            elif company is None:
                 if header["currency"] != ["str", formats.currency]: raise ValueError
             elif (header["company"] != ["str", company.name] or company.currency != formats.currency
                     or company.metadata != financial.context.metadata[0]
@@ -143,6 +152,7 @@ class SavedFieldCurrencyRead:
         object.__setattr__(self, "related", related)
         object.__setattr__(self, "formats", formats)
         object.__setattr__(self, "company_currency", company)
+        object.__setattr__(self, "owner_currency", owner)
 
     def __repr__(self):
         return "<SavedFieldCurrencyRead protected PARTIAL currency scope, NOT verified origin>"
@@ -165,8 +175,8 @@ class SavedFieldCurrencyRead:
                 raise ValueError
             doctype = child
         definition = metas[doctype].get_field(fieldname)
-        options = "currency" if self.company_currency is None else "Company:company:default_currency"
-        if definition is None or definition.fieldtype != "Currency" or definition.options != options:
+        scope = "owner" if self.owner_currency is not None else "invoice" if self.company_currency is None else "company"
+        if definition is None or definition.fieldtype != "Currency" or PARENT_CURRENCY_SCOPES.get(definition.options) != scope:
             raise ValueError
         return doctype
 
@@ -177,7 +187,7 @@ class SavedFieldCurrencyRead:
         Direct child currency/cache inheritance remains a separate boundary.
         """
         try:
-            pinned = SavedFieldCurrencyRead(self.financial, self.related, self.formats, self.company_currency)
+            pinned = SavedFieldCurrencyRead(self.financial, self.related, self.formats, self.company_currency, self.owner_currency)
             if pinned != self or type(fieldname) is not str:
                 raise ValueError
             doctype = pinned._field(fieldname, parentfield)
@@ -193,7 +203,7 @@ class SavedFieldCurrencyRead:
     def require_field_currency_match(self, fieldname, cached, *, parentfield=None):
         """Compare an explicit field-currency cache value; never populate it."""
         try:
-            pinned = SavedFieldCurrencyRead(self.financial, self.related, self.formats, self.company_currency)
+            pinned = SavedFieldCurrencyRead(self.financial, self.related, self.formats, self.company_currency, self.owner_currency)
             if pinned != self or type(fieldname) is not str: raise ValueError
             pinned._field(fieldname, parentfield)
             if type(cached) is not str or cached != pinned.formats.currency: raise ValueError
@@ -213,9 +223,16 @@ class FormatAcquisition:
     """Compose normal related READ, locale/currency guards and one SQL reader."""
 
     def __init__(self, policy, actor, invoice_name, doctype, metadata_reader, cache_reader, *, currency_scope="invoice", child_source=None,
-            require_fields=False):
-        if not callable(metadata_reader) or not callable(cache_reader) or currency_scope not in ("invoice", "company", "child"):
+            require_fields=False, owner_source=None):
+        if not callable(metadata_reader) or not callable(cache_reader) or currency_scope not in ("invoice", "company", "child", "owner"):
             raise CalculationFormatAccessError("calculation_format_access_dependencies")
+        if currency_scope == "owner":
+            from .calculation_owner_currency_access import OwnerCurrencyAcquisition
+            if type(owner_source) is not OwnerCurrencyAcquisition or owner_source.native is None:
+                raise CalculationFormatAccessError("calculation_format_access_dependencies")
+        elif owner_source is not None:
+            raise CalculationFormatAccessError("calculation_format_access_dependencies")
+        self._owner_source = owner_source
         if currency_scope == "child":
             from .calculation_child_format_access import ChildFieldAcquisition
             if type(child_source) is not ChildFieldAcquisition:
@@ -240,6 +257,8 @@ class FormatAcquisition:
         self.currency = _name(company.get("default_currency")) if company is not None else self.invoice_currency
         if child_source is not None:
             self.currency = child_source.currency
+        if owner_source is not None:
+            self.currency = owner_source.currency
         related = _RelatedFormatPolicy(policy)
         load, finalize = related._saved_record_access(actor)
         if self.currency is not None:
@@ -269,6 +288,8 @@ class FormatAcquisition:
             if self._company_field_level(self._company_load("Company", self.company_name)) != self._company_level:
                 raise CalculationFormatAccessError("calculation_format_access_field_drift")
         self._related_recheck()
+        if self._owner_source is not None:
+            self._owner_source.recheck_access()
         if self._child_source is not None:
             self._child_source.recheck_access()
         if self._child_source is not None or self._require_fields:

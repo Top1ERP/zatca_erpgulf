@@ -50,10 +50,12 @@ def configure(case, operator, *, scope="invoice", default=""):
     bind_numeric(case, operator)
     case.database.defaults = [(*row[:-1], default) for row in case.database.defaults]
     case.cache.return_value = {"currency_precision": default}
+    case.company_cache_value = "SAR"
+    case.company_api_cache = Mock(side_effect=lambda *args: case.company_cache_value)
     case.service = access.SavedCalculationDefaultsService(case.scope, case.factory, case.cache,
         applied_metadata_reader=case.metadata_provider, rounding_metadata_reader=case.round_metadata,
         rounding_cache_reader=case.round_cache, format_metadata_reader=case.format_metadata,
-        format_cache_reader=case.format_cache)
+        format_cache_reader=case.format_cache, company_currency_cache_reader=case.company_api_cache)
     return case
 
 

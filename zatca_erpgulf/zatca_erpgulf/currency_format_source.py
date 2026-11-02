@@ -24,7 +24,8 @@ ABSENT_PROFILE = "currency-format-source-sql/absent-check-v1"
 FLAG = "use_number_format_from_currency"
 MAX_VALUE_BYTES = 4096
 MAX_PAYLOAD_BYTES = 65536
-TEXT_FIELDS = MappingProxyType({"Currency": "number_format", "Language": "number_format", "Company": "default_currency"})
+TEXT_FIELDS = MappingProxyType({"Currency": "number_format", "Language": "number_format", "Company": "default_currency",
+    "Sales Invoice": "party_account_currency", "POS Invoice": "party_account_currency"})
 
 
 class CurrencyFormatSourceError(ValueError):

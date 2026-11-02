@@ -19,6 +19,13 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Combined batch142–144 delivers three connected tasks before one checkpoint:
+reproducible pinned15/16 Currency metadata coverage, same-owned supplemental
+party_account_currency (including parent-owned advances), and conditional exact
+Company API-cache projection. Share one parent-scope registry and the existing
+bounded link reader; preserve old financial/Company bytes and all15 capture APIs.
+No runtime activation. See [OWNER_CURRENCY_AND_CACHE.md](OWNER_CURRENCY_AND_CACHE.md).
+
 Increment141 completes lazy v16 format acquisition for the two standard owner-
 field Currency option branches on the SAME field-rounding pipeline, after native
 site defaults. Reuse precision selection, normal field READ, format/Company SQL

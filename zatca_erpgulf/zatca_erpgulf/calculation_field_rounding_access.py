@@ -12,9 +12,10 @@ import math
 from .calculation_numeric_access import NumericAcquisition, SavedFinancialNumericRead
 from .calculation_child_cache import _precision, _MISSING, _state, _bucket, _slot
 from .calculation_rounding_access import RoundingAcquisition, SavedRoundingContext
-from .calculation_precision import FieldPrecisionResolution, _requires_currency_format
+from .calculation_precision import FieldPrecisionResolution, _requires_currency_format, PARENT_CURRENCY_SCOPES
 from .calculation_defaults import _fold
 from .calculation_format_access import FormatAcquisition, SavedFieldCurrencyRead
+from .calculation_owner_currency_access import OwnerCurrencyAcquisition
 from .child_field_currency import ABSENT
 from .financial_numeric_view import FIXED_TYPES, _native_cells
 from .financial_source_observation import TABLE_FIELDS, _child_type, _name, _validate_scalar
@@ -52,7 +53,7 @@ class FieldRoundingAcquisition:
     """Compose one shared graph and existing System-setting acquisition."""
 
     def __init__(self, policy, actor, invoice_name, doctype, target, metadata_reader, cache_reader, *,
-            format_metadata=None, format_cache=None):
+            format_metadata=None, format_cache=None, owner_metadata=None, company_cache=None):
         self.root = NumericAcquisition(policy, actor, invoice_name, doctype)
         self._actor = actor
         self.tables = self.root.tables
@@ -64,6 +65,9 @@ class FieldRoundingAcquisition:
         self.formats = None
         self.currency_cache = None
         self._format_metadata, self._format_cache = format_metadata, format_cache
+        self._owner_metadata, self._company_cache_reader = owner_metadata, company_cache
+        self.owner_currency = None
+        self.company_cache = None
         self.recheck_access()
 
     def _cache(self):
@@ -78,6 +82,8 @@ class FieldRoundingAcquisition:
             raise FieldRoundingAccessError("field_rounding_currency_cache_changed")
         if self.formats is not None:
             self.formats.recheck_access()
+        if self.owner_currency is not None:
+            self.owner_currency.recheck_access()
 
     def _currency_cache(self):
         doc = self.root.document
@@ -117,20 +123,49 @@ class FieldRoundingAcquisition:
         definition = meta.get_field(self.target[2])
         if not _requires_currency_format(definition, _fold(json.loads(defaults._payload)["rows"]), native.financial.erp_major):
             return observed
-        scope = {"currency": "invoice", "Company:company:default_currency": "company"}.get(definition.options)
+        scope = PARENT_CURRENCY_SCOPES.get(definition.options)
         if scope is None:
             raise FieldRoundingAccessError("field_rounding_currency_options")
         self.currency_cache = self._currency_cache()
         policy = self.root._policy
+        if scope == "owner":
+            self.owner_currency = OwnerCurrencyAcquisition(self.root, self._actor, self._owner_metadata)
+            self.owner_currency.prepare_metadata()
+            self.owner_currency.load_for_update(connection, native)
         self.formats = FormatAcquisition(policy, self._actor, self.root._name, self.root._doctype,
-            self._format_metadata, self._format_cache, currency_scope=scope, require_fields=True)
+            self._format_metadata, self._format_cache, currency_scope=scope, require_fields=True,
+            owner_source=self.owner_currency)
         self.formats.require_financial_currency(native.financial)
         if scope == "company":
             self.formats.load_company_currency(connection, company_metadata)
+            self._check_company_cache(initial=True)
         formats = self.formats.load_for_update(connection)
         self.formats.check_cache(formats)
         self.recheck_access()
         return view, method, formats
+
+    def _check_company_cache(self, *, initial=False):
+        """Observe the selected Company API projection, never refresh it here.
+
+        A valid local owner currency slot avoids the Company API entirely.
+        Blocked/invalid slots are rejected by result reconstruction, not fixed.
+        Trusted callbacks finish before final native SQL checks.
+        """
+        if self.formats is None or self.formats.company_source is None or _cache_slot(self.currency_cache, allow_null=True) != ABSENT:
+            if self.company_cache is not None:
+                raise FieldRoundingAccessError("field_rounding_company_cache_binding")
+            return
+        source = self.formats.company_source
+        if not callable(self._company_cache_reader):
+            raise FieldRoundingAccessError("field_rounding_company_cache_dependency")
+        value = self._company_cache_reader(self.root._policy._scope, source.name)
+        if type(value) is not str or value != source.currency:
+            raise FieldRoundingAccessError("field_rounding_company_cache_mismatch")
+        tag = ("str", value)
+        if initial:
+            self.company_cache = tag
+        elif tag != self.company_cache:
+            raise FieldRoundingAccessError("field_rounding_company_cache_changed")
 
     def check_getters(self, observed):
         view, method, formats = observed
@@ -140,6 +175,7 @@ class FieldRoundingAcquisition:
             raise FieldRoundingAccessError("field_rounding_format_binding")
         if self.formats is not None:
             self.formats.check_cache(formats)
+        self._check_company_cache()
         self.recheck_access()
 
     def require_metadata_unchanged(self):
@@ -147,6 +183,8 @@ class FieldRoundingAcquisition:
         self.method.require_metadata_unchanged()
         if self.formats is not None:
             self.formats.require_metadata_unchanged()
+        if self.owner_currency is not None:
+            self.owner_currency.require_metadata_unchanged()
         self.recheck_access()
 
     def require_unchanged(self, observed):
@@ -155,6 +193,8 @@ class FieldRoundingAcquisition:
         view, method, formats = observed
         self.root.require_unchanged(view)
         self.method.require_unchanged(method)
+        if self.owner_currency is not None:
+            self.owner_currency.require_unchanged()
         if self.formats is not None:
             if self.formats.company_source is not None:
                 self.formats.company_reader.require_unchanged(self.formats.company_source)
@@ -167,9 +207,10 @@ class FieldRoundingAcquisition:
         context = SavedRoundingContext(financial.context, view.financial.financial.erp_major,
             None, method, self.method.rows)
         currency = None if self.formats is None else SavedFieldCurrencyRead(financial,
-            self.formats.rows, formats, self.formats.company_source)
+            self.formats.rows, formats, self.formats.company_source,
+            None if self.owner_currency is None else self.owner_currency.native)
         return SavedFieldRoundingRead(numeric, context, self.target, self.owner_document, self.cache,
-            currency, self.currency_cache)
+            currency, self.currency_cache, self.company_cache)
 
 
 def _cache_slot(cache, *, allow_null=False):
@@ -219,6 +260,7 @@ class SavedFieldRoundingRead:
     cache: tuple = field(repr=False)
     formats: SavedFieldCurrencyRead | None = field(default=None, repr=False)
     currency_cache: tuple | None = field(default=None, repr=False)
+    company_cache: tuple | None = field(default=None, repr=False)
     precision: FieldPrecisionResolution = field(init=False, repr=False)
     rounded_value: int | float = field(init=False, repr=False)
 
@@ -252,7 +294,7 @@ class SavedFieldRoundingRead:
                 if type(self.formats) is not SavedFieldCurrencyRead:
                     raise ValueError
                 formats = SavedFieldCurrencyRead(self.formats.financial, self.formats.related,
-                    self.formats.formats, self.formats.company_currency)
+                    self.formats.formats, self.formats.company_currency, self.formats.owner_currency)
                 if formats != self.formats or formats.financial != numeric.financial:
                     raise ValueError
                 parentfield = None if group == "header" else group
@@ -260,8 +302,13 @@ class SavedFieldRoundingRead:
                 cached = _cache_slot(self.currency_cache, allow_null=True)
                 if cached != ABSENT:
                     formats.require_field_currency_match(name, _validate_scalar(list(cached)), parentfield=parentfield)
+                if formats.company_currency is not None and cached == ABSENT:
+                    if type(self.company_cache) is not tuple or self.company_cache != ("str",formats.company_currency.currency):
+                        raise ValueError
+                elif self.company_cache is not None:
+                    raise ValueError
             else:
-                if self.formats is not None or self.currency_cache is not None:
+                if self.formats is not None or self.currency_cache is not None or self.company_cache is not None:
                     raise ValueError
                 precision = numeric.financial.resolve_precision(doctype, name)
             _require_cache(self.cache, precision)
@@ -283,7 +330,7 @@ class SavedFieldRoundingRead:
         """Compare an explicitly supplied stage result, never read/mutate it."""
         try:
             pinned = SavedFieldRoundingRead(self.numeric, self.method, self.target, self.owner_document, self.cache,
-                self.formats, self.currency_cache)
+                self.formats, self.currency_cache, self.company_cache)
             if (pinned != self or _result_tag(self.rounded_value) != _result_tag(pinned.rounded_value)
                     or _result_tag(value) != _result_tag(pinned.rounded_value)):
                 raise ValueError

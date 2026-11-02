@@ -1,7 +1,9 @@
-"""Company default-currency evidence on an explicit caller-owned transaction.
+"""Company evidence and shared bounded currency-link reading on one owner.
 
 Reuse the bounded text projection and shared selected-metadata reader. No
 Company/tenant discovery, cache lookup, writes, cleanup, FX or amount calculation.
+Fixed internal subclasses specialize profiles/fields without changing Company
+payload bytes or accepting a requester-selected SQL column.
 """
 
 from dataclasses import dataclass, field
@@ -24,11 +26,11 @@ class CompanyCurrencySourceError(ValueError):
         super().__init__(code)
 
 
-def _metadata(observed):
+def _metadata(observed, *, doctypes=("Company",), fieldname="default_currency", profile=METADATA_PROFILE):
     pinned = _pin_rows(observed)
     meta = pinned.applied
-    definition = meta.get_field("default_currency")
-    if (meta.name != "Company" or meta.profile != METADATA_PROFILE or definition is None
+    definition = meta.get_field(fieldname)
+    if (meta.name not in doctypes or meta.profile != profile or definition is None
             or definition.fieldtype != "Link" or definition.options != "Currency"):
         raise ValueError
     return pinned
@@ -44,21 +46,28 @@ class LockedCompanyCurrencyRead:
     currency: str = field(init=False, repr=False)
     revision: str = field(init=False, repr=False)
     sha256: str = field(init=False)
+    DOCTYPES = ("Company",)
+    FIELD = "default_currency"
+    METADATA_PROFILE = METADATA_PROFILE
+    ROW_PROFILE = PROFILE
+    DOMAIN = b"zatca-company-currency-source-sql/v1\0"
+    ERROR = CompanyCurrencySourceError
+    ERROR_PREFIX = "company_currency_source"
 
     def __post_init__(self):
         try:
             _name(self.name)
-            metadata = _metadata(self.metadata)
+            metadata = _metadata(self.metadata, doctypes=self.DOCTYPES, fieldname=self.FIELD, profile=self.METADATA_PROFILE)
             if type(self._payload) is not bytes or not 0 < len(self._payload) <= 16384:
                 raise ValueError
             body = json.loads(self._payload)
             if (type(body) is not dict or set(body) != {"profile", "metadata_sha256", "record"}
-                    or body["profile"] != PROFILE or body["metadata_sha256"] != metadata.sha256
+                    or body["profile"] != self.ROW_PROFILE or body["metadata_sha256"] != metadata.sha256
                     or _canonical(body) != self._payload):
                 raise ValueError
             record = body["record"]
             if (type(record) is not dict or set(record) != {"doctype", "name", "field", "value", "sql_type", "modified"}
-                    or (record["doctype"], record["name"], record["field"]) != ("Company", self.name, "default_currency")):
+                    or (record["doctype"], record["name"], record["field"]) != (metadata.applied.name, self.name, self.FIELD)):
                 raise ValueError
             _modified(record["modified"])
             currency = _name(_value(record["value"], record["sql_type"]))
@@ -68,11 +77,11 @@ class LockedCompanyCurrencyRead:
         else:
             invalid = False
         if invalid:
-            raise CompanyCurrencySourceError("company_currency_source_rows")
+            raise self.ERROR(self.ERROR_PREFIX + "_rows")
         object.__setattr__(self, "metadata", metadata)
         object.__setattr__(self, "currency", currency)
         object.__setattr__(self, "revision", revision)
-        object.__setattr__(self, "sha256", hashlib.sha256(b"zatca-company-currency-source-sql/v1\0" + self._payload).hexdigest())
+        object.__setattr__(self, "sha256", hashlib.sha256(self.DOMAIN + self._payload).hexdigest())
 
     def __repr__(self):
         return "<LockedCompanyCurrencyRead protected Company link, NOT verified origin>"
@@ -97,13 +106,19 @@ class MariaDBCompanyCurrencyReader:
     Errors poison the reader, never committing/cleaning/retrying parent work.
     """
 
+    READ_TYPE = LockedCompanyCurrencyRead
+    ERROR = CompanyCurrencySourceError
+    ERROR_PREFIX = "company_currency_source"
+    PIN_READ = staticmethod(_pin_read)
+
     def __init__(self, connection):
         self._text = MariaDBCurrencyFormatReader(connection)
         self._connection, self._failed = connection, False
 
     def _load(self, name, metadata):
         _name(name)
-        metadata = _metadata(metadata)
+        target = self.READ_TYPE
+        metadata = _metadata(metadata, doctypes=target.DOCTYPES, fieldname=target.FIELD, profile=target.METADATA_PROFILE)
         with self._connection.cursor() as cursor:
             cursor.execute("SELECT @@session.autocommit")
             setting = cursor.fetchone()
@@ -112,15 +127,15 @@ class MariaDBCompanyCurrencyReader:
         source = MariaDBMetadataSourceReader(self._connection)
         source.require_unchanged(metadata)
         with self._connection.cursor() as cursor:
-            before, _ = self._text._select(cursor, "Company", name, full=False)
-            after, record = self._text._select(cursor, "Company", name, full=True)
+            before, _ = self._text._select(cursor, metadata.applied.name, name, full=False)
+            after, record = self._text._select(cursor, metadata.applied.name, name, full=True)
         if before != after: raise ValueError
         source.require_unchanged(metadata)
-        return LockedCompanyCurrencyRead(name, metadata, _canonical(dict(profile=PROFILE,
+        return target(name, metadata, _canonical(dict(profile=target.ROW_PROFILE,
             metadata_sha256=metadata.sha256, record=record)))
 
     def load_for_update(self, name, *, metadata):
-        if self._failed: raise CompanyCurrencySourceError("company_currency_source_transaction_unusable")
+        if self._failed: raise self.ERROR(self.ERROR_PREFIX + "_transaction_unusable")
         try:
             result = self._load(name, metadata)
         except BaseException as error:
@@ -128,19 +143,19 @@ class MariaDBCompanyCurrencyReader:
             if not isinstance(error, Exception): raise
         else:
             return result
-        raise CompanyCurrencySourceError("company_currency_source_read")
+        raise self.ERROR(self.ERROR_PREFIX + "_read")
 
     def require_unchanged(self, observed):
-        if self._failed: raise CompanyCurrencySourceError("company_currency_source_transaction_unusable")
+        if self._failed: raise self.ERROR(self.ERROR_PREFIX + "_transaction_unusable")
         try:
-            pinned = _pin_read(observed)
+            pinned = self.PIN_READ(observed)
             if self._load(pinned.name, pinned.metadata) != pinned: raise ValueError
         except BaseException as error:
             self._failed = True
             if not isinstance(error, Exception): raise
         else:
             return
-        raise CompanyCurrencySourceError("company_currency_source_changed")
+        raise self.ERROR(self.ERROR_PREFIX + "_changed")
 
     def __repr__(self):
         return "<MariaDBCompanyCurrencyReader explicit caller-owned read>"
