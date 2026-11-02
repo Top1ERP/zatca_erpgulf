@@ -169,6 +169,39 @@ def _pin_field(value):
     return pinned
 
 
+def pin_stage(value):
+    """Reconstruct a supplied stage; this is consistency, not source authority."""
+    if type(value) is not SavedRoundingStageRead:
+        raise RoundingStageError("rounding_stage_result")
+    pinned = SavedRoundingStageRead(
+        value.numeric, value.method, value.targets, value.do_not_round_fields,
+        value.owner_document, value.fields,
+    )
+    if pinned != value:
+        raise RoundingStageError("rounding_stage_result")
+    return pinned
+
+
+def require_call_trace(raw, settings, precision, expected_precision, lookups):
+    """Shared exact trace comparison for saved and explicitly derived stages."""
+    if (
+        type(settings) is not tuple or len(settings) != lookups
+        or settings != (("rounding_method", raw),) * lookups
+        or any(
+            type(entry) is not tuple or len(entry) != 2 or type(entry[0]) is not str
+            or type(entry[1]) is not type(raw) for entry in settings
+        )
+        or type(precision) is not tuple or len(precision) != len(expected_precision)
+    ):
+        raise RoundingStageError("rounding_stage_trace")
+    for actual, expected in zip(precision, expected_precision):
+        if (
+            type(actual) is not tuple or len(actual) != len(expected)
+            or any(type(a) is not type(e) or a != e for a, e in zip(actual, expected))
+        ):
+            raise RoundingStageError("rounding_stage_trace")
+
+
 @dataclass(frozen=True, repr=False)
 class SavedRoundingStageRead:
     """Same-parent ordered source comparison; NOT actual execution authority.
@@ -250,15 +283,7 @@ class SavedRoundingStageRead:
                         lookups += 1
                 elif _getter(changed[1],input_stage,cell[3]) != tag:
                     raise ValueError
-            if (type(setting_trace) is not tuple or setting_trace != (("rounding_method",raw),)*lookups
-                    or type(precision_trace) is not tuple or len(precision_trace) != len(expected_precision)):
-                raise ValueError
-            if any(type(entry) is not tuple or len(entry) != 2 or type(entry[0]) is not str
-                    or type(entry[1]) is not type(raw) for entry in setting_trace):
-                raise ValueError
-            for actual,expected in zip(precision_trace,expected_precision):
-                if type(actual) is not tuple or len(actual) != 3 or any(type(a) is not type(e) or a != e for a,e in zip(actual,expected)):
-                    raise ValueError
+            require_call_trace(raw,setting_trace,precision_trace,expected_precision,lookups)
         except Exception:
             invalid = True
         else:

@@ -81,6 +81,11 @@ The final counts and actual limitations are recorded in STATUS.md.
 
 ## Remaining integration gates
 
+Batch148–150 adds a separate explicit current-input comparison for net totals
+and the advance aggregation prefix. It preserves this saved stage's strict
+input equality and does not close active-stage provenance or complete fiscal
+parity. See [CALCULATED_TOTALS.md](CALCULATED_TOTALS.md).
+
 The new batch is staged and read-only. An installed provider must still bind the
 actual active controller and transaction, its current calculation stage (which
 may have changed amounts since saved native input), default field order/outside-

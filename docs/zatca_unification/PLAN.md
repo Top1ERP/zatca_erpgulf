@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Combined batch148–150 adds complete explicit current-row observations, ordered
+net-total calculation comparison and a separate direct-row advance aggregation
+prefix. Reuse the saved owned context, shared trace validator and versioned
+rounding kernel; preserve saved/current separation, integer sum semantics and
+conditional dependencies for empty advances. Compare actual15/pinned16 method
+bodies on synthetic objects only. Later tax/discount/FX/settlement/XML and active
+controller provenance remain gates. See [CALCULATED_TOTALS.md](CALCULATED_TOTALS.md).
+
 Combined batch145–147 adds one-owned explicit multi-field stage acquisition,
 ordered native/fixed before/after and precision/setting trace comparison, and
 actual15/pinned16 synthetic round_floats_in probes. Share one financial/method

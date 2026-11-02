@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and forty-seven bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and fifty bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -4093,6 +4093,68 @@ Actual active controller/current-amount stage/default field order/provider and
 cache provenance, complete fiscal/GL/VAT/advance/XML parity and worker/custody/
 caller/dead-code/performance/installed15/16/SDK gates remain before separately
 approved fictional-Company rehearsal and adoption/cancellation.
+
+## Combined batch148–150: current rows, net totals and advance aggregation
+
+- **148 — explicit current inputs:** complete ordered item/advance observations
+  bind to the existing locked native source. NUMERIC_FIXED requires exact saved
+  numeric projection; CALCULATED permits observed changed values without claiming
+  their prior arithmetic or controller origin. Preserve exact type/float bits,
+  membership/order, bounded input domain and protected representations. The saved
+  stage still refuses calculated header totals. Share its exact trace validator.
+- **149 — net totals:** compare ordered float accumulation and the four money
+  rounding calls with installed15/pinned16 controller method bodies on synthetic
+  objects. Preserve unrounded quantity, independent base/net mappings, cancellation,
+  raw method lookups and root precision traces. Empty financial invoices keep the
+  existing source refusal; raw controller empty behavior is characterized apart.
+- **150 — advance prefix:** separately compare direct-row allocated-amount rounding,
+  Python int0 summation and root total rounding. Keep root precision distinct from
+  row precision, NULL lookup semantics, legacy precision0 integer cancellation and
+  cancelled-controller skipping. Empty tables consume no row precision/currency
+  dependency. Refuse consumed uncaptured16 direct-row currency fallback rather
+  than substituting parent precision. Limits/FX/outstanding/settlement/XML follow
+  this prefix and are outside its scope.
+
+Final distinct affected verification passed **1,442 cases: 1,372 local + 70
+native**, including **99 new cases: 71 local + 28 native**. The main five-suite
+local run passed **1,366 in 709.89s (11m49s)**. A final supplementary selection
+passed **16 in 51.36s (55 deselected)**: six additional cases plus ten repeated
+cases, including final empty-dependency behavior and distinct root/row precision.
+The two-suite native regression passed **70 in 132.30s (2m12s)**. The final eight
+advance cases were repeated with distinct root/row precision and empty-table
+dependency handling, passing **8 in 18.68s (20 deselected)**; they add no distinct
+cases. Final local collection independently confirms1,372 cases. This is an
+affected selection, not a full manifest/installed16/SDK acceptance run.
+
+The reviewed manifest contains149 local and41 private SQL suites. The two new
+suites collect **71 local + 28 native = 99 cases**. Native tests use only NEW
+guard-owned TCP-disabled MariaDB; synthetic controller probes never initialize
+a saved ERP document, site, Redis or authority request. Earlier oracle content
+is unchanged; the four added16 method ASTs equal the pinned full source at
+ade850bbd6a7412e9994a9637d2c5c713771632a (SHA256
+b50607b8b7891a5e82542fe36bd61a3342d2995a1faf103a21cae8554056f5aa).
+All sixteen existing capture APIs remain unchanged. No eager relative import
+cycle exists across34 modules reachable from the new comparison module.
+
+The initial empty-item test fixture incorrectly expected financial capture to
+accept an invoice without items. Tests now preserve the established refusal and
+characterize raw controller zero totals separately. No source rule was weakened.
+An additional dependency review removed row-precision/format requirements from
+empty advance tables, matching the controller's actual consumption. Temporary
+debug instrumentation was removed from the workspace and is not committed.
+
+No new financial source profile/reader, RPC, installed provider, hook, writer,
+frontend, XML/QR/signing or credential operation is introduced. The pure rounding
+kernel and existing localized aggregate service presentation are reused. These
+comparisons do not attest active controller/cache/provider identity, earlier
+discount/tax arithmetic, complete fiscal/GL/VAT/advance/XML parity, installed16,
+SDK acceptance, minimal validation cost or live performance. Those gates and
+worker/custody/dead-code reviews remain before separately approved fictional-
+Company rehearsal and adoption/cancellation. See [CALCULATED_TOTALS.md](CALCULATED_TOTALS.md).
+
+Live remains the independent ba51f25 Phase-1 address hotfix with its original
+address-file hash. No installed app/site/config/schema/data/Company/credential,
+Bench/worker or authority operation occurs. Only this DEV branch is changed.
 
 ## Verification
 
