@@ -223,7 +223,7 @@ class FormatAcquisition:
     """Compose normal related READ, locale/currency guards and one SQL reader."""
 
     def __init__(self, policy, actor, invoice_name, doctype, metadata_reader, cache_reader, *, currency_scope="invoice", child_source=None,
-            require_fields=False, owner_source=None):
+            require_fields=False, owner_source=None, _defer_metadata=False):
         if not callable(metadata_reader) or not callable(cache_reader) or currency_scope not in ("invoice", "company", "child", "owner"):
             raise CalculationFormatAccessError("calculation_format_access_dependencies")
         if currency_scope == "owner":
@@ -233,6 +233,8 @@ class FormatAcquisition:
         elif owner_source is not None:
             raise CalculationFormatAccessError("calculation_format_access_dependencies")
         self._owner_source = owner_source
+        if type(_defer_metadata) is not bool:
+            raise CalculationFormatAccessError("calculation_format_access_dependencies")
         if currency_scope == "child":
             from .calculation_child_format_access import ChildFieldAcquisition
             if type(child_source) is not ChildFieldAcquisition:
@@ -272,6 +274,11 @@ class FormatAcquisition:
         # saved system flag disables currency formats. Refuse before providers.
         _row_context(self.rows)
         self.recheck_access()
+        if not _defer_metadata:
+            self.prepare_metadata()
+
+    def prepare_metadata(self):
+        """Permit a group to authorize every related row before any provider."""
         self.applied = self._applied()
         self.recheck_access()
 

@@ -66,9 +66,15 @@ behavior is characterized as skipping the entire calculation; cancelled sources
 are outside this prefix comparison.
 
 This stage resolves fresh direct-row precision from captured metadata/defaults.
-It does not claim to attest an active row's precision cache. A consumed16
-direct-row currency-format fallback is explicitly refused until its exact source
-is captured; parent-owned precision must not substitute for it. Empty tables
+Batch151–154 adds an optional co-owned context with actual original row-cache
+inspection and lazy direct currency/own-Company formats. It supplies per-row
+precisions instead of substituting parent precision; the standard unset16
+party-account-currency branch still needs its own native source. See
+[ADVANCE_ROUNDING_CONTEXT.md](ADVANCE_ROUNDING_CONTEXT.md).
+
+It does not claim to attest an active row's later precision call. Without the
+optional context, a consumed16 row-currency fallback is explicitly refused until
+its exact source is captured; parent-owned precision must not substitute for it. Empty tables
 do not consume that dependency. Root field precision retains the existing
 captured owner/cache/format policy.
 

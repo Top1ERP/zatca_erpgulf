@@ -32,6 +32,7 @@ from .calculation_rounded_total_access import RoundedTotalAcquisition
 from .calculation_numeric_access import NumericAcquisition, SavedFinancialNumericRead
 from .calculation_field_rounding_access import FieldRoundingAcquisition
 from .calculation_rounding_stage import RoundingStageRequest, RoundingStageAcquisition
+from .calculation_advance_rounding import AdvanceRoundingRequest, AdvanceRoundingAcquisition
 from .credential_bundle_access import CredentialStorageScope
 from . import financial_source_observation as financial
 from .financial_source_sql import (
@@ -468,6 +469,15 @@ class SavedCalculationDefaultsService:
             format_scope="child", child_table=parentfield, child_field=(row_name, fieldname),
             erp_major=erp_major, include_child_cache=True)
 
+    def capture_advance_rounding_context(self, invoice_name, *, erp_major, doctype="Sales Invoice"):
+        """One owned header/advance precision read with lazy direct-row formats.
+
+        Observe existing caches without running precision() or a controller.
+        No invoice, cache, Company, setting or authority operation is written.
+        """
+        return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
+            include_financial=True, erp_major=erp_major, field_rounding_target=AdvanceRoundingRequest())
+
     def _capture_display(self, invoice_name, *, doctype, include_metadata,
             include_financial=False, include_formats=False, format_scope="invoice", erp_major=None,
             child_table=_NO_CHILD, child_field=None, include_child_cache=False,
@@ -552,7 +562,10 @@ class SavedCalculationDefaultsService:
                     dependencies = dict(metadata_reader=self._rounding_metadata,cache_reader=self._rounding_cache,
                         format_metadata=self._format_metadata, format_cache=self._format_cache,
                         owner_metadata=self._owner_currency_metadata, company_cache=self._company_currency_cache)
-                    if type(field_rounding_target) is RoundingStageRequest:
+                    if type(field_rounding_target) is AdvanceRoundingRequest:
+                        financial_extension = AdvanceRoundingAcquisition(policy, actor, invoice_name,
+                            doctype, erp_major, child_metadata=self._child_metadata, **dependencies)
+                    elif type(field_rounding_target) is RoundingStageRequest:
                         financial_extension = RoundingStageAcquisition(policy,actor,invoice_name,doctype,
                             field_rounding_target,erp_major,**dependencies)
                     else:

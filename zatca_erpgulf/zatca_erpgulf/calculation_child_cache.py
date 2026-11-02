@@ -140,6 +140,15 @@ def observe_child_caches(field_result, selection):
     Built-in dict operations avoid overridden mapping lookups. No cache key,
     bucket, field or document cache is created, removed or refreshed here.
     """
+    return SavedChildCacheRead(field_result, *observe_child_cache_slots(selection))
+
+
+def observe_child_cache_slots(selection):
+    """Sample exact selected objects/slots before any trusted format callbacks.
+
+    Shared by singular child inspection and the co-owned advance group. This
+    does not validate currency/precision semantics or populate any cache.
+    """
     access = dict(selection.children._tables)[selection.children.parentfield]
     index = next(index for index, row in enumerate(access.rows) if row.name == selection.row.name)
     direct, reference = access.documents[index], access.references[index]
@@ -156,5 +165,5 @@ def observe_child_caches(field_result, selection):
     currency_slots = (_slot(row, selection.fieldname), _slot(parent, selection.fieldname))
     direct_states, direct_slot = _precision(direct, selection.fieldname)
     reference_states, reference_slot = _precision(reference, selection.fieldname)
-    return SavedChildCacheRead(field_result, (global_state, *currency_states, *direct_states, *reference_states),
+    return ((global_state, *currency_states, *direct_states, *reference_states),
         (id(direct), id(reference)), currency_slots, (direct_slot, reference_slot))

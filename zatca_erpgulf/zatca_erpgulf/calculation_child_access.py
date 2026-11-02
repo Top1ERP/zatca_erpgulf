@@ -277,11 +277,21 @@ class FinancialGraphAccess:
 class ChildAcquisition(FinancialGraphAccess):
     """Authorize ALL tables read by the financial parent, then one link profile."""
 
-    def __init__(self, policy, actor, invoice_name, doctype, parentfield, metadata_reader, *, field_target=None, defer_metadata=False):
+    def __init__(self, policy, actor, invoice_name, doctype, parentfield, metadata_reader, *,
+            field_target=None, defer_metadata=False, _shared_graph=None):
         if type(parentfield) is not str or parentfield not in TABLE_FIELDS or not callable(metadata_reader):
             raise CalculationChildAccessError("calculation_child_access_dependencies")
         self._metadata, self.parentfield = metadata_reader, parentfield
-        super().__init__(policy, actor, invoice_name, doctype, selected_table=parentfield)
+        self._shared_graph = _shared_graph
+        if _shared_graph is None:
+            super().__init__(policy, actor, invoice_name, doctype, selected_table=parentfield)
+        else:
+            if (not isinstance(_shared_graph, FinancialGraphAccess) or _shared_graph._policy is not policy
+                    or (_shared_graph._name, _shared_graph._doctype) != (invoice_name, doctype)
+                    or parentfield not in dict(_shared_graph.tables)):
+                raise CalculationChildAccessError("calculation_child_shared_graph")
+            for name in ("_policy", "_name", "_doctype", "_parent_load", "_tables", "tables", "_fields"):
+                setattr(self, name, getattr(_shared_graph, name))
         self.rows = dict(self.tables)[parentfield]
         self.childtype = _child_type(doctype, parentfield)
         self.field_source = None
@@ -295,7 +305,10 @@ class ChildAcquisition(FinancialGraphAccess):
             self.prepare_metadata()
 
     def recheck_access(self):
-        super().recheck_access()
+        if self._shared_graph is None:
+            super().recheck_access()
+        else:
+            self._shared_graph.recheck_access()
         if self.field_source is not None:
             self.field_source.recheck_access()
 

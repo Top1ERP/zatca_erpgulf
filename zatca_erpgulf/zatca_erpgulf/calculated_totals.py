@@ -18,6 +18,7 @@ from .calculation_precision import _requires_currency_format
 from .calculation_defaults import _fold
 from .calculation_field_rounding_access import _result_tag
 from .field_rounding import round_field_value
+from .calculation_advance_rounding import SavedAdvanceRoundingRead
 
 ITEM_FIELDS = ("qty", "amount", "base_amount", "net_amount", "base_net_amount")
 TOTAL_FIELDS = ("total", "base_total", "net_total", "base_net_total")
@@ -217,16 +218,19 @@ class NetTotalsCalculation:
 class AdvanceAggregateCalculation:
     """Only the noncancelled advance aggregation PREFIX; no settlement limit/FX.
 
-    Row precision is fresh direct-row metadata/default precision. Uncaptured16
-    row-currency fallback is refused, never replaced by parent-owned precision.
-    Supplied precision traces still do not prove live row-cache provenance.
+    An optional same-owned advance context supplies checked direct-row cache/
+    currency evidence and can yield different precisions for different rows.
+    Without it, uncaptured16 format fallback stays refused. No parent-owned
+    precision substitutes for a row. Traces do not prove active execution.
     """
     source: SavedRoundingStageRead = field(repr=False)
     rows: CalculationRows = field(repr=False)
+    advance_context: SavedAdvanceRoundingRead | None = field(default=None, repr=False)
     row_values: tuple = field(init=False, repr=False)
     total_allocated: int | float = field(init=False, repr=False)
     total_advance: int | float = field(init=False, repr=False)
     row_precision: int | None = field(init=False)
+    row_precisions: tuple = field(init=False, repr=False)
 
     def __post_init__(self):
         try:
@@ -235,7 +239,19 @@ class AdvanceAggregateCalculation:
             if header["docstatus"] not in (["int", "0"], ["int", "1"]):
                 raise ValueError
             precision = None
-            if rows.values:
+            context = self.advance_context
+            if context is not None:
+                if type(context) is not SavedAdvanceRoundingRead:
+                    raise ValueError
+                context = context.pin()
+                if context.stage != source:
+                    raise ValueError
+                row_precisions = context.row_precisions
+                if tuple(row[0] for row in row_precisions) != tuple(row[0] for row in rows.values):
+                    raise ValueError
+                unique = {row[1] for row in row_precisions}
+                precision = next(iter(unique)) if len(unique) == 1 else None
+            elif rows.values:
                 dt = _child_type(rows.financial.financial.doctype, "advances")
                 meta = next(row.applied for row in rows.financial.metadata if row.applied.name == dt)
                 defaults = source.numeric.financial.context.settings.defaults
@@ -245,13 +261,16 @@ class AdvanceAggregateCalculation:
                 ):
                     raise ValueError
                 precision = source.numeric.financial.resolve_precision(dt, "allocated_amount").precision
+                row_precisions = tuple((row[0], precision) for row in rows.values)
+            else:
+                row_precisions = ()
             # An empty table never calls row.precision or its currency fallback.
             values = tuple(
                 round_field_value(
-                    row[1], precision=precision, method=source.method.method,
+                    row[1], precision=selected_precision, method=source.method.method,
                     erp_major=source.method.erp_major,
                 )
-                for row in rows.values
+                for row, (_, selected_precision) in zip(rows.values, row_precisions)
             )
             # Python sum starts at int(0); legacy precision=0 may keep integers.
             allocated = sum(values)
@@ -267,17 +286,22 @@ class AdvanceAggregateCalculation:
             raise CalculatedTotalsError("calculation_advance_aggregate")
         object.__setattr__(self, "source", source)
         object.__setattr__(self, "rows", rows)
+        object.__setattr__(self, "advance_context", context)
         object.__setattr__(self, "row_values", values)
         object.__setattr__(self, "total_allocated", allocated)
         object.__setattr__(self, "total_advance", total)
         object.__setattr__(self, "row_precision", precision)
+        object.__setattr__(self, "row_precisions", row_precisions)
 
     def require_match(self, *, total_advance, setting_trace, precision_trace):
         try:
-            pinned = AdvanceAggregateCalculation(self.source, self.rows)
+            pinned = AdvanceAggregateCalculation(self.source, self.rows, self.advance_context)
             if (
                 pinned != self or type(self.row_precision) is not type(pinned.row_precision)
                 or self.row_precision != pinned.row_precision
+                or type(self.row_precisions) is not tuple or len(self.row_precisions) != len(pinned.row_precisions)
+                or any(type(a) is not tuple or len(a) != 2 or type(a[1]) is not int or a != b
+                    for a, b in zip(self.row_precisions, pinned.row_precisions))
                 or _result_tag(self.total_allocated) != _result_tag(pinned.total_allocated)
                 or _result_tag(self.total_advance) != _result_tag(pinned.total_advance)
                 or type(self.row_values) is not tuple or len(self.row_values) != len(pinned.row_values)
@@ -285,7 +309,7 @@ class AdvanceAggregateCalculation:
                 or _result_tag(total_advance) != _result_tag(pinned.total_advance)
             ):
                 raise ValueError
-            expected = tuple((row[0], "allocated_amount", pinned.row_precision) for row in pinned.rows.values)
+            expected = tuple((name, "allocated_amount", precision) for name, precision in pinned.row_precisions)
             expected += ((
                 pinned.rows.financial.financial.name, "total_advance",
                 pinned.source.fields[0].precision.precision,

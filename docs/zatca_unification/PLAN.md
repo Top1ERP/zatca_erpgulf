@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Combined batch151–154 adds one-owned root/direct-advance precision acquisition,
+original row/reference cache observations, lazy native child/own-Company formats
+and per-row aggregate precision binding. Share one graph/handle, initial formats
+by distinct currency, and configured precision across rows. Check all related
+access before child/format providers. Primary standard `party_account_currency`
+is explicitly tested: configured15/16 precision works; unset16 requires its own
+native row/parent party-currency source and remains refused. Do not substitute
+invoice currency. See [ADVANCE_ROUNDING_CONTEXT.md](ADVANCE_ROUNDING_CONTEXT.md).
+
 Combined batch148–150 adds complete explicit current-row observations, ordered
 net-total calculation comparison and a separate direct-row advance aggregation
 prefix. Reuse the saved owned context, shared trace validator and versioned

@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and fifty bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and fifty-four bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -4155,6 +4155,87 @@ Company rehearsal and adoption/cancellation. See [CALCULATED_TOTALS.md](CALCULAT
 Live remains the independent ba51f25 Phase-1 address hotfix with its original
 address-file hash. No installed app/site/config/schema/data/Company/credential,
 Bench/worker or authority operation occurs. Only this DEV branch is changed.
+
+## Combined batch151–154: co-owned direct advance rounding context
+
+- **151 — group/cache boundary:** add capture_advance_rounding_context on the
+  existing owned service, sharing the root stage's authorized numeric graph and
+  handle. Observe complete original direct/reference precision slots without
+  calling precision() or warming caches. Check membership, identities, stale/
+  malformed precision and drift through callbacks/close. Configured row precision
+  is resolved once while each cache remains separately checked.
+- **152 — lazy row formats:** acquire native child links and exact own-Company
+  sources only for the nonempty fresh16 format branch. Support explicit currency
+  and own-Company options, parent invoice-currency fallback for missing own
+  currency, and unresolved own Company with disabled currency formats. Authorize
+  every related record/field before child/format metadata providers; share one
+  initial format source per distinct currency. Reuse existing child/Company/
+  format/metadata readers and shared raw cache observation. Standalone paths
+  retain their default graph/metadata behavior.
+- **153 — aggregate binding:** accept the protected same-source group as an
+  optional input to AdvanceAggregateCalculation. Bind complete row precision
+  order, distinct row digits, root precision and exact current-value/trace
+  comparison. Preserve old calls without context and their fallback refusal.
+  Compare installed15/pinned16 prefix bodies with actual numeric helpers on
+  unpersisted synthetic objects, stopping at total_advance assignment.
+- **154 — primary coverage and source-sharing checks:** verify primary15/16
+  advance metadata, source load counts, unused dependencies, existing caches,
+  all-related permissions, no-timestamp native drift and rollback. The standard
+  field uses party_account_currency:15 site/default precision and configured16
+  precision work; unset16 remains explicitly refused pending native own-row/
+  parent party-currency evidence. Never substitute invoice currency. This is a
+  remaining source gate, not a completed standard16 fallback path.
+
+Distinct affected verification passed **963 cases: 815 local + 148 native**,
+including **126 new cases: 56 local + 70 native**. The four-suite local selection
+passed **472 in 466.82s (7m46s)**, including the first50 new cases. Three format/
+guard suites passed **317 in 141.03s (2m21s)**; the affected old advance selection
+passed **20 in 45.41s (51 deselected)**. Two additional primary-oracle checks
+passed in0.73s, and two final fresh-resolution probes passed in4.76s. Two additional
+nonnumeric-field refusal cases plus the two repeated fresh-resolution probes
+passed in4.88s. Six cases are disjoint from the472-case run. All56 new local cases
+are covered after the shared-precision change:52 passed before correcting a spy
+expectation to retain the legitimate root precision call, then the two corrected
+probes and two additional field-domain refusals passed. Nonnumeric allocated
+fields fail before providers/SQL; numeric precision must be an exact integer.
+
+The main new native selection passed **56 in 247.11s (4m07s)**. A supplementary
+selection passed **14 in 62.70s**:eight additional cases plus six repeated unused-
+dependency cases. Six disjoint standard-party checks passed in12.20s, completing
+the70 new native cases. After sharing fresh configured precision, sixteen
+affected prefix/standard/unused cases passed again in60.57s (54 deselected), adding
+no distinct cases. The two previous child-cache/Company-format native suites
+passed **78 in 147.51s (2m27s)**. Final new-suite collection independently confirms
+**56 local + 70 native = 126**. This is an affected selection, not a full manifest,
+browser, installed16 or SDK acceptance run.
+
+The guard denied external network/site initialization. Native SQL used NEW
+guard-owned TCP-disabled temporary servers only. Test setup changes stayed
+inside their synthetic fixtures. Native failure tests independently checked
+original currency, allocated amount, number format, defaults and method after
+rollback. Own-Company fixture failures came from a synthetic Meta definition
+missing attribute access; the fixture was corrected without relaxing source
+checks. Temporary tracing was removed and is not committed.
+
+The manifest now contains150 local and42 private SQL suites. All sixteen prior
+capture method ASTs are unchanged; the new operation is the seventeenth. No
+eager relative-import cycle exists across54 reachable modules. Existing financial/
+child-link/Company profile and oracle bytes, pure rounding kernels, writers,
+frontend, XML/QR/signing and credential behavior are unchanged. Shared graph,
+deferred format metadata and raw-cache helpers preserve standalone defaults.
+No new SQL transport, transaction/cleanup owner, RPC or installed provider exists.
+
+The tests prove bounded source sharing and one fresh configured row precision,
+not minimal ORM/validation/query cost or live latency. Active controller/cache/
+provider/transaction provenance, standard unset16 party-currency acquisition,
+full discount/tax/GL/VAT/FX/advance/XML parity, worker/custody/dead-code/performance,
+installed15/16 and SDK gates remain before separately approved fictional-Company
+rehearsal and adoption/cancellation. See
+[ADVANCE_ROUNDING_CONTEXT.md](ADVANCE_ROUNDING_CONTEXT.md).
+
+LIVE remains clean at ba51f25 with the original Phase-1 address-file hash. No
+installed app/site/config/schema/data/Company/credential, Bench/worker or authority
+operation occurs. Only this DEV branch is changed.
 
 ## Verification
 
