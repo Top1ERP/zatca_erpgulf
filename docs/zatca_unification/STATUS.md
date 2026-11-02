@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and thirty-nine bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and forty bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -3851,6 +3851,64 @@ the owned source/settings pipeline. Complete tax/discount/GL/VAT/advance/XML/QR/
 signature parity, whole-worker/custody integration and provider/role/caller/dead-
 code/performance/installed15/16/SDK gates remain before separately approved
 fictional-Company rehearsal and adoption/cancellation decisions.
+
+## Increment 140: same-owned selected numeric field/source/cache bridge
+
+- Add optional capture_field_rounding_context on the SAME financial/defaults
+  service. Compose NumericAcquisition and RoundingAcquisition with one graph,
+  handle and existing normal READ, native readers, final checks and cleanup.
+  No independent captures are combined; no new SQL reader/provider/transport,
+  runtime registration, controller call or user-message pipeline is introduced.
+- Select one present Currency/Float/Percent field from the existing financial
+  header/row manifest, including POS/payment/advance/deduction rows. Bind native
+  saved values, metadata/site defaults and System method/context/version before
+  calculating one protected comparison result through the versioned primitive.
+- Share the selected precision-cache sampler with the existing direct-child
+  inspection, retaining its default main semantics. Inspect the original
+  acquired parent owner's main or selected parentfield bucket without calling
+  precision(), reading a child's own cache, populating a cache or coercing it.
+  Pin owner/container/bucket IDs and exact selected slot through callbacks and
+  close; refuse stale types/values, equivalent replacements and mid-read warmup.
+- Reconstruct the protected result and compare explicit supplied results by
+  type/float bits, including signed zero. A native NULL yields calculated0.0
+  without replacing NULL. Refuse mixed contexts/versions/membership and protect
+  repr/serialization. Constructor consistency is not an atomic-origin grant.
+- Fail closed when v16 Currency precision needs uncaptured owner-field formats;
+  configured/explicit precision and Float/Percent do not guess that fallback.
+  The acquired saved owner/cache is not proof of the active controller's self,
+  actual executed stage or continued freshness. Reuse the existing one localized
+  financial failure summary and retain English internal diagnostics.
+  See [FIELD_ROUNDING.md](FIELD_ROUNDING.md) for callers and integration limits.
+
+Final affected verification passed **2,020 cases**: **1,912 local in 588.79s
+(9m48s)** across eight suites and **108 private SQL in 121.36s (2m01s)** in the
+new native suite. These final runs include **410 new cases: 302 local + 108
+native**. They cover both ACL signatures/declared versions and Sales/POS,
+same-owner header/item/tax/payment/advance/deduction targets, NULL and signed
+zero/type checks, exact cache/definition/membership/permission drift, unsupported
+v16 format fallback, interruption priority, late source mutations, rollback/
+close and caller pending-work preservation. Existing scalar rounding, numeric,
+method, direct-child cache, consumed rounded-total and defaults/guard APIs pass.
+
+The initial native suite passed102 before six late method-cache mutation probes
+were added; the final108 above includes them. An initial local fixture assumed
+mutable metadata; it was corrected to use the existing permission-field override,
+without relaxing the access checks. Final verification includes that denial and
+all later added Float/fallback/interrupt cases. SQL was NEW guard-owned temporary
+MariaDB with TCP disabled; external network/site initialization stayed denied.
+This is affected-suite evidence, not a new full-manifest run or installed16,
+Node/browser, SDK or authority acceptance. The manifest has145 local and37 private
+suites. All fourteen old public capture method ASTs remain unchanged; there is
+no eager relative-import cycle across forty-nine reachable modules. Old native
+readers/profiles/oracles, amount writers, XML/QR/signing and frontend are unchanged.
+
+Live remains the independent ba51f25 Phase-1 address hotfix. No installed app,
+site/config/schema/Company/credential, Bench/worker or authority operation occurs.
+Owner-field format acquisition and active controller/cache-stage provenance
+remain next, followed by complete tax/discount/GL/VAT/advance/XML/QR/signature
+parity, whole-worker/custody integration and provider/role/caller/dead-code/
+performance/installed15/16/SDK gates before separately approved fictional-Company
+rehearsal and adoption/cancellation decisions.
 
 ## Verification
 

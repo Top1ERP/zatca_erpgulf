@@ -80,12 +80,69 @@ large values, precisionNone/0/1/2/9/64, invalid-domain refusal and Decimal conte
 preservation. It also consumes `FieldPrecisionResolution` to retain the verified
 version-specific zero-default behavior. See [STATUS.md](STATUS.md) for counts.
 
-The only new caller is this offline suite. Staging this small primitive avoids
+At increment139 the only caller was this offline suite. Staging this small primitive avoids
 prematurely invoking controllers or inventing a second complete tax calculator.
 It has no runtime registration, provider, RPC or financial writer. Next bind the
 actual selected rounding stage to the existing owned native/source settings,
 with parent/child precision-cache provenance, before amount/tax/GL/VAT/advance/
 XML parity. Installed15/16 integration, SDK and authority acceptance remain open.
+
+## Same-owned selected-field bridge — increment140
+
+`SavedCalculationDefaultsService.capture_field_rounding_context(invoice_name,
+fieldname, erp_major=15|16, doctype=..., parentfield=None, row_name=None)` adds
+an optional local acquisition, without changing the fourteen existing capture
+APIs. The default target is a header field; a child target must name one saved
+row of an existing allowlisted financial table. Request input never chooses a
+provider, handle, metadata, method override, precision or format declaration.
+
+`FieldRoundingAcquisition` composes the existing `NumericAcquisition` graph and
+`RoundingAcquisition` on the SAME owned financial/defaults transaction. Reuse
+normal invoice/Company/table/child/field READ, full definition matching, native
+SQL readers, System document/field READ, native/cache method comparison and
+shared final rechecks/rollback/close. There is no second financial graph, source
+reader, connection, cleanup engine or user-message pipeline. Unlike the scalar
+primitive, this bridge consumes the saved System method, with the existing
+legacy fallback and exact absence/NULL/blank witness; it offers no override.
+
+Inspect the original authorized parent object's existing `_precision` slot using
+the shared read-only cache sampler. A header field selects `main`; a child field
+selects its parentfield bucket on the OWNER, not a direct child's `main` cache.
+Do not call `precision()` or populate/refresh a cache. Pin container/bucket IDs,
+slot type/value and initial object identity through callbacks and cleanup. An
+equivalent replacement or valid warmup during the operation is still drift.
+Unrelated slots and a direct child's different cache are not this operation's
+precision source. The captured owner is the acquired saved parent, not proof of
+identity with a future active controller's `self` object.
+
+`SavedFieldRoundingRead` reconstructs saved numeric, method, context/version,
+target membership and cache binding. Resolve precision from the same native
+metadata and site defaults, and require an existing selected cache entry to
+match its exact type/value. Missing cache is an absence observation, not evidence
+that a future call will compute the same value. Resolve no user/global default
+overlay. Only present Currency/Float/Percent fields are supported.
+
+The result computes one `rounded_value` from the selected saved native scalar
+using `round_field_value`. None becomes float0.0 without replacing the saved
+None. `require_result_match(value)` compares an explicitly supplied calculation
+result by type and float bits, rechecking reconstruction; Decimal/float/int
+equivalence and opposite signed zero do not pass. Protected repr and refused
+serialization keep this result out of normal UI/log/queue payloads.
+
+Version16 Currency precision needing locale/currency-format fallback is
+deliberately unsupported by this bridge. It fails through the existing single
+localized financial summary; it does not substitute invoice currency for the
+owner field's currency. Configured site precision, explicit field precision and
+Float/Percent precision do not need that missing dependency. Owner-field format
+acquisition and actual controller/cache-stage provenance remain the next gates.
+
+The staged bridge and its offline suites are the new callers. It is not an RPC,
+installed provider, background worker or issuance path; no controller runs, no
+amount/settings source changes and no authority request occurs. Constructors
+check consistency of supplied evidence, not independent atomic-origin proof or
+continued freshness after disclosure. Future runtime composition must audit
+providers and bind the active controller, field/currency and full amount stage.
+Final test counts and SQL isolation evidence are recorded in STATUS.md.
 
 See [FINANCIAL_NUMERIC_VIEWS.md](FINANCIAL_NUMERIC_VIEWS.md),
 [CALCULATION_PRECISION.md](CALCULATION_PRECISION.md),

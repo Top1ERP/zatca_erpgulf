@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment140 composes a selected saved field's numeric/native graph, site
+defaults, System method and original owner's existing precision cache on ONE
+owned pipeline. Calculate only the selected comparison result, with exact type/
+bit checks and no normalization or controller invocation. Reuse shared source/
+ACL/metadata/cache/cleanup paths; reject changed or stale caches and unsupported
+v16 format fallback. Owner-field formats and active controller-stage provenance
+remain gates before fiscal integration. See [FIELD_ROUNDING.md](FIELD_ROUNDING.md).
+
 Increment139 adds a pure explicit versioned field-rounding primitive, sharing
 the unchanged legacy kernel and retaining verified15/16 Banker's/Commercial
 differences. Compare real numeric helpers and Document.round_floats_in for NULL,

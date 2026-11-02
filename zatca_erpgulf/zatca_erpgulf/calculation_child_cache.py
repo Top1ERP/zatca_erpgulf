@@ -37,10 +37,10 @@ def _slot(mapping, key):
     return tuple(_scalar(dict.__getitem__(mapping, key))) if dict.__contains__(mapping, key) else ABSENT
 
 
-def _precision(doc, fieldname):
+def _precision(doc, fieldname, *, parentfield=None):
     cache = vars(doc).get("_precision", _MISSING)
     state = _state(cache)
-    main = _MISSING if cache is _MISSING else _bucket(cache, "main")
+    main = _MISSING if cache is _MISSING else _bucket(cache, parentfield or "main")
     return (state, _state(main)), _slot(main, fieldname)
 
 
