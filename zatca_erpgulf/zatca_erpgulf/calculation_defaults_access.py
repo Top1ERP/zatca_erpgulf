@@ -28,6 +28,7 @@ from .calculation_rounding_access import RoundingAcquisition, SavedRoundingConte
 from .calculation_global_rounding_access import GlobalRoundingAcquisition, SavedGlobalRoundingContext
 from .calculation_invoice_rounding_access import InvoiceRoundingAcquisition, SavedInvoiceRoundingContext
 from .calculation_fraction_access import FractionAcquisition, SavedCurrencyFractionContext
+from .calculation_rounded_total_access import RoundedTotalAcquisition
 from .credential_bundle_access import CredentialStorageScope
 from . import financial_source_observation as financial
 from .financial_source_sql import (
@@ -413,6 +414,15 @@ class SavedCalculationDefaultsService:
         return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
             include_financial=True, include_currency_fraction=True, erp_major=erp_major)
 
+    def capture_rounded_total_context(self, invoice_name, *, erp_major, doctype="Sales Invoice"):
+        """Inspect only consumed rounding settings on ONE owned financial read.
+
+        Keep controller guard order and bind normal/native evidence. This does
+        not calculate money, normalize the invoice or authorize issuance.
+        """
+        return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
+            include_financial=True, include_rounded_total=True, erp_major=erp_major)
+
     def capture_child_cached_context(self, invoice_name, parentfield, row_name, fieldname, *, erp_major, doctype="Sales Invoice"):
         """Also inspect existing request-local caches without calling precision()."""
         return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
@@ -424,7 +434,7 @@ class SavedCalculationDefaultsService:
             include_financial=False, include_formats=False, format_scope="invoice", erp_major=None,
             child_table=_NO_CHILD, child_field=None, include_child_cache=False,
             include_rounding=False, rounding_override=None, include_global_rounding=False, include_invoice_rounding=False,
-            include_currency_fraction=False):
+            include_currency_fraction=False, include_rounded_total=False):
         try:
             with mute_operation_messages(frappe):
                 return self._capture_owned(invoice_name, doctype=doctype, include_metadata=include_metadata,
@@ -432,7 +442,7 @@ class SavedCalculationDefaultsService:
                     erp_major=erp_major, child_table=child_table, child_field=child_field, include_child_cache=include_child_cache,
                     include_rounding=include_rounding, rounding_override=rounding_override,
                     include_global_rounding=include_global_rounding, include_invoice_rounding=include_invoice_rounding,
-                    include_currency_fraction=include_currency_fraction)
+                    include_currency_fraction=include_currency_fraction, include_rounded_total=include_rounded_total)
         except frappe.PermissionError:
             denied = True
         except Exception:
@@ -475,7 +485,7 @@ class SavedCalculationDefaultsService:
             include_financial=False, include_formats=False, format_scope="invoice", erp_major=None,
             child_table=_NO_CHILD, child_field=None, include_child_cache=False,
             include_rounding=False, rounding_override=None, include_global_rounding=False, include_invoice_rounding=False,
-            include_currency_fraction=False):
+            include_currency_fraction=False, include_rounded_total=False):
         """Recheck saved ACL/SQL membership/cache before protected disclosure.
 
         Fresh owned rollback excludes pre-existing pending defaults. Remaining
@@ -492,13 +502,19 @@ class SavedCalculationDefaultsService:
                 raise CalculationDefaultsAccessError("calculation_financial_access_version")
             children, formats, rounding = None, None, None
             financial_extension = None
-            if include_invoice_rounding or include_currency_fraction:
+            if include_invoice_rounding or include_currency_fraction or include_rounded_total:
                 if (self._parent_kind != "site" or not include_metadata or not include_financial or include_formats
                         or include_rounding or include_global_rounding or rounding_override is not None
                         or child_table is not _NO_CHILD or child_field is not None or include_child_cache
-                        or include_invoice_rounding and include_currency_fraction):
+                        or sum(bool(value) for value in (include_invoice_rounding, include_currency_fraction, include_rounded_total)) != 1):
                     raise CalculationDefaultsAccessError("calculation_financial_extension_profile")
-                if include_currency_fraction:
+                if include_rounded_total:
+                    financial_extension = RoundedTotalAcquisition(policy, actor, invoice_name, doctype,
+                        control_metadata=self._invoice_rounding_metadata,
+                        global_metadata=self._global_rounding_metadata, global_cache=self._global_rounding_cache,
+                        fraction_metadata=self._fraction_metadata, fraction_cache=self._fraction_cache,
+                        method_metadata=self._rounding_metadata, method_cache=self._rounding_cache)
+                elif include_currency_fraction:
                     financial_extension = FractionAcquisition(policy, actor, invoice_name, doctype,
                         self._fraction_metadata, self._fraction_cache)
                 else:
@@ -610,7 +626,9 @@ class SavedCalculationDefaultsService:
                     else:
                         captured = SavedRoundingContext(captured, erp_major, rounding_override, observed_rounding, rounding.rows)
                 if financial_extension is not None:
-                    if include_currency_fraction:
+                    if include_rounded_total:
+                        captured = financial_extension.build_result(captured, observed_extension)
+                    elif include_currency_fraction:
                         captured = SavedCurrencyFractionContext(captured, observed_extension, financial_extension.tables,
                             financial_extension.rows, financial_extension.currency)
                     else:

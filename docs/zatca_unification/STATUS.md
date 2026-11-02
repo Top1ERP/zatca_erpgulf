@@ -1,8 +1,8 @@
-# Implementation status — 2026-11-01
+# Implementation status — 2026-11-02
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and thirty-five bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and thirty-six bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -3610,6 +3610,81 @@ occurred. Next compose the consumed guarded invoice/global/fraction/method plan
 on this SAME service. Concrete provider/role/ERP amount/cache/FX/GL/VAT/advance/
 XML/QR/signature/browser, installed15/16/SDK/performance and final caller/dead-code
 release audits remain before a separately approved fictional-Company rehearsal.
+
+## Increment 136: consumed rounded-total sources on one owned pipeline
+
+- Add optional capture_rounded_total_context/SavedRoundedTotalContext using the
+  existing owned financial/defaults service, ACL engines, native readers, cleanup
+  and single localized financial summary. Reuse one authorized financial graph;
+  the independent Currency inspection keeps its existing result/capture API.
+- Share initial guard, invoice/global priority and versioned field-plan helpers
+  with the older declared control plan, preserving its profile bytes. Preserve
+  consolidated adjustment and absent-rounded-field short circuits. Only absent
+  invoice disable metadata selects Global Defaults; false invoice values never
+  cause fallback. Conditional related READ precedes its own acquisition.
+- Prove the selected global value natively on the SAME handle before selecting
+  Currency/System. Require exact invoice Currency fraction only when enabled,
+  and final method for either fraction route. In disabled v15 no method is used;
+  disabled v16 still needs the method for zero base conversion. No amount is
+  calculated, normalized, converted, assigned, saved or sent by this operation.
+- Retain the original/fresh adjustment getter tag only when consolidated and
+  require native/normal zero/nonzero agreement. This is explicitly a guard
+  witness, NOT an amount-equality or ORM-normalization assertion. Native amounts
+  and getter representation remain separate; unused getters are not read.
+- Complete trusted metadata/cache callbacks before final SQL checks of every
+  selected source. Preserve rollback/close, ambient ownership and interruption
+  priority, recheck access/APIs through cleanup, reject missing or extraneous
+  dependencies and reconstruct same-parent protected saved contexts.
+- Record scope, callers, provenance limits and remaining release gates in
+  [ROUNDED_TOTAL_ACCESS.md](ROUNDED_TOTAL_ACCESS.md). No provider, hook, RPC,
+  frontend, schema, runtime writer or authority operation is installed.
+
+Initial local verification passed **351 cases in 181.53s** (118 new + 233 existing
+control cases). After correcting a recursive synthetic fixture alias, the initial
+new native suite passed **98 cases in 243.79s**. These preliminary checks were
+not the final code: source review traced the real v16 conversion helper and found
+its System-method dependency on zero values, which earlier conversion stubs did
+not exercise. The owned broader run was deliberately interrupted after **231
+passes in 404.01s**, with fixture cleanup; it is not completed verification.
+
+Add only the exact attributed v16 _set_in_company_currency excerpt to the existing
+GPLv3 oracle. Its full-file hash remains
+`b50607b8b7891a5e82542fe36bd61a3342d2995a1faf103a21cae8554056f5aa`;
+all older excerpt/license bytes remain unchanged. Compare the new excerpt exactly
+to the cached pinned primary source. Direct actual15/pinned16 conversion tests
+passed **8 cases in 0.36s**: four System-method reads for v16 zero conversion,
+none for v15 early return, and unknown-method failure in v16 even for zeros.
+Correct the new selector and test both POS Check fields absent, method selection,
+conditional permissions, callbacks, protected results, pending work and cleanup.
+
+Final affected-suite verification passed **1,990 cases in 908.62s (15m08s)**:
+**1,778 local + 212 native** across **eleven local and two private SQL suites**,
+including **302 new cases: 176 selection/access + 118 native + 8 real conversion
+helper probes**. This final run includes the corrected v16 disabled-method
+dependency, ordinary POS metadata with both Check fields absent, all previous
+Currency access/SQL cases, legacy invoice/global/method/default/financial APIs,
+declared control behavior and offline guard/manifest tests. External network/site
+initialization remained denied; SQL used NEW guard-owned TCP-disabled temporary
+servers only. The fixed full manifest now contains 140 local and 35 private
+suites; only the thirteen affected suites were executed in this final run.
+
+Twelve prior capture methods retain their exact ASTs. Static import review found
+no eager relative-import cycle across forty-six reachable modules. Native SQL,
+existing source profiles and framework oracle excerpts remain unchanged; only
+the selected ERP16 conversion excerpt and its tests are added. The increment135
+**26,647-case** full run remains historical, not a new full-run claim here.
+No Node/browser/SDK/full installed16 or remote acceptance assertion is made.
+
+Live stays at the independent ba51f25 Phase-1 address hotfix. No installed app,
+site/data/config/schema/Company/credential, Bench/worker or authority operation
+occurred. Next close amount/getter/cache/precision/FX/GL/VAT/advance parity and
+whole-worker/XML/QR/signature composition, then provider/role/caller/dead-code/
+performance and installed15/16/SDK release gates before a separately approved
+fictional-Company rehearsal and adoption/cancellation decision.
+Ordinary saved-document versus explicit numeric-fix Check/amount projections,
+including nullable Checks, remain an explicit next bridge; the current canonical
+Check-getter contract is not silently widened or represented as complete ORM
+normalization evidence.
 
 ## Verification
 

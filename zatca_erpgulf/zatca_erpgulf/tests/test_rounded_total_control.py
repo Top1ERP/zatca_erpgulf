@@ -6,6 +6,7 @@ from decimal import Decimal, FloatOperation, localcontext
 import hashlib
 import inspect
 import json
+import math
 from pathlib import Path
 import pickle
 import textwrap
@@ -23,6 +24,40 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_calculation_settings_observation imp
 from zatca_erpgulf.zatca_erpgulf.tests.test_financial_source_observation import erp_major, case
 
 ERP16_COMMIT = "ade850bbd6a7412e9994a9637d2c5c713771632a"
+
+
+@pytest.mark.parametrize("method", ["Banker's Rounding (legacy)", "UNKNOWN-PRIVATE"])
+def test_disabled_base_conversion_consumes_method_in_v16_even_for_zero(case, erp16, upstream16, monkeypatch, method):
+    """Execute the conversion helper rather than hiding its calls behind a Mock."""
+    class InvalidRoundingMethod(Exception): pass
+    def fail(message, exc=None): raise (exc or InvalidRoundingMethod)(message)
+    runtime = SimpleNamespace(get_system_settings=Mock(return_value=method),
+        InvalidRoundingMethod=InvalidRoundingMethod, throw=fail, _=lambda message: message)
+    doc = SimpleNamespace(is_consolidated=0, rounding_adjustment=1, rounded_total=2,
+        base_rounded_total=4, base_rounding_adjustment=2, conversion_rate=2,
+        meta=SimpleNamespace(get_field=lambda name: object()), precision=lambda name: 2,
+        is_rounded_total_disabled=lambda: True)
+    doc.get, doc.set = lambda name: getattr(doc, name, None), lambda name, value: setattr(doc, name, value)
+    calculation = SimpleNamespace(doc=doc)
+    if case.erp_major == 15:
+        import erpnext.controllers.taxes_and_totals as totals
+        monkeypatch.setattr(framework_data, "frappe", runtime)
+        monkeypatch.setattr(totals, "flt", framework_data.flt)
+        update, convert = calculate_taxes_and_totals.set_rounded_total, calculate_taxes_and_totals._set_in_company_currency
+    else:
+        namespace = erp16[1]
+        monkeypatch.setitem(upstream16, "frappe", runtime)
+        monkeypatch.setitem(upstream16, "math", math)
+        monkeypatch.setitem(namespace, "flt", upstream16["flt"])
+        update, convert = namespace["set_rounded_total"], namespace["_set_in_company_currency"]
+    calculation._set_in_company_currency = lambda target, fields: convert(calculation, target, fields)
+    if case.erp_major == 16 and method == "UNKNOWN-PRIVATE":
+        with pytest.raises(InvalidRoundingMethod): update(calculation)
+        assert runtime.get_system_settings.call_count == 1
+    else:
+        update(calculation)
+        assert runtime.get_system_settings.call_count == (4 if case.erp_major == 16 else 0)
+        assert doc.rounded_total == doc.rounding_adjustment == doc.base_rounded_total == 0
 
 
 @pytest.fixture(scope="module")

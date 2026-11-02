@@ -54,6 +54,30 @@ def _fraction_branch(encoded):
     return "CURRENCY_FRACTION_THEN_FIELD_PRECISION"
 
 
+def _initial_branch(consolidated, adjustment, rounded_present):
+    """Share the controller's short-circuit order without calculating money."""
+    if consolidated and _numeric(adjustment):
+        return "PRESERVE_CONSOLIDATED_ADJUSTMENT"
+    if not rounded_present:
+        return "NO_ROUNDED_TOTAL_FIELD"
+    return None
+
+
+def _disable_source(invoice_value, global_value=None):
+    """Field presence wins over Global Defaults, including a false value."""
+    origin = "INVOICE_FIELD"
+    selected = invoice_value
+    if selected == ["absent"]:
+        selected, origin = global_value, "GLOBAL_DEFAULTS"
+    return _check(selected), origin, tuple(selected)
+
+
+def _disabled_fields(major):
+    if major == 15:
+        return ("rounded_total", "base_rounded_total", "rounding_adjustment"), ()
+    return ("rounded_total", "rounding_adjustment"), BASE_FIELDS
+
+
 @dataclass(frozen=True, repr=False)
 class RoundedTotalControl:
     """Protected supplied control plan, NOT native/effective amount authority.
@@ -91,25 +115,14 @@ class RoundedTotalControl:
                 for row in json.loads(settings._payload)["records"]}
             disabled = origin = disable_value = currency = fraction = method = method_origin = None
             zero_fields, base_fields = (), ()
-            if self.is_consolidated and _numeric(header["rounding_adjustment"]):
-                branch = "PRESERVE_CONSOLIDATED_ADJUSTMENT"
-            elif header["rounded_total"] == ["absent"]:
-                branch = "NO_ROUNDED_TOTAL_FIELD"
-            else:
+            branch = _initial_branch(self.is_consolidated, header["rounding_adjustment"], header["rounded_total"] != ["absent"])
+            if branch is None:
                 selected = header["disable_rounded_total"]
-                if selected == ["absent"]:
-                    selected = records["Global Defaults", "Global Defaults"]["disable_rounded_total"]
-                    origin = "GLOBAL_DEFAULTS"
-                else:
-                    origin = "INVOICE_FIELD"
-                # Missing global metadata is unknown, not an invented API None.
-                disabled, disable_value = _check(selected), tuple(selected)
+                global_value = records["Global Defaults", "Global Defaults"]["disable_rounded_total"] if selected == ["absent"] else None
+                disabled, origin, disable_value = _disable_source(selected, global_value)
                 if disabled:
                     branch = "DISABLED"
-                    if financial.erp_major == 15:
-                        zero_fields = ("rounded_total", "base_rounded_total", "rounding_adjustment")
-                    else:
-                        zero_fields, base_fields = ("rounded_total", "rounding_adjustment"), BASE_FIELDS
+                    zero_fields, base_fields = _disabled_fields(financial.erp_major)
                 else:
                     currency = _validate_scalar(header["currency"])
                     selected = records["Currency", currency]["smallest_currency_fraction_value"]

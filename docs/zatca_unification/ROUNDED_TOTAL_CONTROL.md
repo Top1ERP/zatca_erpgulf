@@ -79,6 +79,13 @@ Inspected16 requests conversion of both base values. The returned `zero_fields`
 and `base_conversion_fields` record this distinction without performing writes or
 calculations. A common selected method does not justify identical base effects.
 
+Increment136 traces the real conversion helper too: disabled v16 still consumes
+the System method through precision-flt on zero. This older declaration profile's
+method fields cover active total rounding only; they do not certify that base
+conversion leaves the method unused. Its bytes stay compatible. The new consumed
+native selection captures this additional dependency and exercises the exact
+licensed helper instead of replacing conversion with a Mock.
+
 ## POS paths and final-document priority
 
 The inspected15/pinned16 normal Sales/POS backend copy-field lists omit the
@@ -144,3 +151,10 @@ invoice branch or calculate/convert invoice amounts.
 
 See [STATUS.md](STATUS.md) for observed verification and
 [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md) for the current deployment/send ban.
+
+Increment136 extracts unchanged initial/disable/versioned-field decisions into
+shared helpers used by the new native-bound consumed selection. The optional
+same-service operation in [ROUNDED_TOTAL_ACCESS.md](ROUNDED_TOTAL_ACCESS.md) composes
+only required sources, without fabricating this older full settings declaration.
+An exact normal adjustment tag plus native truthiness agreement proves a guard,
+not monetary equality; complete amount/cache/ERP/runtime gates remain.

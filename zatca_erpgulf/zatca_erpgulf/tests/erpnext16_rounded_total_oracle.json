@@ -12,6 +12,7 @@
     "erpnext/controllers/taxes_and_totals.py": {
       "sha256": "b50607b8b7891a5e82542fe36bd61a3342d2995a1faf103a21cae8554056f5aa",
       "excerpts": {
+        "_set_in_company_currency": "def _set_in_company_currency(self, doc, fields):\n\t\t\"\"\"set values in base currency\"\"\"\n\t\tfor f in fields:\n\t\t\tval = flt(\n\t\t\t\tflt(doc.get(f), doc.precision(f)) * self.doc.conversion_rate, doc.precision(\"base_\" + f)\n\t\t\t)\n\t\t\tdoc.set(\"base_\" + f, val)",
         "set_rounded_total": "def set_rounded_total(self):\n\t\tif self.doc.get(\"is_consolidated\") and self.doc.get(\"rounding_adjustment\"):\n\t\t\treturn\n\n\t\tif self.doc.meta.get_field(\"rounded_total\"):\n\t\t\tif self.doc.is_rounded_total_disabled():\n\t\t\t\tself.doc.rounded_total = 0\n\t\t\t\tself.doc.rounding_adjustment = 0\n\n\t\t\telse:\n\t\t\t\tself.doc.rounded_total = round_based_on_smallest_currency_fraction(\n\t\t\t\t\tself.doc.grand_total, self.doc.currency, self.doc.precision(\"rounded_total\")\n\t\t\t\t)\n\n\t\t\t\t# rounding adjustment should always be the difference between grand and rounded total\n\t\t\t\tself.doc.rounding_adjustment = flt(\n\t\t\t\t\tself.doc.rounded_total - self.doc.grand_total, self.doc.precision(\"rounding_adjustment\")\n\t\t\t\t)\n\n\t\t\tself._set_in_company_currency(self.doc, [\"rounding_adjustment\", \"rounded_total\"])"
       },
       "source_notice": "# Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors\n# License: GNU General Public License v3. See license.txt\n"

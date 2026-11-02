@@ -19,6 +19,17 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment136 composes the consumed rounded-total sources on the SAME owned
+financial/defaults service. Share declared guard/version helpers; preserve
+consolidated/field-presence/invoice-over-global priority and authorize each
+conditional related source before its acquisition. Reuse one financial graph,
+read fraction only when enabled and method when consumed, including disabled
+v16 base conversion, and recheck every selected source through cleanup. The
+retained adjustment getter is only a
+zero/nonzero guard witness, not an amount-equality or normalization claim.
+Complete money/provider/runtime/adoption gates remain. See
+[ROUNDED_TOTAL_ACCESS.md](ROUNDED_TOTAL_ACCESS.md).
+
 Increment135 adds optional permissioned invoice-Currency fraction inspection on
 the SAME owned financial/defaults service. Reuse full financial graph and related
 record/field READ before all callbacks; bind original/fresh invoice currency,

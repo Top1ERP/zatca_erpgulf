@@ -81,15 +81,16 @@ transactions as one purported snapshot. Planned selection must cover:
 | Rounded-total field absent | No global/fraction/method lookup for this skipped path |
 | Invoice disable Check field present | Its getter/API projection wins, including normalized zero; do not fall back to Global Defaults because the value is false |
 | Invoice disable Check field absent | Read and prove the Global Defaults single-value projection |
-| Effective disable value true | No Currency fraction or rounding-method lookup; version-specific amount handling is separate |
+| Effective disable value true | No Currency fraction; v15 returns without method, v16 still needs System method for zero base conversion |
 | Effective disable value false | Exact invoice Currency fraction, then final amount-rounding method for BOTH zero and positive fractions |
 | Explicit nonempty rounding-method override in a reviewed caller | Reuse the existing override policy and skip unused System method access |
 
-This is an acceptance plan, not an implemented acquisition selector. In particular,
-the first row's effective adjustment cannot be inferred from raw Decimal
-truthiness without proving the actual ERP amount/getter/cache projection. The
-current inspection intentionally does not read normal money getters. Branch
-guards must not silently change ERP behavior while composing native observations.
+Increment136 implements this selection as a separate optional inspection on the
+SAME service; see [ROUNDED_TOTAL_ACCESS.md](ROUNDED_TOTAL_ACCESS.md). Its retained
+adjustment getter proves only the controller's zero/nonzero guard against native
+evidence, without converting money or claiming amount equality. This standalone
+fraction inspection still does not read normal money getters. Full amount/getter/
+cache parity and runtime adoption remain gates.
 
 Amount/cache/FX/GL/VAT/advance/XML/QR/
 signature/browser parity, concrete provider/role review, caller/dead-code and

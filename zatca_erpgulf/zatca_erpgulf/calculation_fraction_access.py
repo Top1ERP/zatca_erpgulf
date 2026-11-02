@@ -54,14 +54,19 @@ def _require_related(row, fraction):
     return pinned
 
 
-class FractionAcquisition(FinancialGraphAccess):
+class FractionAcquisition:
     """Full graph plus related record/field READ precedes every callback."""
 
-    def __init__(self, policy, actor, invoice_name, doctype, metadata_reader, cache_reader):
+    def __init__(self, policy, actor, invoice_name, doctype, metadata_reader, cache_reader, *, financial_graph=None):
         if not callable(metadata_reader) or not callable(cache_reader):
             raise CalculationFormatAccessError("calculation_fraction_dependencies")
         self._metadata, self._cache, self._actor = metadata_reader, cache_reader, actor
-        super().__init__(policy, actor, invoice_name, doctype)
+        self.graph = financial_graph if financial_graph is not None else FinancialGraphAccess(policy, actor, invoice_name, doctype)
+        if (not isinstance(self.graph, FinancialGraphAccess) or self.graph._policy is not policy
+                or (self.graph._name, self.graph._doctype) != (invoice_name, doctype)):
+            raise CalculationFormatAccessError("calculation_fraction_graph")
+        self._policy, self._name, self._doctype = policy, invoice_name, doctype
+        self.tables, self._parent_load = self.graph.tables, self.graph._parent_load
         self.document = self._parent_load(doctype, invoice_name)
         self.owner = policy.ROW_TYPE.from_document(self.document)
         self.link, self.link_level, self.currency = self._root_state(self.document)
@@ -87,7 +92,7 @@ class FractionAcquisition(FinancialGraphAccess):
         return applied, level
 
     def recheck_access(self):
-        super().recheck_access()
+        self.graph.recheck_access()
         expected = self.link, self.link_level, self.currency
         if (self._root_state(self.document) != expected
                 or self._root_state(self._parent_load(self._doctype, self._name)) != expected):
@@ -112,7 +117,7 @@ class FractionAcquisition(FinancialGraphAccess):
         self.recheck_access()
 
     def require_financial_metadata(self, metadata):
-        super().require_financial_metadata(metadata)
+        self.graph.require_financial_metadata(metadata)
         if metadata[0].get_field("currency") != self.link:
             raise CalculationFormatAccessError("calculation_fraction_link_metadata")
 
