@@ -38,7 +38,7 @@ def _meta(value):
 
 
 def _check(encoded):
-    """Saved Check getter projection only; absent getter None is not stored NULL.
+    """Explicit numeric-fix projection; ordinary saved loads can retain NULL.
 
     A present NULL Check normalizes to int0 in both inspected framework versions.
     Refuse noncanonical native Check values instead of silently repairing them.
@@ -119,16 +119,31 @@ class LockedInvoiceRoundingRead:
         object.__setattr__(self, "sha256", hashlib.sha256(b"zatca-invoice-rounding-source/v1\0" + self._payload).hexdigest())
 
     def require_check_cache_match(self, supplied):
-        """Compare supplied saved-document getters; never call or warm a cache.
+        """Compare exact post-numeric-fix getters; never call or warm a cache.
 
         Missing fields require getter None; present NULL requires normalized
         int0. No money projection or active invoice/global policy is certified.
         """
+        self._require_check_view(supplied, saved=False)
+
+    def require_saved_check_match(self, supplied):
+        """Bind observed saved getters, retaining NULL instead of coercing it.
+
+        A None getter needs exact native NULL or proved metadata/column absence.
+        Canonical post-fix int0/1 getters remain supported. No money getter,
+        default, fallback setting or source/ORM write participates in this match.
+        """
+        self._require_check_view(supplied, saved=True)
+
+    def _require_check_view(self, supplied, *, saved):
         try:
             pinned = _pin_read(self)
             if type(supplied) is not dict or set(supplied) != set(CHECKS):
                 raise ValueError
+            fields = dict(json.loads(pinned._payload)["fields"]) if saved else {}
             for name, expected in pinned.normalized_checks:
+                if saved and supplied[name] is None and fields[name] == ["null"]:
+                    continue
                 if type(supplied[name]) is not type(expected) or supplied[name] != expected:
                     raise ValueError
         except Exception:
@@ -136,7 +151,7 @@ class LockedInvoiceRoundingRead:
         else:
             invalid = False
         if invalid:
-            raise InvoiceRoundingSourceError("invoice_rounding_check_cache_mismatch")
+            raise InvoiceRoundingSourceError("invoice_rounding_saved_check_mismatch" if saved else "invoice_rounding_check_cache_mismatch")
 
     def __repr__(self):
         return "<LockedInvoiceRoundingRead protected PARTIAL controls, NOT verified origin>"

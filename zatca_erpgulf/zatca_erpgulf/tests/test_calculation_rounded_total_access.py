@@ -316,3 +316,19 @@ def test_v16_disabled_conversion_cannot_ignore_an_unknown_method(defaults_operat
     case.round_doc.rounding_method = "UNKNOWN-PRIVATE"
     with pytest.raises(InspectionFailed): capture(case, 16)
     case.fraction_metadata.assert_not_called()
+
+
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("major", [15, 16])
+def test_present_null_saved_check_is_false_without_global_fallback(defaults_operator, monkeypatch, doctype, major):
+    case = scenario(defaults_operator, monkeypatch, doctype=doctype, global_value="1")
+    case.invoice.is_consolidated = case.invoice.disable_rounded_total = None
+    result = capture(case, major)
+    assert result.selection.branch == "CURRENCY_FRACTION_THEN_FIELD_PRECISION"
+    assert result.selection.disabled is False and result.selection.disable_origin == "INVOICE_FIELD"
+    assert all(value is None for _, value in result.invoice.checks)
+    assert result.global_context is None
+    case.global_metadata.assert_not_called()
+    case.global_cache.assert_not_called()
+    assert result.fraction_context is not None and result.method_context is not None
+    assert case.invoice.is_consolidated is case.invoice.disable_rounded_total is None

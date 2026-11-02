@@ -242,3 +242,35 @@ def test_check_projection_matches_actual15_and_pinned16_numeric_fix(monkeypatch,
         monkeypatch.setitem(upstream16, "numeric_fieldtypes", ("Check",))
         upstream16["_fix_numeric_types"](doc)
     result.require_check_cache_match({name: doc.get(name) for name in source.CHECKS})
+
+
+@pytest.mark.parametrize("field", source.CHECKS)
+@pytest.mark.parametrize("raw,getter,accepted", [(None,None,True), (None,0,True), (None,1,False),
+    (0,None,False), (0,0,True), (1,None,False), (1,1,True),
+    (None,False,False), (None,"0",False), (None,0.0,False)])
+def test_saved_view_requires_exact_native_null_for_none_without_widening_fixed_api(monkeypatch, field, raw, getter, accepted):
+    case = scenario(monkeypatch, consolidated=raw, disabled=raw)
+    observed = load(case)
+    before = observed._payload, observed.sha256, observed.financial.financial._payload
+    supplied = dict(observed.normalized_checks)
+    supplied[field] = getter
+    if accepted:
+        observed.require_saved_check_match(supplied)
+    else:
+        failure(lambda: observed.require_saved_check_match(supplied), "invoice_rounding_saved_check_mismatch")
+    if getter is None:
+        failure(lambda: observed.require_check_cache_match(supplied), "invoice_rounding_check_cache_mismatch")
+    observed.require_check_cache_match(dict(observed.normalized_checks))
+    assert before == (observed._payload, observed.sha256, observed.financial.financial._payload)
+
+
+@pytest.mark.parametrize("field", source.CHECKS)
+def test_proved_absence_remains_none_in_both_views(monkeypatch, field):
+    case = scenario(monkeypatch, present=tuple(name for name in source.FIELDS if name != field))
+    observed = load(case)
+    values = dict(observed.normalized_checks)
+    assert values[field] is None
+    observed.require_saved_check_match(values)
+    observed.require_check_cache_match(values)
+    values[field] = 0
+    failure(lambda: observed.require_saved_check_match(values), "invoice_rounding_saved_check_mismatch")

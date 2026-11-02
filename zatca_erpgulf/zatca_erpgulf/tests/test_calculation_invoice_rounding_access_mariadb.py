@@ -161,3 +161,32 @@ def test_fresh_owned_initial_rollback_excludes_pending_control_changes(defaults_
     assert result.controls.consolidated is False
     assert dict(json.loads(result.controls._payload)["fields"])["is_consolidated"] == ["null"]
     untouched(defaults_operator, case)
+
+
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("major", [15, 16])
+def test_native_null_and_normal_none_stay_distinct_from_fixed_zero(defaults_operator, connections, doctype, major):
+    case = native_case(defaults_operator, connections, doctype=doctype)
+    case.invoice.is_consolidated = case.invoice.disable_rounded_total = None
+    result = capture(case, major)
+    assert result.checks == (("is_consolidated", None), ("disable_rounded_total", None))
+    assert dict(result.controls.normalized_checks) == dict(is_consolidated=0, disable_rounded_total=0)
+    raw = dict(json.loads(result.controls._payload)["fields"])
+    assert raw["is_consolidated"] == raw["disable_rounded_total"] == ["null"]
+    assert len(case.opened) == 1 and case.opened[0].rollback.call_count == 2
+    untouched(defaults_operator, case)
+
+
+@pytest.mark.parametrize("changed", ["native_null_to_zero", "getter_none_to_zero"])
+def test_late_false_equivalent_native_or_getter_change_is_not_hidden(defaults_operator, connections, changed):
+    case = native_case(defaults_operator, connections)
+    case.invoice.is_consolidated = case.invoice.disable_rounded_total = None
+    def read(*args):
+        if case.cache.call_count == 2:
+            if changed == "native_null_to_zero":
+                with case.opened[0].cursor() as cursor: cursor.execute("UPDATE `tabSales Invoice` SET disable_rounded_total=0")
+            else: case.invoice.disable_rounded_total = 0
+        return {"currency_precision": "2"}
+    case.cache.side_effect = read
+    with pytest.raises(InspectionFailed): capture(case)
+    untouched(defaults_operator, case)

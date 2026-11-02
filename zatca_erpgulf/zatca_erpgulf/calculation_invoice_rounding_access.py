@@ -45,7 +45,7 @@ class InvoiceRoundingAcquisition(FinancialGraphAccess):
         for name in CHECKS:
             value = doc.get(name)
             if applied.has_field(name):
-                if type(value) is not int or value not in (0, 1):
+                if value is not None and (type(value) is not int or value not in (0, 1)):
                     raise CalculationChildAccessError("calculation_invoice_rounding_getter")
             elif value is not None:
                 raise CalculationChildAccessError("calculation_invoice_rounding_absent_getter")
@@ -88,7 +88,7 @@ class InvoiceRoundingAcquisition(FinancialGraphAccess):
         return result
 
     def check_getters(self, observed):
-        _pin_read(observed).require_check_cache_match(dict(self.checks))
+        _pin_read(observed).require_saved_check_match(dict(self.checks))
         self.recheck_access()
 
     def require_metadata_unchanged(self):
@@ -126,7 +126,7 @@ class SavedInvoiceRoundingContext:
                     or any(type(row) is not tuple or len(row) != 2 for row in self.checks)
                     or tuple(row[0] for row in self.checks) != CHECKS):
                 raise ValueError
-            controls.require_check_cache_match(dict(self.checks))
+            controls.require_saved_check_match(dict(self.checks))
         except Exception:
             invalid = True
         else:

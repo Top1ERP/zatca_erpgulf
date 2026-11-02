@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and thirty-six bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and thirty-seven bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -3685,6 +3685,70 @@ Ordinary saved-document versus explicit numeric-fix Check/amount projections,
 including nullable Checks, remain an explicit next bridge; the current canonical
 Check-getter contract is not silently widened or represented as complete ORM
 normalization evidence.
+
+## Increment 137: ordinary saved Check getters bound to native NULL
+
+- Distinguish ordinary scalar document loading from explicit numeric fixing in
+  actual15/pinned16. Ordinary invoice loads can retain Check None and Decimal
+  money; nonempty Singleton loads invoke their numeric fix. Add a bounded saved-
+  loading peer to the existing MIT oracle without changing old excerpts/license
+  data, importing a complete ERP16 runtime or opening a site.
+- Add require_saved_check_match using the existing protected native control
+  observation. A present None getter requires exact native NULL; a proved absent
+  field still requires None. Preserve existing canonical int0/1 behavior and the
+  strict require_check_cache_match post-fix contract/error code. Bool/text/float
+  lookalikes and None masking a stored zero/one remain refused.
+- Reuse saved-view binding in ordinary control acquisition and protected result
+  reconstruction. Retain exact original/fresh getter values and native raw tags;
+  never fix a document or replace NULL with zero/default/global input. Keep the
+  separate normalized_checks projection and all native/profile/hash bytes.
+- A present nullable invoice flag remains invoice-owned, not a Global Defaults
+  fallback. Both independent and consumed settings inspections share the same
+  matcher. Reject None-to-zero, zero-to-None and native NULL-to-zero drift even
+  when their Boolean guard is unchanged. Permission, owner, callback, cleanup,
+  ambient pending-work and single translated-summary behavior remain shared.
+- Document proof scope/callers and remaining controller/child/lazy/amount/precision/
+  cache gates in [INVOICE_CHECK_LOADING.md](INVOICE_CHECK_LOADING.md). No provider,
+  RPC, hook, frontend, schema, amount writer or authority operation is installed.
+
+Before product changes, **36 scalar framework probes passed** and the old saved
+control inspection reproduced the None-getter rejection (**1 failed, 36 passed,
+152 deselected in 1.06s**). After adding the native-bound saved matcher, the
+initial reproduction selection passed **38 cases in 2.58s**. Broader local control/
+native-source/framework checks passed **371 cases in 146.65s**. The selected new
+private SQL cases passed **20 cases in 48.67s**, covering Sales/POS and declared
+15/16, no global fallback, source/getter drift refusal and shared rollback/close.
+
+Final affected-suite verification passed **1,237 cases in 900.82s (15m00s)**:
+**1,015 local + 222 native**, across **seven local and two private SQL suites**.
+This includes ordinary/scalar load probes, old strict normalized comparisons,
+saved-view NULL/non-NULL/absence matching, exact getter/source drift and protected
+result reconstruction, both existing native acquisitions, consumed invoice/global
+priority, earlier versioned conversion evidence and offline guard/manifest checks.
+The coverage adds 104 local + 20 native cases and replaces two obsolete pre-native
+None-rejection expectations; net selection growth is 122. External network/site
+initialization stayed denied; SQL fixtures were NEW guard-owned TCP-disabled
+temporary servers only. No full-run, Node/browser, SDK or full installed16 claim
+is made for this increment; earlier full-suite evidence remains historical.
+
+The shared service and all thirteen existing capture methods remain byte-for-byte
+unchanged. Native control construction/profile binding and the complete SQL reader
+retain their prior ASTs. No amount calculation or source-query change is included.
+
+The pinned model/document.py source hash remains
+`4c1bf95413517c7deed5ae2edd24a38cadf0e21869e0710c80ad62aaada459b3`.
+Only a saved_loading peer with six captured load/init/update/get/set/column
+methods plus reserved/cached-property infrastructure is added to the MIT oracle;
+old oracle fields/excerpts/license content compare unchanged. Metadata, DB return
+values and empty child infrastructure are synthetic. The probe is not a complete
+ERP16 class/extension/controller, lazy-child or installed-site integration test.
+
+Live stays at the independent ba51f25 Phase-1 address hotfix. No installed app,
+site/data/config/schema/Company/credential, Bench/worker or authority operation
+occurred. Monetary equality/normalization, controller overrides/setup and child/
+lazy/default/cache/precision/FX/GL/VAT/advance/XML/QR/signature/browser evidence,
+provider/role/caller/dead-code/performance and installed15/16/SDK gates remain
+before separately approved fictional-Company rehearsal and adoption/cancellation.
 
 ## Verification
 

@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment137 distinguishes ordinary saved Check getters from explicit numeric-
+fix projections in actual15/pinned16 scalar loading. Bind observed None only to
+proved native NULL/absence, retain exact saved values and the old strict fixed
+API, and reject false-equivalent getter/native drift. No coercion, default/global
+fallback, amount conversion or native-profile change is introduced. Complete
+controller/child/lazy/amount/precision/cache and runtime gates remain. See
+[INVOICE_CHECK_LOADING.md](INVOICE_CHECK_LOADING.md).
+
 Increment136 composes the consumed rounded-total sources on the SAME owned
 financial/defaults service. Share declared guard/version helpers; preserve
 consolidated/field-presence/invoice-over-global priority and authorize each

@@ -50,12 +50,13 @@ minimal saved owner/revision/status projection and compare both that object and
 fresh normal access rechecks through cleanup. Fetching an equal fresh document
 must not hide a changed getter on the original authorized object.
 
-The fixed getters are is_consolidated and disable_rounded_total. Present Check
-fields require canonical normalized int0/1; absent definitions require getter
-None. Do not coerce None/bool/text/float values into an expected Check or repair
-an unexpected in-memory attribute. A native stored NULL Check still normalizes
-to int0, separately from its original raw tag. This differs from interpreting
-the old financial snapshot's omission as a consolidation decision.
+The fixed getters are is_consolidated and disable_rounded_total. Increment137
+also binds an ordinary None getter to a present native NULL Check, while keeping
+canonical int0/1 and proved-absence None behavior. None never masks a stored zero
+or one. Retain raw/saved/numeric-fix views separately rather than fixing the
+document or substituting defaults. See [INVOICE_CHECK_LOADING.md](INVOICE_CHECK_LOADING.md).
+Bool/text/float lookalikes remain refused. The old financial snapshot's omission
+alone still cannot establish a consolidation decision.
 
 Never read normal rounded_total/rounding_adjustment money getters, recalculate
 amounts, warm precision/currency caches or convert Decimal money to float. Raw
@@ -90,7 +91,7 @@ Failures reuse one existing translated financial summary and preserve parent
 messages/flags; internal codes remain static English. Interrupt priority and
 cleanup are retained. Saved result repr is protected, pickle is refused and
 reconstruction binds the financial parent, native controls, graph membership and
-exact normalized Check tuple. No complete ERP or preparation fingerprint is claimed.
+exact saved Check tuple. No complete ERP or preparation fingerprint is claimed.
 
 ## Closing gates
 

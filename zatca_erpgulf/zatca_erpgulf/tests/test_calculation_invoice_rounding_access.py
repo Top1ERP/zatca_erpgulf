@@ -19,6 +19,7 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_calculation_defaults_access import (
     defaults_operator, operator, scenario as defaults_case, one_failure, untouched, PermissionDenied, InspectionFailed,
 )
 from zatca_erpgulf.zatca_erpgulf.tests.test_submission_context import Document
+from zatca_erpgulf.zatca_erpgulf.tests.test_invoice_check_loading import loading16, upstream16
 
 
 def bind_controls(case, operator):
@@ -147,7 +148,7 @@ def test_initial_authorized_getter_view_cannot_be_replaced_by_a_fresh_equal_docu
     one_failure(defaults_operator, access.FINANCIAL_FAILED_MESSAGE)
 
 
-@pytest.mark.parametrize("value", [None, False, "0", 0.0, 2])
+@pytest.mark.parametrize("value", [False, "0", 0.0, 2])
 def test_noncanonical_normal_getter_is_not_fixed_or_coerced(defaults_operator, monkeypatch, value):
     case = scenario(defaults_operator, monkeypatch)
     case.invoice.is_consolidated = value
@@ -205,6 +206,61 @@ def test_wrong_normal_metadata_identity_is_refused_before_callbacks(defaults_ope
     with pytest.raises(InspectionFailed): capture(case)
     case.factory.assert_not_called()
     case.control_metadata.assert_not_called()
+
+
+def test_saved_null_getters_are_preserved_and_bound_to_native_null(defaults_operator, monkeypatch):
+    case = scenario(defaults_operator, monkeypatch)
+    case.invoice.is_consolidated = case.invoice.disable_rounded_total = None
+    result = capture(case)
+    assert result.checks == (("is_consolidated", None), ("disable_rounded_total", None))
+    assert result.controls.normalized_checks == (("is_consolidated", 0), ("disable_rounded_total", 0))
+    assert case.invoice.is_consolidated is case.invoice.disable_rounded_total is None
+    untouched(defaults_operator, case)
+
+
+@pytest.mark.parametrize("field", source.CHECKS)
+@pytest.mark.parametrize("raw", [0, 1])
+def test_none_cannot_mask_a_present_nonnull_native_check(defaults_operator, monkeypatch, field, raw):
+    case = scenario(defaults_operator, monkeypatch, consolidated=raw, disabled=raw)
+    setattr(case.invoice, field, None)
+    with pytest.raises(InspectionFailed): capture(case)
+    assert case.factory.call_count == 1 and case.database.rollback.call_count == 2
+    one_failure(defaults_operator, access.FINANCIAL_FAILED_MESSAGE)
+
+
+@pytest.mark.parametrize("field", source.CHECKS)
+@pytest.mark.parametrize("boundary", ["metadata_last", "cache_last", "close"])
+@pytest.mark.parametrize("before,after", [(None, 0), (0, None)])
+def test_false_equivalent_view_drift_is_still_refused(defaults_operator, monkeypatch, field, boundary, before, after):
+    case = scenario(defaults_operator, monkeypatch)
+    setattr(case.invoice, field, before)
+    def change(): setattr(case.invoice, field, after)
+    if boundary == "close": case.database.close.side_effect = change
+    else:
+        callback = case.control_metadata if boundary == "metadata_last" else case.cache
+        original = callback.side_effect or (lambda *args: callback.return_value)
+        def read(*args):
+            value = original(*args)
+            if callback.call_count == 2: change()
+            return value
+        callback.side_effect = read
+    with pytest.raises(InspectionFailed): capture(case)
+    one_failure(defaults_operator, access.FINANCIAL_FAILED_MESSAGE)
+    untouched(defaults_operator, case)
+
+
+@pytest.mark.parametrize("major", [15, 16])
+def test_actual_regular_loader_check_getters_pass_without_numeric_fix(defaults_operator, monkeypatch, loading16, major):
+    from zatca_erpgulf.zatca_erpgulf.tests.test_invoice_check_loading import load_probe
+    loaded = load_probe(major, loading16, monkeypatch)
+    case = scenario(defaults_operator, monkeypatch)
+    original = case.invoice.get
+    case.invoice.get = lambda name, *args: loaded.doc.get(name) if name in source.CHECKS else original(name, *args)
+    result = capture(case, major)
+    assert all(value is None for _, value in result.checks)
+    assert loaded.doc.grand_total == loaded.row["grand_total"]
+    assert type(loaded.doc.grand_total).__name__ == "Decimal"
+    loaded.doc._fix_numeric_types.assert_not_called()
 
 
 @pytest.mark.parametrize("major,parent_kind", [(True,"site"), ("16","site"), (17,"site"), (15,"global"), (16,"user")])

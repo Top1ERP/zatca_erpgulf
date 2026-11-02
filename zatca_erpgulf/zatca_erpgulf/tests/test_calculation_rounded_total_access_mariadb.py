@@ -153,3 +153,17 @@ def test_ambient_pending_work_remains_with_its_owner(defaults_operator, connecti
     with parent.cursor() as cursor:
         cursor.execute("SELECT name FROM financial_parent_work")
         assert cursor.fetchall() == (("PENDING",),)
+
+
+@pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
+@pytest.mark.parametrize("major", [15, 16])
+def test_nullable_invoice_flags_preserve_saved_view_and_skip_global_on_same_handle(defaults_operator, connections, doctype, major):
+    case = native_case(defaults_operator, connections, doctype=doctype, global_value="1")
+    case.invoice.is_consolidated = case.invoice.disable_rounded_total = None
+    result = capture(case, major)
+    assert result.selection.disable_origin == "INVOICE_FIELD" and result.selection.disabled is False
+    assert result.selection.branch == "CURRENCY_FRACTION_THEN_FIELD_PRECISION"
+    assert all(value is None for _, value in result.invoice.checks)
+    assert all(params[0] != "Global Defaults" for sql, params in case.statements if "FROM `tabSingles`" in sql)
+    assert len(case.opened) == 1 and case.opened[0].rollback.call_count == 2
+    untouched(defaults_operator, case)

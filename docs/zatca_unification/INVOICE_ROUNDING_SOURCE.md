@@ -58,7 +58,7 @@ normalized invoice or changing original Decimal scale.
 `consolidated` is their derived Boolean consolidation flag. The raw fields remain
 in the private payload and the old financial parent stays unchanged.
 
-| Proved native condition | Raw source tag | Supplied saved-document getter expected |
+| Proved native condition | Raw source tag | Explicit numeric-fix getter expected |
 | --- | --- | --- |
 | Field and column absent | absent | None |
 | Present SQL NULL | null | int0 |
@@ -76,6 +76,11 @@ not a saved getter proof; boolFalse and float0 are not the normalized int0.
 This compares supplied Check observations only, not amount/ORM equivalence or
 provider origin. Actual installed15 and pinned16 numeric-fix helpers are tested
 with synthetic documents; the complete ERP16 runtime is not installed/imported.
+
+Increment137 adds `require_saved_check_match` for ordinary saved loads, where a
+present native NULL can retain getter None. The old normalized matcher remains
+strict. Shared validation and protected saved contexts preserve original getter
+identity without rewriting SQL or money. See [INVOICE_CHECK_LOADING.md](INVOICE_CHECK_LOADING.md).
 
 ## Ownership, drift and remaining composition
 

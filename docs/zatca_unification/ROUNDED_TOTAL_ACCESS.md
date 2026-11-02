@@ -109,10 +109,10 @@ operation has no new override input.
 Complete amount/ORM/cache/precision/FX/GL/VAT/advance/XML/QR/signature/browser parity,
 concrete provider and cashier-role review, whole-worker/custody integration,
 caller/dead-code and performance audits, SDK and installed15/16 evidence remain.
-In particular, compare ordinary saved-document loading with explicit numeric-fix
-stages, including nullable Check fields. The existing control inspection requires
-canonical present Check getters and refuses unproved None instead of silently
-normalizing it; numeric-fix helper tests alone are not an ordinary-load bridge.
+Increment137 proves selected Check differences between ordinary scalar loading
+and explicit numeric fixing; native NULL now binds an observed saved None without
+normalizing it. See [INVOICE_CHECK_LOADING.md](INVOICE_CHECK_LOADING.md). This is
+not the full controller/child/lazy/amount/precision/cache normalization bridge.
 Only completed development precedes a separately approved isolated fictional-
 Company rehearsal and adoption/cancellation decision. No live change or authority
 request is authorized here. See [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md),
