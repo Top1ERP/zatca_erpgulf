@@ -155,7 +155,8 @@ class SavedAdvanceRoundingRead:
 class AdvanceRoundingAcquisition(RoundingStageAcquisition):
     """One graph/handle for the header stage and every consumed direct row."""
 
-    def __init__(self, policy, actor, invoice_name, doctype, major, *, child_metadata, party_metadata=None, **dependencies):
+    def __init__(self, policy, actor, invoice_name, doctype, major, *, child_metadata, party_metadata=None,
+            _stage_fields=("total_advance",), **dependencies):
         self.party = None
         self.children = None
         self.child_fields = ()
@@ -169,7 +170,7 @@ class AdvanceRoundingAcquisition(RoundingStageAcquisition):
         self._format_cache = dependencies.get("format_cache")
         self._actor = actor
         super().__init__(policy, actor, invoice_name, doctype,
-            RoundingStageRequest(("total_advance",)), major, **dependencies)
+            RoundingStageRequest(_stage_fields), major, **dependencies)
         if "advances" not in dict(self.root.tables):
             raise AdvanceRoundingError("advance_rounding_table")
         definition = dict(dict(self.root.schema)["Sales Invoice Advance"]).get(FIELD)
@@ -293,6 +294,10 @@ class AdvanceRoundingAcquisition(RoundingStageAcquisition):
 
     def build_result(self, financial, observed):
         stage = super().build_result(financial, observed)
+        if len(stage.targets) != 1:
+            selected = next(value for value in stage.fields if value.target[2] == "total_advance")
+            stage = SavedRoundingStageRead(stage.numeric, stage.method, (selected.target,), None,
+                stage.owner_document, (selected,))
         fields = ()
         if self.children is not None:
             parent = SavedChildCalculationRead(financial, self.native_children, self.tables)

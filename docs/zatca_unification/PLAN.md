@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Combined batch158–160 adds a distinct native write-off profile through the
+shared root-controls reader, one-owned advance/party/write-off ceiling context,
+and exact current-value/precision/setting comparison through the limit decision.
+Keep15/16 foreign-total precision differences, separate converted write-off
+rounding, strict positive-ceiling comparison and reset AFTER the check. Existing
+profiles/advance APIs remain compatible; no controller/writer activation. Full
+paid/outstanding/write-off recursion and fiscal/settlement parity remain. See
+[ADVANCE_LIMIT.md](ADVANCE_LIMIT.md).
+
 Combined batch155–157 closes the standard saved unset16 advance-party source
 gap: a separate optional-child profile and shared reader, conditional normal/
 native parent-party acquisition, exact original cache/format binding and the

@@ -26,13 +26,14 @@ class InvoiceRoundingSourceError(ValueError):
     """Static English code, without invoice amounts or driver disclosure."""
 
 
-def _meta(value):
+def _meta(value, *, profile=INVOICE_ROUNDING_PROFILE, fields=FIELDS, checks=CHECKS):
     meta = _pin_metadata(value)
-    if meta.profile != INVOICE_ROUNDING_PROFILE or meta.name not in INVOICE_ROUNDING_FIELDS:
+    from .source_metadata import PROFILE_FIELDS
+    if meta.profile != profile or meta.name not in PROFILE_FIELDS[profile]:
         raise ValueError
-    for name in FIELDS:
+    for name in fields:
         definition = meta.get_field(name)
-        if definition is not None and definition.fieldtype != ("Check" if name in CHECKS else "Currency"):
+        if definition is not None and definition.fieldtype != ("Check" if name in checks else "Currency"):
             raise ValueError
     return meta
 
@@ -53,10 +54,10 @@ def _check(encoded):
     return raw
 
 
-def _root(financial, meta):
+def _root(financial, meta, overlap=OVERLAP):
     observed = financial.financial
     root = next(row.applied for row in financial.metadata if row.applied.name == observed.doctype)
-    if meta.name != root.name or any(meta.get_field(name) != root.get_field(name) for name in OVERLAP):
+    if meta.name != root.name or any(meta.get_field(name) != root.get_field(name) for name in overlap):
         raise ValueError
     return json.loads(observed._payload)
 
@@ -72,40 +73,45 @@ class LockedInvoiceRoundingRead:
     normalized_checks: tuple = field(init=False, repr=False)
     sha256: str = field(init=False)
 
+    FIELDS, CHECKS, OVERLAP = FIELDS, CHECKS, OVERLAP
+    METADATA_PROFILE = INVOICE_ROUNDING_PROFILE
+    ROW_PROFILE = PROFILE
+    DOMAIN = b"zatca-invoice-rounding-source/v1\0"
+
     def __post_init__(self):
         try:
             financial, metadata = _pin_financial(self.financial), _pin_rows(self.metadata)
-            meta = _meta(metadata.applied)
-            original = _root(financial, meta)
+            meta = _meta(metadata.applied, profile=self.METADATA_PROFILE, fields=self.FIELDS, checks=self.CHECKS)
+            original = _root(financial, meta, self.OVERLAP)
             if type(self._payload) is not bytes or not 0 < len(self._payload) <= 65536:
                 raise ValueError
             body = json.loads(self._payload)
-            selected = tuple(name for name in FIELDS if meta.has_field(name))
+            selected = tuple(name for name in self.FIELDS if meta.has_field(name))
             if (type(body) is not dict or set(body) != {"profile", "financial_sha256", "metadata_sha256", "columns", "modified", "types", "fields"}
-                    or body["profile"] != PROFILE or body["financial_sha256"] != financial.sha256
+                    or body["profile"] != self.ROW_PROFILE or body["financial_sha256"] != financial.sha256
                     or body["metadata_sha256"] != metadata.sha256 or body["columns"] != sorted(selected)
                     or body["modified"] != original["modified"] or _canonical(body) != self._payload
                     or type(body["types"]) is not list or type(body["fields"]) is not list
-                    or len(body["types"]) != len(selected) or len(body["fields"]) != len(FIELDS)):
+                    or len(body["types"]) != len(selected) or len(body["fields"]) != len(self.FIELDS)):
                 raise ValueError
             _modified(body["modified"])
             if any(type(row) is not list or len(row) != 2 for row in (*body["types"], *body["fields"])):
                 raise ValueError
-            if tuple(row[0] for row in body["types"]) != selected or tuple(row[0] for row in body["fields"]) != FIELDS:
+            if tuple(row[0] for row in body["types"]) != selected or tuple(row[0] for row in body["fields"]) != self.FIELDS:
                 raise ValueError
             types, fields = dict(body["types"]), dict(body["fields"])
             prior_types = dict(dict(json.loads(financial._payload)["types"])["header"])
             prior_values = dict(original["header"])
-            for name in FIELDS:
+            for name in self.FIELDS:
                 encoded = fields[name]
-                if name in OVERLAP and (encoded != prior_values[name] or types.get(name) != prior_types.get(name)):
+                if name in self.OVERLAP and (encoded != prior_values[name] or types.get(name) != prior_types.get(name)):
                     raise ValueError
                 if not meta.has_field(name):
                     if encoded != ["absent"]:
                         raise ValueError
                     continue
                 _native(_validate_scalar(encoded), meta.get_field(name).fieldtype, types[name])
-            checks = tuple((name, _check(fields[name])) for name in CHECKS)
+            checks = tuple((name, _check(fields[name])) for name in self.CHECKS)
         except Exception:
             invalid = True
         else:
@@ -114,9 +120,9 @@ class LockedInvoiceRoundingRead:
             raise InvoiceRoundingSourceError("invoice_rounding_rows")
         object.__setattr__(self, "financial", financial)
         object.__setattr__(self, "metadata", metadata)
-        object.__setattr__(self, "consolidated", bool(checks[0][1]))
+        object.__setattr__(self, "consolidated", bool(dict(checks).get("is_consolidated")))
         object.__setattr__(self, "normalized_checks", checks)
-        object.__setattr__(self, "sha256", hashlib.sha256(b"zatca-invoice-rounding-source/v1\0" + self._payload).hexdigest())
+        object.__setattr__(self, "sha256", hashlib.sha256(self.DOMAIN + self._payload).hexdigest())
 
     def require_check_cache_match(self, supplied):
         """Compare exact post-numeric-fix getters; never call or warm a cache.
@@ -137,8 +143,8 @@ class LockedInvoiceRoundingRead:
 
     def _require_check_view(self, supplied, *, saved):
         try:
-            pinned = _pin_read(self)
-            if type(supplied) is not dict or set(supplied) != set(CHECKS):
+            pinned = type(self)(self.financial, self.metadata, self._payload)
+            if pinned != self or type(supplied) is not dict or set(supplied) != set(self.CHECKS):
                 raise ValueError
             fields = dict(json.loads(pinned._payload)["fields"]) if saved else {}
             for name, expected in pinned.normalized_checks:
@@ -177,28 +183,34 @@ class MariaDBInvoiceRoundingReader:
     locks before the fixed optional-column inspection. Nothing discovers a site.
     """
 
+    READ_TYPE = LockedInvoiceRoundingRead
+    PIN_READ = staticmethod(_pin_read)
+
     def __init__(self, connection):
         self._financial = MariaDBInvoiceFinancialReader(connection)
         self._connection, self._failed = connection, False
 
     def _columns(self, cursor, meta):
+        fields = self.READ_TYPE.FIELDS
         cursor.execute("SELECT SUBSTRING(COLUMN_NAME,1,141) FROM information_schema.COLUMNS "
             "WHERE TABLE_SCHEMA=DATABASE() AND BINARY TABLE_NAME=%s "
-            "AND COLUMN_NAME IN (%s,%s,%s,%s) ORDER BY BINARY COLUMN_NAME LIMIT 5",
-            ("tab" + meta.name, *FIELDS))
+            "AND COLUMN_NAME IN (" + ",".join(("%s",) * len(fields)) + ") ORDER BY BINARY COLUMN_NAME LIMIT " + str(len(fields) + 1),
+            ("tab" + meta.name, *fields))
         rows = cursor.fetchall()
-        expected = tuple((name,) for name in sorted(FIELDS) if meta.has_field(name))
+        expected = tuple((name,) for name in sorted(fields) if meta.has_field(name))
         if type(rows) not in (tuple, list) or tuple(rows) != expected:
             raise ValueError
         return [row[0] for row in rows]
 
     def _load(self, financial, applied_metadata):
-        financial, meta = _pin_financial(financial), _meta(applied_metadata)
-        _root(financial, meta)
+        target = self.READ_TYPE
+        financial, meta = _pin_financial(financial), _meta(applied_metadata,
+            profile=target.METADATA_PROFILE, fields=target.FIELDS, checks=target.CHECKS)
+        _root(financial, meta, target.OVERLAP)
         self._financial.require_unchanged(financial)
         metadata_reader = MariaDBMetadataSourceReader(self._connection)
         selected_metadata = metadata_reader.load_for_update(meta)
-        selected = tuple(name for name in FIELDS if meta.has_field(name))
+        selected = tuple(name for name in target.FIELDS if meta.has_field(name))
         observed = financial.financial
         with self._connection.cursor() as cursor:
             columns = self._columns(cursor, meta)
@@ -211,11 +223,11 @@ class MariaDBInvoiceRoundingReader:
         metadata_reader.require_unchanged(selected_metadata)
         self._financial.require_unchanged(financial)
         doc = documents[0]
-        payload = _canonical(dict(profile=PROFILE, financial_sha256=financial.sha256,
+        payload = _canonical(dict(profile=target.ROW_PROFILE, financial_sha256=financial.sha256,
             metadata_sha256=selected_metadata.sha256, columns=columns, modified=_scalar(doc.get("modified")),
             types=signatures, fields=[[name, _scalar(doc.get(name)) if meta.has_field(name) else ["absent"]]
-                for name in FIELDS]))
-        return LockedInvoiceRoundingRead(financial, selected_metadata, payload)
+                for name in target.FIELDS]))
+        return target(financial, selected_metadata, payload)
 
     def load_for_update(self, financial, *, applied_metadata):
         if self._failed:
@@ -232,7 +244,7 @@ class MariaDBInvoiceRoundingReader:
         if self._failed:
             raise InvoiceRoundingSourceError("invoice_rounding_transaction_unusable")
         try:
-            pinned = _pin_read(observed)
+            pinned = self.PIN_READ(observed)
             if self._load(pinned.financial, pinned.metadata.applied) != pinned:
                 raise ValueError
         except BaseException as error:

@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and fifty-seven bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and sixty bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -4299,6 +4299,70 @@ state. Active provider/cache/namespace/transaction provenance, invoice limits,
 FX/paid/outstanding/write-off/settlement, complete tax/GL/VAT/XML parity and worker/
 custody/dead-code/performance/installed15/16/SDK gates remain before separately
 approved fictional-Company rehearsal and gradual adoption/cancellation.
+
+## Combined batch158–160: advance ceiling, FX and write-off inputs
+
+- **158 — native write-off fields:** add a distinct Currency/Check side profile
+  and fixed reader specialization. Share the existing bounded root-controls
+  engine, with physical presence/absence, raw money/Check/revision/descriptor
+  checks and poisoned-session rules. Preserve old financial/control payloads
+  and domains. No tenant schema, setting, amount or cache is written.
+- **159 — one owned context:** add capture_advance_limit_context and an optional
+  trusted write-off metadata constructor provider. Reuse one numeric graph,
+  method/financial/default context and the complete advance group. Explicitly
+  inspect total_advance/grand_total/base_grand_total and project the existing
+  advance substage on that same context. Bind normal/native write-off getters,
+  party/transaction currency, field levels and consumed precision/currency slots
+  through cleanup. Reuse captured matching root format evidence for fresh16
+  base-write-off precision; unsupported custom combinations remain refused.
+- **160 — exact controller comparison:** compare explicit saved-fixed/current
+  inputs through ceiling selection, converted write-off rounding and decision.
+  Preserve15 grand-total versus16 base-grand-total precision, positive-ceiling
+  strict-greater rejection, exact equality, nonpositive totals, NULL and zero
+  inputs, raw missing-method lookups, and reset AFTER checking the old write-off.
+  Actual controller tests stop at downstream stubs; no outstanding/write-off
+  recursion or settlement is executed by the comparison.
+
+The three owned stages retain normal field READ and localized aggregate failure
+presentation. No public RPC, runtime provider, invoice hook, fiscal XML/QR/signing,
+credential or authority behavior is activated. The source exposes a protected
+comparison, not committed/executed controller or fiscal approval evidence. The
+existing17 capture method ASTs remain unchanged; the new operation is18. No eager
+relative-import cycle exists across58 reachable modules. See [ADVANCE_LIMIT.md](ADVANCE_LIMIT.md).
+
+Distinct affected verification passed **926 cases: 759 local + 167 native**,
+including **44 new cases: 4 local source + 40 native ceiling/access**. The source/
+old-controls selection passed **151 in51.51s**. Precision/group/guard regression
+passed **608 in94.66s (1m34s)**. The old two-suite native regression passed **127
+in354.54s (5m54s)**. The new native suite was verified as a disjoint union:27 cases
+passed before the fixture SQL quoting failure,14 corrected drift/close cases
+passed in95.60s (three repeat earlier cases), and4 boundary/saved-view cases passed
+in140.33s (two repeat earlier cases). Therefore27+14-3+4-2=40 distinct new native
+cases. Earlier initial/debug runs add no cases. This is an affected selection,
+not a full manifest/browser/installed16/SDK acceptance result.
+
+An independent guard-protected comparison against committedb976c4a proved exact
+old root-control canonical payload/hash/normalized-Check parity across64 Sales/
+POS, declared15/16 and optional-field combinations. Those64 manual comparisons
+are separate from pytest totals. The reviewed manifest now contains152 local
+and44 private SQL suites. Guarded tests deny external network and site init;
+native SQL uses NEW fixture-owned TCP-disabled temporary servers only. Original
+write-off/automatic/party values are checked independently after rollback.
+
+The initial controller fixture lost its child Meta table marker while rebinding
+new fields; that fixture was corrected without relaxing source matching. A later
+metadata-drift setup used SQL's reserved precision identifier without quoting;
+the mutation was corrected and the actual drift/rollback cases rerun. Temporary
+tracing was removed and is not committed. These were fixture corrections, not
+acceptance of mismatched financial or metadata observations.
+
+Source input provenance, unsupported custom format combinations, full limits/
+payment/loyalty/change/outstanding/write-off/settlement integration, tax/GL/VAT/XML
+parity, worker/custody/dead-code/performance/installed15/16/SDK gates remain before
+separately approved fictional-Company rehearsal and gradual adoption/cancellation.
+LIVE remains the independent clean ba51f25 Phase-1 hotfix. Installed app/site/
+config/schema/data/Company/credentials, Bench/workers and all authority endpoints
+remain untouched. No authority traffic or live rollout is authorized.
 
 ## Verification
 

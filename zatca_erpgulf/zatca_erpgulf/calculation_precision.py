@@ -12,7 +12,7 @@ from types import MappingProxyType
 
 from .calculation_defaults import CalculationDefaultsRows, _fold, _pin_rows
 from .financial_source_observation import _canonical, _name, _scalar
-from .source_metadata import SOURCE_FIELDS, SourceMetadata, _pin_metadata
+from .source_metadata import SOURCE_FIELDS, WRITE_OFF_PROFILE, WRITE_OFF_FIELDS, SourceMetadata, _pin_metadata
 
 NUMERIC_TYPES = frozenset(("Currency", "Float", "Percent"))
 MAX_PRECISION = 64
@@ -184,7 +184,8 @@ class FieldPrecisionResolution:
             metadata, defaults = _pin_metadata(self.metadata), _pin_rows(self.defaults)
             if (type(self.erp_major) is not int or self.erp_major not in (15, 16)
                     or defaults.parent != "__default" or type(self.fieldname) is not str
-                    or self.fieldname not in SOURCE_FIELDS[metadata.name]):
+                    or (self.fieldname not in SOURCE_FIELDS[metadata.name]
+                        and not (metadata.profile == WRITE_OFF_PROFILE and self.fieldname in WRITE_OFF_FIELDS[metadata.name]))):
                 raise ValueError
             context = _pin_currency(self.currency_context)
             if self.erp_major == 15 and context is not None:

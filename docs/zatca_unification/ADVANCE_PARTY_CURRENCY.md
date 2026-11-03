@@ -76,6 +76,10 @@ site initialization, Redis or authority endpoint is involved.
 
 ## Boundaries and next steps
 
+Batch158–160 builds an explicit ceiling/FX/write-off-input comparison on this
+same-owned group; downstream settlement recursion remains separate. See
+[ADVANCE_LIMIT.md](ADVANCE_LIMIT.md).
+
 Supported: absent own party field/column, present NULL/blank own link, nonempty
 own link, mixed own/parent rows, different transaction versus party currencies,
 and Sales/POS graphs with a present standard advances table. Parent fallback
