@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "payment_controls_source",
     "advance_limit",
     "advance_party_source",
     "calculation_advance_rounding",
@@ -117,6 +118,7 @@ LOCAL_SUITES = (
     "zatca_response", "compatibility_hardening",
 )
 PRIVATE_SUITES = (
+    "calculation_payments_mariadb",
     "advance_limit_mariadb",
     "advance_party_access_mariadb",
     "calculation_advance_rounding_mariadb",

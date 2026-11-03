@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and sixty bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and sixty-three bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -4363,6 +4363,69 @@ separately approved fictional-Company rehearsal and gradual adoption/cancellatio
 LIVE remains the independent clean ba51f25 Phase-1 hotfix. Installed app/site/
 config/schema/data/Company/credentials, Bench/workers and all authority endpoints
 remain untouched. No authority traffic or live rollout is authorized.
+
+## Combined batch161–163: paid amount, loyalty and cash change
+
+- **161 — native payment context:** add a separate Sales Invoice payment-controls
+  profile and shared-reader specialization. Bind `is_pos`, `is_return`,
+  `redeem_loyalty_points` and raw company-currency `loyalty_amount` to one owned
+  numeric graph/method/four-field precision stage. Recheck original/fresh getters,
+  READ levels and metadata through cleanup. Bind categorical payment types across
+  original direct rows, parent references, fresh reads and complete native rows;
+  numeric agreement alone cannot establish a Cash decision. Existing financial
+  profiles and domains remain unchanged. Add optional trusted constructor
+  provider and `capture_payment_calculation_context`, without an installed RPC,
+  provider registration, controller invocation or writer.
+- **162 — paid comparison:** preserve precision-free per-row conversion,
+  left-to-right accumulation, ordinary-sale planned clearing, non-POS return
+  retention without summing those rows, and loyalty addition in company currency
+  with division for invoice currency. Round only final paid/base-paid fields with
+  their independent captured precision. Compare complete saved-fixed or supplied
+  calculated inputs, touched rows, totals, clearing plan and exact lookup traces.
+- **163 — cash-change comparison:** bind the preceding paid result and post-paid
+  row availability. Preserve exact Cash matching including a zero Cash row,
+  strict overpayment, return skipping, independent rounded-total fallbacks,
+  subtraction/rounding order and skipped-branch float-zero results. Compare exact
+  numeric types/float bits and consumed precision/System-method lookups.
+
+Actual installed15 and pinned16 controller bodies execute only on unpersisted
+synthetic documents, with actual/pinned `flt` helpers. Both inspected method ASTs
+match between versions. Preserve the pinned full-file SHA and GPL notice/license.
+This is arithmetic/source comparison evidence, not controller execution on a
+saved invoice, payment authority, fiscal acceptance or installed16 readiness.
+Standalone POS Invoice's additional change/write-off/account/payment-sign rules
+remain explicitly separate. See [PAYMENT_CALCULATIONS.md](PAYMENT_CALCULATIONS.md).
+
+Distinct affected verification passed **1,196 cases: 1,130 local + 66 native**,
+including **97 new cases: 31 local controls + 66 native payment/access cases**.
+New native matrix: **66 in952.46s (15m52s)**. New source suite: **31 in16.64s**.
+Existing source metadata, defaults access, root controls, field groups, calculated
+aggregates and guard/runner regression: **1,099 in805.60s (13m25s)**. The last two
+large selections ran concurrently. These timings describe guarded conformance
+tests with repeated protected-source reconstruction, not live invoice latency.
+This is an affected selection, not the complete manifest or SDK acceptance.
+
+Synthetic setup was corrected to select only each profile's bounded metadata,
+share physical overlap definitions, provide the payment-type test column and a
+normal field facade. Temporary tracing was removed. Final fixture cleanup uses
+the public constructor dependency, preserves actual NULL payment types in the
+controller probe and removes an unreachable permission-fixture branch. The
+affected Cash/field-READ recheck passed **12 in76.94s (1m16s)**, with54 deselected;
+these repeated cases do not increase the distinct total.
+
+All18 existing capture method ASTs remain unchanged; the new operation is19.
+An eager top-level relative-import check found no cycle across61 modules,
+including the service. The reviewed manifest contains153 local and45 private SQL
+suites. Private tests use NEW guard-owned TCP-disabled temporary MariaDB only;
+native mutations are rolled back and independently observed afterwards. English
+internal errors retain the existing single localized failure presentation.
+
+Full outstanding/write-off recursion, standalone POS validation, advance
+settlement/relinking, tax/GL/VAT/XML reconciliation, durable source/provider/cache
+provenance, installed15/16, SDK, worker/custody/dead-code/performance acceptance
+remain before separately approved fictional-Company rehearsal. LIVE remains the
+independent clean ba51f25 Phase-1 hotfix. No installed app/site/schema/data/config,
+Company/credential, Bench/worker or authority-endpoint operation was changed.
 
 ## Verification
 

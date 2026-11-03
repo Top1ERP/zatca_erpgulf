@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Combined batch161–163 adds a native payment-controls side profile and one-owned
+Sales Invoice paid/change context, exact base-controller payment/loyalty
+aggregation, and cash-change comparisons bound to that paid result. Preserve
+precision-free row conversion, company-currency loyalty, return retention,
+ordinary-sale clearing, exact Cash categories and independent total fallbacks.
+Standalone POS Invoice validation and full outstanding/write-off recursion
+remain separate integration gates. See [PAYMENT_CALCULATIONS.md](PAYMENT_CALCULATIONS.md).
+
 Combined batch158–160 adds a distinct native write-off profile through the
 shared root-controls reader, one-owned advance/party/write-off ceiling context,
 and exact current-value/precision/setting comparison through the limit decision.
