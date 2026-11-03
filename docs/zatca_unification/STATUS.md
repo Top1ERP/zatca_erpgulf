@@ -1,8 +1,8 @@
-# Implementation status — 2026-11-02
+# Implementation status — 2026-11-03
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and fifty-four bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and fifty-seven bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -4236,6 +4236,69 @@ rehearsal and adoption/cancellation. See
 LIVE remains clean at ba51f25 with the original Phase-1 address-file hash. No
 installed app/site/config/schema/data/Company/credential, Bench/worker or authority
 operation occurs. Only this DEV branch is changed.
+
+## Combined batch155–157: standard saved advance party currency
+
+- **155 — bounded optional native source:** add a separate optional advance-party
+  Link -> Currency metadata/read profile. Generalize the existing child engine
+  through fixed class configuration, retaining old fields/domain/payload bytes.
+  Prove physical presence/absence, native values, row order/index/revision and
+  financial binding. Only the standard advances table is admitted by the new
+  reader. No new SQL transport, transaction owner, cleanup or schema writer.
+- **156 — normal party/format access:** authorize initial and fresh saved row/
+  reference party getters, child field levels and the parent table. Own nonempty
+  party currency wins. Conditional parent fallback reuses the existing normal/
+  native owner-party acquisition, never transaction or Company currency. Check
+  all related access before new metadata providers; share existing format
+  policies/sources and exact original cache observations through cleanup.
+- **157 — protected aggregate binding:** add optional SavedAdvancePartyRead to
+  the existing group. Bind saved/default/native/parent/row-format evidence and
+  precise per-row resolutions/cache samples; retain aggregate arithmetic and
+  all existing capture method bodies. Compare real pinned16 currency/precision
+  helpers and actual ERP controller prefix/numeric helpers on synthetic objects.
+  Parent fallback requires a saved nonempty party link; absent/blank parent and
+  unproved parent_doc remain explicitly outside this saved domain.
+
+Distinct affected pytest verification passed **1,120 cases: 958 local + 162
+native**, including **54 cases in two new suites: 4 local source + 50 native
+access**. The three-suite source/cache regression passed **365 in29.25s**, and
+the three-suite group/metadata/guard regression passed **593 in100.32s (1m40s)**.
+The complete new native matrix passed **50 in167.49s (2m47s)**. Two old native
+source/group suites passed **112 in333.96s (5m33s)**. Selections are disjoint;
+earlier partial/debug runs are not added to these totals. An independent guarded
+comparison against committed046e331 also proved identical old child-source
+canonical payloads/hashes across16 Sales/POS, declared15/16 and optional-field
+combinations. Those16 manual comparisons are not added to pytest totals.
+
+The primary-helper test initially reused a module-scoped oracle after a precision
+probe had replaced its currency dependency. Tests now construct a fresh reviewed
+excerpt namespace per probe; source behavior was not loosened to match a stub.
+No temporary tracing code or alternate implementation is shipped. Native failure
+tests exercise permission denial before providers, non-timestamp row/parent/
+amount/format/metadata drift, original getter/cache changes during close,
+undeclared physical columns, and missing parent values. Independent connections
+verify original parent/child party values and allocation after rollback.
+
+The reviewed manifest contains151 local and43 private SQL suites. All17 existing
+capture method ASTs remain unchanged; one optional trusted constructor dependency
+supplies the new child-party metadata profile. Existing financial and child-link
+profiles remain unchanged; only the distinct party profile is added. No pure
+rounding kernel, frontend, fiscal XML/QR/signature, credential, RPC or runtime
+provider is activated. Scope and APIs are documented in
+[ADVANCE_PARTY_CURRENCY.md](ADVANCE_PARTY_CURRENCY.md).
+
+The guard blocks external network and site initialization. SQL uses NEW
+fixture-owned TCP-disabled temporary servers, not tenant databases. LIVE remains
+clean at ba51f25 with its original address-file hash; installed app/site/config/
+schema/data/Company/credential/Bench/workers and authority endpoints are untouched.
+No authority send, including Sandbox/Simulation, or rollout is authorized.
+
+The saved standard unset16 party-source gate is now covered within the declared
+nonempty-parent/own-link domain, not every modified schema or unsaved controller
+state. Active provider/cache/namespace/transaction provenance, invoice limits,
+FX/paid/outstanding/write-off/settlement, complete tax/GL/VAT/XML parity and worker/
+custody/dead-code/performance/installed15/16/SDK gates remain before separately
+approved fictional-Company rehearsal and gradual adoption/cancellation.
 
 ## Verification
 

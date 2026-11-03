@@ -99,6 +99,21 @@ def _pin_inputs(inputs):
     return ChildCurrencyInputs(**{key: getattr(inputs, key) for key in inputs.__dataclass_fields__})
 
 
+def require_currency_cache(currency, cache_key, inputs, row_entry, parent_entry):
+    """Shared exact plain-link cache semantics, including blocked setdefault."""
+    if inputs.name == inputs.parent and row_entry != parent_entry:
+        raise ValueError
+    row, parent = _text(row_entry), _text(parent_entry)
+    if not (row or parent) and currency:
+        if cache_key == (inputs.doctype, inputs.name):
+            if row_entry == ABSENT:
+                row = currency
+        elif parent_entry == ABSENT:
+            parent = currency
+    if (row or parent) != currency:
+        raise ValueError
+
+
 def _resolve(options, inputs, major):
     if options == "currency":
         currency = _text(inputs.row_currency)
@@ -190,18 +205,7 @@ class ChildFieldCurrencyResolution:
         """
         try:
             pinned = self._pin()
-            if pinned.inputs.name == pinned.inputs.parent and row_entry != parent_entry:
-                # Both references address the SAME child-DocType/name cache slot.
-                raise ValueError
-            row, parent = _text(row_entry), _text(parent_entry)
-            if not (row or parent) and pinned.currency:
-                if pinned.cache_key == (pinned.inputs.doctype, pinned.inputs.name):
-                    if row_entry == ABSENT:
-                        row = pinned.currency
-                elif parent_entry == ABSENT:
-                    parent = pinned.currency
-            if (row or parent) != pinned.currency:
-                raise ValueError
+            require_currency_cache(pinned.currency, pinned.cache_key, pinned.inputs, row_entry, parent_entry)
         except Exception:
             invalid = True
         else:

@@ -289,10 +289,13 @@ class SavedCalculationDefaultsService:
             rounding_metadata_reader=None, rounding_cache_reader=None,
             global_rounding_metadata_reader=None, global_rounding_cache_reader=None,
             invoice_rounding_metadata_reader=None, fraction_metadata_reader=None, fraction_cache_reader=None,
-            owner_currency_metadata_reader=None, company_currency_cache_reader=None):
+            owner_currency_metadata_reader=None, company_currency_cache_reader=None, advance_party_metadata_reader=None):
         if type(parent_kind) is not str or parent_kind not in PARENT_KINDS or not callable(cache_reader):
             raise CalculationDefaultsAccessError("calculation_defaults_access_dependencies")
         self._policy = _SavedDefaultsSource(scope, connection_factory)
+        if advance_party_metadata_reader is not None and not callable(advance_party_metadata_reader):
+            raise CalculationDefaultsAccessError("calculation_context_access_dependencies")
+        self._advance_party_metadata = advance_party_metadata_reader
         if applied_metadata_reader is not None and not callable(applied_metadata_reader):
             raise CalculationDefaultsAccessError("calculation_context_access_dependencies")
         self._cache, self._parent_kind = cache_reader, parent_kind
@@ -564,7 +567,8 @@ class SavedCalculationDefaultsService:
                         owner_metadata=self._owner_currency_metadata, company_cache=self._company_currency_cache)
                     if type(field_rounding_target) is AdvanceRoundingRequest:
                         financial_extension = AdvanceRoundingAcquisition(policy, actor, invoice_name,
-                            doctype, erp_major, child_metadata=self._child_metadata, **dependencies)
+                            doctype, erp_major, child_metadata=self._child_metadata,
+                            party_metadata=self._advance_party_metadata, **dependencies)
                     elif type(field_rounding_target) is RoundingStageRequest:
                         financial_extension = RoundingStageAcquisition(policy,actor,invoice_name,doctype,
                             field_rounding_target,erp_major,**dependencies)

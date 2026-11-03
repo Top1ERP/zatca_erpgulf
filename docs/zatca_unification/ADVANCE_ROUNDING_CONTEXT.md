@@ -1,5 +1,10 @@
 # Co-owned direct advance rounding context — batch151–154
 
+Update155–157 adds the separate native own-row/parent party-currency source for
+standard unset16 precision. The remaining-source description below records the
+earlier checkpoint; current supported boundaries and providers are documented in
+[ADVANCE_PARTY_CURRENCY.md](ADVANCE_PARTY_CURRENCY.md).
+
 This DEV checkpoint connects saved row/cache/currency inspection to the existing
 advance aggregation comparison. It does not install a provider or run a saved
 invoice controller. No site, schema, invoice, Company, cache or authority write

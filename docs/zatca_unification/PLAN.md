@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Combined batch155–157 closes the standard saved unset16 advance-party source
+gap: a separate optional-child profile and shared reader, conditional normal/
+native parent-party acquisition, exact original cache/format binding and the
+existing per-row aggregate interface. Own row party currency wins; parent fallback
+uses party-account currency rather than transaction currency. Old profiles remain
+byte-compatible. Blank/missing parent or unproved parent_doc remains outside the
+saved domain; full limits/FX/settlement/fiscal/runtime gates stay open. See
+[ADVANCE_PARTY_CURRENCY.md](ADVANCE_PARTY_CURRENCY.md).
+
 Combined batch151–154 adds one-owned root/direct-advance precision acquisition,
 original row/reference cache observations, lazy native child/own-Company formats
 and per-row aggregate precision binding. Share one graph/handle, initial formats

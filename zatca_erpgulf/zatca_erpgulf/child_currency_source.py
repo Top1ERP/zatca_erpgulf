@@ -30,11 +30,12 @@ class ChildCurrencySourceError(ValueError):
     """Static internal English code, without source or driver disclosure."""
 
 
-def _declaration(meta):
+def _declaration(meta, *, profile=CHILD_CURRENCY_PROFILE, targets=(("currency", "Currency"), ("company", "Company"))):
     meta = _pin_metadata(meta)
-    if meta.profile != CHILD_CURRENCY_PROFILE or meta.name not in CHILD_CURRENCY_FIELDS:
+    from .source_metadata import PROFILE_FIELDS
+    if meta.profile != profile or meta.name not in PROFILE_FIELDS[profile]:
         raise ValueError
-    for name, target in (("currency", "Currency"), ("company", "Company")):
+    for name, target in targets:
         definition = meta.get_field(name)
         if definition is not None and (definition.fieldtype != "Link" or definition.options != target):
             raise ValueError
@@ -57,9 +58,9 @@ def _binding(financial, parentfield):
     return root, metas[child], body, [[row[0], row[1], revision[1]] for row, revision in zip(rows, revisions)]
 
 
-def _overlap(child, applied):
+def _overlap(child, applied, fields=FIELDS):
     """Advance-deduction currency is ALREADY selected by financial v1."""
-    overlap = tuple(name for name in FIELDS if name in SOURCE_FIELDS[child.name])
+    overlap = tuple(name for name in fields if name in SOURCE_FIELDS[child.name])
     if any(child.get_field(name) != applied.get_field(name) for name in overlap):
         raise ValueError
     return overlap
@@ -75,18 +76,27 @@ class LockedChildCurrencyRead:
     _payload: bytes = field(repr=False)
     sha256: str = field(init=False)
 
+    FIELDS = FIELDS
+    TARGETS = (("currency", "Currency"), ("company", "Company"))
+    METADATA_PROFILE = CHILD_CURRENCY_PROFILE
+    ROW_PROFILE = PROFILE
+    DOMAIN = b"zatca-invoice-child-currency-source-sql/v1\0"
+    PARENTFIELDS = tuple(TABLE_FIELDS)
+
     def __post_init__(self):
         try:
             financial, metadata = _pin_financial(self.financial), _pin_rows(self.metadata)
             _, child, financial_body, identities = _binding(financial, self.parentfield)
-            applied = _declaration(metadata.applied)
-            overlap = _overlap(child, applied)
+            if self.parentfield not in self.PARENTFIELDS:
+                raise ValueError
+            applied = _declaration(metadata.applied, profile=self.METADATA_PROFILE, targets=self.TARGETS)
+            overlap = _overlap(child, applied, self.FIELDS)
             if applied.name != child.name or type(self._payload) is not bytes or not 0 < len(self._payload) <= MAX_PAYLOAD_BYTES:
                 raise ValueError
             body = json.loads(self._payload)
-            selected = tuple(name for name in FIELDS if applied.has_field(name))
+            selected = tuple(name for name in self.FIELDS if applied.has_field(name))
             if (type(body) is not dict or set(body) != {"profile", "financial_sha256", "parentfield", "metadata_sha256", "columns", "types", "rows"}
-                    or body["profile"] != PROFILE or body["financial_sha256"] != financial.sha256
+                    or body["profile"] != self.ROW_PROFILE or body["financial_sha256"] != financial.sha256
                     or body["parentfield"] != self.parentfield or body["metadata_sha256"] != metadata.sha256
                     or body["columns"] != sorted(selected) or _canonical(body) != self._payload
                     or type(body["types"]) is not list or [row[0] for row in body["types"]] != list(selected)
@@ -104,7 +114,7 @@ class LockedChildCurrencyRead:
                         or row[:3] != identity):
                     raise ValueError
                 projection = row[3]
-                if type(projection) is not list or [entry[0] for entry in projection] != list(FIELDS):
+                if type(projection) is not list or [entry[0] for entry in projection] != list(self.FIELDS):
                     raise ValueError
                 parent_values = dict(financial_row[2])
                 for entry in projection:
@@ -129,7 +139,7 @@ class LockedChildCurrencyRead:
             raise ChildCurrencySourceError("child_currency_source_rows")
         object.__setattr__(self, "financial", financial)
         object.__setattr__(self, "metadata", metadata)
-        object.__setattr__(self, "sha256", hashlib.sha256(b"zatca-invoice-child-currency-source-sql/v1\0" + self._payload).hexdigest())
+        object.__setattr__(self, "sha256", hashlib.sha256(self.DOMAIN + self._payload).hexdigest())
 
     def inputs_for(self, row_name, *, company_currency=None):
         """Build saved-row declarations; no implicit parent Company/parent_doc.
@@ -199,32 +209,40 @@ class MariaDBChildCurrencyReader:
     metadata and financial membership before returning. No cleanup or retry.
     """
 
+    READ_TYPE = LockedChildCurrencyRead
+    PIN_READ = staticmethod(_pin_read)
+
     def __init__(self, connection):
         self._financial = MariaDBInvoiceFinancialReader(connection)
         self._connection, self._failed = connection, False
 
     def _columns(self, cursor, applied):
         # Fixed field/table allowlists; never discover unrelated columns/values.
+        fields = self.READ_TYPE.FIELDS
         cursor.execute("SELECT SUBSTRING(COLUMN_NAME,1,141) FROM information_schema.COLUMNS "
             "WHERE TABLE_SCHEMA=DATABASE() AND BINARY TABLE_NAME=%s "
-            "AND COLUMN_NAME IN (%s,%s) ORDER BY BINARY COLUMN_NAME LIMIT 3",
-            ("tab" + applied.name, *FIELDS))
+            "AND COLUMN_NAME IN (" + ",".join(("%s",) * len(fields)) + ") ORDER BY BINARY COLUMN_NAME LIMIT " + str(len(fields) + 1),
+            ("tab" + applied.name, *fields))
         rows = cursor.fetchall()
-        expected = tuple((name,) for name in sorted(FIELDS) if applied.has_field(name))
+        expected = tuple((name,) for name in sorted(fields) if applied.has_field(name))
         if type(rows) not in (tuple, list) or tuple(rows) != expected:
             raise ValueError
         return [row[0] for row in rows]
 
     def _load(self, financial, parentfield, applied):
-        financial, applied = _pin_financial(financial), _declaration(applied)
+        target = self.READ_TYPE
+        financial, applied = _pin_financial(financial), _declaration(applied,
+            profile=target.METADATA_PROFILE, targets=target.TARGETS)
+        if parentfield not in target.PARENTFIELDS:
+            raise ValueError
         _, child, _, _ = _binding(financial, parentfield)
         if applied.name != child.name:
             raise ValueError
-        _overlap(child, applied)
+        _overlap(child, applied, target.FIELDS)
         self._financial.require_unchanged(financial)
         metadata_reader = MariaDBMetadataSourceReader(self._connection)
         metadata = metadata_reader.load_for_update(applied)
-        selected = tuple(name for name in FIELDS if applied.has_field(name))
+        selected = tuple(name for name in target.FIELDS if applied.has_field(name))
         observed = financial.financial
         with self._connection.cursor() as cursor:
             columns = self._columns(cursor, applied)
@@ -242,12 +260,12 @@ class MariaDBChildCurrencyReader:
         metadata_reader.require_unchanged(metadata)
         self._financial.require_unchanged(financial)
         rows = [[doc.name, doc.get("idx"), _scalar(doc.get("modified")),
-            [[name, _scalar(doc.get(name)) if applied.has_field(name) else ["absent"]] for name in FIELDS]]
+            [[name, _scalar(doc.get(name)) if applied.has_field(name) else ["absent"]] for name in target.FIELDS]]
             for doc in documents]
-        payload = _canonical(dict(profile=PROFILE, financial_sha256=financial.sha256,
+        payload = _canonical(dict(profile=target.ROW_PROFILE, financial_sha256=financial.sha256,
             parentfield=parentfield, metadata_sha256=metadata.sha256, columns=columns,
             types=signatures, rows=rows))
-        return LockedChildCurrencyRead(financial, parentfield, metadata, payload)
+        return target(financial, parentfield, metadata, payload)
 
     def load_for_update(self, financial, parentfield, *, applied_metadata):
         if self._failed:
@@ -266,7 +284,7 @@ class MariaDBChildCurrencyReader:
         if self._failed:
             raise ChildCurrencySourceError("child_currency_source_transaction_unusable")
         try:
-            expected = _pin_read(observed)
+            expected = self.PIN_READ(observed)
             if self._load(expected.financial, expected.parentfield, expected.metadata.applied) != expected:
                 raise ValueError
         except BaseException as error:

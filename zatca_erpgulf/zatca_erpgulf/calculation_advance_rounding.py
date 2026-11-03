@@ -3,8 +3,8 @@
 Reuse the numeric graph, direct-child link/Company/format policies and root
 rounding stage. Only consumed v16 row formats are acquired. No second parent
 capture, transaction, cache population, write, RPC or authority request.
-The standard party_account_currency option still needs a distinct native
-row/parent source when v16 defaults are unset; never substitute invoice currency.
+The standard party_account_currency option uses distinct native row/parent
+sources when v16 defaults are unset; never substitute invoice currency.
 """
 
 from dataclasses import dataclass, field
@@ -22,6 +22,7 @@ from .calculation_field_rounding_access import _require_cache
 from .calculation_format_access import FormatAcquisition
 from .calculation_precision import NUMERIC_TYPES, _requires_currency_format
 from .calculation_defaults import _fold
+from .calculation_advance_party import SavedAdvancePartyRead, AdvancePartyAcquisition
 
 FIELD = "allocated_amount"
 
@@ -59,6 +60,7 @@ class SavedAdvanceRoundingRead:
     stage: SavedRoundingStageRead = field(repr=False)
     caches: tuple = field(repr=False)
     fields: tuple = field(repr=False)
+    party: SavedAdvancePartyRead | None = field(default=None, repr=False)
     row_precisions: tuple = field(init=False, repr=False)
 
     def __post_init__(self):
@@ -73,7 +75,14 @@ class SavedAdvanceRoundingRead:
             if len(self.caches) != len(names):
                 raise ValueError
             needs_formats = _needs_formats(stage)
-            if len(self.fields) != (len(names) if needs_formats else 0):
+            party = self.party
+            if party is not None:
+                if type(party) is not SavedAdvancePartyRead or not needs_formats:
+                    raise ValueError
+                party = party.pin()
+                if party.financial != stage.numeric.financial or len(party.samples) != len(names):
+                    raise ValueError
+            if len(self.fields) != (len(names) if needs_formats and party is None else 0):
                 raise ValueError
             # Every row uses the same metadata/site defaults on this branch.
             # Resolve once, while checking each original cache independently.
@@ -86,7 +95,14 @@ class SavedAdvanceRoundingRead:
                         or type(cache[1]) is not tuple or len(cache[1]) != 2
                         or any(type(value) is not int or not 0 < value < 2**64 for value in cache[1])):
                     raise ValueError
-                if needs_formats:
+                if party is not None:
+                    sample = party.samples[index]
+                    if (sample[1] != cache[1] or sample[3] != (cache[2][1], cache[3][1])
+                            or sample[0][3:5] != cache[2][0] or sample[0][5:7] != cache[3][0]
+                            or party.resolutions[index][0] != name):
+                        raise ValueError
+                    precision = party.resolutions[index][1]
+                elif needs_formats:
                     observed = self.fields[index]
                     if type(observed) is not SavedChildCacheRead:
                         raise ValueError
@@ -116,10 +132,11 @@ class SavedAdvanceRoundingRead:
         if invalid:
             raise AdvanceRoundingError("advance_rounding_result")
         object.__setattr__(self, "stage", stage)
+        object.__setattr__(self, "party", party)
         object.__setattr__(self, "row_precisions", tuple(resolutions))
 
     def pin(self):
-        pinned = SavedAdvanceRoundingRead(self.stage, self.caches, self.fields)
+        pinned = SavedAdvanceRoundingRead(self.stage, self.caches, self.fields, self.party)
         if pinned != self or type(self.row_precisions) is not tuple or any(
             type(value) is not tuple or len(value) != 2 or type(value[0]) is not str
             or type(value[1]) is not int or value != expected
@@ -138,13 +155,18 @@ class SavedAdvanceRoundingRead:
 class AdvanceRoundingAcquisition(RoundingStageAcquisition):
     """One graph/handle for the header stage and every consumed direct row."""
 
-    def __init__(self, policy, actor, invoice_name, doctype, major, *, child_metadata, **dependencies):
+    def __init__(self, policy, actor, invoice_name, doctype, major, *, child_metadata, party_metadata=None, **dependencies):
+        self.party = None
         self.children = None
         self.child_fields = ()
         self.row_formats = ()
         self.slot_samples = ()
         self.precision_samples = None
         self._child_metadata = child_metadata
+        self._party_metadata = party_metadata
+        self._owner_metadata = dependencies.get("owner_metadata")
+        self._format_metadata = dependencies.get("format_metadata")
+        self._format_cache = dependencies.get("format_cache")
         self._actor = actor
         super().__init__(policy, actor, invoice_name, doctype,
             RoundingStageRequest(("total_advance",)), major, **dependencies)
@@ -175,13 +197,15 @@ class AdvanceRoundingAcquisition(RoundingStageAcquisition):
             raise AdvanceRoundingError("advance_rounding_currency_cache_changed")
         for source, observed in self._unique_formats():
             source.recheck_access()
+        if self.party is not None:
+            self.party.recheck_access()
 
     def _unique_formats(self):
         return tuple({id(source): (source, observed) for source, observed in self.row_formats}.values())
 
     def complete_defaults(self, connection, observed, defaults, company_metadata):
         view, method, prior = observed
-        if prior or self.children is not None:
+        if prior or self.children is not None or self.party is not None:
             raise AdvanceRoundingError("advance_rounding_already_completed")
         native = view.financial
         meta = next(row.applied for row in native.metadata if row.applied.name == "Sales Invoice Advance")
@@ -190,7 +214,12 @@ class AdvanceRoundingAcquisition(RoundingStageAcquisition):
         )
         if needed:
             if meta.get_field(FIELD).options == "party_account_currency":
-                raise AdvanceRoundingError("advance_rounding_party_currency_source_required")
+                self.party = AdvancePartyAcquisition(self.root, self._actor, self._party_metadata,
+                    self._owner_metadata, self._format_metadata, self._format_cache)
+                self.party.load(connection, native)
+                result = super().complete_defaults(connection, observed, defaults, company_metadata)
+                self.party.check()
+                return result
             self.children = ChildAcquisition(self.root._policy, self._actor, self.root._name,
                 self.root._doctype, "advances", self._child_metadata, defer_metadata=True, _shared_graph=self.root)
             self.child_fields = tuple(ChildFieldAcquisition(self.children, self.root._policy, self._actor,
@@ -237,6 +266,8 @@ class AdvanceRoundingAcquisition(RoundingStageAcquisition):
         for source, formats in self._unique_formats():
             source.check_cache(formats)
         self.recheck_access()
+        if self.party is not None:
+            self.party.check()
 
     def require_metadata_unchanged(self):
         super().require_metadata_unchanged()
@@ -245,6 +276,8 @@ class AdvanceRoundingAcquisition(RoundingStageAcquisition):
         for source, formats in self._unique_formats():
             source.require_metadata_unchanged()
         self.recheck_access()
+        if self.party is not None:
+            self.party.require_metadata_unchanged()
 
     def require_unchanged(self, observed):
         super().require_unchanged(observed)
@@ -255,6 +288,8 @@ class AdvanceRoundingAcquisition(RoundingStageAcquisition):
         for source, formats in self._unique_formats():
             source.reader.require_unchanged(formats)
         self.recheck_access()
+        if self.party is not None:
+            self.party.require_unchanged()
 
     def build_result(self, financial, observed):
         stage = super().build_result(financial, observed)
@@ -266,4 +301,5 @@ class AdvanceRoundingAcquisition(RoundingStageAcquisition):
                     selected.company_source, selected.company_rows, formats, source.rows), *slots)
                 for selected, (source, formats), slots in zip(self.child_fields, self.row_formats, self.slot_samples)
             )
-        return SavedAdvanceRoundingRead(stage, self.precision_samples, fields)
+        return SavedAdvanceRoundingRead(stage, self.precision_samples, fields,
+            None if self.party is None else self.party.build_result(financial))

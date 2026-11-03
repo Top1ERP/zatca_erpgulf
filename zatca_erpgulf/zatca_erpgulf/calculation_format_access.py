@@ -237,7 +237,8 @@ class FormatAcquisition:
             raise CalculationFormatAccessError("calculation_format_access_dependencies")
         if currency_scope == "child":
             from .calculation_child_format_access import ChildFieldAcquisition
-            if type(child_source) is not ChildFieldAcquisition:
+            from .calculation_advance_party import AdvancePartySelection
+            if type(child_source) not in (ChildFieldAcquisition, AdvancePartySelection):
                 raise CalculationFormatAccessError("calculation_format_access_dependencies")
         elif child_source is not None:
             raise CalculationFormatAccessError("calculation_format_access_dependencies")
