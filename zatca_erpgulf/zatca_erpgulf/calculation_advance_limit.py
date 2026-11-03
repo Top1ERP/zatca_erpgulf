@@ -8,17 +8,12 @@ import json
 
 from .calculation_advance_rounding import AdvanceRoundingAcquisition, SavedAdvanceRoundingRead
 from .calculation_rounding_stage import RoundingStageAcquisition, SavedRoundingStageRead, pin_stage, require_call_trace
-from .calculation_owner_currency_access import OwnerCurrencyAcquisition
-from .calculation_child_format_access import require_field_read
-from .calculation_child_cache import _precision, _MISSING, _state, _bucket, _slot
-from .calculation_field_rounding_access import _require_cache, _cache_slot, _result_tag
-from .calculation_precision import FieldPrecisionResolution, _requires_currency_format
-from .calculation_defaults import _fold
-from .source_metadata import WRITE_OFF_PROFILE, project_source_metadata, _pin_metadata
-from .write_off_source import LockedWriteOffRead, MariaDBWriteOffReader, pin_write_off
-from .invoice_rounding_source import _meta as validate_write_meta
+from .calculation_field_rounding_access import _result_tag
+from .calculation_precision import FieldPrecisionResolution
+# Retain the inspector's existing native-type alias for its consumers.
+from .write_off_source import LockedWriteOffRead, pin_write_off
 from .owner_currency_source import pin_owner_currency
-from .financial_source_observation import _scalar, _validate_scalar
+from .calculation_write_off_access import WriteOffStageMixin, WriteOffInputsAcquisition, resolve_write_precision
 from .financial_numeric_view import _native_cells, _expected
 from .calculated_totals import AdvanceAggregateCalculation, _input_tag
 from .field_rounding import round_field_value
@@ -36,13 +31,6 @@ class AdvanceLimitError(ValueError):
 @dataclass(frozen=True)
 class AdvanceLimitRequest:
     """Internal fixed selection for the existing owned service."""
-
-
-def _currency_cache(root):
-    mapping = getattr(root._policy._dependencies()[0].local, "field_currency", _MISSING)
-    state = _state(mapping, nullable=True)
-    bucket = _MISSING if mapping is _MISSING or mapping is None else _bucket(mapping, (root._doctype, root._name))
-    return (state, _state(bucket)), _slot(bucket, BASE)
 
 
 @dataclass(frozen=True, repr=False)
@@ -82,23 +70,7 @@ class SavedAdvanceLimitRead:
                 raise ValueError
             precision = None
             if foreign:
-                definition = metadata.get_field(BASE)
-                if definition is None:
-                    raise ValueError
-                defaults = stage.numeric.financial.context.settings.defaults
-                needs_format = _requires_currency_format(definition, _fold(json.loads(defaults._payload)["rows"]), stage.method.erp_major)
-                context = None
-                if needs_format:
-                    proof = next(value for value in stage.fields if value.formats is not None
-                        and root_meta.applied.get_field(value.target[2]).options == definition.options)
-                    context = proof.formats.formats.context
-                    slot = _cache_slot(self.currency_cache, allow_null=True)
-                    if slot != ("absent",) and (slot != ("str", context.currency)):
-                        raise ValueError
-                elif self.currency_cache is not None:
-                    raise ValueError
-                precision = FieldPrecisionResolution(metadata, BASE, defaults, stage.method.erp_major, context)
-                _require_cache(self.precision_cache, precision)
+                precision = resolve_write_precision(stage, write_off, BASE, self.precision_cache, self.currency_cache)
             elif self.precision_cache is not None or self.currency_cache is not None:
                 raise ValueError
         except Exception:
@@ -124,110 +96,22 @@ class SavedAdvanceLimitRead:
         raise TypeError("advance_limit_not_serializable")
 
 
-class AdvanceLimitAcquisition(AdvanceRoundingAcquisition):
-    """Compose write-off/party inspection with the same advance graph/handle."""
+class AdvanceLimitAcquisition(WriteOffStageMixin, AdvanceRoundingAcquisition):
+    """Compose shared write-off inputs with the existing advance graph/handle."""
+
     def __init__(self, policy, actor, invoice_name, doctype, major, *, write_off_metadata, **dependencies):
-        self.limit_owner = None
-        self.write_definition = None
-        self.base_cache = None
-        self.base_currency_cache = None
-        self._write_metadata = write_off_metadata
-        self.limit_currency = None
-        if not callable(write_off_metadata):
-            raise AdvanceLimitError("advance_limit_dependencies")
-        super().__init__(policy,actor,invoice_name,doctype,major,_stage_fields=STAGE_FIELDS,**dependencies)
-        self.limit_owner = OwnerCurrencyAcquisition(self.root, actor, self._owner_metadata)
-        self.limit_currency = tuple(_scalar(self.root.document.get("currency")))
-        self.write_definition, self.write_levels, self.write_values = self._write_state(self.root.document)
-        self.limit_foreign = self.limit_owner.currency != self.root.document.get("currency")
-        if self.limit_foreign:
-            self.base_cache = _precision(self.root.document, BASE)
+        self.write_inputs = None
+        super().__init__(policy, actor, invoice_name, doctype, major, _stage_fields=STAGE_FIELDS, **dependencies)
+        self.write_inputs = WriteOffInputsAcquisition(self.root, actor, write_off_metadata,
+            self._owner_metadata, "foreign_base")
         self.recheck_access()
 
-    def _write_state(self, doc):
-        meta = validate_write_meta(project_source_metadata(doc.meta,base_fields={},profile=WRITE_OFF_PROFILE),
-            profile=WRITE_OFF_PROFILE,fields=LockedWriteOffRead.FIELDS,checks=LockedWriteOffRead.CHECKS)
-        levels = tuple(require_field_read(doc,name,self._actor,self.root._policy._dependencies()[0],
-            self.root._policy.DENIED_MESSAGE) if meta.has_field(name) else None for name in LockedWriteOffRead.FIELDS)
-        values = tuple((name,tuple(_scalar(doc.get(name)))) for name in LockedWriteOffRead.FIELDS)
-        if any(not meta.has_field(name) and value != ("null",) for name,value in values):
-            raise AdvanceLimitError("advance_limit_absent_getter")
-        return meta,levels,values
-
-    def recheck_access(self):
-        super().recheck_access()
-        if self.limit_owner is not None:
-            self.limit_owner.recheck_access()
-        if self.write_definition is not None:
-            if any(tuple(_scalar(doc.get("currency"))) != self.limit_currency for doc in
-                    (self.root.document,self.root._parent_load(self.root._doctype,self.root._name))):
-                raise AdvanceLimitError("advance_limit_currency_changed")
-            expected=self.write_definition,self.write_levels,self.write_values
-            if (self._write_state(self.root.document) != expected
-                    or self._write_state(self.root._parent_load(self.root._doctype,self.root._name)) != expected):
-                raise AdvanceLimitError("advance_limit_getter_changed")
-            if self.limit_foreign and _precision(self.root.document,BASE) != self.base_cache:
-                raise AdvanceLimitError("advance_limit_precision_changed")
-            if self.base_currency_cache is not None and _currency_cache(self.root) != self.base_currency_cache:
-                raise AdvanceLimitError("advance_limit_currency_cache_changed")
-
-    def _applied_write(self):
-        supplied=self._write_metadata(self.root._policy._scope,(self.root._doctype,))
-        if type(supplied) is not dict or set(supplied) != {self.root._doctype} or _pin_metadata(supplied[self.root._doctype]) != self.write_definition:
-            raise AdvanceLimitError("advance_limit_metadata")
-        return self.write_definition
-
-    def prepare_metadata(self):
-        super().prepare_metadata()
-        self.limit_owner.prepare_metadata()
-        self._applied_write()
-        self.recheck_access()
-
-    def load_for_update(self, connection, financial):
-        observed=super().load_for_update(connection,financial)
-        if dict(json.loads(financial.financial._payload)["header"])["currency"] != list(self.limit_currency):
-            raise AdvanceLimitError("advance_limit_native_currency")
-        self.limit_owner.load_for_update(connection,financial)
-        self.write_reader=MariaDBWriteOffReader(connection)
-        self.native_write=self.write_reader.load_for_update(financial,applied_metadata=self.write_definition)
-        self._check_write()
-        return observed
-
-    def _check_write(self):
-        values=dict(json.loads(self.native_write._payload)["fields"])
-        for name,tag in self.write_values:
-            if name==AUTO:
-                self.native_write.require_saved_check_match({AUTO:_validate_scalar(list(tag))})
-            elif (values[name] != list(tag) and not (values[name]==["absent"] and tag==("null",))):
-                raise AdvanceLimitError("advance_limit_native_getter")
-        self.recheck_access()
-
-    def complete_defaults(self,connection,observed,defaults,company_metadata):
-        if self.limit_foreign and _requires_currency_format(self.write_definition.get_field(BASE),
-                _fold(json.loads(defaults._payload)["rows"]),observed[0].financial.financial.erp_major):
-            self.base_currency_cache=_currency_cache(self.root)
-        return super().complete_defaults(connection,observed,defaults,company_metadata)
-
-    def check_getters(self, observed):
-        super().check_getters(observed)
-        self._check_write()
-
-    def require_metadata_unchanged(self):
-        super().require_metadata_unchanged()
-        self.limit_owner.require_metadata_unchanged()
-        self._applied_write()
-        self.recheck_access()
-
-    def require_unchanged(self, observed):
-        super().require_unchanged(observed)
-        self.limit_owner.require_unchanged()
-        self.write_reader.require_unchanged(self.native_write)
-        self._check_write()
-
-    def build_result(self,financial,observed):
-        stage=RoundingStageAcquisition.build_result(self,financial,observed)
-        advance=super().build_result(financial,observed)
-        return SavedAdvanceLimitRead(stage,advance,self.native_write,self.limit_owner.native,self.base_cache,self.base_currency_cache)
+    def build_result(self, financial, observed):
+        stage = RoundingStageAcquisition.build_result(self, financial, observed)
+        advance = super().build_result(financial, observed)
+        inputs = self.write_inputs
+        return SavedAdvanceLimitRead(stage, advance, inputs.native, inputs.owner.native,
+            inputs.precision_cache(BASE), inputs.field_currency_cache(BASE))
 
 
 @dataclass(frozen=True,repr=False)

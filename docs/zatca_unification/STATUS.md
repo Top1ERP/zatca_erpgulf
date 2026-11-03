@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and sixty-three bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and sixty-six bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -4426,6 +4426,80 @@ provenance, installed15/16, SDK, worker/custody/dead-code/performance acceptance
 remain before separately approved fictional-Company rehearsal. LIVE remains the
 independent clean ba51f25 Phase-1 hotfix. No installed app/site/schema/data/config,
 Company/credential, Bench/worker or authority-endpoint operation was changed.
+
+## Combined batch164–166: shared write-off and receivable arithmetic
+
+- **164 — shared acquisition:** extract saved write-off/party-currency binding,
+  selected precision/field-currency cache observations and lifecycle hooks into
+  `WriteOffInputsAcquisition` / `WriteOffStageMixin`. Both the advance ceiling
+  and receivable context use this implementation. Extract the exact side-field
+  precision resolver, preserving matching co-owned root formats and the old
+  conditional foreign-base precision branch. No financial profile/domain,
+  native reader, SQL owner, archive, credential or runtime writer is added.
+- **165 — one owned context:** add `capture_receivable_context` using existing
+  metadata providers and the shared owned pipeline. Bind grand/base-grand/
+  outstanding precisions, both write-off precisions, native side fields, party
+  revision/currency and original/fresh/native return tags. Recheck field READ,
+  metadata, getters and scoped cache containers through cleanup. Keep the same
+  English internal errors and single localized failure presentation.
+- **166 — arithmetic comparisons:** compare explicit post-prefix payable and
+  outstanding observations, plus automatic write-off assignments and one
+  downstream recalculation. Preserve party-currency selection, advance already
+  in party currency, independent rounded fallbacks, foreign total's inner and
+  outer rounding, return's local zero change, write-off rounding BEFORE FX, and
+  exact precision/setting traces. Reuse saved Check matching for NULL versus a
+  canonical zero getter; retain raw source bytes. CALCULATED automatic flags
+  remain observations, not proof of a preceding POS Profile limit decision.
+
+Installed15/pinned16 primary probes execute the actual suffix and write-off
+method bodies with actual/pinned numeric helpers. The outstanding probe stubs
+the preceding paid/round/base-conversion hooks, records their order, and stops
+at the actual outstanding assignment before POS Profile queries/default-payment
+redistribution. Its payable local comes from the primary frame. The write-off
+probe observes both assignments before a single downstream stub. A separate
+real conversion-helper probe verifies round-before-FX without altering its
+original source amount. Both inspected versions' four method ASTs agree; the
+pinned file SHA, notices and license remain intact. See
+[RECEIVABLE_CALCULATIONS.md](RECEIVABLE_CALCULATIONS.md).
+
+Distinct affected verification passed **926 cases: 830 local + 96 native**,
+including **66 new cases: 10 local + 56 native**. Existing guarded source/
+precision/defaults-access regression passed **820 in56.63s**. Existing advance
+ceiling native regression passed **40 in553.04s (9m13s)**. New primary inventory
+and conversion-prefix suite passed **10 in0.81s**. The current new native suite
+is verified as a union:46 original SQL cases,8 negative-method cases passed
+in59.58s and2 new NULL-flag cases. The initial new-suite run passed47 in385.49s
+(6m25s), including one pure inventory loop subsequently moved into four local
+parameterized assertions; that one loop is excluded from native counts.
+
+Enhanced NULL-method/precision checks passed8 existing cases in141.20s (2m21s).
+Strict reconstruction checks passed2 existing cases in49.80s. Final saved-Check/
+reconstruction selection passed4 in64.69s (1m04s):2 new NULL-flag cases and2
+repeats. Repeated cases and the initial failed expectation are not added to the
+distinct total. These are affected selections, not full-manifest, installed16,
+SDK or fiscal acceptance, and their timings do not describe live invoice latency.
+
+The prefix test initially assumed symmetric negative rounding. The actual
+inspected legacy method rounds -2.675 to -2.67; the source/helper were retained
+and the expectation corrected. Additional bound native cases distinguish that
+legacy result from Commercial Rounding's -2.68 in both versions. NULL arithmetic
+also preserves two precision calls versus one method lookup when `flt(None)`
+bypasses rounding. Strict reconstruction rejects float-typed precision traces
+and precision objects even when their numeric values compare equal to integers.
+
+All19 earlier capture ASTs remain unchanged; the new operation is20. No eager
+top-level relative-import cycle exists across63 modules including the service.
+The reviewed manifest contains154 local and46 private SQL suites. Native tests
+use NEW guard-owned TCP-disabled temporary servers only; mutation cases observe
+original financial values and metadata precision independently after rollback.
+
+Return/internal-transfer eligibility, consolidated POS write-off limits, return
+payment redistribution, full recursion/settlement assembly, standalone POS
+validation, GL/VAT/XML, durable provider/cache provenance, installed15/16, SDK
+and performance/dead-code/custody gates remain before separately approved
+fictional-Company rehearsal. LIVE remains the independent clean ba51f25 Phase-1
+hotfix. Installed app/site/schema/config/data/Company/credentials, Bench/workers
+and all authority endpoints remain untouched.
 
 ## Verification
 

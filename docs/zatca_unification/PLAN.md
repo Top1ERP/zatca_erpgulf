@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Combined batch164–166 extracts shared saved write-off/party acquisition and
+side-field precision from the advance ceiling, reuses it in one owned receivable
+context, and compares the payable/outstanding suffix plus ordered automatic
+write-off updates and one downstream call. Preserve party-currency selection,
+advance units, independent total fallbacks, NULL lookup/precision differences and
+legacy negative ties. Full eligibility/POS/recursion/settlement assembly remains
+open. See [RECEIVABLE_CALCULATIONS.md](RECEIVABLE_CALCULATIONS.md).
+
 Combined batch161–163 adds a native payment-controls side profile and one-owned
 Sales Invoice paid/change context, exact base-controller payment/loyalty
 aggregation, and cash-change comparisons bound to that paid result. Preserve

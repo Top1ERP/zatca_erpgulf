@@ -35,6 +35,7 @@ from .calculation_rounding_stage import RoundingStageRequest, RoundingStageAcqui
 from .calculation_advance_rounding import AdvanceRoundingRequest, AdvanceRoundingAcquisition
 from .calculation_advance_limit import AdvanceLimitRequest, AdvanceLimitAcquisition
 from .calculation_payments import PaymentCalculationRequest, PaymentCalculationAcquisition
+from .calculation_receivable import ReceivableCalculationRequest, ReceivableAcquisition
 from .credential_bundle_access import CredentialStorageScope
 from . import financial_source_observation as financial
 from .financial_source_sql import (
@@ -504,6 +505,15 @@ class SavedCalculationDefaultsService:
         return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
             include_financial=True, erp_major=erp_major, field_rounding_target=PaymentCalculationRequest())
 
+    def capture_receivable_context(self, invoice_name, *, erp_major, doctype="Sales Invoice"):
+        """Inspect one bound party/write-off/receivable suffix without execution.
+
+        Reuse native numeric/default/method sources and existing caches. No
+        paid/change stage, internal-transfer decision or settlement is inferred.
+        """
+        return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
+            include_financial=True, erp_major=erp_major, field_rounding_target=ReceivableCalculationRequest())
+
     def _capture_display(self, invoice_name, *, doctype, include_metadata,
             include_financial=False, include_formats=False, format_scope="invoice", erp_major=None,
             child_table=_NO_CHILD, child_field=None, include_child_cache=False,
@@ -588,7 +598,10 @@ class SavedCalculationDefaultsService:
                     dependencies = dict(metadata_reader=self._rounding_metadata,cache_reader=self._rounding_cache,
                         format_metadata=self._format_metadata, format_cache=self._format_cache,
                         owner_metadata=self._owner_currency_metadata, company_cache=self._company_currency_cache)
-                    if type(field_rounding_target) is PaymentCalculationRequest:
+                    if type(field_rounding_target) is ReceivableCalculationRequest:
+                        financial_extension = ReceivableAcquisition(policy,actor,invoice_name,doctype,erp_major,
+                            write_off_metadata=self._write_off_metadata,**dependencies)
+                    elif type(field_rounding_target) is PaymentCalculationRequest:
                         financial_extension = PaymentCalculationAcquisition(policy,actor,invoice_name,doctype,erp_major,
                             controls_metadata=self._payment_controls_metadata,**dependencies)
                     elif type(field_rounding_target) is AdvanceLimitRequest:
