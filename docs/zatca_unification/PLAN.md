@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Combined batch167–169 adds a separate native Check/Link guard profile, saved
+return/internal entry inspection and exact short-circuit comparison, then binds
+the real paid stage and guards on one owned source. Preserve paid BEFORE reset,
+integer zero, self-link target differences for Sales/POS, absent POS controls and
+same-company internal-transfer logic. The downstream balance/rounding, POS
+Profile/redistribution and complete accounting assembly remain open. See
+[OUTSTANDING_ENTRY_GUARDS.md](OUTSTANDING_ENTRY_GUARDS.md).
+
 Combined batch164–166 extracts shared saved write-off/party acquisition and
 side-field precision from the advance ceiling, reuses it in one owned receivable
 context, and compares the payable/outstanding suffix plus ordered automatic

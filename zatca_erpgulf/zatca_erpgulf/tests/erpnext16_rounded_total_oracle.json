@@ -5,7 +5,8 @@
     "erpnext/controllers/accounts_controller.py": {
       "sha256": "a884d477a602b750d696833832f4f1404b395cf534037ecf11eaa8055cf4b3a0",
       "excerpts": {
-        "is_rounded_total_disabled": "def is_rounded_total_disabled(self):\n\t\tif self.meta.get_field(\"disable_rounded_total\"):\n\t\t\treturn self.disable_rounded_total\n\t\telse:\n\t\t\treturn frappe.db.get_single_value(\"Global Defaults\", \"disable_rounded_total\")"
+        "is_rounded_total_disabled": "def is_rounded_total_disabled(self):\n\t\tif self.meta.get_field(\"disable_rounded_total\"):\n\t\t\treturn self.disable_rounded_total\n\t\telse:\n\t\t\treturn frappe.db.get_single_value(\"Global Defaults\", \"disable_rounded_total\")",
+        "is_internal_transfer": "def is_internal_transfer(self):\n    \"\"\"\n\t\tIt will an internal transfer if its an internal customer and representation\n\t\tcompany is same as billing company\n\t\t\"\"\"\n    if self.doctype in ('Sales Invoice', 'Delivery Note', 'Sales Order'):\n        internal_party_field = 'is_internal_customer'\n    elif self.doctype in ('Purchase Invoice', 'Purchase Receipt', 'Purchase Order'):\n        internal_party_field = 'is_internal_supplier'\n    else:\n        return False\n    if self.get(internal_party_field) and self.represents_company == self.company:\n        return True\n    return False"
       },
       "source_notice": "# Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors\n# License: GNU General Public License v3. See license.txt\n"
     },

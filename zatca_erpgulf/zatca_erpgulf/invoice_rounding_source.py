@@ -26,14 +26,19 @@ class InvoiceRoundingSourceError(ValueError):
     """Static English code, without invoice amounts or driver disclosure."""
 
 
-def _meta(value, *, profile=INVOICE_ROUNDING_PROFILE, fields=FIELDS, checks=CHECKS):
+def _meta(value, *, profile=INVOICE_ROUNDING_PROFILE, fields=FIELDS, checks=CHECKS, links=()):
     meta = _pin_metadata(value)
     from .source_metadata import PROFILE_FIELDS
     if meta.profile != profile or meta.name not in PROFILE_FIELDS[profile]:
         raise ValueError
+    links = dict(links)
     for name in fields:
         definition = meta.get_field(name)
-        if definition is not None and definition.fieldtype != ("Check" if name in checks else "Currency"):
+        expected = "Link" if name in links else "Check" if name in checks else "Currency"
+        # A None Link target denotes the source DocType itself (Sales/POS
+        # return_against); literal targets such as Company stay exact.
+        if definition is not None and (definition.fieldtype != expected
+                or name in links and definition.options != (meta.name if links[name] is None else links[name])):
             raise ValueError
     return meta
 
@@ -74,6 +79,7 @@ class LockedInvoiceRoundingRead:
     sha256: str = field(init=False)
 
     FIELDS, CHECKS, OVERLAP = FIELDS, CHECKS, OVERLAP
+    LINKS = ()
     METADATA_PROFILE = INVOICE_ROUNDING_PROFILE
     ROW_PROFILE = PROFILE
     DOMAIN = b"zatca-invoice-rounding-source/v1\0"
@@ -81,7 +87,7 @@ class LockedInvoiceRoundingRead:
     def __post_init__(self):
         try:
             financial, metadata = _pin_financial(self.financial), _pin_rows(self.metadata)
-            meta = _meta(metadata.applied, profile=self.METADATA_PROFILE, fields=self.FIELDS, checks=self.CHECKS)
+            meta = _meta(metadata.applied, profile=self.METADATA_PROFILE, fields=self.FIELDS, checks=self.CHECKS, links=self.LINKS)
             original = _root(financial, meta, self.OVERLAP)
             if type(self._payload) is not bytes or not 0 < len(self._payload) <= 65536:
                 raise ValueError
@@ -205,7 +211,7 @@ class MariaDBInvoiceRoundingReader:
     def _load(self, financial, applied_metadata):
         target = self.READ_TYPE
         financial, meta = _pin_financial(financial), _meta(applied_metadata,
-            profile=target.METADATA_PROFILE, fields=target.FIELDS, checks=target.CHECKS)
+            profile=target.METADATA_PROFILE, fields=target.FIELDS, checks=target.CHECKS, links=target.LINKS)
         _root(financial, meta, target.OVERLAP)
         self._financial.require_unchanged(financial)
         metadata_reader = MariaDBMetadataSourceReader(self._connection)

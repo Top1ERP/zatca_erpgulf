@@ -1,8 +1,8 @@
-# Implementation status — 2026-11-03
+# Implementation status — 2026-11-05
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and sixty-six bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and sixty-nine bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -4500,6 +4500,80 @@ and performance/dead-code/custody gates remain before separately approved
 fictional-Company rehearsal. LIVE remains the independent clean ba51f25 Phase-1
 hotfix. Installed app/site/schema/config/data/Company/credentials, Bench/workers
 and all authority endpoints remain untouched.
+
+## Combined batch167–169: outstanding entry guards and co-owned paid stage
+
+- **167 — bounded native guards:** add a Check/Link side profile and reader
+  specialization for company, return/POS/update flags, return reference and saved
+  internal-customer/represented-company fields. Extend the common control
+  validator with fixed literal/self Link targets; existing readers retain empty
+  Link declarations. Preserve raw NULL/text, normalized Checks, optional-column
+  proof and financial overlap. A return Link targets its source DocType, giving
+  Sales Invoice and POS Invoice distinct correct targets. Absent standard POS
+  controls remain absent with getter None, rather than fabricated false fields.
+- **168 — saved inspection and decision:** add optional trusted guard metadata
+  provider and `capture_outstanding_guard_context`. Bind original/fresh metadata,
+  levels, raw getters and native cells through cleanup without numeric-fix or
+  rounding-method/precision/currency-slot acquisition. The existing financial/
+  defaults context still supplies its bounded native rows and defaults cache.
+  Compare primary short circuit: linked non-POS return without self-update
+  bypasses internal checking; otherwise Sales tests its saved internal flag and
+  exact represented/billing company equality. POS skips that internal-transfer
+  call. Skipped branches require an integer-zero reset, others continue to the
+  first ordinary rounding boundary.
+- **169 — paid/guard composition:** capture payment and guard evidence on the
+  same root/financial/default source and owned connection. Require exact table,
+  financial and original document-owner identity. `GuardedOutstandingEntry`
+  requires the actual paid row/totals/clearing/precision/method observations
+  BEFORE internal checking and reset/continuation. Sales executes paid even on
+  an immediately skipped balance branch. Reject rebound owners, reordered
+  controls, foreign decision objects and altered result types. Existing payment
+  calculation remains the single money implementation for this stage.
+
+Actual15/pinned16 primary bodies execute on synthetic objects. Source-free logic
+probes stub paid and verify the real condition/internal methods. Co-owned native
+probes execute the real paid method before the actual reset/rounding boundary.
+They stop before later POS Profile/default-payment/accounting work. The pinned
+accounts-controller excerpt keeps its full-file SHA and existing license. These
+are partial source/arithmetic comparisons, not full accounting, reference/master
+verification, committed controller origin, issuance or installed16 acceptance.
+See [OUTSTANDING_ENTRY_GUARDS.md](OUTSTANDING_ENTRY_GUARDS.md).
+
+Distinct affected verification passed **703 cases: 651 local + 52 native**,
+including **521 new cases: 469 local + 52 native**. The final local selection
+passed **469 in14.62s**. Its432 primary decision cases cover5,184 combinations
+across the inspected ERP versions, root types, NULL/zero/one flags, blank/space/
+nonempty return references and internal/represented-company combinations. The
+remaining37 cases exercise invalid/typed observations and30 native-source fake
+projections/link-target/drift cases. Prior control/payment/write-off source
+regression passed **182 in68.50s (1m08s)**.
+
+The initial complete native matrix passed **48 in483.57s (8m03s)**. After checking
+stock Sales/POS metadata and refining the self-Link declaration, the affected
+native recheck passed **14 in141.00s (2m21s)**:4 new POS cases and10 repeated
+Sales/guard-only cases. Strict context/decision reconstruction then passed2
+existing cases in29.55s. Therefore48+4=52 distinct native cases, not64. Repeated
+earlier local runs are likewise excluded. This is an affected selection rather
+than a full-manifest/browser/installed16/SDK/performance acceptance result.
+
+An independent guard-protected comparison with committed8fee1c3 proves exact old
+control payload/hash/normalized-Check/financial-byte parity across64 Sales/POS,
+declared15/16 and optional-field combinations; those manual comparisons are
+separate from pytest totals. No older financial/control profile or domain was
+expanded. Existing20 capture API ASTs remain unchanged; the new operations make22.
+No eager relative-import cycle exists across66 modules including the service.
+The reviewed manifest contains156 local and47 private SQL suites.
+
+No new runtime registration, RPC, invoice/cache/schema writer, background job or
+authority transport is activated. Full ordinary-rounding/balance assembly, POS
+Profile write-off limits and return payment redistribution, standalone POS
+validation, recursion/GL/VAT/XML reconciliation, durable provider/cache provenance
+and installed15/16/SDK/performance gates remain before separately approved
+fictional-Company rehearsal. LIVE remains the independent ba51f25 code hotfix.
+The separately approved single-field Glassline invoice correction is an isolated
+operational action, not adoption of this branch. This development increment
+does not change live code/site/schema/config/data/credentials, Bench/workers or
+authority endpoints.
 
 ## Verification
 

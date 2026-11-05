@@ -27,6 +27,7 @@ OWNER_CURRENCY_PROFILE = "source-owner-party-currency-metadata/v1"
 ADVANCE_PARTY_PROFILE = "source-advance-party-currency-metadata/v1"
 WRITE_OFF_PROFILE = "source-invoice-write-off-metadata/v1"
 PAYMENT_CONTROLS_PROFILE = "source-invoice-payment-controls-metadata/v1"
+OUTSTANDING_GUARDS_PROFILE = "source-invoice-outstanding-guards-metadata/v1"
 PROPERTIES = ("fieldtype", "options", "precision", "default", "reqd", "read_only",
     "hidden", "non_negative", "allow_on_submit", "is_custom_field")
 BASE_TYPES = MappingProxyType({"docstatus":"Int", "creation":"Datetime"})
@@ -73,12 +74,16 @@ ADVANCE_PARTY_FIELDS=MappingProxyType({"Sales Invoice Advance": ("party_account_
 WRITE_OFF_FIELDS=MappingProxyType({dt: ("write_off_amount", "base_write_off_amount", "write_off_outstanding_amount_automatically")
     for dt in ("Sales Invoice", "POS Invoice")})
 PAYMENT_CONTROLS_FIELDS=MappingProxyType({"Sales Invoice": ("is_pos", "is_return", "redeem_loyalty_points", "loyalty_amount")})
+OUTSTANDING_GUARDS_FIELDS=MappingProxyType({dt: ("company", "is_return", "is_pos", "return_against",
+    "update_outstanding_for_self", "is_internal_customer", "represents_company")
+    for dt in ("Sales Invoice", "POS Invoice")})
 PROFILE_FIELDS=MappingProxyType({PROFILE: SOURCE_FIELDS, FORMAT_PROFILE: FORMAT_FIELDS,
     CHILD_CURRENCY_PROFILE: CHILD_CURRENCY_FIELDS, ROUNDING_PROFILE: ROUNDING_FIELDS,
     GLOBAL_ROUNDING_PROFILE: GLOBAL_ROUNDING_FIELDS, INVOICE_ROUNDING_PROFILE: INVOICE_ROUNDING_FIELDS,
     CURRENCY_FRACTION_PROFILE: CURRENCY_FRACTION_FIELDS, OWNER_CURRENCY_PROFILE: OWNER_CURRENCY_FIELDS,
     ADVANCE_PARTY_PROFILE: ADVANCE_PARTY_FIELDS, WRITE_OFF_PROFILE: WRITE_OFF_FIELDS,
-    PAYMENT_CONTROLS_PROFILE: PAYMENT_CONTROLS_FIELDS})
+    PAYMENT_CONTROLS_PROFILE: PAYMENT_CONTROLS_FIELDS,
+    OUTSTANDING_GUARDS_PROFILE: OUTSTANDING_GUARDS_FIELDS})
 SINGLETONS=calculation.SINGLETONS
 CHILD_TYPES=frozenset({
     *(financial._child_type(dt,table) for dt in ("Sales Invoice","POS Invoice") for table in financial.TABLE_FIELDS),
