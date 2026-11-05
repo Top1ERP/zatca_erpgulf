@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Combined batch170–172 compares the post-balance POS write-off/return conditions,
+lazy default-payment query and exact party-currency row replacement. Extract the
+existing paid kernel once and reuse it for the derived return rows, preserving
+loyalty, FX/precision order and the earlier outstanding amount. Profile/default
+query answers remain supplied observations; native custody, account/sign rules
+and full controller assembly remain open. See
+[POS_BALANCE_ADJUSTMENTS.md](POS_BALANCE_ADJUSTMENTS.md).
+
 Combined batch167–169 adds a separate native Check/Link guard profile, saved
 return/internal entry inspection and exact short-circuit comparison, then binds
 the real paid stage and guards on one owned source. Preserve paid BEFORE reset,

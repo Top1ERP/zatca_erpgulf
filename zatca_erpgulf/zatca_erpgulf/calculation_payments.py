@@ -234,6 +234,28 @@ def _exact_values(actual, expected):
             raise ValueError
 
 
+def _paid_values(source, headers, rows):
+    """Shared paid arithmetic; callers bind membership or a derived row plan."""
+    flags = dict(source.controls.normalized_checks)
+    paid = base = 0.0
+    payments = []
+    if flags["is_pos"]:
+        for name, amount in rows:
+            fixed = _flt(source, amount)
+            converted = fixed * _flt(source, headers["conversion_rate"])
+            paid += fixed
+            base += converted
+            payments.append((name, fixed, converted))
+    clear = not bool(flags["is_pos"]) and not bool(flags["is_return"])
+    loyalty = headers["loyalty_amount"]
+    if flags["redeem_loyalty_points"] and loyalty:
+        base += loyalty
+        paid += loyalty / _flt(source, headers["conversion_rate"])
+    totals = tuple((name, _flt(source, value, proof.precision.precision))
+        for name, value, proof in zip(PAID_FIELDS, (paid, base), source.stage.fields[:2]))
+    return tuple(payments), totals, clear
+
+
 @dataclass(frozen=True, repr=False)
 class PaidAmountCalculation:
     """Compare paid totals and planned row effects without applying them.
@@ -256,23 +278,7 @@ class PaidAmountCalculation:
             source = self.source.pin()
             headers = _header_inputs(source, self.headers, ("conversion_rate", "loyalty_amount"), self.representation)
             _payment_rows(source, self.rows, self.representation)
-            flags = dict(source.controls.normalized_checks)
-            paid = base = 0.0
-            payments = []
-            if flags["is_pos"]:
-                for name, amount in self.rows:
-                    fixed = _flt(source, amount)
-                    converted = fixed * _flt(source, headers["conversion_rate"])
-                    paid += fixed
-                    base += converted
-                    payments.append((name, fixed, converted))
-            clear = not bool(flags["is_pos"]) and not bool(flags["is_return"])
-            loyalty = headers["loyalty_amount"]
-            if flags["redeem_loyalty_points"] and loyalty:
-                base += loyalty
-                paid += loyalty / _flt(source, headers["conversion_rate"])
-            totals = tuple((name, _flt(source, value, proof.precision.precision))
-                for name, value, proof in zip(PAID_FIELDS, (paid, base), source.stage.fields[:2]))
+            payments, totals, clear = _paid_values(source, headers, self.rows)
         except Exception:
             invalid = True
         else:

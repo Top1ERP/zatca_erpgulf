@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and sixty-nine bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and seventy-two bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -4574,6 +4574,64 @@ The separately approved single-field Glassline invoice correction is an isolated
 operational action, not adoption of this branch. This development increment
 does not change live code/site/schema/config/data/credentials, Bench/workers or
 authority endpoints.
+
+## Combined batch170–172: post-balance POS and derived return payments
+
+- **170 — post-balance conditions:** compare the actual consolidated write-off
+  limit and nonconsolidated return dispatch. Keep lazy profile query, inclusive
+  absolute threshold, negative/NULL/zero limits, integer-one assignment even if
+  already one, and exact retention of the preceding flag on nonmatching paths.
+  Return dispatch always calls redistribution then paid recalculation; standalone
+  POS does not enter these Sales-specific branches. No precision/rounding-setting
+  dependency is introduced by the precision-free limit conversion.
+- **171 — default-payment row plan:** compare the primary's integer-zero start,
+  ordered party-currency payment sum, pending difference, positive-only query,
+  missing-default preservation and complete replacement/append mapping. Keep
+  exact get_value arguments including as_dict=int1, no invented return filter,
+  selected-NULL failure and no extra FX/sign/rounding correction. A supplied
+  found row with blank/NULL mode is represented without claiming eligibility.
+- **172 — shared paid recalculation:** extract the old paid arithmetic once into
+  `_paid_values`. Existing saved-row validation remains in its old caller.
+  `PosReturnPaidCalculation` binds that paid result, explicit return-dispatch
+  tail, exact original processed rows/currency/profile and observed new append
+  name when replacement occurs. Reuse the same kernel and captured paid/base
+  precisions for derived rows. Missing-default/nonpositive-pending paths still
+  recalculate paid, and no new outstanding recomputation is invented afterwards.
+
+Primary probes execute the installed15/pinned16 post-assignment conditional
+statements and redistribution helper on synthetic documents. The latter adds
+only a test epilogue exposing actual sum/pending locals. Lookup stubs verify
+the exact call arguments; native tests acquire the preceding paid source from
+NEW guarded SQL and execute the real redistribution/paid bodies on unpersisted
+rows. The added helper excerpt retains pinned SHA/license evidence. See
+[POS_BALANCE_ADJUSTMENTS.md](POS_BALANCE_ADJUSTMENTS.md).
+
+Distinct affected verification passed **435 cases: 407 local + 28 native**,
+including **417 new cases: 407 local + 10 native**. The final local matrix passed
+**407 in1.34s**; the new native same/foreign-party, loyalty, replacement/missing/
+no-query and strict derived-row cases passed **10 in131.79s (2m11s)**. Affected
+old paid cases passed **18 in447.10s (7m27s)**, with48 deselected. The native
+selections ran concurrently; timings describe guarded comparisons with repeated
+protected-source reconstruction, not live invoice latency. Earlier debug/local
+runs add no cases. These are affected selections, not full-manifest or SDK
+acceptance. The first fixture corrections fixed an unmatched parenthesis and
+the exact upstream as_dict=int1 argument, without relaxing arithmetic checks.
+
+An independent AST comparison against committeda952343 confirms the extracted
+paid arithmetic statement sequence is identical, replacing only self.rows with
+the function parameter rows. This structural check is separate from pytest
+counts. All22 existing capture APIs and financial/native source profiles remain
+unchanged. No new runtime entry point, SQL provider, source selector or writer is
+installed; profile/default answers and consolidated flags remain supplied
+observations requiring native custody in the eventual preparation assembly.
+The reviewed manifest contains157 local and48 private SQL suites.
+
+Native POS Profile/default-row provenance, missing/orphan/multiple-default
+handling, permission/revision binding, account/currency/sign eligibility,
+allow-in-returns validation, complete guarded rounding/balance/write-off flow,
+standalone POS lifecycle, GL/VAT/XML, installed15/16 and SDK gates remain before
+separately approved fictional-Company acceptance. This checkpoint changes no
+live app/site/config/schema/data/credentials, Bench/worker or authority endpoint.
 
 ## Verification
 
