@@ -11,13 +11,13 @@ import json
 
 from .archive_source_access import SavedSourceRow, _name, _revision
 from .calculation_child_access import FinancialGraphAccess, _pin_tables, _require_graph_match
-from .calculation_child_format_access import require_field_read
+from .calculation_child_format_access import require_field_read, link_definition
 from .calculation_format_access import _RelatedFormatPolicy, CalculationFormatAccessError
 from .currency_fraction_source import (
     FIELD, LockedCurrencyFractionRead, MariaDBCurrencyFractionReader, _meta, _pin_read,
 )
-from .financial_source_observation import _canonical, _scalar, _validate_scalar
-from .source_metadata import CURRENCY_FRACTION_PROFILE, PROPERTIES, SourceFieldDefinition, project_source_metadata
+from .financial_source_observation import _validate_scalar
+from .source_metadata import CURRENCY_FRACTION_PROFILE, project_source_metadata
 
 
 class FractionAccessRow(SavedSourceRow):
@@ -35,12 +35,7 @@ class _FractionPolicy(_RelatedFormatPolicy):
 
 
 def _link_definition(doc):
-    if doc.meta.name != doc.doctype:
-        raise ValueError
-    df = doc.meta.get_field("currency")
-    if df is None or df.get("fieldname") != "currency" or df.fieldtype != "Link" or df.options != "Currency":
-        raise ValueError
-    return SourceFieldDefinition("currency", _canonical([[name, _scalar(df.get(name))] for name in PROPERTIES]))
+    return link_definition(doc, "currency", "Currency")
 
 
 def _require_related(row, fraction):

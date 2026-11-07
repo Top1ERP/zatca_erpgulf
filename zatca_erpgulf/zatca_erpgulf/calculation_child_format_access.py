@@ -13,6 +13,7 @@ from .child_field_currency import ABSENT
 from .company_currency_source import LockedCompanyCurrencyRead, MariaDBCompanyCurrencyReader, _pin_read as _pin_company
 from .currency_format_source import LockedCurrencyFormatRead, _pin_read as _pin_formats
 from .financial_source_observation import TABLE_FIELDS, _canonical, _name, _scalar
+from .source_metadata import PROPERTIES, SourceFieldDefinition
 
 
 class CompanyCurrencyRow(SavedSourceRow):
@@ -37,14 +38,27 @@ def _pin_company_row(row):
     return pinned
 
 
-def require_field_read(doc, fieldname, actor, runtime, denied_message):
+def link_definition(doc, fieldname, target):
+    """Pin an exact normal Link definition without reading its value or cache."""
+    if doc.meta.name != doc.doctype:
+        raise ValueError
+    df = doc.meta.get_field(fieldname)
+    if df is None or df.get("fieldname") != fieldname or df.fieldtype != "Link" or df.options != target:
+        raise ValueError
+    return SourceFieldDefinition(fieldname, _canonical([[name, _scalar(df.get(name))] for name in PROPERTIES]))
+
+
+def require_field_read(doc, fieldname, actor, runtime, denied_message, *, permission_parent=None):
     """Use ordinary field levels on related records, not document READ alone."""
     df = doc.meta.get_field(fieldname)
     if df is None:
         raise CalculationChildAccessError("calculation_child_related_field")
     level = df.get("permlevel")
     level = 0 if level is None else level
-    allowed = doc.meta.get_permlevel_access("read", user=actor[1])
+    # Child fields use their saved parent's field levels, matching Frappe's
+    # ordinary field-read filtering; the child DocType has no own role table.
+    permission_meta = doc.meta if permission_parent is None else permission_parent.meta
+    allowed = permission_meta.get_permlevel_access("read", user=actor[1])
     if (type(level) is not int or not 0 <= level < 2**31 or type(allowed) not in (list, tuple, set)
             or any(type(value) is not int or value < 0 for value in allowed)):
         raise CalculationChildAccessError("calculation_child_related_field")

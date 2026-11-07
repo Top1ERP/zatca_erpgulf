@@ -99,20 +99,25 @@ class _SavedTableAccess:
     empty table; it is not an invented saved child or row-permission substitute.
     """
 
+    ROW_TYPE = SavedChildCurrencyRow
+    CHILD_POLICY = _ChildPolicy
+    CHILD_TYPE = staticmethod(_child_type)
+    MAX_ROWS = MAX_ROWS
+
     def __init__(self, policy, actor, invoice_name, doctype, parentfield):
         self._policy, self._actor = policy, actor
         self._name, self._doctype, self.parentfield = invoice_name, doctype, parentfield
-        self.childtype = _child_type(doctype, parentfield)
+        self.childtype = self.CHILD_TYPE(doctype, parentfield)
         self._parent_load, _ = policy._saved_record_access(actor)
-        self._children = _ChildPolicy(policy)
+        self._children = self.CHILD_POLICY(policy)
         self._load, finalize = self._children._saved_record_access(actor)
         table, refs = self._membership()
         self._table = table
         rows, documents = [], []
         for ref in refs:
             doc = self._load(self.childtype, ref.name)
-            row = SavedChildCurrencyRow.from_document(doc)
-            if SavedChildCurrencyRow.from_document(ref) != row:
+            row = self.ROW_TYPE.from_document(doc)
+            if self.ROW_TYPE.from_document(ref) != row:
                 raise CalculationChildAccessError("calculation_child_access_saved_mismatch")
             rows.append(row)
             documents.append(doc)
@@ -123,8 +128,10 @@ class _SavedTableAccess:
         _, _, self._children_recheck = finalize()
         self.recheck_access()
 
-    def _membership(self):
-        parent = self._parent_load(self._doctype, self._name)
+    def _membership(self, parent=None):
+        parent = self._parent_load(self._doctype, self._name) if parent is None else parent
+        if (parent.doctype, parent.name) != (self._doctype, self._name):
+            raise CalculationChildAccessError("calculation_child_access_parent")
         definition = parent.meta.get_field(self.parentfield)
         if definition is None or definition.fieldtype != "Table" or definition.options != self.childtype:
             raise CalculationChildAccessError("calculation_child_access_table")
@@ -137,7 +144,7 @@ class _SavedTableAccess:
         if not saved_row_has_permission(engine, self.childtype, "read", doc=probe, user=self._actor[1]):
             runtime.throw(self._policy.DENIED_MESSAGE, runtime.PermissionError)
         refs = parent.get(self.parentfield)
-        if type(refs) not in (list, tuple) or len(refs) > MAX_ROWS:
+        if type(refs) not in (list, tuple) or len(refs) > self.MAX_ROWS:
             raise CalculationChildAccessError("calculation_child_access_membership")
         names = set()
         for idx, ref in enumerate(refs, 1):
@@ -151,7 +158,7 @@ class _SavedTableAccess:
 
     def recheck_access(self):
         table, refs = self._membership()
-        if table != self._table or tuple(SavedChildCurrencyRow.from_document(ref) for ref in refs) != self.rows:
+        if table != self._table or tuple(self.ROW_TYPE.from_document(ref) for ref in refs) != self.rows:
             raise CalculationChildAccessError("calculation_child_access_saved_drift")
         self._children_recheck()
 

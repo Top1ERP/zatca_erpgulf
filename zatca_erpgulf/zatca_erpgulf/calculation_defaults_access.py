@@ -38,6 +38,7 @@ from .calculation_payments import PaymentCalculationRequest, PaymentCalculationA
 from .calculation_receivable import ReceivableCalculationRequest, ReceivableAcquisition
 from .calculation_outstanding_guard import OutstandingGuardRequest, OutstandingGuardAcquisition
 from .calculation_guarded_payments import GuardedPaymentRequest, GuardedPaymentAcquisition
+from .calculation_pos_profile_access import PosProfileRequest, PosProfileAcquisition
 from .credential_bundle_access import CredentialStorageScope
 from . import financial_source_observation as financial
 from .financial_source_sql import (
@@ -295,7 +296,8 @@ class SavedCalculationDefaultsService:
             global_rounding_metadata_reader=None, global_rounding_cache_reader=None,
             invoice_rounding_metadata_reader=None, fraction_metadata_reader=None, fraction_cache_reader=None,
             owner_currency_metadata_reader=None, company_currency_cache_reader=None, advance_party_metadata_reader=None,
-            write_off_metadata_reader=None, payment_controls_metadata_reader=None, outstanding_guard_metadata_reader=None):
+            write_off_metadata_reader=None, payment_controls_metadata_reader=None, outstanding_guard_metadata_reader=None,
+            pos_profile_metadata_reader=None):
         if type(parent_kind) is not str or parent_kind not in PARENT_KINDS or not callable(cache_reader):
             raise CalculationDefaultsAccessError("calculation_defaults_access_dependencies")
         self._policy = _SavedDefaultsSource(scope, connection_factory)
@@ -311,6 +313,9 @@ class SavedCalculationDefaultsService:
         if outstanding_guard_metadata_reader is not None and not callable(outstanding_guard_metadata_reader):
             raise CalculationDefaultsAccessError("calculation_context_access_dependencies")
         self._outstanding_guard_metadata = outstanding_guard_metadata_reader
+        if pos_profile_metadata_reader is not None and not callable(pos_profile_metadata_reader):
+            raise CalculationDefaultsAccessError("calculation_context_access_dependencies")
+        self._pos_profile_metadata = pos_profile_metadata_reader
         if applied_metadata_reader is not None and not callable(applied_metadata_reader):
             raise CalculationDefaultsAccessError("calculation_context_access_dependencies")
         self._cache, self._parent_kind = cache_reader, parent_kind
@@ -529,6 +534,16 @@ class SavedCalculationDefaultsService:
         return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
             include_financial=True, erp_major=erp_major, field_rounding_target=GuardedPaymentRequest())
 
+    def capture_pos_profile_context(self, invoice_name, *, kind, erp_major, doctype="Sales Invoice"):
+        """Inspect one consumed POS lookup on the SAME owned saved-READ pipeline.
+
+        The profile is derived from the saved invoice, never a caller-selected
+        master/row. This does not choose a POS calculation branch or validate
+        payment accounts. No cache, rounding settings or runtime provider.
+        """
+        return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
+            include_financial=True, erp_major=erp_major, field_rounding_target=PosProfileRequest(kind))
+
     def _capture_display(self, invoice_name, *, doctype, include_metadata,
             include_financial=False, include_formats=False, format_scope="invoice", erp_major=None,
             child_table=_NO_CHILD, child_field=None, include_child_cache=False,
@@ -613,7 +628,10 @@ class SavedCalculationDefaultsService:
                     dependencies = dict(metadata_reader=self._rounding_metadata,cache_reader=self._rounding_cache,
                         format_metadata=self._format_metadata, format_cache=self._format_cache,
                         owner_metadata=self._owner_currency_metadata, company_cache=self._company_currency_cache)
-                    if type(field_rounding_target) is OutstandingGuardRequest:
+                    if type(field_rounding_target) is PosProfileRequest:
+                        financial_extension = PosProfileAcquisition(policy,actor,invoice_name,doctype,
+                            field_rounding_target,self._pos_profile_metadata)
+                    elif type(field_rounding_target) is OutstandingGuardRequest:
                         financial_extension = OutstandingGuardAcquisition(policy,actor,invoice_name,doctype,
                             metadata_reader=self._outstanding_guard_metadata)
                     elif type(field_rounding_target) is GuardedPaymentRequest:

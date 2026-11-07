@@ -97,7 +97,8 @@ def scenario(monkeypatch, **options):
             def __enter__(self): return self
             def __exit__(self, *args): pass
             def execute(self, sql, params=()):
-                self.inner = PosCursor() if "FROM `tabPOS " in sql else original()
+                self.inner = PosCursor() if any(name in sql for name in (
+                    "FROM `tabPOS Profile`", "FROM `tabPOS Payment Method`")) else original()
                 self.inner.execute(sql, params)
             def fetchone(self): return self.inner.fetchone()
             def fetchall(self): return self.inner.fetchall()

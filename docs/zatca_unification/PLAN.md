@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Combined batch175–176 adds saved invoice/profile/table/row/field READ before
+metadata/SQL callbacks and one-owned POS source acquisition through the existing
+financial/default pipeline. Reuse the table/Link helpers, keep lazy limit-only
+dependencies and native consumed values, and recheck initial plus fresh access
+through close before protected disclosure. This remains an uninstalled explicit
+inspection; branch choice, account eligibility and whole-controller composition
+are not activated. See [POS_PROFILE_ACCESS.md](POS_PROFILE_ACCESS.md).
+
 Combined batch173–174 adds separate native consumed POS Profile limit and
 default-payment scopes, retaining original invoice/Company/metadata/native-type
 binding on one borrowed transaction. Refuse missing masters, cross-company,

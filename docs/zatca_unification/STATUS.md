@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and seventy-four bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and seventy-six bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -4678,6 +4678,58 @@ blank/missing profile policy, payment/account/currency/return eligibility and
 installed15/16/GL/VAT/XML/SDK gates remain before fictional-Company rehearsal.
 No live app/site/config/schema/data/credentials, Bench/worker, authority endpoint
 or automatic ICV decrement/delete behavior is changed by this checkpoint.
+
+## Combined batch175–176: permissioned POS source acquisition on one owner
+
+- **175 — saved source/field READ:** reuse the financial graph and related quiet
+  saved-row engines for Company/invoice/profile identity, exact root Links and
+  profile/table/child/field access. Extend the existing bounded table helper with
+  fixed internal row/policy/type/limit defaults; invoice behavior keeps its old
+  defaults. POS child fields use their saved parent's field levels, including
+  empty tables. Share exact normal Link pinning with Currency-fraction access.
+- **176 — owned service composition:** add one internal enum-selected capture
+  operation and constructor-only POS metadata dependency to the existing
+  financial/default pipeline. Keep one new owned handle, original initial
+  rollback, final native rechecks and rollback/close. Preserve both original
+  objects/references and fresh saved access through cleanup. Protect each child's
+  own Meta as well as the fresh global Meta, so an equal fresh row cannot hide
+  original metadata/field-level drift.
+
+Normal saved rows provide identity/revision/access, not ORM limit/default/mode
+values. The protected `SavedPosProfileContext` pins the financial/default/native
+lookup, invoice-table membership, related master/payment ownership/revisions and
+initial invoice owner identity. Limit-only inspection skips POS payment access
+and metadata; no rounding or cache API is added. Existing single localized
+financial-inspection failures preserve parent messages; Arabic CSV translation
+is checked for display only and internal strings remain English. See
+[POS_PROFILE_ACCESS.md](POS_PROFILE_ACCESS.md).
+
+Distinct affected verification passed **1,027 cases: 961 local + 66 native**,
+including **216 new cases: 150 local + 66 native**. The final new local selection
+passed **150 in73.71s**, including both quiet permission signatures, Sales/POS,
+field levels, callback/close drift, own-child Meta, Arabic and interruptions.
+Affected existing child/field/fraction/default/POS-source regressions passed
+**811 in382.03s (6m22s)**. The initial new local136-case pass and earlier
+fixture-debug passes add no distinct cases. Two synthetic SQL-router prefix
+conflicts with POS Invoice were corrected without changing source guards.
+
+The initial complete new native suite passed **58 in75.11s (1m15s)**. After adding
+the child-own-Meta boundary, its affected recheck passed **24 in39.79s**, with42
+deselected:16 repeated basic owner cases plus8 new close/standalone-POS cases.
+Thus66 distinct native cases cover both declared ERP majors, owned SQL, final
+callback drift/rollback, pending parent privacy, borrowed-handle refusal and
+normal access changes during close. These are guarded comparison timings, not
+live invoice latency or installed16/SDK acceptance.
+
+All21 preceding `capture_*` method ASTs remain identical; one new operation
+brings the service to22. The eager relative-import graph is acyclic across68
+reachable modules. The reviewed manifest contains159 local and50 private SQL
+suites. No old native financial projection/profile or transaction/display owner
+was replaced. Complete paid/guard/balance/POS/write-off assembly, exact consumed
+lookup API/cache provenance, missing-profile policy, Mode/account/company/
+currency/return eligibility, installed15/16 lifecycle and GL/VAT/XML/SDK gates
+remain before separately approved fictional-Company rehearsal. This checkpoint
+changes no live app/site/config/schema/data, worker/Bench or authority request.
 
 ## Verification
 

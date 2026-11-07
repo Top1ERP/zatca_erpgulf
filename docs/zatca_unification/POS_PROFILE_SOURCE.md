@@ -9,8 +9,10 @@ dependencies. It neither installs that reader nor changes a controller or route.
 `MariaDBPosProfileReader` borrows one explicitly authorized transaction and an
 existing `LockedInvoiceFinancialRead`. Require ordinary saved invoice, related
 POS Profile, selected child/field READ and owned-connection provenance before
-using it. A permissioned acquisition facade and complete controller assembly
-are still required. This object cannot authorize a source by itself.
+using it. Batch175–176 adds a separate [saved READ acquisition facade](POS_PROFILE_ACCESS.md)
+on the existing owned service. Neither it nor this reader is registered in
+runtime; complete controller assembly and provider provenance remain required.
+This object cannot authorize a source by itself.
 
 Both purposes bind the exact saved `pos_profile` Link target and Company Link,
 the profile's Company, applied metadata/customizations, native descriptors,
@@ -84,7 +86,8 @@ invoices and children. They exercise ambiguity/orphans, NULL/default distinction
 same-handle changes, pending-work privacy, retained master/payment locks and the
 READ COMMITTED late-insert limitation. Counts are in [STATUS.md](STATUS.md).
 
-Permissioned source acquisition, blank/missing profile policy for the primary
+The uninstalled permissioned facade is recorded in [POS_PROFILE_ACCESS.md](POS_PROFILE_ACCESS.md).
+Verified provider/cache/API provenance, blank/missing profile policy for the primary
 return helper, Mode/account/company/currency/return eligibility, full saved guard/
 rounding/balance/write-off/paid composition, installed15/16 lifecycle and GL/VAT/
 XML/SDK acceptance remain before the separately approved fictional-Company
