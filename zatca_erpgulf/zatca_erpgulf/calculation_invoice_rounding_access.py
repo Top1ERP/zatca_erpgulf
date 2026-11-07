@@ -22,12 +22,12 @@ from .source_metadata import INVOICE_ROUNDING_PROFILE, project_source_metadata
 class InvoiceRoundingAcquisition(FinancialGraphAccess):
     """Record/table/row/field READ precedes all metadata/connection callbacks."""
 
-    def __init__(self, policy, actor, invoice_name, doctype, metadata_reader):
+    def __init__(self, policy, actor, invoice_name, doctype, metadata_reader, *, _shared_graph=None):
         if not callable(metadata_reader):
             raise CalculationChildAccessError("calculation_invoice_rounding_dependencies")
         self._metadata, self._actor = metadata_reader, actor
-        super().__init__(policy, actor, invoice_name, doctype)
-        self.document = self._parent_load(doctype, invoice_name)
+        super().__init__(policy, actor, invoice_name, doctype, _shared_graph=_shared_graph)
+        self.document = self._parent_load(doctype, invoice_name) if _shared_graph is None else _shared_graph.document
         self.owner = policy.ROW_TYPE.from_document(self.document)
         self.definition, self.levels, self.checks = self._state(self.document)
         self.recheck_access()

@@ -1,6 +1,8 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "settlement_shared_graph",
+    "settlement_stage_projection",
     "calculation_pos_profile_access",
     "pos_profile_source",
     "pos_adjustments",
@@ -124,6 +126,8 @@ LOCAL_SUITES = (
     "zatca_response", "compatibility_hardening",
 )
 PRIVATE_SUITES = (
+    "settlement_sequence_mariadb",
+    "settlement_access_mariadb",
     "calculation_pos_profile_access_mariadb",
     "pos_profile_source_mariadb",
     "pos_return_paid_mariadb",

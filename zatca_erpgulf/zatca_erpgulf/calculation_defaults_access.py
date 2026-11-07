@@ -39,6 +39,7 @@ from .calculation_receivable import ReceivableCalculationRequest, ReceivableAcqu
 from .calculation_outstanding_guard import OutstandingGuardRequest, OutstandingGuardAcquisition
 from .calculation_guarded_payments import GuardedPaymentRequest, GuardedPaymentAcquisition
 from .calculation_pos_profile_access import PosProfileRequest, PosProfileAcquisition
+from .calculation_settlement_access import SettlementRequest, SettlementAcquisition
 from .credential_bundle_access import CredentialStorageScope
 from . import financial_source_observation as financial
 from .financial_source_sql import (
@@ -544,6 +545,15 @@ class SavedCalculationDefaultsService:
         return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
             include_financial=True, erp_major=erp_major, field_rounding_target=PosProfileRequest(kind))
 
+    def capture_settlement_context(self, invoice_name, *, erp_major, pos_lookup=None, doctype="Sales Invoice"):
+        """Inspect co-owned paid/guard/receivable/POS sources without execution.
+
+        pos_lookup is an explicit bounded inspection kind, not an inferred
+        current controller branch. The eventual sequence must prove it is used.
+        """
+        return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
+            include_financial=True, erp_major=erp_major, field_rounding_target=SettlementRequest(pos_lookup))
+
     def _capture_display(self, invoice_name, *, doctype, include_metadata,
             include_financial=False, include_formats=False, format_scope="invoice", erp_major=None,
             child_table=_NO_CHILD, child_field=None, include_child_cache=False,
@@ -628,7 +638,13 @@ class SavedCalculationDefaultsService:
                     dependencies = dict(metadata_reader=self._rounding_metadata,cache_reader=self._rounding_cache,
                         format_metadata=self._format_metadata, format_cache=self._format_cache,
                         owner_metadata=self._owner_currency_metadata, company_cache=self._company_currency_cache)
-                    if type(field_rounding_target) is PosProfileRequest:
+                    if type(field_rounding_target) is SettlementRequest:
+                        financial_extension = SettlementAcquisition(policy,actor,invoice_name,doctype,erp_major,
+                            field_rounding_target, controls_metadata=self._payment_controls_metadata,
+                            guard_metadata=self._outstanding_guard_metadata,write_off_metadata=self._write_off_metadata,
+                            invoice_rounding_metadata=self._invoice_rounding_metadata,pos_metadata=self._pos_profile_metadata,
+                            **dependencies)
+                    elif type(field_rounding_target) is PosProfileRequest:
                         financial_extension = PosProfileAcquisition(policy,actor,invoice_name,doctype,
                             field_rounding_target,self._pos_profile_metadata)
                     elif type(field_rounding_target) is OutstandingGuardRequest:

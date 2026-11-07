@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Combined batch177–179 joins guarded paid, party/receivable/write-off, rounding
+controls and optional POS lookup on one original graph/field union/method/pool
+and owned handle. Project strict substages and check exact paid/change/payable/
+outstanding/POS handoffs, party currency, lookup consumption and write-off
+followup. Preserve paid-before-guard, integer-zero skip, no invented post-return
+outstanding recalculation and one explicit later write-off recalculation. Prefix
+execution, the second outstanding pass, accounting eligibility and whole runtime
+adoption remain open. See [SETTLEMENT_SEQUENCE.md](SETTLEMENT_SEQUENCE.md).
+
 Combined batch175–176 adds saved invoice/profile/table/row/field READ before
 metadata/SQL callbacks and one-owned POS source acquisition through the existing
 financial/default pipeline. Reuse the table/Link helpers, keep lazy limit-only

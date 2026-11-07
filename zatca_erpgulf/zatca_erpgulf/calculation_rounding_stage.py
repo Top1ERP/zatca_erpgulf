@@ -202,6 +202,29 @@ def require_call_trace(raw, settings, precision, expected_precision, lookups):
             raise RoundingStageError("rounding_stage_trace")
 
 
+def project_stage(stage, fieldnames):
+    """Select an ordered same-owner substage; acquire no new cache or SQL.
+
+    A composite acquisition can capture a field union once and give existing
+    strict calculators their original stage shapes. Reordering is not allowed.
+    """
+    try:
+        stage = pin_stage(stage)
+        names = _names(fieldnames)
+        selected = tuple(target for target in stage.targets if target[2] in names)
+        if stage.do_not_round_fields is not None or tuple(target[2] for target in selected) != names:
+            raise ValueError
+        fields = tuple(value for value in stage.fields if value.target in selected)
+        result = SavedRoundingStageRead(stage.numeric, stage.method, selected, None, stage.owner_document, fields)
+    except Exception:
+        invalid = True
+    else:
+        invalid = False
+    if invalid:
+        raise RoundingStageError("rounding_stage_projection")
+    return result
+
+
 @dataclass(frozen=True, repr=False)
 class SavedRoundingStageRead:
     """Same-parent ordered source comparison; NOT actual execution authority.

@@ -83,12 +83,13 @@ class SavedPaymentCalculationRead:
 
 class PaymentCalculationAcquisition(RoundingStageAcquisition):
     """Share graph/method/format/cleanup paths; add only bound native controls."""
+    STAGE_FIELDS = STAGE_FIELDS
     def __init__(self, policy, actor, invoice_name, doctype, major, *, controls_metadata, **dependencies):
         if doctype != "Sales Invoice" or not callable(controls_metadata):
             raise PaymentCalculationError("payment_calculation_dependencies")
         self.definition = None
         self._controls_metadata, self.actor = controls_metadata, actor
-        super().__init__(policy, actor, invoice_name, doctype, RoundingStageRequest(STAGE_FIELDS), major, **dependencies)
+        super().__init__(policy, actor, invoice_name, doctype, RoundingStageRequest(self.STAGE_FIELDS), major, **dependencies)
         if "payments" not in dict(self.root.tables):
             raise PaymentCalculationError("payment_calculation_table")
         self.definition, self.levels, self.values = self._observe(self.root.document)

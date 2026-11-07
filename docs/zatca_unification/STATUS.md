@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and seventy-six bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and seventy-nine bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -4730,6 +4730,70 @@ lookup API/cache provenance, missing-profile policy, Mode/account/company/
 currency/return eligibility, installed15/16 lifecycle and GL/VAT/XML/SDK gates
 remain before separately approved fictional-Company rehearsal. This checkpoint
 changes no live app/site/config/schema/data, worker/Bench or authority request.
+
+## Combined batch177–179: one-owned settlement stages and checked handoffs
+
+- **177 — shared source union:** reuse the original numeric graph, method,
+  format pool and owned handle for paid/guard, party/write-off/receivable,
+  invoice controls and an explicitly optional POS source. Project the seven
+  selected fields into the existing strict four-field payment and three-field
+  receivable shapes. Preserve old default acquisition targets. Shared graph use
+  now requires the same policy/invoice/type and actual actor, preventing a
+  caller from borrowing another actor's field levels. Root POS Link definition,
+  level and getter remain pinned through close even without a master lookup.
+- **178 — exact handoffs:** compose existing comparisons in paid-before-guard
+  order, retain integer-zero early reset, bind paid/change/payable/outstanding
+  inputs and grand/rounded prefix values, require idempotent repeated paid-field
+  rounding, and bind saved POS/consolidation/automatic controls plus exact native
+  limit/default observations. Refuse unused/rebound lookup ownership, wrong
+  party currency and shifted redistribution amount. Reuse the existing paid
+  kernel after return redistribution and preserve the prior outstanding value.
+- **179 — followup and primary evidence:** bind a separately called write-off
+  plan to the tail's flag, this outstanding and conversion rate, retaining one
+  required later outstanding calculation without executing or predicting it.
+  NULL inactive automatic flags remain NULL. Actual15/pinned16 paid, guard,
+  payable/change/outstanding and redistribution bodies supply comparison results,
+  method/precision traces and order. The earlier round/base-conversion prefix
+  remains an explicit observation stub, not execution proof.
+
+See [SETTLEMENT_SEQUENCE.md](SETTLEMENT_SEQUENCE.md). No amount formula is copied
+into a new independent calculator. This is still an uninstalled declared
+inspection group, not a minimum-dependency/latency source planner. It can acquire
+side settings unused by an early guard exit; existing smaller operations remain.
+
+Distinct affected verification passed **423 cases: 382 local + 41 native**,
+including **79 new cases: 44 local + 35 native**. New stage projection passed
+**28 in54.21s**. Affected shared-graph/old rounding/POS-access selection passed
+**350 in164.60s (2m44s)**, including12 new graph cases and338 old cases. The final
+actor-bound graph selection passed **16 in2.11s**, adding4 cases; its12 repeats
+are excluded from distinct totals. The two fixture corrections supplied native
+normal-Meta identity/table attributes; no ownership/permission guard was relaxed.
+
+Initial native source composition passed **12 in300.95s (5m00s)**. Its late-source/
+permission/root-close followup passed **19 in350.95s (5m50s)**, with3 deselected:
+9 repeated basic cases plus10 new cases. Affected wrong-owner/unused-lookup
+checks repeated2 existing cases in79.40s. Final actor-bound source smoke repeated
+1 existing case in25.39s. Thus22 distinct new source cases passed.
+
+Primary sequence coverage first passed1 sale case in58.99s, then the remaining
+**9 in559.30s (9m19s)** with1 deselected. The final affected order/foreign-amount/
+currency/prefix/internal-reset selection passed **4 in260.45s (4m20s)**, with8
+deselected:2 repeats plus2 new internal-skip cases. One new NULL-followup case
+passed in58.63s, with12 deselected. Thus13 distinct new sequence cases passed.
+An affected legacy paid/change selection passed **6 in160.20s (2m40s)**, with60
+deselected. Diagnostic tracer/partial/error runs add no cases. These are rich
+guarded comparison timings, not live invoice latency or release performance
+acceptance; no SDK/installed16/browser/GL/VAT/XML acceptance is claimed.
+
+All22 preceding `capture_*` method ASTs remain unchanged; one explicit operation
+brings the service to23. The relative eager-import graph is acyclic across71
+reachable modules. The reviewed manifest contains161 local and52 private SQL
+suites. No native financial profile/domain, runtime controller, writer, schema,
+hook, invoice/counter, Bench/worker or authority request is activated. Prefix
+round/base conversion, the second outstanding pass, advance aggregation, missing
+profile and Mode/account/company/currency/return eligibility, source/provider/
+cache/API provenance, installed15/16 lifecycle, fiscal/SDK/performance acceptance
+and separately approved fictional-Company rehearsal remain before adoption.
 
 ## Verification
 

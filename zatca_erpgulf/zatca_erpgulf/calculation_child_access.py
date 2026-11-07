@@ -205,7 +205,19 @@ class FinancialGraphAccess:
     and SQL.
     """
 
-    def __init__(self, policy, actor, invoice_name, doctype, *, selected_table=None):
+    def __init__(self, policy, actor, invoice_name, doctype, *, selected_table=None, _shared_graph=None):
+        if _shared_graph is not None:
+            if (not isinstance(_shared_graph, FinancialGraphAccess) or _shared_graph is self
+                    or _shared_graph._policy is not policy
+                    or (_shared_graph._name, _shared_graph._doctype) != (invoice_name, doctype)
+                    or selected_table is not None and selected_table not in dict(_shared_graph.tables)):
+                raise CalculationChildAccessError("calculation_child_shared_graph")
+            if policy._actor() != actor:
+                runtime, translate, _, _ = policy._dependencies()
+                runtime.throw(translate(policy.DENIED_MESSAGE), runtime.PermissionError)
+            for name in ("_policy", "_name", "_doctype", "_parent_load", "_tables", "tables", "_fields"):
+                setattr(self, name, getattr(_shared_graph, name))
+            return
         self._policy = policy
         self._name, self._doctype = invoice_name, doctype
         self._parent_load, _ = policy._saved_record_access(actor)

@@ -67,6 +67,10 @@ same-owned financial/default/POS reads, late callback SQL drift, parent pending
 work, refusal of borrowed ambient handles and initial pending-work exclusion.
 Counts and limits are in [STATUS.md](STATUS.md).
 
+Batch177–179 adds an internal [co-owned settlement comparison](SETTLEMENT_SEQUENCE.md)
+using the same graph and original invoice object, with explicit consumed-lookup
+and party/amount handoff checks. Neither inspection is installed in runtime.
+
 This remains an internal explicit inspection. It does not choose active POS
 branches, install trusted site/namespace/provider/cache provenance or eliminate
 READ COMMITTED graph races after the final check. Complete paid/guard/balance/

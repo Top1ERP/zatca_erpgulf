@@ -113,14 +113,14 @@ def _require_related(master, payments, lookup):
 class PosProfileAcquisition(FinancialGraphAccess):
     """Reuse the shared saved READ/table/field engines before any callback."""
 
-    def __init__(self, policy, actor, invoice_name, doctype, request, metadata_reader):
+    def __init__(self, policy, actor, invoice_name, doctype, request, metadata_reader, *, _shared_graph=None):
         if (type(request) is not PosProfileRequest or type(request.kind) is not str
                 or request.kind not in ("limit", "default") or not callable(metadata_reader)):
             raise CalculationFormatAccessError("calculation_pos_profile_dependencies")
         self.kind, self._metadata, self._actor = request.kind, metadata_reader, actor
         self.profile = POS_LIMIT_PROFILE if self.kind == "limit" else POS_DEFAULT_PROFILE
-        super().__init__(policy, actor, invoice_name, doctype)
-        self.document = self._parent_load(doctype, invoice_name)
+        super().__init__(policy, actor, invoice_name, doctype, _shared_graph=_shared_graph)
+        self.document = self._parent_load(doctype, invoice_name) if _shared_graph is None else _shared_graph.document
         self.owner = policy.ROW_TYPE.from_document(self.document)
         self.root_state = self._root_state(self.document)
         self.profile_name = self.root_state[-1]
