@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "pos_profile_source",
     "pos_adjustments",
     "outstanding_guard",
     "outstanding_guard_source",
@@ -122,6 +123,7 @@ LOCAL_SUITES = (
     "zatca_response", "compatibility_hardening",
 )
 PRIVATE_SUITES = (
+    "pos_profile_source_mariadb",
     "pos_return_paid_mariadb",
     "guarded_outstanding_mariadb",
     "receivable_calculation_mariadb",

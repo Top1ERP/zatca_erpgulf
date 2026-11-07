@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Combined batch173–174 adds separate native consumed POS Profile limit and
+default-payment scopes, retaining original invoice/Company/metadata/native-type
+binding on one borrowed transaction. Refuse missing masters, cross-company,
+multiple defaults and orphan candidates; preserve absent-default versus found
+blank/NULL mode and do not filter allow-in-returns. Completion rechecks remain
+mandatory, especially for later orphan inserts under READ COMMITTED. Saved ACL/
+owned acquisition and full controller composition remain open. See
+[POS_PROFILE_SOURCE.md](POS_PROFILE_SOURCE.md).
+
 Combined batch170–172 compares the post-balance POS write-off/return conditions,
 lazy default-payment query and exact party-currency row replacement. Extract the
 existing paid kernel once and reuse it for the derived return rows, preserving

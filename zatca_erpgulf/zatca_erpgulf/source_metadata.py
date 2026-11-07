@@ -28,6 +28,8 @@ ADVANCE_PARTY_PROFILE = "source-advance-party-currency-metadata/v1"
 WRITE_OFF_PROFILE = "source-invoice-write-off-metadata/v1"
 PAYMENT_CONTROLS_PROFILE = "source-invoice-payment-controls-metadata/v1"
 OUTSTANDING_GUARDS_PROFILE = "source-invoice-outstanding-guards-metadata/v1"
+POS_LIMIT_PROFILE = "source-pos-write-off-limit-metadata/v1"
+POS_DEFAULT_PROFILE = "source-pos-default-payment-metadata/v1"
 PROPERTIES = ("fieldtype", "options", "precision", "default", "reqd", "read_only",
     "hidden", "non_negative", "allow_on_submit", "is_custom_field")
 BASE_TYPES = MappingProxyType({"docstatus":"Int", "creation":"Datetime"})
@@ -77,13 +79,19 @@ PAYMENT_CONTROLS_FIELDS=MappingProxyType({"Sales Invoice": ("is_pos", "is_return
 OUTSTANDING_GUARDS_FIELDS=MappingProxyType({dt: ("company", "is_return", "is_pos", "return_against",
     "update_outstanding_for_self", "is_internal_customer", "represents_company")
     for dt in ("Sales Invoice", "POS Invoice")})
+POS_LIMIT_FIELDS=MappingProxyType({"POS Profile": ("company", "write_off_limit")})
+POS_DEFAULT_FIELDS=MappingProxyType({
+    "POS Profile": ("company", "payments"),
+    "POS Payment Method": ("mode_of_payment", "default", "allow_in_returns"),
+})
 PROFILE_FIELDS=MappingProxyType({PROFILE: SOURCE_FIELDS, FORMAT_PROFILE: FORMAT_FIELDS,
     CHILD_CURRENCY_PROFILE: CHILD_CURRENCY_FIELDS, ROUNDING_PROFILE: ROUNDING_FIELDS,
     GLOBAL_ROUNDING_PROFILE: GLOBAL_ROUNDING_FIELDS, INVOICE_ROUNDING_PROFILE: INVOICE_ROUNDING_FIELDS,
     CURRENCY_FRACTION_PROFILE: CURRENCY_FRACTION_FIELDS, OWNER_CURRENCY_PROFILE: OWNER_CURRENCY_FIELDS,
     ADVANCE_PARTY_PROFILE: ADVANCE_PARTY_FIELDS, WRITE_OFF_PROFILE: WRITE_OFF_FIELDS,
     PAYMENT_CONTROLS_PROFILE: PAYMENT_CONTROLS_FIELDS,
-    OUTSTANDING_GUARDS_PROFILE: OUTSTANDING_GUARDS_FIELDS})
+    OUTSTANDING_GUARDS_PROFILE: OUTSTANDING_GUARDS_FIELDS,
+    POS_LIMIT_PROFILE: POS_LIMIT_FIELDS, POS_DEFAULT_PROFILE: POS_DEFAULT_FIELDS})
 SINGLETONS=calculation.SINGLETONS
 CHILD_TYPES=frozenset({
     *(financial._child_type(dt,table) for dt in ("Sales Invoice","POS Invoice") for table in financial.TABLE_FIELDS),

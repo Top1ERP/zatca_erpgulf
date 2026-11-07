@@ -1,8 +1,8 @@
-# Implementation status — 2026-11-05
+# Implementation status — 2026-11-07
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and seventy-two bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and seventy-four bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -72,7 +72,8 @@ are complete in development. ICV continuity has been characterized, not migrated
 The broader [unification plan](PLAN.md) is not complete. No change in this branch
 has been rolled out as the development release or sent to ZATCA. The separately
 authorized one-file current-version Phase-1 address hotfix is the only live
-exception; see [PHASE1_ADDRESS_HOTFIX.md](PHASE1_ADDRESS_HOTFIX.md). Increment 16 uses
+source exception; see [PHASE1_ADDRESS_HOTFIX.md](PHASE1_ADDRESS_HOTFIX.md). Separately
+authorized invoice-data maintenance does not adopt this development release. Increment 16 uses
 a new private MariaDB test subprocess, never a tenant database or live service.
 The current user mandate forbids ALL working/production environment changes and
 agent-initiated authority requests, including Sandbox/Simulation. Development
@@ -4632,6 +4633,51 @@ allow-in-returns validation, complete guarded rounding/balance/write-off flow,
 standalone POS lifecycle, GL/VAT/XML, installed15/16 and SDK gates remain before
 separately approved fictional-Company acceptance. This checkpoint changes no
 live app/site/config/schema/data/credentials, Bench/worker or authority endpoint.
+
+## Combined batch173–174: consumed native POS master/default lookup sources
+
+- **173 — source-bound limit:** add a separate metadata scope for Company and
+  write-off limit, and a borrowed-transaction native POS Profile reader bound to
+  the exact saved invoice/Company/profile Link, metadata, native descriptors,
+  revisions and financial rows. Preserve Decimal/NULL scale/sign and return the
+  existing comparison observation. No POS payment table is read for this scope.
+- **174 — default selection:** add a distinct master/table metadata scope and
+  bounded native payment rows. Probe the actual primary parent/default filter
+  separately, without inventing a parenttype or return-eligibility filter. Refuse
+  multiple defaults and orphan candidates rather than choosing an arbitrary
+  first row. Preserve absent-default versus found blank/NULL mode and raw Checks.
+
+Missing/blank links, missing masters, wrong Company, metadata/identity/type/row
+conflicts fail this internal source gate instead of silently becoming defaults.
+The reader never acquires a connection or commits/rolls back/closes parent work;
+errors poison it and interrupts propagate without driver context disclosure.
+`require_unchanged` remains mandatory at completion. A real independent-writer
+READ COMMITTED test demonstrates that a later orphan insertion is possible
+without the cooperating parent lock and is refused by that recheck. Native
+master/payment locks, local pending-work visibility and unused-dependency
+independence are also exercised. See [POS_PROFILE_SOURCE.md](POS_PROFILE_SOURCE.md).
+
+Distinct affected verification passed **957 cases: 914 local + 43 native**,
+including **94 new cases: 51 local + 43 native**. The initial affected local
+selection passed **910 in24.11s**, including47 new cases plus407 existing POS
+comparison and456 metadata cases. After adding interruption/autocommit checks,
+the final source-only selection passed **51 in21.36s**; its47 repetitions are
+excluded from distinct totals. Native source/concurrency coverage passed
+**33 in32.95s** and the added NULL/absent/late-insert/unused-dependency/row-lock
+selection passed **10 in12.28s**, with33 deselected. Initial constructor
+diagnostics were corrected to remove actual exception context, not only suppress
+its display; no source/ownership/ambiguity assertion was relaxed.
+
+The two inspected pinned16 POS JSON files and their SHA256 values are recorded
+in the new document. These tests are not installed16/SDK/accounting acceptance.
+Old metadata profiles and the existing capture APIs remain unchanged. The
+reviewed manifest now contains158 local and49 private SQL suites. No permissioned
+facade, provider, RPC or runtime/controller entry point is added. Saved source/
+field READ and owned-handle acquisition, full paid/guard/balance/POS assembly,
+blank/missing profile policy, payment/account/currency/return eligibility and
+installed15/16/GL/VAT/XML/SDK gates remain before fictional-Company rehearsal.
+No live app/site/config/schema/data/credentials, Bench/worker, authority endpoint
+or automatic ICV decrement/delete behavior is changed by this checkpoint.
 
 ## Verification
 

@@ -3,8 +3,9 @@
 This DEV checkpoint compares the two POS branches after the outstanding amount
 has been assigned, the default-payment redistribution helper, and the following
 paid recalculation. It runs no profile query, payment write or authority request.
-Profile/default-query answers are explicitly supplied observations. Their native
-selection, permission, revision and cache provenance remain integration gates.
+Profile/default-query answers are explicitly supplied observations. Batch173–174
+adds an internal [consumed native reader](POS_PROFILE_SOURCE.md), without
+activating a permissioned facade, cache source or complete controller assembly.
 
 ## 170: consolidated write-off limit and return dispatch
 
@@ -83,8 +84,10 @@ unpersisted documents, and compare replacement, missing-default and no-query
 paths in same/foreign party currency with loyalty enabled.
 
 Native POS Profile/default-row custody is not supplied by those mocked answers.
-Multiple defaults, missing/orphan profiles, selected-row provenance, company/
-currency/account/sign eligibility, allow-in-returns validation and complete
+Batch173–174 adds a separate native consumed source reader with ambiguity/orphan
+review, not its permissioned acquisition or controller activation. Missing-profile
+policy, saved source/field READ, currency/account/sign eligibility,
+allow-in-returns validation and complete
 rounding/guard/balance/write-off assembly remain before installed15/16, SDK,
 GL/VAT/XML and separately approved fictional-Company acceptance. No installed
 provider/RPC, field/schema, live code/data, Bench/worker or authority operation
