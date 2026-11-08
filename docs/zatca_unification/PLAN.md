@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Combined batch180–181 extends the same union with advance precision and binds
+the outstanding round/source-before-FX prefix to the exact payable inputs and
+paid conversion rate. Reuse existing write-off side proofs and numeric kernels;
+replace the synthetic sequence's prefix stubs with actual15/pinned16 method
+bodies. Retain separate method/precision traces and NULL/empty-setting behavior.
+The second outstanding pass after write-off, changed flags/derived return rows,
+accounting eligibility and whole runtime adoption remain open. See
+[SETTLEMENT_SEQUENCE.md](SETTLEMENT_SEQUENCE.md).
+
 Combined batch177–179 joins guarded paid, party/receivable/write-off, rounding
 controls and optional POS lookup on one original graph/field union/method/pool
 and owned handle. Project strict substages and check exact paid/change/payable/

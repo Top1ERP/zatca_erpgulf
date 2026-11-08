@@ -13,11 +13,13 @@ from .calculation_guarded_payments import GuardedPaymentAcquisition, SavedGuarde
 from .calculation_payments import SavedPaymentCalculationRead, STAGE_FIELDS as PAYMENT_FIELDS
 from .calculation_receivable import SavedReceivableRead, STAGE_FIELDS as RECEIVABLE_FIELDS
 from .calculation_write_off_access import WriteOffStageMixin, WriteOffInputsAcquisition, WRITE_FIELDS
-from .calculation_rounding_stage import RoundingStageAcquisition, project_stage
+from .calculation_rounding_stage import RoundingStageAcquisition, SavedRoundingStageRead, pin_stage, project_stage
 from .calculation_invoice_rounding_access import InvoiceRoundingAcquisition, SavedInvoiceRoundingContext
 from .calculation_pos_profile_access import PosProfileRequest, PosProfileAcquisition, SavedPosProfileContext
 from .calculation_child_format_access import link_definition, require_field_read
 from .financial_source_observation import _scalar
+
+PREFIX_FIELDS = ("grand_total", "total_advance")
 
 
 class SettlementAccessError(ValueError):
@@ -40,6 +42,7 @@ class SavedSettlementRead:
     receivable: SavedReceivableRead = field(repr=False)
     controls: SavedInvoiceRoundingContext = field(repr=False)
     pos: SavedPosProfileContext | None = field(repr=False)
+    prefix: SavedRoundingStageRead = field(repr=False)
 
     def __post_init__(self):
         try:
@@ -50,6 +53,13 @@ class SavedSettlementRead:
             controls = SavedInvoiceRoundingContext(self.controls.financial, self.controls.controls,
                                                   self.controls.tables, self.controls.checks)
             stage = guarded.payment.stage
+            prefix = pin_stage(self.prefix)
+            if (prefix.numeric != stage.numeric or prefix.method != stage.method
+                    or prefix.owner_document != stage.owner_document or prefix.do_not_round_fields is not None
+                    or prefix.targets != tuple(("header", stage.numeric.view.financial.financial.name, name)
+                                               for name in PREFIX_FIELDS)
+                    or prefix.fields[0] != receivable.stage.fields[0]):
+                raise ValueError
             root_meta = next(row.applied for row in stage.numeric.view.financial.metadata
                              if row.applied.name == "Sales Invoice")
             link = root_meta.get_field("pos_profile")
@@ -73,11 +83,11 @@ class SavedSettlementRead:
             invalid = False
         if invalid:
             raise SettlementAccessError("settlement_context")
-        for name, value in (("guarded", guarded), ("receivable", receivable), ("controls", controls), ("pos", pos)):
+        for name, value in (("guarded", guarded), ("receivable", receivable), ("controls", controls), ("pos", pos), ("prefix", prefix)):
             object.__setattr__(self, name, value)
 
     def pin(self):
-        result = SavedSettlementRead(self.guarded, self.receivable, self.controls, self.pos)
+        result = SavedSettlementRead(self.guarded, self.receivable, self.controls, self.pos, self.prefix)
         if result != self:
             raise SettlementAccessError("settlement_context")
         return result
@@ -89,7 +99,7 @@ class SavedSettlementRead:
 class SettlementAcquisition(WriteOffStageMixin, GuardedPaymentAcquisition):
     """Extend the shared paid/guard stage; add no second root/method/pool."""
 
-    STAGE_FIELDS = (*PAYMENT_FIELDS, *RECEIVABLE_FIELDS)
+    STAGE_FIELDS = (*PAYMENT_FIELDS, *RECEIVABLE_FIELDS, "total_advance")
 
     def __init__(self, policy, actor, invoice_name, doctype, major, request, *, write_off_metadata,
                  invoice_rounding_metadata, pos_metadata, **dependencies):
@@ -172,4 +182,4 @@ class SettlementAcquisition(WriteOffStageMixin, GuardedPaymentAcquisition):
         receivable = SavedReceivableRead(project_stage(stage, RECEIVABLE_FIELDS), inputs.native, inputs.owner.native, caches, tag)
         controls = SavedInvoiceRoundingContext(financial, self.observed_controls, self.tables, self.invoice_controls.checks)
         pos = None if self.pos is None else self.pos.build_result(financial, self.observed_pos)
-        return SavedSettlementRead(guarded, receivable, controls, pos)
+        return SavedSettlementRead(guarded, receivable, controls, pos, project_stage(stage, PREFIX_FIELDS))

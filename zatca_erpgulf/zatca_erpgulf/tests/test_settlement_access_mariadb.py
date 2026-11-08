@@ -75,7 +75,7 @@ def native_case(operator, connections, *, kind=None, is_return=0, consolidated=0
     case = previous(operator, connections, scenario=scenario)
     service = case.service
     root = case.data.raw_metas[case.invoice.doctype]
-    for name in ("grand_total", "base_grand_total", "outstanding_amount", "rounding_adjustment"):
+    for name in ("grand_total", "base_grand_total", "outstanding_amount", "rounding_adjustment", "total_advance"):
         root.definitions[name] = field(name, fieldtype="Currency", precision="3" if name == "outstanding_amount" else "2", options="currency")
         case.data.records["header"][0].setdefault(name, Decimal("0.000000000"))
     root.definitions["disable_rounded_total"] = field("disable_rounded_total", fieldtype="Check")
@@ -146,12 +146,12 @@ def native_case(operator, connections, *, kind=None, is_return=0, consolidated=0
 
     setup = connections()
     with setup.cursor() as cursor:
-        for name in ("outstanding_amount", "rounding_adjustment", "write_off_amount", "base_write_off_amount"):
+        for name in ("outstanding_amount", "rounding_adjustment", "write_off_amount", "base_write_off_amount", "total_advance"):
             cursor.execute(f"ALTER TABLE `tab{root.name}` ADD COLUMN IF NOT EXISTS `{name}` DECIMAL(21,9)")
         for name in ("disable_rounded_total", "write_off_outstanding_amount_automatically", "is_consolidated"):
             cursor.execute(f"ALTER TABLE `tab{root.name}` ADD COLUMN IF NOT EXISTS `{name}` INT")
         cursor.execute(f"ALTER TABLE `tab{root.name}` ADD COLUMN IF NOT EXISTS party_account_currency LONGTEXT")
-        cursor.execute(f"UPDATE `tab{root.name}` SET outstanding_amount=0,rounding_adjustment=0,write_off_amount=0,"
+        cursor.execute(f"UPDATE `tab{root.name}` SET outstanding_amount=0,rounding_adjustment=0,total_advance=0,write_off_amount=0,"
             "base_write_off_amount=0,disable_rounded_total=0,write_off_outstanding_amount_automatically=%s,"
             "is_consolidated=%s,pos_profile='SYNTHETIC-POS',party_account_currency=%s", (auto, consolidated, case.invoice.party_account_currency))
         cursor.execute("DELETE FROM `tabDocField` WHERE parent=%s", (root.name,))
@@ -202,6 +202,10 @@ def test_one_owned_union_yields_existing_strict_substage_contexts(defaults_opera
     assert source.guarded.payment.stage.numeric == source.receivable.stage.numeric
     assert tuple(proof.target[2] for proof in source.guarded.payment.stage.fields) == payment.STAGE_FIELDS
     assert tuple(proof.target[2] for proof in source.receivable.stage.fields) == receivable.STAGE_FIELDS
+    assert tuple(proof.target[2] for proof in source.prefix.fields) == settlement.PREFIX_FIELDS
+    assert source.prefix.owner_document == id(case.invoice)
+    assert source.prefix.numeric == source.receivable.stage.numeric
+    assert source.prefix.method == source.receivable.stage.method
     assert (source.pos is None) is (kind is None)
     if source.pos is not None: assert source.pos.owner_document == id(case.invoice)
     else: case.pos_metadata.assert_not_called()

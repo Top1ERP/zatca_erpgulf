@@ -1,8 +1,8 @@
-# Implementation status — 2026-11-07
+# Implementation status — 2026-11-08
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and seventy-nine bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and eighty-one bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -4730,6 +4730,65 @@ lookup API/cache provenance, missing-profile policy, Mode/account/company/
 currency/return eligibility, installed15/16 lifecycle and GL/VAT/XML/SDK gates
 remain before separately approved fictional-Company rehearsal. This checkpoint
 changes no live app/site/config/schema/data, worker/Bench or authority request.
+
+## Combined batch180–181: co-owned outstanding rounding/conversion prefix
+
+- **180 — shared prefix evidence:** add total-advance precision to the existing
+  eight-field union, with same-original-owner grand/advance projection and the
+  existing side write-off proofs. Require the overlapping grand-total proof to
+  be identical, including scoped cache evidence. Keep all23 capture method ASTs
+  unchanged, preserve default targets of preceding operations and add no SQL
+  owner, runtime provider, controller registration or schema outside fixtures.
+- **181 — prefix comparison and primary probes:** reuse versioned rounding
+  kernels in primary order: grand/advance/write-off round, repeated source
+  write-off round, FX multiplication, base round. Keep two separate consumed
+  method/precision traces, NULL/fallback lookups, overwritten base write-off and
+  untouched rounded/base totals. An optional sequence prefix binds exact payable
+  values and paid FX rate; the old omitted-prefix form remains explicitly partial.
+  Synthetic sequence probes now execute actual15/pinned16 first-prefix methods.
+- **NULL handoff correction:** compare the change/payable header handoff using
+  the shared nullable numeric comparator. A NULL rounded total remains NULL;
+  the primary falls back to grand total. Strict amount-result comparisons still
+  retain integer/float types and bits, including signed zero.
+
+See [SETTLEMENT_SEQUENCE.md](SETTLEMENT_SEQUENCE.md). The second outstanding pass
+after write-off remains open. It must carry changed automatic/write-off state
+and derived POS-return rows from the preceding call, not recapture unchanged
+saved data or assume that the result must be zero. Historical advance allocation,
+accounting eligibility, provider/cache provenance, installed15/16 lifecycle,
+GL/VAT/XML/SDK and performance gates remain before separately approved isolated
+fictional-Company acceptance. No live source/site/Bench/worker change or authority
+request is enabled. The current live source remains clean at `ba51f25`.
+
+Local stage projection/shared graph/primary receivable inventory passed
+**54 in57.99s**; the affected offline-manifest selection passed **3 in0.06s**
+(78 deselected). The reviewed manifest now contains161 local and53 private SQL
+suites. All23 existing capture method ASTs remain unchanged, changed/new Python
+parses, whitespace checks pass, and eager relative imports remain acyclic across
+73 modules reachable from the service and settlement sequence.
+
+NEW guard-owned TCP-disabled SQL prefix coverage completed **12 distinct new
+cases**: six positive compatibility cases covering actual15/pinned16 with NULL,
+blank and explicit method settings; two tampering/early-denial cases; three NULL
+handoff/close-drift cases; and one shared-grand-cache consistency case. Each
+positive compatibility case compares three tie/NULL inputs plus one saved numeric
+input, without counting those inner probes as extra pytest cases. The two
+negative/ACL cases passed in65.72s (10 deselected), the three NULL/close cases in
+185.20s (8 deselected), and shared-cache binding in44.87s (11 deselected).
+Development fixture corrections completed only the NEW synthetic advance column
+and an individually valid wrong-owner declaration; no ownership guard was relaxed.
+
+Four affected source-composition cases passed in157.67s (18 deselected), including
+both quiet permission signatures, optional limit/default reads and exact original
+prefix ownership. The complete affected sequence matrix passed **13 in1097.12s
+(18m17s)**, covering both primary versions' sale, limit, queried/non-queried return,
+foreign return, integer-zero internal skip and inactive NULL write-off followup.
+Distinct affected verification therefore passed **86 cases: 57 local + 29 private
+SQL**, including **12 new cases**. Early failed fixture/diagnostic runs add no
+cases, and repeated observations inside cases are not counted separately. These
+guarded comparison timings do not establish live invoice latency or release
+readiness. No SDK, installed16 application, real invoice/accounting lifecycle or
+authority acceptance is claimed.
 
 ## Combined batch177–179: one-owned settlement stages and checked handoffs
 

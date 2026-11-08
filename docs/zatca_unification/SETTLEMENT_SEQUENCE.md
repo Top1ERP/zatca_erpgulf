@@ -1,4 +1,4 @@
-# Co-owned Sales outstanding/POS/write-off comparisons — batch177–179
+# Co-owned Sales outstanding/POS/write-off comparisons — batch177–181
 
 This checkpoint joins the earlier paid/guard, receivable and consumed POS source
 components. It is an internal offline inspection/comparison, not an installed
@@ -7,8 +7,9 @@ calculator, posting override, source writer or dispatch authorization.
 ## 177: one graph, field union and owned connection
 
 `capture_settlement_context` uses the existing owned defaults/financial service.
-One numeric graph, method source and format pool capture the seven-field union:
-paid/base-paid, change/base-change, grand/base-grand and outstanding. The fixed
+One numeric graph, method source and format pool capture the field union:
+paid/base-paid, change/base-change, grand/base-grand, outstanding and (since180)
+total advance. The fixed
 payment acquisition retains its original four-field default. A validated ordered
 `project_stage` gives the unchanged strict payment and receivable calculators
 their original stage shapes without new captures, cache queries or SQL owners.
@@ -44,8 +45,9 @@ results exactly, including numeric types and float bits.
 The primary rounds paid_amount once more before cash change. The current change
 comparison consumes the earlier paid result; this bridge checks that second
 rounding is idempotent and refuses an inconsistent handoff instead of ignoring
-it. Post-prefix grand/advance/write-off/base values remain supplied observations;
-their preceding round/base-conversion execution is not attested here.
+it. A sequence without the optional180 prefix still treats grand/advance/write-off/
+base values as supplied post-prefix observations; it does not attest preceding
+round/base-conversion execution.
 
 Saved POS/return/consolidation/automatic controls and exact profile Link bind the
 tail to its outstanding amount. A queried limit must equal the native consumed
@@ -73,8 +75,9 @@ paid and cash-change bodies. Return redistribution executes the unchanged helper
 once with only a test epilogue exposing its sum/pending locals. Internal skip
 uses the actual versioned invoice/transfer guard bodies. Existing per-stage
 comparisons check real results, consumed precision/method traces and order.
-The first round/base-conversion prefix hooks are explicit observation stubs, so
-these are checked handoffs rather than full controller/prefix execution proof.
+At179 the first round/base-conversion hooks were explicit observation stubs.
+Batch180–181 replaces those hooks in the synthetic probes with unchanged primary
+method bodies as described below. This still does not attest a live controller.
 
 Additional NEW guard-owned TCP-disabled SQL probes cover early field/row denial,
 cross-source changes from final metadata callbacks, independent visibility after
@@ -82,11 +85,60 @@ rollback, close-time Link/permission/definition drift, wrong owners and unused
 lookups. Existing paid/change cases and normal POS/rounding access regressions
 remain in the affected selection. Counts are in [STATUS.md](STATUS.md).
 
+## 180–181: source-bound outstanding prefix and primary execution probes
+
+Add total-advance precision to the existing field union and project grand/advance
+proofs onto `SavedSettlementRead.prefix`. Require the same numeric snapshot,
+method, original object and ordered targets as the guarded paid/receivable group.
+The overlapping grand-total proof must be identical, including its scoped cache
+observation; equal resolved precision alone cannot rebind the shared field.
+Write-off fields reuse their existing side metadata and precision/cache evidence;
+they do not become unrelated financial header fields or require a second owner.
+No old capture operation gains this extra target.
+
+`OutstandingPrefixCalculation` consumes bounded `NUMERIC_FIXED` or explicitly
+`CALCULATED` observations. Reuse the versioned field-rounding kernel for:
+
+1. `round_floats_in(grand_total, total_advance, write_off_amount)` in primary order.
+2. Source write-off rounding again, multiplication by conversion rate, then base
+   write-off rounding. The second source rounding does not assign to that source.
+3. Exact handoff of all seven payable inputs, including unchanged rounded totals
+   and base grand total and the overwritten base write-off amount.
+
+Compare each phase's consumed method lookups and precision calls separately.
+The first phase has one method fetch plus fallback lookups for processed non-NULL
+values when the setting is empty. NULL becomes0.0. Conversion subsequently uses
+two independently resolved `flt` calls. Preserve NULL/integer untouched fields,
+float bits, signed zero and source-before-FX ordering; do not silently substitute
+an XML amount policy or force every monetary field to two decimals.
+
+`OutstandingSequence(prefix=...)` requires this same source, exact payable values,
+`CALCULATED` payable representation and the paid conversion rate. Early guard
+exits cannot consume a prefix. Omitting the prefix remains an explicitly partial
+old comparison, never evidence that prefix execution occurred.
+
+The updated synthetic sequence probes execute installed15/pinned16 document
+rounding and `_set_in_company_currency` bodies. Dedicated NEW private SQL cases
+also exercise positive/negative tie inputs, NULL and blank method settings,
+NULL money, unequal source/base precision, saved numeric binding, altered traces,
+wrong owners and denied advance-field READ. Prior guards, POS limit/return
+branches, internal reset and inactive NULL followup remain in the affected
+selection. No controller is installed or invoked on a saved application invoice.
+
 ## Remaining adoption gates
 
 No controller, RPC, hook, schema, cache, invoice/counter, Bench/worker or authority
-request is enabled. Verify prefix rounding/base conversion and the second
-outstanding pass, historical advance aggregation, missing-profile policy and
+request is enabled. Bind and verify the second outstanding pass after write-off,
+including its changed automatic flag and any derived return-payment identities.
+That next call must start from the preceding write-off plan, not recapture a
+saved invoice whose in-memory changes have not been persisted. Retain changed
+write-off/base amounts and automatic flag; when the first POS-return tail
+replaced rows, carry those derived identities and amounts into the next paid
+calculation. Reuse the existing paid kernel and guard/round/payable/change/POS
+comparisons; do not bypass saved-row ownership to accept arbitrary new rows.
+The enclosing write-off method asks for one outstanding call only, and does not
+invoke itself recursively or guarantee that the resulting outstanding is zero.
+Historical advance aggregation, missing-profile policy and
 Mode/account/company/currency/return eligibility before whole settlement
 adoption. Audited provider/cache/API/committed-source provenance, concurrency,
 installed15/16 lifecycle, GL/VAT/XML/SDK, performance and separately approved

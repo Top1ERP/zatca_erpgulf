@@ -18,6 +18,7 @@ from zatca_erpgulf.zatca_erpgulf.calculation_pos_adjustments import (
 from zatca_erpgulf.zatca_erpgulf.calculation_pos_return_paid import PosReturnPaidCalculation
 from zatca_erpgulf.zatca_erpgulf.calculation_settlement_sequence import OutstandingSequence, WriteOffFollowup
 from zatca_erpgulf.zatca_erpgulf.calculation_settlement_access import SettlementAccessError
+from zatca_erpgulf.zatca_erpgulf.calculation_outstanding_prefix import OutstandingPrefixCalculation, INPUT_FIELDS, ROUND_FIELDS
 from zatca_erpgulf.zatca_erpgulf.tests.test_settlement_access_mariadb import (
     native_case, capture, empty_pos_sources, combined_schema, defaults_schema, financial_schema, metadata_schema,
     isolated_server, connections, untouched, format_schema, field_schema, empty_sources, selected_schema, pos_schema,
@@ -39,8 +40,9 @@ def sequence(source, *, amount=5.0, grand=8.7, automatic_before=0):
     entry = GuardedOutstandingEntry(source.guarded, paid)
     if entry.decision.skip_balance:
         return OutstandingSequence(source, entry, None, None, None, None, None)
-    payable = PayableAmountCalculation(source.receivable, "CALCULATED", tuple(zip(PAYABLE_FIELDS,
-        (grand, 0.0, grand * 1.2, 0.0, 0.0, 0.0, 0.0))))
+    prefix = OutstandingPrefixCalculation(source, "CALCULATED", tuple(zip(INPUT_FIELDS,
+        (grand, 0.0, grand * 1.2, 0.0, 0.0, 0.0, 0.0, 1.2))))
+    payable = PayableAmountCalculation(source.receivable, "CALCULATED", prefix.payable_values)
     change = None if source.receivable.is_return else ChangeAmountCalculation(paid, "CALCULATED", payable.values[:4])
     changes = tuple(zip(CHANGE_FIELDS, (0.0, 0.0))) if change is None else change.totals
     outstanding = OutstandingAmountCalculation(payable, "CALCULATED", (*paid.totals, *changes))
@@ -59,7 +61,7 @@ def sequence(source, *, amount=5.0, grand=8.7, automatic_before=0):
         redistribution = DefaultMopRedistributionCalculation("SAR", source.receivable.party.currency,
             "SYNTHETIC-POS", payable.amount, paid.payments, lookup)
         returned = PosReturnPaidCalculation(paid, tail, redistribution, "NEW-PAYMENT" if redistribution.replaces else None)
-    return OutstandingSequence(source, entry, payable, change, outstanding, tail, returned)
+    return OutstandingSequence(source, entry, payable, change, outstanding, tail, returned, prefix)
 
 
 def primary_probe(result, major, upstream16, monkeypatch, *, methods=None):
@@ -67,9 +69,10 @@ def primary_probe(result, major, upstream16, monkeypatch, *, methods=None):
     raw = source.guarded.payment.stage.method.rounding.value
     probe = framework(major, upstream16, monkeypatch, setting=raw)
     precisions = {proof.target[2]: proof.precision.precision for proof in
-        (*source.guarded.payment.stage.fields, *source.receivable.stage.fields)}
+        (*source.guarded.payment.stage.fields, *source.receivable.stage.fields, *source.prefix.fields)}
+    precisions.update((name, proof.precision) for name, proof in source.receivable.precisions)
     trace, calls = [], []
-    markers = dict(payable=None, balance=None, ready=False)
+    markers = dict(payable=None, balance=None, ready=False, rounding=False)
     settings = lambda: tuple((call.args[0], raw) for call in probe.runtime.get_system_settings.call_args_list)
     def segment(start): return settings()[start[0]:], tuple(trace[start[1]:])
     class Root(SimpleNamespace):
@@ -87,8 +90,9 @@ def primary_probe(result, major, upstream16, monkeypatch, *, methods=None):
             elif name == AUTO: calls.append("assign_automatic_write_off")
         def get(self, name): return getattr(self, name, None)
         def set(self, name, value): setattr(self, name, value)
-        def precision(self, name):
-            trace.append((name, precisions[name]));return precisions[name]
+        def precision(self, name, parentfield=None):
+            trace.append((name, parentfield, precisions[name]) if markers["rounding"] else (name, precisions[name]))
+            return precisions[name]
         def round_floats_in(self, doc, names):
             if names == ["paid_amount"]:
                 import inspect
@@ -101,10 +105,16 @@ def primary_probe(result, major, upstream16, monkeypatch, *, methods=None):
             else:
                 assert names == ["grand_total", "total_advance", "write_off_amount"]
                 calls.append("round_floats_in")
+                start = len(settings()), len(trace)
+                markers["rounding"] = True
+                probe.method(self, doc, names)
+                markers["rounding"] = False
+                markers["rounded"] = tuple((name, doc.get(name)) for name in ROUND_FIELDS)
+                markers["round_settings"], markers["round_precision"] = segment(start)
         def append(self, table, values):
             assert table == "payments"
             self.payments.append(SimpleNamespace(name="NEW-PAYMENT", base_amount=None, type=None, **values))
-    prefix = result.payable.values if result.payable is not None else tuple(zip(PAYABLE_FIELDS, (8.7, 0.0, 10.44, 0.0, 0.0, 0.0, 0.0)))
+    prefix = result.prefix.values[:-1] if result.prefix is not None else tuple(zip(PAYABLE_FIELDS, (8.7, 0.0, 10.44, 0.0, 0.0, 0.0, 0.0)))
     doc = Root(doctype="Sales Invoice", company=result.entry.decision.inputs.company,
         is_internal_customer=result.entry.decision.inputs.is_internal_customer,
         represents_company=result.entry.decision.inputs.represents_company,
@@ -143,6 +153,13 @@ def primary_probe(result, major, upstream16, monkeypatch, *, methods=None):
     def convert(doc, names):
         assert names == ["write_off_amount"]
         calls.append("convert_write_off")
+        start = len(settings()), len(trace)
+        controller("_set_in_company_currency", major, {"flt": probe.flt})(owner, doc, names)
+        selected_settings, selected_trace = segment(start)
+        result.prefix.require_match(rounded=markers["rounded"],
+            payable_values=tuple((name, doc.get(name)) for name in PAYABLE_FIELDS),
+            round_settings=markers["round_settings"], round_precision=markers["round_precision"],
+            conversion_settings=selected_settings, conversion_precision=selected_trace)
         markers["payable"] = len(settings()), len(trace)
     def change():
         calls.append("calculate_change_amount")

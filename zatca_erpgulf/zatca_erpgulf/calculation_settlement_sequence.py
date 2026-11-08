@@ -1,8 +1,8 @@
 """Bind existing Sales outstanding/POS/write-off comparisons in primary order.
 
-Post-prefix amounts and execution traces remain explicit observations. This
-does not execute rounding/conversion, controller recursion, document writes or
-tax requests, nor attest the origin of a cached API or prefix observation.
+An optional co-owned prefix comparison binds rounded/converted payable values;
+without it they remain explicit observations. This does not execute a controller,
+document writes or tax requests, nor attest cache or input provenance.
 """
 
 from dataclasses import dataclass, field
@@ -17,6 +17,7 @@ from .calculation_pos_return_paid import PosReturnPaidCalculation
 from .calculation_field_rounding_access import _result_tag
 from .field_rounding import round_field_value
 from .financial_source_observation import _scalar
+from .calculation_outstanding_prefix import OutstandingPrefixCalculation, _same_values
 
 
 def _same_number(left, right):
@@ -44,6 +45,7 @@ class OutstandingSequence:
     outstanding: OutstandingAmountCalculation | None = field(repr=False)
     tail: PosTailCalculation | None = field(repr=False)
     return_paid: PosReturnPaidCalculation | None = field(repr=False)
+    prefix: OutstandingPrefixCalculation | None = field(default=None, repr=False)
     calls: tuple = field(init=False)
 
     def __post_init__(self):
@@ -56,8 +58,9 @@ class OutstandingSequence:
                 raise ValueError
             calls = list(entry.decision.calls)
             payable = change = outstanding = tail = return_paid = None
+            prefix = None
             if entry.decision.skip_balance:
-                if any(value is not None for value in (self.payable, self.change, self.outstanding, self.tail, self.return_paid, source.pos)):
+                if any(value is not None for value in (self.payable, self.change, self.outstanding, self.tail, self.return_paid, self.prefix, source.pos)):
                     raise ValueError
             else:
                 if (type(self.payable) is not PayableAmountCalculation or type(self.outstanding) is not OutstandingAmountCalculation
@@ -67,6 +70,14 @@ class OutstandingSequence:
                 outstanding = OutstandingAmountCalculation(self.outstanding.payable, self.outstanding.representation, self.outstanding.values)
                 if payable.source != source.receivable or outstanding.payable != payable or outstanding != self.outstanding:
                     raise ValueError
+                if self.prefix is not None:
+                    if type(self.prefix) is not OutstandingPrefixCalculation:
+                        raise ValueError
+                    prefix = self.prefix.pin()
+                    if prefix.source != source or payable.representation != "CALCULATED":
+                        raise ValueError
+                    _same_values(payable.values, prefix.payable_values)
+                    _same_number(dict(prefix.values)["conversion_rate"], dict(entry.paid.headers)["conversion_rate"])
                 _same_number(outstanding.amount, self.outstanding.amount)
                 paid = dict(entry.paid.totals)
                 # The primary rounds paid_amount once more before cash change.
@@ -89,8 +100,8 @@ class OutstandingSequence:
                     change = _change(self.change)
                     if change.paid != entry.paid:
                         raise ValueError
-                    prefix = dict(payable.values)
-                    _exact_values(change.headers, tuple((name, prefix[name]) for name in
+                    prefix_values = dict(payable.values)
+                    _same_values(change.headers, tuple((name, prefix_values[name]) for name in
                         ("grand_total", "rounded_total", "base_grand_total", "base_rounded_total")))
                     for name, value in change.totals:
                         _same_number(balance[name], value)
@@ -148,11 +159,11 @@ class OutstandingSequence:
         if invalid:
             raise SettlementAccessError("settlement_sequence")
         for name, value in (("source", source), ("entry", entry), ("payable", payable), ("change", change),
-                ("outstanding", outstanding), ("tail", tail), ("return_paid", return_paid), ("calls", tuple(calls))):
+                ("outstanding", outstanding), ("tail", tail), ("return_paid", return_paid), ("prefix", prefix), ("calls", tuple(calls))):
             object.__setattr__(self, name, value)
 
     def pin(self):
-        result = OutstandingSequence(self.source, self.entry, self.payable, self.change, self.outstanding, self.tail, self.return_paid)
+        result = OutstandingSequence(self.source, self.entry, self.payable, self.change, self.outstanding, self.tail, self.return_paid, self.prefix)
         if result != self or type(self.calls) is not tuple or any(type(value) is not str for value in self.calls):
             raise SettlementAccessError("settlement_sequence")
         return result
