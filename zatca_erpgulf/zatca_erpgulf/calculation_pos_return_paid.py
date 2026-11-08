@@ -39,7 +39,8 @@ class PosReturnPaidCalculation:
             if tail.inputs.pos_profile!=expected or type(tail.inputs.pos_profile) is not type(expected):raise ValueError
             if redistribution.replaces:
                 _name(self.appended_row_name)
-                if any(name==self.appended_row_name for name,_,_ in redistribution.rows):raise ValueError
+                if (any(name==self.appended_row_name for name,_,_ in redistribution.rows)
+                        or any(name==self.appended_row_name for name,_ in source.payment_types)):raise ValueError
                 rows=((self.appended_row_name,redistribution.pending),)
             else:
                 if self.appended_row_name is not None:raise ValueError
@@ -51,10 +52,15 @@ class PosReturnPaidCalculation:
         for name,value in (('paid_before',paid),('tail',tail),('redistribution',redistribution),('payments',payments),('totals',totals)):
             object.__setattr__(self,name,value)
 
+    def pin(self):
+        result=PosReturnPaidCalculation(self.paid_before,self.tail,self.redistribution,self.appended_row_name)
+        _exact_values(self.payments,result.payments);_exact_values(self.totals,result.totals)
+        if result!=self:raise PosAdjustmentError('pos_return_paid')
+        return result
+
     def require_match(self,*,payments,totals,setting_trace,precision_trace):
         try:
-            pinned=PosReturnPaidCalculation(self.paid_before,self.tail,self.redistribution,self.appended_row_name)
-            _exact_values(self.payments,pinned.payments);_exact_values(self.totals,pinned.totals)
+            pinned=self.pin()
             _exact_values(payments,pinned.payments);_exact_values(totals,pinned.totals)
             if pinned!=self:raise ValueError
             source=pinned.paid_before.source

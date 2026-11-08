@@ -1,8 +1,8 @@
-# Implementation status — 2026-11-08
+# Implementation status — 2026-11-09
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and eighty-one bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and eighty-four bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -4730,6 +4730,63 @@ lookup API/cache provenance, missing-profile policy, Mode/account/company/
 currency/return eligibility, installed15/16 lifecycle and GL/VAT/XML/SDK gates
 remain before separately approved fictional-Company rehearsal. This checkpoint
 changes no live app/site/config/schema/data, worker/Bench or authority request.
+
+## Combined batch182–184: bounded write-off/outstanding re-entry
+
+- **182 — derived paid rows:** retain the initial saved-membership path and
+  add a bounded `prior` proof for processed/replaced or cleared rows. Require
+  same source and exact headers, refuse native-mode mislabeling and third
+  ancestry, and keep the existing paid arithmetic in one unchanged kernel.
+  Add return-result pinning and reject reused current/retired saved row names.
+- **183 — state carry-forward:** `WriteOffReentry` retains the first prefix,
+  replaces only planned source/base write-off inputs, carries payment effects
+  and the assigned flag, and composes the existing sequence once more. Require
+  exact numeric tags for headers/rows/inputs, including signed zero. An earlier
+  used lookup can be unused later; a newly needed uncaptured source cannot be
+  replaced with an unbound default observation. First calls cannot consume
+  detached derived rows, and a third call is not authorized by this model.
+- **184 — continuous primary comparison:** carry actual synthetic values/child
+  objects from the first observation into the next wrapper, execute unchanged
+  installed15/pinned16 write-off and outstanding bodies and verify exactly one
+  requested outstanding call. Preserve a nonzero foreign-return balance when
+  the primary does; no forced zero or speculative recursive write-off occurs.
+
+See [WRITE_OFF_REENTRY.md](WRITE_OFF_REENTRY.md). This closes a bounded comparison
+gate, not whole runtime adoption. Two-pass same-owner acquisition for a first-
+unused/later-needed default source remains open; actual primary code reaches
+that query and the current comparison must stop rather than fabricate evidence.
+Expand the branch/rounding/currency matrix and profile reconstruction before
+installed15/16 lifecycle, accounting/advance eligibility, GL/VAT/XML/SDK and
+separately approved isolated fictional-Company acceptance. No working-site or
+authority request is enabled by this group.
+
+Local primary inventory/conversion and offline-manifest checks passed **13 in
+0.90s** (78 deselected). Six preceding paid/change symbols and all23 capture
+method ASTs remain unchanged. Eager runtime relative imports remain acyclic
+across73 reachable modules; the type-only return annotation import is excluded.
+The explicit manifest now contains161 local and54 private SQL suites.
+
+On NEW guard-owned TCP-disabled SQL, affected existing paid/change cases passed
+**6 in146.52s** (60 deselected); affected prior return-paid cases passed **2 in
+26.72s** (8 deselected). The initial actual15 limit re-entry passed1 in170.70s.
+Its final exact-row/header and signed-zero followup repeated1 in200.64s, with4
+deselected; that repeat adds no distinct case. The foreign-return primary16
+case passed in the initial remaining-case selection. The final ordinary/inactive/
+missing-source selection passed **3 in437.23s (7m17s)**, with2 deselected. Thus
+distinct affected verification passed **26 cases: 13 local + 13 private SQL**,
+including **5 new cases**. Repeated cases, inner assertions, partial failures and
+diagnostic runs add no distinct count. The uncaptured-source case also reaches
+the real primary default query and stops at the synthetic missing-source guard.
+The rejected attempt to copy a deliberately uncopyable synthetic model was
+replaced with a malformed test declaration; no serialization guard was relaxed.
+Guarded rehearsal timings do not establish invoice latency or release readiness.
+
+Read-only live inspection retained HEAD `ba51f25` and the Phase1 address-file
+hash. It also found an existing four-line modification in
+`zatca_erpgulf/public/js/customer_zatca_tooltips.js` in the live worktree. That
+file is outside this DEV batch and was left untouched; no live-clean claim is
+made. No app/site/data/configuration, migration, Bench/worker or authority change
+was performed by this development group.
 
 ## Combined batch180–181: co-owned outstanding rounding/conversion prefix
 

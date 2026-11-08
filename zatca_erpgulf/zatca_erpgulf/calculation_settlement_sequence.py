@@ -10,7 +10,7 @@ import json
 
 from .calculation_settlement_access import SavedSettlementRead, SettlementAccessError
 from .calculation_guarded_payments import GuardedOutstandingEntry
-from .calculation_payments import ChangeAmountCalculation, _exact_values
+from .calculation_payments import PaidAmountCalculation, ChangeAmountCalculation, _exact_values
 from .calculation_receivable import PayableAmountCalculation, OutstandingAmountCalculation, WriteOffCalculation, AUTO
 from .calculation_pos_adjustments import PosTailCalculation
 from .calculation_pos_return_paid import PosReturnPaidCalculation
@@ -46,6 +46,7 @@ class OutstandingSequence:
     tail: PosTailCalculation | None = field(repr=False)
     return_paid: PosReturnPaidCalculation | None = field(repr=False)
     prefix: OutstandingPrefixCalculation | None = field(default=None, repr=False)
+    reentry: "WriteOffReentry | None" = field(default=None, repr=False)
     calls: tuple = field(init=False)
 
     def __post_init__(self):
@@ -53,8 +54,23 @@ class OutstandingSequence:
             if type(self.source) is not SavedSettlementRead or type(self.entry) is not GuardedOutstandingEntry:
                 raise ValueError
             source = self.source.pin()
+            reentry = None
+            if self.reentry is not None:
+                if type(self.reentry) is not WriteOffReentry:
+                    raise ValueError
+                reentry = self.reentry.pin()
+                if reentry.source != source:
+                    raise ValueError
             entry = GuardedOutstandingEntry(self.entry.source, self.entry.paid)
             if entry != self.entry or entry.source != source.guarded:
+                raise ValueError
+            expected_prior = None if reentry is None else reentry.paid_prior
+            if entry.paid.prior != expected_prior:
+                raise ValueError
+            if reentry is not None:
+                _same_values(entry.paid.headers, reentry.followup.sequence.entry.paid.headers)
+                _same_values(entry.paid.rows, reentry.paid_rows)
+            if reentry is not None and (entry.decision.skip_balance or self.prefix is None):
                 raise ValueError
             calls = list(entry.decision.calls)
             payable = change = outstanding = tail = return_paid = None
@@ -78,6 +94,8 @@ class OutstandingSequence:
                         raise ValueError
                     _same_values(payable.values, prefix.payable_values)
                     _same_number(dict(prefix.values)["conversion_rate"], dict(entry.paid.headers)["conversion_rate"])
+                    if reentry is not None:
+                        _same_values(prefix.values, reentry.prefix_values)
                 _same_number(outstanding.amount, self.outstanding.amount)
                 paid = dict(entry.paid.totals)
                 # The primary rounds paid_amount once more before cash change.
@@ -116,7 +134,10 @@ class OutstandingSequence:
                 controls = dict(source.controls.checks)
                 controls["is_consolidated"] = inputs.is_consolidated
                 source.controls.controls.require_saved_check_match(controls)
-                source.receivable.write_off.require_saved_check_match({AUTO: inputs.automatic_before})
+                if reentry is None:
+                    source.receivable.write_off.require_saved_check_match({AUTO: inputs.automatic_before})
+                elif _scalar(inputs.automatic_before) != _scalar(reentry.automatic_before):
+                    raise ValueError
                 header = dict(json.loads(stage.numeric.view.financial.financial._payload)["header"])
                 profile = header["pos_profile"]
                 expected_profile = None if profile in (["absent"], ["null"]) else profile[1]
@@ -149,7 +170,10 @@ class OutstandingSequence:
                             raise ValueError
                 elif self.return_paid is not None:
                     raise ValueError
-                if (source.pos is None) != (needed is None):
+                # A read consumed by the first call need not be queried again.
+                # A newly needed source is still mandatory; never fabricate it.
+                if ((needed is not None and source.pos is None)
+                        or needed is None and source.pos is not None and reentry is None):
                     raise ValueError
                 calls.extend(tail.calls)
         except Exception:
@@ -159,11 +183,12 @@ class OutstandingSequence:
         if invalid:
             raise SettlementAccessError("settlement_sequence")
         for name, value in (("source", source), ("entry", entry), ("payable", payable), ("change", change),
-                ("outstanding", outstanding), ("tail", tail), ("return_paid", return_paid), ("prefix", prefix), ("calls", tuple(calls))):
+                ("outstanding", outstanding), ("tail", tail), ("return_paid", return_paid), ("prefix", prefix),
+                ("reentry", reentry), ("calls", tuple(calls))):
             object.__setattr__(self, name, value)
 
     def pin(self):
-        result = OutstandingSequence(self.source, self.entry, self.payable, self.change, self.outstanding, self.tail, self.return_paid, self.prefix)
+        result = OutstandingSequence(self.source, self.entry, self.payable, self.change, self.outstanding, self.tail, self.return_paid, self.prefix, self.reentry)
         if result != self or type(self.calls) is not tuple or any(type(value) is not str for value in self.calls):
             raise SettlementAccessError("settlement_sequence")
         return result
@@ -212,5 +237,76 @@ class WriteOffFollowup:
         object.__setattr__(self, "sequence", sequence)
         object.__setattr__(self, "write_off", plan)
 
+    def pin(self):
+        result = WriteOffFollowup(self.sequence, self.write_off)
+        if result != self:
+            raise SettlementAccessError("settlement_write_off_followup")
+        return result
+
     def __repr__(self): return "<WriteOffFollowup bound plan, NOT recursive outstanding/GL proof>"
     def __reduce__(self): raise TypeError("settlement_write_off_not_serializable")
+
+
+@dataclass(frozen=True, repr=False)
+class WriteOffReentry:
+    """Carry in-memory write-off and payment effects into ONE outstanding call.
+
+    The saved source is retained, not refreshed to undo calculated values. This
+    prepares bounded derived inputs; it does not allocate rows, write a document
+    or assert that another POS lookup is available/consumed or the balance zero.
+    """
+    followup: WriteOffFollowup = field(repr=False)
+    source: SavedSettlementRead = field(init=False, repr=False)
+    paid_prior: PaidAmountCalculation | PosReturnPaidCalculation = field(init=False, repr=False)
+    paid_rows: tuple = field(init=False, repr=False)
+    prefix_values: tuple = field(init=False, repr=False)
+    automatic_before: int = field(init=False, repr=False)
+
+    def __post_init__(self):
+        try:
+            if (type(self.followup) is not WriteOffFollowup or type(self.followup.sequence) is not OutstandingSequence
+                    or self.followup.sequence.reentry is not None):
+                raise ValueError
+            followup = self.followup.pin()
+            first = followup.sequence
+            if not followup.write_off.recalculate or first.prefix is None or first.entry.paid.prior is not None:
+                raise ValueError
+            changed = dict(first.prefix.payable_values)
+            changed.update(followup.write_off.amounts)
+            prefix_values = tuple((name, changed[name]) for name, _ in first.prefix.payable_values)
+            prefix_values += (("conversion_rate", dict(first.entry.paid.headers)["conversion_rate"]),)
+            paid_prior = first.return_paid if first.return_paid is not None else first.entry.paid
+            if dict(first.source.guarded.payment.controls.normalized_checks)["is_pos"]:
+                paid_rows = tuple((name, amount) for name, amount, _ in paid_prior.payments)
+            else:
+                paid_rows = () if first.entry.paid.clear_payments else first.entry.paid.rows
+            automatic = first.tail.automatic_after
+            if type(automatic) is not int or automatic != 1:
+                raise ValueError
+        except Exception:
+            invalid = True
+        else:
+            invalid = False
+        if invalid:
+            raise SettlementAccessError("settlement_write_off_reentry")
+        for name, value in (("followup", followup), ("source", first.source), ("paid_prior", paid_prior),
+                ("paid_rows", paid_rows), ("prefix_values", prefix_values), ("automatic_before", automatic)):
+            object.__setattr__(self, name, value)
+
+    def pin(self):
+        try:
+            result = WriteOffReentry(self.followup)
+            _same_values(self.prefix_values, result.prefix_values)
+            _same_values(self.paid_rows, result.paid_rows)
+            if result != self or type(self.automatic_before) is not int:
+                raise ValueError
+        except Exception:
+            invalid = True
+        else:
+            invalid = False
+        if invalid:
+            raise SettlementAccessError("settlement_write_off_reentry")
+        return result
+
+    def __repr__(self): return "<WriteOffReentry bounded derived inputs, NOT runtime/accounting authority>"
+    def __reduce__(self): raise TypeError("settlement_write_off_reentry_not_serializable")

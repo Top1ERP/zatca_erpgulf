@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Combined batch182–184 binds one write-off/outstanding re-entry to the preceding
+in-memory prefix, automatic flag and payment effects. Reuse the original paid
+kernel for processed/replaced rows, preserve ordinary table-clear effects, and
+reject arbitrary rows, retired names, changed headers and third ancestry. The
+same sequence validates the second call without forcing its balance to zero.
+An uncaptured newly needed POS default source remains a mandatory review gate;
+complete two-pass same-owner acquisition before whole service adoption. See
+[WRITE_OFF_REENTRY.md](WRITE_OFF_REENTRY.md).
+
 Combined batch180–181 extends the same union with advance precision and binds
 the outstanding round/source-before-FX prefix to the exact payable inputs and
 paid conversion rate. Reuse existing write-off side proofs and numeric kernels;

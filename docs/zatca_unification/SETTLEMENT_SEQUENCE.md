@@ -1,4 +1,4 @@
-# Co-owned Sales outstanding/POS/write-off comparisons — batch177–181
+# Co-owned Sales outstanding/POS/write-off comparisons — batch177–184
 
 This checkpoint joins the earlier paid/guard, receivable and consumed POS source
 components. It is an internal offline inspection/comparison, not an installed
@@ -128,19 +128,13 @@ selection. No controller is installed or invoked on a saved application invoice.
 ## Remaining adoption gates
 
 No controller, RPC, hook, schema, cache, invoice/counter, Bench/worker or authority
-request is enabled. Bind and verify the second outstanding pass after write-off,
-including its changed automatic flag and any derived return-payment identities.
-That next call must start from the preceding write-off plan, not recapture a
-saved invoice whose in-memory changes have not been persisted. Retain changed
-write-off/base amounts and automatic flag; when the first POS-return tail
-replaced rows, carry those derived identities and amounts into the next paid
-calculation. Reuse the existing paid kernel and guard/round/payable/change/POS
-comparisons; do not bypass saved-row ownership to accept arbitrary new rows.
-The enclosing write-off method asks for one outstanding call only, and does not
-invoke itself recursively or guarantee that the resulting outstanding is zero.
-Historical advance aggregation, missing-profile policy and
-Mode/account/company/currency/return eligibility before whole settlement
-adoption. Audited provider/cache/API/committed-source provenance, concurrency,
+request is enabled. Batch182–184 now compares one second outstanding call after
+write-off, retaining changed state and derived payment identities on the original
+source. It preserves the single-call order and does not guarantee zero. Complete
+two-pass POS acquisition for newly required default reads and expand the primary
+matrix before whole settlement adoption. See [WRITE_OFF_REENTRY.md](WRITE_OFF_REENTRY.md).
+Historical advance aggregation, missing-profile policy and Mode/account/company/
+currency/return eligibility, audited provider/cache/API/committed-source provenance, concurrency,
 installed15/16 lifecycle, GL/VAT/XML/SDK, performance and separately approved
 fictional-Company acceptance remain required. Guarded rehearsal timings are not
 live invoice latency measurements. See [POS_PROFILE_ACCESS.md](POS_PROFILE_ACCESS.md),

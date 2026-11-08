@@ -33,9 +33,9 @@ pytestmark = pytest.mark.skipif(os.environ.get("ZATCA_RUN_ISOLATED_MARIADB") != 
     reason="NEW guarded temporary SQL only; no tenant or authority access")
 
 
-def sequence(source, *, amount=5.0, grand=8.7, automatic_before=0):
+def sequence(source, *, amount=5.0, grand=8.7, automatic_before=0, loyalty=1.2345):
     paid = PaidAmountCalculation(source.guarded.payment, "CALCULATED",
-        (("conversion_rate", 1.2), ("loyalty_amount", 1.2345)),
+        (("conversion_rate", 1.2), ("loyalty_amount", loyalty)),
         tuple((name, amount if index == 0 else 0.0) for index, (name, _) in enumerate(source.guarded.payment.payment_types)))
     entry = GuardedOutstandingEntry(source.guarded, paid)
     if entry.decision.skip_balance:
@@ -64,7 +64,7 @@ def sequence(source, *, amount=5.0, grand=8.7, automatic_before=0):
     return OutstandingSequence(source, entry, payable, change, outstanding, tail, returned, prefix)
 
 
-def primary_probe(result, major, upstream16, monkeypatch, *, methods=None):
+def primary_probe(result, major, upstream16, monkeypatch, *, methods=None, continuation=None, via_write_off=False):
     source = result.source
     raw = source.guarded.payment.stage.method.rounding.value
     probe = framework(major, upstream16, monkeypatch, setting=raw)
@@ -113,19 +113,21 @@ def primary_probe(result, major, upstream16, monkeypatch, *, methods=None):
                 markers["round_settings"], markers["round_precision"] = segment(start)
         def append(self, table, values):
             assert table == "payments"
-            self.payments.append(SimpleNamespace(name="NEW-PAYMENT", base_amount=None, type=None, **values))
+            name = result.return_paid.appended_row_name
+            self.payments.append(SimpleNamespace(name=name, base_amount=None, type=None, **values))
     prefix = result.prefix.values[:-1] if result.prefix is not None else tuple(zip(PAYABLE_FIELDS, (8.7, 0.0, 10.44, 0.0, 0.0, 0.0, 0.0)))
-    doc = Root(doctype="Sales Invoice", company=result.entry.decision.inputs.company,
+    doc = Root(**vars(continuation)) if continuation is not None else Root(doctype="Sales Invoice", company=result.entry.decision.inputs.company,
         is_internal_customer=result.entry.decision.inputs.is_internal_customer,
         represents_company=result.entry.decision.inputs.represents_company,
         currency="SAR", party_account_currency=source.receivable.party.currency,
-        return_against=None, update_outstanding_for_self=0, pos_profile="SYNTHETIC-POS", is_pos=1,
+        return_against=None, update_outstanding_for_self=0, pos_profile="SYNTHETIC-POS", is_pos=dict(source.guarded.payment.controls.normalized_checks)["is_pos"],
         redeem_loyalty_points=dict(source.guarded.payment.controls.normalized_checks)["redeem_loyalty_points"],
         is_return=int(source.receivable.is_return), is_consolidated=dict(source.controls.checks)["is_consolidated"],
         **dict(result.entry.paid.headers), **dict(prefix))
-    setattr(doc, AUTO, 0 if result.tail is None else result.tail.inputs.automatic_before)
+    if continuation is None: setattr(doc, AUTO, 0 if result.tail is None else result.tail.inputs.automatic_before)
     types = {name: None if tag == ("null",) else tag[1] for name, tag in source.guarded.payment.payment_types}
-    doc.payments = [SimpleNamespace(name=name, amount=value, base_amount=999.0, type=types[name]) for name, value in result.entry.paid.rows]
+    if continuation is None:
+        doc.payments = [SimpleNamespace(name=name, amount=value, base_amount=999.0, type=types[name]) for name, value in result.entry.paid.rows]
     owner = SimpleNamespace(doc=doc)
     paid_calls = []
     def paid():
@@ -133,10 +135,10 @@ def primary_probe(result, major, upstream16, monkeypatch, *, methods=None):
         start = len(settings()), len(trace)
         controller("calculate_paid_amount", major, {"flt": probe.flt})(owner)
         selected_settings, selected_trace = segment(start)
-        actual_rows = tuple((row.name, row.amount, row.base_amount) for row in doc.payments)
+        actual_rows = tuple((row.name, row.amount, row.base_amount) for row in doc.payments) if doc.is_pos else ()
         totals = tuple((name, getattr(doc, name)) for name in PAID_FIELDS)
         if not paid_calls:
-            result.entry.paid.require_match(payments=actual_rows, totals=totals, clear_payments=False,
+            result.entry.paid.require_match(payments=actual_rows, totals=totals, clear_payments=result.entry.paid.clear_payments,
                 setting_trace=selected_settings, precision_trace=selected_trace)
         else:
             result.return_paid.require_match(payments=actual_rows, totals=totals,
@@ -194,8 +196,22 @@ def primary_probe(result, major, upstream16, monkeypatch, *, methods=None):
     owner._set_in_company_currency, owner.calculate_change_amount = convert, change
     owner.set_total_amount_to_default_mop = redistribute
     markers["ready"] = True
-    controller("calculate_outstanding_amount", major, {"flt": probe.flt,
-        "frappe": SimpleNamespace(db=SimpleNamespace(get_value=get_value))})(owner)
+    recalculations = []
+    def outstanding_call():
+        if via_write_off:
+            selected_settings, selected_trace = segment((0, 0))
+            result.reentry.followup.write_off.require_match(
+                amounts=tuple((name, doc.get(name)) for name in ("write_off_amount", "base_write_off_amount")),
+                recalculate=True, setting_trace=selected_settings, precision_trace=selected_trace)
+        recalculations.append(True)
+        controller("calculate_outstanding_amount", major, {"flt": probe.flt,
+            "frappe": SimpleNamespace(db=SimpleNamespace(get_value=get_value))})(owner)
+    owner.calculate_outstanding_amount = outstanding_call
+    if via_write_off:
+        assert continuation is not None and result.reentry is not None
+        controller("calculate_write_off_amount", major, {"flt": probe.flt})(owner)
+    else: outstanding_call()
+    assert len(recalculations) == 1
     result.require_order(tuple(calls))
     if result.outstanding is not None:
         assert doc.outstanding_amount == result.outstanding.amount

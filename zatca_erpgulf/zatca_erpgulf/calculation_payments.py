@@ -5,6 +5,7 @@ No payment table, amount, cache, document, GL entry or authority request is writ
 """
 from dataclasses import dataclass, field
 import json
+from typing import TYPE_CHECKING
 
 from .calculation_rounding_stage import RoundingStageAcquisition, RoundingStageRequest, SavedRoundingStageRead, pin_stage, require_call_trace
 from .calculation_child_format_access import require_field_read
@@ -16,6 +17,9 @@ from .financial_numeric_view import _native_cells, _expected, FIXED_TYPES
 from .calculated_totals import _input_tag
 from .calculation_field_rounding_access import _result_tag
 from .field_rounding import round_field_value
+
+if TYPE_CHECKING:
+    from .calculation_pos_return_paid import PosReturnPaidCalculation
 
 PAID_FIELDS = ("paid_amount", "base_paid_amount")
 CHANGE_FIELDS = ("change_amount", "base_change_amount")
@@ -257,6 +261,42 @@ def _paid_values(source, headers, rows):
     return tuple(payments), totals, clear
 
 
+def _require_prior_rows(prior, source, headers, rows):
+    """Allow ONE proved re-entry, never arbitrary replacement/saved membership.
+
+    Import the return wrapper only on this derived path to avoid an eager
+    dependency cycle. The original calculation still checks saved rows exactly.
+    Bound ancestry before reconstruction, including deliberately mutated models.
+    """
+    from .calculation_pos_return_paid import PosReturnPaidCalculation
+
+    if type(prior) is PaidAmountCalculation:
+        if prior.prior is not None:
+            raise ValueError
+        pinned = prior.pin()
+        original = pinned
+    elif type(prior) is PosReturnPaidCalculation:
+        if type(prior.paid_before) is not PaidAmountCalculation or prior.paid_before.prior is not None:
+            raise ValueError
+        pinned = prior.pin()
+        original = pinned.paid_before
+    else:
+        raise ValueError
+    if source != original.source or tuple((name, _input_tag(value, nullable=True)) for name, value in headers) != tuple(
+            (name, _input_tag(value, nullable=True)) for name, value in original.headers):
+        raise ValueError
+    if dict(source.controls.normalized_checks)["is_pos"]:
+        expected = tuple((name, amount) for name, amount, _ in pinned.payments)
+    else:
+        expected = () if original.clear_payments else original.rows
+    if type(rows) is not tuple or len(rows) != len(expected):
+        raise ValueError
+    for actual, observed in zip(rows, expected):
+        if (type(actual) is not tuple or len(actual) != 2 or type(actual[0]) is not str
+                or actual[0] != observed[0] or _input_tag(actual[1], nullable=True) != _input_tag(observed[1], nullable=True)):
+            raise ValueError
+
+
 @dataclass(frozen=True, repr=False)
 class PaidAmountCalculation:
     """Compare paid totals and planned row effects without applying them.
@@ -268,6 +308,7 @@ class PaidAmountCalculation:
     representation: str
     headers: tuple = field(repr=False)
     rows: tuple = field(repr=False)
+    prior: "PaidAmountCalculation | PosReturnPaidCalculation | None" = field(default=None, repr=False)
     payments: tuple = field(init=False, repr=False)
     totals: tuple = field(init=False, repr=False)
     clear_payments: bool = field(init=False)
@@ -278,7 +319,12 @@ class PaidAmountCalculation:
                 raise ValueError
             source = self.source.pin()
             headers = _header_inputs(source, self.headers, ("conversion_rate", "loyalty_amount"), self.representation)
-            _payment_rows(source, self.rows, self.representation)
+            if self.prior is None:
+                _payment_rows(source, self.rows, self.representation)
+            else:
+                if self.representation != "CALCULATED":
+                    raise ValueError
+                _require_prior_rows(self.prior, source, self.headers, self.rows)
             payments, totals, clear = _paid_values(source, headers, self.rows)
         except Exception:
             invalid = True
@@ -290,7 +336,7 @@ class PaidAmountCalculation:
             object.__setattr__(self, name, value)
 
     def pin(self):
-        pinned = PaidAmountCalculation(self.source, self.representation, self.headers, self.rows)
+        pinned = PaidAmountCalculation(self.source, self.representation, self.headers, self.rows, self.prior)
         _exact_values(self.payments, pinned.payments)
         _exact_values(self.totals, pinned.totals)
         if pinned != self or type(self.clear_payments) is not bool:

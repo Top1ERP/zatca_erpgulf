@@ -70,8 +70,8 @@ def profile_observation(case, raw, profile, suffix):
     return SelectedMetadataRows(result.applied, _canonical(body))
 
 
-def native_case(operator, connections, *, kind=None, is_return=0, consolidated=0, foreign=False, auto=0, internal=False):
-    scenario = ("combined", is_return, 1, None, 0, int(internal), "same" if internal else None)
+def native_case(operator, connections, *, kind=None, is_return=0, consolidated=0, foreign=False, auto=0, internal=False, is_pos=1):
+    scenario = ("combined", is_return, is_pos, None, 0, int(internal), "same" if internal else None)
     case = previous(operator, connections, scenario=scenario)
     service = case.service
     root = case.data.raw_metas[case.invoice.doctype]
