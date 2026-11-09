@@ -189,6 +189,7 @@ class SourceMetadata:
                 or financial._canonical(body)!=self._payload):
                 raise ValueError
             fields={}
+            encoder=financial._canonical_encoder()
             for entry,name in zip(body["fields"],selected[self.name]):
                 if type(entry) is not list or len(entry)!=2 or entry[0]!=name:
                     raise ValueError
@@ -196,7 +197,14 @@ class SourceMetadata:
                     if name in BASE_TYPES:
                         raise ValueError
                     continue
-                definition=SourceFieldDefinition(name,financial._canonical(entry[1]))
+                # The whole privately decoded body has ALREADY passed bounded
+                # canonical byte equality above. This subtree's canonical
+                # bytes are therefore a slice of that verified parent and
+                # cannot exceed its bound. No cache, external mutable tree or
+                # skipped field validation is involved in using one-shot here.
+                payload=encoder.encode(entry[1]).encode("utf-8")
+                if len(payload)>len(self._payload):raise ValueError
+                definition=SourceFieldDefinition(name,payload)
                 if name in BASE_TYPES and definition.fieldtype!=BASE_TYPES[name]:
                     raise ValueError
                 fields[name]=definition

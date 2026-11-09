@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Combined batch189–192 profiles evidence reconstruction and accelerates only
+private field subtrees inside an already bounded/canonical parent, retaining
+streaming bounds, all field validation and wire bytes. Add a pure same-source
+saved-advance comparison against consumed settlement totals with MATCH/MISMATCH/
+NOT_CONSUMED outcomes, never repair, relink or authority acceptance. Preserve
+all existing capture methods and explicit precision/provenance gates. See
+[ENCODING_AND_ADVANCE_COMPARISON.md](ENCODING_AND_ADVANCE_COMPARISON.md).
+
 Combined batch185–188 adds a separate saved-numeric two-call inspection with
 automatic lazy POS dependencies on the existing owned capture. Share the pending
 balance primitive with redistribution, authorize each related dependency before

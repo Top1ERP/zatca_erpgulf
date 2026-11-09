@@ -143,11 +143,16 @@ def _projection(document, meta, fields, required):
     return values
 
 
+def _canonical_encoder():
+    """One canonical JSON configuration for streaming and verified subtrees."""
+    return json.JSONEncoder(ensure_ascii=False, sort_keys=True,
+        separators=(",", ":"), allow_nan=False)
+
+
 def _canonical(value):
     # Enforce the aggregate bound WHILE encoding, not after allocating a giant
     # JSON string from individually bounded but repeated child text values.
-    encoder = json.JSONEncoder(ensure_ascii=False, sort_keys=True,
-        separators=(",", ":"), allow_nan=False)
+    encoder = _canonical_encoder()
     content = bytearray()
     for fragment in encoder.iterencode(value):
         chunk = fragment.encode("utf-8")

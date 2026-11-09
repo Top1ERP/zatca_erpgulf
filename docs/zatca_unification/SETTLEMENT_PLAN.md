@@ -84,6 +84,11 @@ the affected selection; exact counts are in [STATUS.md](STATUS.md).
 
 ## Remaining adoption gates
 
+Batch189–192 adds a separate saved-advance consistency composer without changing
+the plan's stored inputs or authorizing historical references. It also profiles
+and narrows one metadata-encoding hot path while preserving byte/boundary parity.
+See [ENCODING_AND_ADVANCE_COMPARISON.md](ENCODING_AND_ADVANCE_COMPARISON.md).
+
 These are evidence-building comparisons. Profile repeated reconstruction before
 placing them on a real invoice-save or UI-polling path. Broader source/branch/
 rounding/accounting cases, historical advance aggregation, missing-profile and
