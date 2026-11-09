@@ -9,11 +9,11 @@ from dataclasses import dataclass, field
 
 from .calculation_numeric_access import NumericAcquisition, SavedFinancialNumericRead
 from .calculation_rounding_access import RoundingAcquisition, SavedRoundingContext
-from .calculation_field_rounding_access import FieldRoundingAcquisition, SavedFieldRoundingRead, _target, _result_tag
+from .calculation_field_rounding_access import (
+    FieldRoundingAcquisition, _target, _result_tag, _pin_stage_fields, MAX_STAGE_FIELDS,
+)
 from .financial_numeric_view import _native_cells, _expected, _getter
 from .financial_source_observation import _name
-
-MAX_STAGE_FIELDS = 64
 
 
 class RoundingStageError(ValueError):
@@ -159,16 +159,6 @@ class RoundingStageAcquisition:
             id(self.root.document),results)
 
 
-def _pin_field(value):
-    if type(value) is not SavedFieldRoundingRead:
-        raise ValueError
-    pinned = SavedFieldRoundingRead(value.numeric,value.method,value.target,value.owner_document,
-        value.cache,value.formats,value.currency_cache,value.company_cache)
-    if pinned != value or _result_tag(pinned.rounded_value) != _result_tag(value.rounded_value):
-        raise ValueError
-    return pinned
-
-
 def pin_stage(value):
     """Reconstruct a supplied stage; this is consistency, not source authority."""
     if type(value) is not SavedRoundingStageRead:
@@ -243,8 +233,7 @@ class SavedRoundingStageRead:
         try:
             if type(self.numeric) is not SavedFinancialNumericRead or type(self.method) is not SavedRoundingContext:
                 raise ValueError
-            numeric = SavedFinancialNumericRead(self.numeric.financial,self.numeric.view,self.numeric.tables)
-            method = SavedRoundingContext(self.method.context,self.method.erp_major,self.method.override,self.method.rounding,self.method.related)
+            numeric, method, fields = _pin_stage_fields(self.numeric, self.method, self.fields)
             if (numeric != self.numeric or method != self.method or method.context != numeric.financial.context
                     or method.erp_major != numeric.view.financial.financial.erp_major or method.override is not None
                     or type(self.owner_document) is not int or not 0 < self.owner_document < 2**64
@@ -258,7 +247,6 @@ class SavedRoundingStageRead:
                     or target not in cells or cells[target][3] not in ("Currency","Float","Percent") for target in self.targets):
                 raise ValueError
             expected = tuple(target for target in self.targets if target[2] not in skips)
-            fields = tuple(_pin_field(value) for value in self.fields)
             if tuple(value.target for value in fields) != expected or any(value.numeric != numeric
                     or value.method != method or value.owner_document != self.owner_document for value in fields):
                 raise ValueError

@@ -1,4 +1,27 @@
-# Implementation status — 2026-11-09
+# Implementation status — 2026-11-10
+
+## Latest supporting improvement — increment195
+
+Grouped rounding fields now use one reconstructed numeric/method graph per
+stage pin and share one field-resolution kernel with ordinary reads. Each
+sibling's source, types and recomputed result are still checked. The normal
+constructor, independent per-pin reconstruction and owned source/permission/
+post-close checks remain. One private wrapper and unused import were removed;
+the stage-field bound has one definition. All 25 capture method bodies remain.
+
+Validation: 864 distinct cases passed (811 local, 53 private SQL), including 44
+new cases. The fixed manifest has 164 local/57 private suites; only the reviewed
+selection ran. Complete ordinary, POS, foreign-return, guarded, empty, cancelled
+and rejected-drift cases passed; no authority acceptance is inferred.
+
+Controlled two-field stage reconstruction used 48.5–49.2% less CPU and 44.8–46.0%
+lower observed Python peak allocations. The same complete synthetic chain
+selection decreased from 213.12s to 119.01s (44.2%). These scoped measurements are
+not production invoice latency, process RSS or throughput claims. The
+inspection remains expensive and off invoice-save/polling paths. Installed15/16
+and full accounting/XML/QR/SDK/rehearsal gates remain open. No live source/data,
+Bench/workers or authority request was changed/performed. See
+[ROUNDING_STAGE_COST.md](ROUNDING_STAGE_COST.md).
 
 ## Latest supporting improvement — increment194
 
@@ -51,7 +74,7 @@ installed15/16 release gate. No live deployment or authority request occurred.
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and ninety-four bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and ninety-five bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,

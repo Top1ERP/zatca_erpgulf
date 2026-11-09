@@ -19,6 +19,13 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment195 shares one reconstructed numeric/method source across sibling
+rounding fields and one numerical field kernel across standalone/grouped reads.
+Compare every supplied sibling against the freshly checked sources and its
+recomputed result; retain owner, format/cache, type and signed-zero checks.
+No global cache, caller bypass or installed-source adoption is introduced. See
+[ROUNDING_STAGE_COST.md](ROUNDING_STAGE_COST.md).
+
 Increment194 reduces repeated metadata reconstruction by sharing one checked
 match factory between ordinary document capture and direct captured SQL tags.
 Retain source-only column checks, the full match constructor, pre-getter guards

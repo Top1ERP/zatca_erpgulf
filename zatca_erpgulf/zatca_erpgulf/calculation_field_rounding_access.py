@@ -5,7 +5,7 @@ call precision(), controllers, writes or HTTP. Acquire owner-field formats only
 on the v16 fallback branch, after the same handle has captured native defaults.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields as dataclass_fields, is_dataclass
 import json
 import math
 
@@ -18,8 +18,10 @@ from .calculation_format_access import FormatAcquisition, SavedFieldCurrencyRead
 from .calculation_owner_currency_access import OwnerCurrencyAcquisition
 from .child_field_currency import ABSENT
 from .financial_numeric_view import FIXED_TYPES, _native_cells
-from .financial_source_observation import TABLE_FIELDS, _child_type, _name, _validate_scalar
+from .financial_source_observation import TABLE_FIELDS, _child_type, _name, _scalar, _validate_scalar
 from .field_rounding import round_field_value
+
+MAX_STAGE_FIELDS = 64
 
 
 class FieldRoundingAccessError(ValueError):
@@ -276,6 +278,59 @@ def _result_tag(value):
     raise ValueError
 
 
+def _resolve_field(numeric, method, target, owner_document, cache, formats, currency_cache, company_cache):
+    """Resolve one field on independently reconstructed shared source values.
+
+    This pure kernel returns data, never a source/permission grant. Both the
+    ordinary constructor and the bounded stage reconstruction call it after
+    rebuilding their shared numeric and rounding inputs.
+    """
+    native = numeric.view.financial
+    if (method.override is not None
+            or method.rounding is None or method.context != numeric.financial.context
+            or method.erp_major != native.financial.erp_major
+            or type(owner_document) is not int or not 0 < owner_document < 2**64):
+        raise ValueError
+    if type(target) is not tuple or len(target) != 3:
+        raise ValueError
+    group, row_name, name = target
+    doctype = native.financial.doctype if group == "header" else _child_type(native.financial.doctype, group)
+    meta = next(row.applied for row in native.metadata if row.applied.name == doctype)
+    schema = ((doctype, ((name, meta.get_field(name)),)),)
+    supplied = (None, None, name) if group == "header" else target
+    if _target(supplied, schema, native.financial.doctype, native.financial.name, numeric.tables) != target:
+        raise ValueError
+    cell = next(cell for cell in _native_cells(native) if cell[:3] == target)
+    needs_formats = _requires_currency_format(meta.get_field(name),
+        _fold(json.loads(numeric.financial.context.settings.defaults._payload)["rows"]), method.erp_major)
+    supplied_formats, formats = formats, None
+    if needs_formats:
+        if type(supplied_formats) is not SavedFieldCurrencyRead:
+            raise ValueError
+        formats = SavedFieldCurrencyRead(supplied_formats.financial, supplied_formats.related,
+            supplied_formats.formats, supplied_formats.company_currency, supplied_formats.owner_currency)
+        if formats != supplied_formats or formats.financial != numeric.financial:
+            raise ValueError
+        parentfield = None if group == "header" else group
+        precision = formats.resolve_precision(name, parentfield=parentfield)
+        cached = _cache_slot(currency_cache, allow_null=True)
+        if cached != ABSENT:
+            formats.require_field_currency_match(name, _validate_scalar(list(cached)), parentfield=parentfield)
+        if formats.company_currency is not None and cached == ABSENT:
+            if type(company_cache) is not tuple or company_cache != ("str",formats.company_currency.currency):
+                raise ValueError
+        elif company_cache is not None:
+            raise ValueError
+    else:
+        if supplied_formats is not None or currency_cache is not None or company_cache is not None:
+            raise ValueError
+        precision = numeric.financial.resolve_precision(doctype, name)
+    _require_cache(cache, precision)
+    result = round_field_value(_validate_scalar(cell[4]), precision=precision.precision,
+        method=method.method, erp_major=method.erp_major)
+    return formats, precision, result
+
+
 @dataclass(frozen=True, repr=False)
 class SavedFieldRoundingRead:
     """Protected selected saved-value calculation, not controller/issuance proof.
@@ -303,49 +358,10 @@ class SavedFieldRoundingRead:
             numeric = SavedFinancialNumericRead(self.numeric.financial, self.numeric.view, self.numeric.tables)
             method = SavedRoundingContext(self.method.context, self.method.erp_major, self.method.override,
                 self.method.rounding, self.method.related)
-            native = numeric.view.financial
-            if (numeric != self.numeric or method != self.method or method.override is not None
-                    or method.rounding is None or method.context != numeric.financial.context
-                    or method.erp_major != native.financial.erp_major
-                    or type(self.owner_document) is not int or not 0 < self.owner_document < 2**64):
+            if numeric != self.numeric or method != self.method:
                 raise ValueError
-            if type(self.target) is not tuple or len(self.target) != 3:
-                raise ValueError
-            group, row_name, name = self.target
-            doctype = native.financial.doctype if group == "header" else _child_type(native.financial.doctype, group)
-            meta = next(row.applied for row in native.metadata if row.applied.name == doctype)
-            schema = ((doctype, ((name, meta.get_field(name)),)),)
-            supplied = (None, None, name) if group == "header" else self.target
-            if _target(supplied, schema, native.financial.doctype, native.financial.name, numeric.tables) != self.target:
-                raise ValueError
-            cell = next(cell for cell in _native_cells(native) if cell[:3] == self.target)
-            needs_formats = _requires_currency_format(meta.get_field(name),
-                _fold(json.loads(numeric.financial.context.settings.defaults._payload)["rows"]), method.erp_major)
-            formats = None
-            if needs_formats:
-                if type(self.formats) is not SavedFieldCurrencyRead:
-                    raise ValueError
-                formats = SavedFieldCurrencyRead(self.formats.financial, self.formats.related,
-                    self.formats.formats, self.formats.company_currency, self.formats.owner_currency)
-                if formats != self.formats or formats.financial != numeric.financial:
-                    raise ValueError
-                parentfield = None if group == "header" else group
-                precision = formats.resolve_precision(name, parentfield=parentfield)
-                cached = _cache_slot(self.currency_cache, allow_null=True)
-                if cached != ABSENT:
-                    formats.require_field_currency_match(name, _validate_scalar(list(cached)), parentfield=parentfield)
-                if formats.company_currency is not None and cached == ABSENT:
-                    if type(self.company_cache) is not tuple or self.company_cache != ("str",formats.company_currency.currency):
-                        raise ValueError
-                elif self.company_cache is not None:
-                    raise ValueError
-            else:
-                if self.formats is not None or self.currency_cache is not None or self.company_cache is not None:
-                    raise ValueError
-                precision = numeric.financial.resolve_precision(doctype, name)
-            _require_cache(self.cache, precision)
-            result = round_field_value(_validate_scalar(cell[4]), precision=precision.precision,
-                method=method.method, erp_major=method.erp_major)
+            formats, precision, result = _resolve_field(numeric, method, self.target, self.owner_document,
+                self.cache, self.formats, self.currency_cache, self.company_cache)
         except Exception:
             invalid = True
         else:
@@ -378,3 +394,83 @@ class SavedFieldRoundingRead:
 
     def __reduce__(self):
         raise TypeError("field_rounding_saved_not_serializable")
+
+
+def _same_checked_value(actual, expected):
+    """Match a supplied graph to a freshly reconstructed private value.
+
+    Do not call arbitrary equality methods or retain supplied derived caches.
+    Dataclass constructor inputs, comparable derived fields, immutable tuples
+    and exact scalars enter this comparison. Only non-comparable DERIVED caches
+    are excluded; constructors rebuild them rather than copying supplied state.
+    """
+    if type(actual) is not type(expected):
+        raise ValueError
+    if actual is expected:
+        return
+    if is_dataclass(expected):
+        for definition in dataclass_fields(expected):
+            if definition.init or definition.compare:
+                _same_checked_value(getattr(actual, definition.name), getattr(expected, definition.name))
+    elif type(expected) is tuple:
+        if len(actual) != len(expected):
+            raise ValueError
+        for left, right in zip(actual, expected):
+            _same_checked_value(left, right)
+    elif type(expected) in (type(None), bool, int, str, bytes):
+        if actual != expected:
+            raise ValueError
+    elif type(expected) is float:
+        if actual.hex() != expected.hex():
+            raise ValueError
+    elif _scalar(actual) != _scalar(expected):
+        raise ValueError
+
+
+def _pin_stage_fields(supplied_numeric, supplied_method, values):
+    """Reconstruct shared sources once, then independently resolve each field.
+
+    This boundary ALWAYS reconstructs the numeric graph and method. Each field
+    must match those canonical sources, then pass the ordinary field kernel and
+    an exact comparison of its supplied result. Only checked values enter fresh
+    result objects. There is no cache, caller-selected bypass or trusted flag,
+    and the normal single-field constructor remains independently validating.
+    """
+    try:
+        if (type(supplied_numeric) is not SavedFinancialNumericRead
+                or type(supplied_method) is not SavedRoundingContext
+                or type(values) is not tuple or len(values) > MAX_STAGE_FIELDS):
+            raise ValueError
+        numeric = SavedFinancialNumericRead(supplied_numeric.financial, supplied_numeric.view, supplied_numeric.tables)
+        method = SavedRoundingContext(supplied_method.context, supplied_method.erp_major,
+            supplied_method.override, supplied_method.rounding, supplied_method.related)
+        _same_checked_value(supplied_numeric, numeric)
+        _same_checked_value(supplied_method, method)
+        results = []
+        for value in values:
+            if type(value) is not SavedFieldRoundingRead:
+                raise ValueError
+            _same_checked_value(value.numeric, numeric)
+            _same_checked_value(value.method, method)
+            formats, precision, result = _resolve_field(numeric, method, value.target, value.owner_document,
+                value.cache, value.formats, value.currency_cache, value.company_cache)
+            # The shared sources and EVERY field input/output have now been
+            # checked. Construct a fresh immutable result without recursively
+            # rebuilding the same source graph for each sibling field.
+            pinned = object.__new__(SavedFieldRoundingRead)
+            for name, checked in (("numeric", numeric), ("method", method), ("target", value.target),
+                    ("owner_document", value.owner_document), ("cache", value.cache), ("formats", formats),
+                    ("currency_cache", value.currency_cache), ("company_cache", value.company_cache),
+                    ("precision", precision), ("rounded_value", result)):
+                object.__setattr__(pinned, name, checked)
+            if set(vars(pinned)) != {definition.name for definition in dataclass_fields(SavedFieldRoundingRead)}:
+                raise ValueError  # New dataclass fields must be initialized here too.
+            _same_checked_value(value, pinned)
+            results.append(pinned)
+    except Exception:
+        invalid = True
+    else:
+        invalid = False
+    if invalid:
+        raise FieldRoundingAccessError("field_rounding_stage_fields")
+    return numeric, method, tuple(results)

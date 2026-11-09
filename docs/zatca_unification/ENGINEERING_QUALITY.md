@@ -39,7 +39,14 @@ Keep reference fixtures and test evidence distinct from dead runtime code.
    acceptance matrix in [PLAN.md](PLAN.md). Essential quality work must not be
    silently excluded from the release decision.
 
-## Current priorities after increment 193
+## Current performance work
+
+Increment195 continues with shared source reconstruction for sibling rounding
+fields and one field-validation kernel. A controlled two-field stage benchmark
+used 48.5–49.2% less CPU and 44.8–46.0% lower scoped peak allocations. Each stage
+pin still reconstructs independently; this does not close the runtime adoption
+or production performance gates. See
+[ROUNDING_STAGE_COST.md](ROUNDING_STAGE_COST.md).
 
 Increment194 delivers the first supporting improvement against this priority:
 shared captured-row composition removes redundant metadata reconstruction and
@@ -48,8 +55,9 @@ CPU; one selected connected synthetic test is 28.6% shorter. This does not close
 the invoice-save performance gate. See
 [METADATA_CAPTURE_COST.md](METADATA_CAPTURE_COST.md) for parity, scope and limits.
 
-The connected advance/settlement inspection now has 464 distinct passing cases
-in its reviewed validation set, including 11 new cases. Its repeated evidence
+Increment193 established 464 distinct passing cases in its reviewed validation
+set, including 11 new cases. Later reports record their own reviewed selections;
+repeated cases must not be summed into a release-wide coverage claim. Its repeated evidence
 reconstruction is still expensive. Those test-group durations are not invoice
 latency measurements. The earlier bounded metadata improvement does not close
 the performance gate for the combined pipeline.
