@@ -198,8 +198,75 @@ class AdvanceLimitCalculation:
         if invalid:
             raise AdvanceLimitError("advance_limit_observation")
 
+    def pin(self):
+        """Rebuild decisions before they authorize a derived numeric handoff."""
+        try:
+            result = AdvanceLimitCalculation(self.source, self.aggregate, self.representation, self.values)
+            aggregate = self.aggregate
+            expected = tuple((name, "allocated_amount", precision) for name, precision in aggregate.row_precisions)
+            expected += ((aggregate.rows.financial.financial.name, "total_advance",
+                aggregate.source.fields[0].precision.precision),)
+            count = 1 + sum(row[1] is not None for row in aggregate.rows.values)
+            raw = aggregate.source.method.rounding.value
+            aggregate.require_match(total_advance=aggregate.total_advance,
+                setting_trace=(("rounding_method", raw),) * count, precision_trace=expected)
+            if (result != self or type(self.blocked) is not bool or type(self.reset_write_off) is not bool
+                    or type(self.setting_count) is not int or type(self.precision_trace) is not tuple
+                    or _result_tag(self.invoice_total) != _result_tag(result.invoice_total)):
+                raise ValueError
+            require_call_trace(None, (), self.precision_trace, result.precision_trace, 0)
+        except Exception:
+            invalid = True
+        else:
+            invalid = False
+        if invalid:
+            raise AdvanceLimitError("advance_limit_calculation")
+        return result
+
     def __repr__(self):
         return "<AdvanceLimitCalculation protected ceiling comparison, NOT settlement proof>"
 
     def __reduce__(self):
         raise TypeError("advance_limit_calculation_not_serializable")
+
+
+def settlement_limit_context(source, advance):
+    """Reuse only co-owned proofs; acquire no second root, currency or defaults."""
+    from .calculation_settlement_access import SavedSettlementRead
+    if type(source) is not SavedSettlementRead:
+        raise AdvanceLimitError("advance_settlement_source")
+    source = source.pin()
+    prefix = source.prefix
+    proofs = {proof.target[2]: proof for proof in (*prefix.fields, *source.receivable.stage.fields)}
+    selected = tuple(proofs[name] for name in STAGE_FIELDS)
+    stage = SavedRoundingStageRead(prefix.numeric, prefix.method, tuple(proof.target for proof in selected),
+        None, prefix.owner_document, selected)
+    caches = {name: (precision, currency) for name, precision, currency in source.receivable.caches}
+    precision, currency = caches[BASE] if source.receivable.foreign else (None, None)
+    return SavedAdvanceLimitRead(stage, advance, source.receivable.write_off, source.receivable.party,
+        precision, currency)
+
+
+def advance_settlement_changes(source, calculation):
+    """Only the aggregate assignment and conditional integer-zero reset.
+
+    The ceiling consumes the OLD write-off amount. It must pass before the
+    reset and the first outstanding call. No saved value is mutated here.
+    """
+    try:
+        if type(calculation) is not AdvanceLimitCalculation:
+            raise ValueError
+        calculation = calculation.pin()
+        if (calculation.blocked or calculation.representation != "NUMERIC_FIXED"
+                or calculation.aggregate.rows.representation != "NUMERIC_FIXED"
+                or calculation.aggregate.rows.table != "advances"
+                or settlement_limit_context(source, calculation.source.advance) != calculation.source):
+            raise ValueError
+        changes = (("total_advance", calculation.aggregate.total_advance),)
+        if calculation.reset_write_off:
+            changes += (("write_off_amount", 0),)
+        return changes
+    except Exception:
+        invalid = True
+    if invalid:
+        raise AdvanceLimitError("advance_settlement_transition")

@@ -10,7 +10,7 @@ import json
 
 from .calculation_settlement_plan import SavedSettlementPlan
 from .calculation_settlement_access import SettlementAccessError
-from .calculation_rounding_stage import project_stage
+from .calculation_rounding_stage import project_stage, pin_stage
 from .calculated_totals import AdvanceAggregateCalculation, CalculationRows
 from .financial_numeric_view import _native_cells, _expected
 from .financial_source_observation import _validate_scalar
@@ -97,16 +97,10 @@ class SettlementAdvanceComparison:
     def __reduce__(self): raise TypeError("settlement_advance_comparison_not_serializable")
 
 
-def compare_saved_advances(plan, *, advance_context=None):
-    """Use only complete saved row amounts; no independent capture or defaults.
-
-    Existing same-stage row format/cache evidence can be supplied explicitly.
-    An uncaptured unset16 row-currency format is refused by the existing kernel.
-    This never regenerates or reclassifies historical documents or references.
-    """
+def aggregate_saved_advances(stage, *, advance_context=None):
+    """Aggregate complete saved rows using their checked row precision context."""
     try:
-        if type(plan) is not SavedSettlementPlan: raise ValueError
-        stage = project_stage(plan.source.prefix, ("total_advance",))
+        stage = pin_stage(stage)
         native = stage.numeric.view.financial
         body = json.loads(native.financial._payload)
         table = dict(body["tables"])["advances"]
@@ -115,8 +109,22 @@ def compare_saved_advances(plan, *, advance_context=None):
         values = tuple((name, _validate_scalar(_expected(cells[name][4], "NUMERIC_FIXED", cells[name][3])))
                        for name, _, _ in table["rows"])
         rows = CalculationRows(native, "advances", "NUMERIC_FIXED", values)
-        aggregate = AdvanceAggregateCalculation(stage, rows, advance_context)
-        return SettlementAdvanceComparison(plan, aggregate)
+        return AdvanceAggregateCalculation(stage, rows, advance_context)
+    except Exception:
+        invalid = True
+    if invalid: raise SettlementAccessError("settlement_saved_advances")
+
+
+def compare_saved_advances(plan, *, advance_context=None):
+    """Compare saved totals; never regenerate or reclassify historical records.
+
+    Existing same-stage row format/cache evidence can be supplied explicitly.
+    An uncaptured unset16 row-currency format is refused by the existing kernel.
+    """
+    try:
+        if type(plan) is not SavedSettlementPlan: raise ValueError
+        stage = project_stage(plan.source.prefix, ("total_advance",))
+        return SettlementAdvanceComparison(plan, aggregate_saved_advances(stage, advance_context=advance_context))
     except Exception:
         invalid = True
     if invalid: raise SettlementAccessError("settlement_saved_advances")

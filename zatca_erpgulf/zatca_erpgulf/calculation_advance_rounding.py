@@ -152,11 +152,14 @@ class SavedAdvanceRoundingRead:
         raise TypeError("advance_rounding_not_serializable")
 
 
-class AdvanceRoundingAcquisition(RoundingStageAcquisition):
-    """One graph/handle for the header stage and every consumed direct row."""
+class AdvanceRoundingStageMixin:
+    """Share row precision lifecycle hooks with an existing rounding graph.
 
-    def __init__(self, policy, actor, invoice_name, doctype, major, *, child_metadata, party_metadata=None,
-            _stage_fields=("total_advance",), **dependencies):
+    Initialize dependencies before the enclosing stage, then bind access after
+    its root exists. The enclosing service retains the single SQL owner.
+    """
+
+    def _init_advance_dependencies(self, actor, child_metadata, party_metadata, dependencies):
         self.party = None
         self.children = None
         self.child_fields = ()
@@ -169,8 +172,8 @@ class AdvanceRoundingAcquisition(RoundingStageAcquisition):
         self._format_metadata = dependencies.get("format_metadata")
         self._format_cache = dependencies.get("format_cache")
         self._actor = actor
-        super().__init__(policy, actor, invoice_name, doctype,
-            RoundingStageRequest(_stage_fields), major, **dependencies)
+
+    def _bind_advance_access(self):
         if "advances" not in dict(self.root.tables):
             raise AdvanceRoundingError("advance_rounding_table")
         definition = dict(dict(self.root.schema)["Sales Invoice Advance"]).get(FIELD)
@@ -292,8 +295,8 @@ class AdvanceRoundingAcquisition(RoundingStageAcquisition):
         if self.party is not None:
             self.party.require_unchanged()
 
-    def build_result(self, financial, observed):
-        stage = super().build_result(financial, observed)
+    def build_advance_result(self, stage, financial):
+        """Project only the advance proof from this same-owned union stage."""
         if len(stage.targets) != 1:
             selected = next(value for value in stage.fields if value.target[2] == "total_advance")
             stage = SavedRoundingStageRead(stage.numeric, stage.method, (selected.target,), None,
@@ -308,3 +311,18 @@ class AdvanceRoundingAcquisition(RoundingStageAcquisition):
             )
         return SavedAdvanceRoundingRead(stage, self.precision_samples, fields,
             None if self.party is None else self.party.build_result(financial))
+
+
+class AdvanceRoundingAcquisition(AdvanceRoundingStageMixin, RoundingStageAcquisition):
+    """One graph/handle for the header stage and every consumed direct row."""
+
+    def __init__(self, policy, actor, invoice_name, doctype, major, *, child_metadata, party_metadata=None,
+            _stage_fields=("total_advance",), **dependencies):
+        self._init_advance_dependencies(actor, child_metadata, party_metadata, dependencies)
+        super().__init__(policy, actor, invoice_name, doctype,
+            RoundingStageRequest(_stage_fields), major, **dependencies)
+        self._bind_advance_access()
+
+    def build_result(self, financial, observed):
+        stage = super().build_result(financial, observed)
+        return self.build_advance_result(stage, financial)

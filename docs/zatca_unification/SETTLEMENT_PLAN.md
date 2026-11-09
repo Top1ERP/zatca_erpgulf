@@ -84,6 +84,12 @@ the affected selection; exact counts are in [STATUS.md](STATUS.md).
 
 ## Remaining adoption gates
 
+Increment193 now composes saved advance rows and their same-owned precision
+evidence through the ceiling, conditional reset and this bounded settlement
+planner, including guarded write-off re-entry. This adds a separate internal
+capture operation; it does not replace the saved-input operation or an installed
+controller. See [ADVANCE_SETTLEMENT_CHAIN.md](ADVANCE_SETTLEMENT_CHAIN.md).
+
 Batch189–192 adds a separate saved-advance consistency composer without changing
 the plan's stored inputs or authorizing historical references. It also profiles
 and narrows one metadata-encoding hot path while preserving byte/boundary parity.

@@ -3,6 +3,8 @@
 Reuse the existing kernels and permissioned readers. Append names are explicit
 hypothetical observation labels, not allocated/saved children or runtime identity
 proof. Earlier total/advance/GL derivation and cache/provider origin stay external.
+An optional same-owned advance ceiling binds the aggregate/reset handoff from
+the connected inspection; it does not attest allocation or earlier tax totals.
 No controller, ordinary document writer, second SQL owner or authority transport.
 """
 
@@ -20,6 +22,7 @@ from .calculation_pos_return_paid import PosReturnPaidCalculation
 from .calculation_settlement_sequence import OutstandingSequence, WriteOffFollowup, WriteOffReentry
 from .financial_numeric_view import _native_cells, _expected
 from .financial_source_observation import _validate_scalar, _name
+from .calculation_advance_limit import AdvanceLimitCalculation, advance_settlement_changes
 
 
 @dataclass(frozen=True, repr=False)
@@ -70,12 +73,13 @@ class _Steps:
     returned: object = None
 
 
-def _steps(source, headers, rows, prefix_values, automatic, append_name, lookup, *, prior=None):
+def _steps(source, headers, rows, prefix_values, automatic, append_name, lookup, *, prior=None,
+           prefix_representation=None):
     representation = "NUMERIC_FIXED" if prior is None else "CALCULATED"
     paid = PaidAmountCalculation(source.guarded.payment, representation, headers, rows, prior)
     entry = GuardedOutstandingEntry(source.guarded, paid)
     if entry.decision.skip_balance: return _Steps(entry)
-    prefix = OutstandingPrefixCalculation(source, representation, prefix_values)
+    prefix = OutstandingPrefixCalculation(source, prefix_representation or representation, prefix_values)
     payable = PayableAmountCalculation(source.receivable, "CALCULATED", prefix.payable_values)
     change = None if source.receivable.is_return else ChangeAmountCalculation(paid, "CALCULATED", payable.values[:4])
     changes = tuple(zip(CHANGE_FIELDS, (0.0, 0.0))) if change is None else change.totals
@@ -120,6 +124,7 @@ class SavedSettlementPlan:
     first: OutstandingSequence = field(repr=False)
     followup: WriteOffFollowup | None = field(repr=False)
     second: OutstandingSequence | None = field(repr=False)
+    advance: AdvanceLimitCalculation | None = field(default=None, repr=False)
     lookups: tuple = field(init=False)
 
     def __post_init__(self):
@@ -151,11 +156,18 @@ class SavedSettlementPlan:
                     or second is not None and second.source != source):
                 raise ValueError
             headers, rows, prefix_values = _saved_inputs(source)
+            advance = self.advance
+            if advance is not None:
+                if type(advance) is not AdvanceLimitCalculation: raise ValueError
+                advance = advance.pin()
+                changed = dict(prefix_values)
+                changed.update(advance_settlement_changes(source, advance))
+                prefix_values = tuple((name, changed[name]) for name, _ in prefix_values)
             if first.entry.paid.representation != "NUMERIC_FIXED": raise ValueError
             _same_values(first.entry.paid.headers, headers)
             _same_values(first.entry.paid.rows, rows)
             if first.prefix is not None:
-                if first.prefix.representation != "NUMERIC_FIXED": raise ValueError
+                if first.prefix.representation != ("NUMERIC_FIXED" if advance is None else "CALCULATED"): raise ValueError
                 _same_values(first.prefix.values, prefix_values)
             first_use, second_use = _uses_sequence(first), None if second is None else _uses_sequence(second)
             if first.pos_deferred != (first_use is None and second_use is not None): raise ValueError
@@ -166,7 +178,8 @@ class SavedSettlementPlan:
         else:
             invalid = False
         if invalid: raise SettlementAccessError("settlement_saved_plan")
-        for name, value in (("source", source), ("first", first), ("followup", followup), ("second", second), ("lookups", lookups)):
+        for name, value in (("source", source), ("first", first), ("followup", followup), ("second", second),
+                ("advance", advance), ("lookups", lookups)):
             object.__setattr__(self, name, value)
 
     def pin(self):
@@ -174,7 +187,8 @@ class SavedSettlementPlan:
         # them from the checked second call when that ancestry is present.
         self.first.pin()
         if self.followup is not None: self.followup.pin()
-        result = SavedSettlementPlan(self.source, self.first, self.followup, self.second)
+        if self.advance is not None: self.advance.pin()
+        result = SavedSettlementPlan(self.source, self.first, self.followup, self.second, self.advance)
         if (result != self or type(self.lookups) is not tuple or len(self.lookups) != 2
                 or any(value is not None and (type(value) is not str or value not in ("default", "limit")) for value in self.lookups)):
             raise SettlementAccessError("settlement_saved_plan")
@@ -203,8 +217,17 @@ class SettlementPlanAcquisition(SettlementAcquisition):
 
     def resolve_plan(self, connection, financial, observed):
         if self.plan is not None: raise SettlementAccessError("settlement_plan_already_resolved")
+        self.plan = self._resolve_settlement(connection, financial, observed)
+        self.recheck_access()
+
+    def _resolve_settlement(self, connection, financial, observed, advance=None):
+        """Reuse the same bounded sequence for saved or proved advance inputs."""
         source = super().build_result(financial, observed)
         headers, rows, prefix_values = _saved_inputs(source)
+        if advance is not None:
+            changed = dict(prefix_values)
+            changed.update(advance_settlement_changes(source, advance))
+            prefix_values = tuple((name, changed[name]) for name, _ in prefix_values)
         def lookup(kind):
             if self.pos is None:
                 # No POS amount/default provider or SQL is invoked until this
@@ -217,28 +240,32 @@ class SettlementPlanAcquisition(SettlementAcquisition):
             if self.pos.kind != kind: raise SettlementAccessError("settlement_plan_lookup_kind")
             return self.observed_pos
         automatic = _validate_scalar(dict(json.loads(source.receivable.write_off._payload)["fields"])[AUTO])
-        first = _steps(source, headers, rows, prefix_values, automatic, self.append_names[0], lookup)
+        first = _steps(source, headers, rows, prefix_values, automatic, self.append_names[0], lookup,
+            prefix_representation=None if advance is None else "CALCULATED")
         write_off = second = None
-        if first.tail is not None:
-            write_off = WriteOffCalculation(source.receivable, "CALCULATED", ((AUTO, first.tail.automatic_after),
-                ("outstanding_amount", first.outstanding.amount), ("conversion_rate", dict(headers)["conversion_rate"])))
+        if first.tail is not None or advance is not None:
+            # POS may enable automatic write-off AFTER the advance reset gate.
+            # Do not retroactively reset the old amount or force a zero balance.
+            automatic_after = automatic if first.tail is None else first.tail.automatic_after
+            outstanding = 0 if first.outstanding is None else first.outstanding.amount
+            write_off = WriteOffCalculation(source.receivable, "CALCULATED", ((AUTO, automatic_after),
+                ("outstanding_amount", outstanding), ("conversion_rate", dict(headers)["conversion_rate"])))
             if write_off.recalculate:
-                values = dict(first.prefix.payable_values)
+                values = dict(prefix_values if first.prefix is None else first.prefix.payable_values)
                 values.update(write_off.amounts)
                 next_values = tuple((name, values[name]) for name in PAYABLE_FIELDS) + (headers[0],)
                 prior = first.returned if first.returned is not None else first.entry.paid
                 flags = dict(source.guarded.payment.controls.normalized_checks)
                 next_rows = tuple((name, amount) for name, amount, _ in prior.payments) if flags["is_pos"] else (
                     () if first.entry.paid.clear_payments else first.entry.paid.rows)
-                second = _steps(source, headers, next_rows, next_values, first.tail.automatic_after,
+                second = _steps(source, headers, next_rows, next_values, automatic_after,
                     self.append_names[1], lookup, prior=prior)
         final_source = super().build_result(financial, observed)
         deferred = _uses(first) is None and second is not None and _uses(second) is not None
         first_sequence = _sequence(final_source, first, deferred=deferred)
         followup = None if write_off is None else WriteOffFollowup(first_sequence, write_off)
         second_sequence = None if second is None else _sequence(final_source, second, reentry=WriteOffReentry(followup))
-        self.plan = SavedSettlementPlan(final_source, first_sequence, followup, second_sequence)
-        self.recheck_access()
+        return SavedSettlementPlan(final_source, first_sequence, followup, second_sequence, advance)
 
     def build_result(self, financial, observed):
         if type(self.plan) is not SavedSettlementPlan or super().build_result(financial, observed) != self.plan.source:

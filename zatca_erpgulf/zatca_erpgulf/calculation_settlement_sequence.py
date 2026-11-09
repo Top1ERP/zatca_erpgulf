@@ -16,7 +16,7 @@ from .calculation_pos_adjustments import PosTailCalculation
 from .calculation_pos_return_paid import PosReturnPaidCalculation
 from .calculation_field_rounding_access import _result_tag
 from .field_rounding import round_field_value
-from .financial_source_observation import _scalar
+from .financial_source_observation import _scalar, _validate_scalar
 from .calculation_outstanding_prefix import OutstandingPrefixCalculation, _same_values
 
 
@@ -73,8 +73,13 @@ class OutstandingSequence:
             if reentry is not None:
                 _same_values(entry.paid.headers, reentry.followup.sequence.entry.paid.headers)
                 _same_values(entry.paid.rows, reentry.paid_rows)
-            if reentry is not None and (entry.decision.skip_balance or self.prefix is None):
-                raise ValueError
+            if reentry is not None:
+                # A guarded first call is still followed by calculate_write_off
+                # in calculate_total_advance. Its one re-entry must hit the SAME
+                # guard, without inventing a rounded balance prefix.
+                guarded = reentry.followup.sequence.entry.decision.skip_balance
+                if entry.decision.skip_balance != guarded or (self.prefix is None) != guarded:
+                    raise ValueError
             calls = list(entry.decision.calls)
             payable = change = outstanding = tail = return_paid = None
             prefix = None
@@ -225,11 +230,17 @@ class WriteOffFollowup:
             sequence = self.sequence.pin()
             plan = WriteOffCalculation(self.write_off.source, self.write_off.representation, self.write_off.values)
             _exact_values(plan.amounts, self.write_off.amounts)
-            if (sequence.tail is None or plan != self.write_off or type(plan.recalculate) is not bool
+            if (plan != self.write_off or type(plan.recalculate) is not bool
                     or type(self.write_off.recalculate) is not bool or plan.source != sequence.source.receivable
                     or plan.representation != "CALCULATED"):
                 raise ValueError
-            expected = ((AUTO, sequence.tail.automatic_after), ("outstanding_amount", sequence.outstanding.amount),
+            if sequence.tail is None:
+                if not sequence.entry.decision.skip_balance: raise ValueError
+                automatic = _validate_scalar(dict(json.loads(sequence.source.receivable.write_off._payload)["fields"])[AUTO])
+                outstanding = 0
+            else:
+                automatic, outstanding = sequence.tail.automatic_after, sequence.outstanding.amount
+            expected = ((AUTO, automatic), ("outstanding_amount", outstanding),
                         ("conversion_rate", dict(sequence.entry.paid.headers)["conversion_rate"]))
             if tuple((name, _scalar(value)) for name, value in plan.values) != tuple(
                     (name, _scalar(value)) for name, value in expected):
@@ -275,18 +286,22 @@ class WriteOffReentry:
                 raise ValueError
             followup = self.followup.pin()
             first = followup.sequence
-            if not followup.write_off.recalculate or first.prefix is None or first.entry.paid.prior is not None:
+            if not followup.write_off.recalculate or first.entry.paid.prior is not None:
                 raise ValueError
-            changed = dict(first.prefix.payable_values)
-            changed.update(followup.write_off.amounts)
-            prefix_values = tuple((name, changed[name]) for name, _ in first.prefix.payable_values)
-            prefix_values += (("conversion_rate", dict(first.entry.paid.headers)["conversion_rate"]),)
+            if first.prefix is None:
+                if not first.entry.decision.skip_balance: raise ValueError
+                prefix_values = ()  # The guard consumes no balance fields.
+            else:
+                changed = dict(first.prefix.payable_values)
+                changed.update(followup.write_off.amounts)
+                prefix_values = tuple((name, changed[name]) for name, _ in first.prefix.payable_values)
+                prefix_values += (("conversion_rate", dict(first.entry.paid.headers)["conversion_rate"]),)
             paid_prior = first.return_paid if first.return_paid is not None else first.entry.paid
             if dict(first.source.guarded.payment.controls.normalized_checks)["is_pos"]:
                 paid_rows = tuple((name, amount) for name, amount, _ in paid_prior.payments)
             else:
                 paid_rows = () if first.entry.paid.clear_payments else first.entry.paid.rows
-            automatic = first.tail.automatic_after
+            automatic = dict(followup.write_off.values)[AUTO]
             if type(automatic) is not int or automatic != 1:
                 raise ValueError
         except Exception:

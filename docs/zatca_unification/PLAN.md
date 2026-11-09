@@ -19,6 +19,13 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment193 connects saved advance aggregation, the old-write-off ceiling,
+conditional reset, outstanding and bounded write-off re-entry on one owned
+source. Reuse the row-precision lifecycle and existing arithmetic kernels;
+the new internal inspection operation neither allocates/relinks advances nor
+replaces an installed controller. See the ten-step bundle and release limits in
+[ADVANCE_SETTLEMENT_CHAIN.md](ADVANCE_SETTLEMENT_CHAIN.md).
+
 Combined batch189–192 profiles evidence reconstruction and accelerates only
 private field subtrees inside an already bounded/canonical parent, retaining
 streaming bounds, all field validation and wire bytes. Add a pure same-source
@@ -842,6 +849,9 @@ be reserialized during cleanup.
 
 ### 3. Amounts, advance invoices, and ERP adapters
 
+- Increment193 adds the read-only connected advance/settlement arithmetic
+  inspection. Earlier tax/discount/FX derivation, original advance eligibility,
+  allocation and GL/VAT/XML reconciliation remain open integration gates.
 - Normalize document data once using Decimal amounts and explicit currency
   precision. Keep exchange-rate precision separate from two-decimal amounts.
 - Reconcile row discounts, document discounts, inclusive/exclusive tax, rounding,

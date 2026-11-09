@@ -1,8 +1,26 @@
 # Implementation status — 2026-11-09
 
+## Latest connected arithmetic bundle — increment193
+
+The ten-step development bundle now composes saved advance aggregation, ceiling,
+conditional write-off reset, outstanding and one bounded write-off re-entry on
+one owned source. It reuses the row-precision lifecycle and the existing kernels,
+including the write-off call after a skipped balance. The new capture operation
+is internal and unregistered. All 24 prior capture method bodies remain intact.
+
+Validation: 464 distinct cases passed (450 local, 14 private SQL), including 11
+new cases. The offline manifest is 162 local/57 private suites; only the reviewed
+selection was rerun. Evidence reconstruction is expensive and remains off the
+invoice-save path. Performance reduction and full runtime adoption remain open.
+
+See [ADVANCE_SETTLEMENT_CHAIN.md](ADVANCE_SETTLEMENT_CHAIN.md) for the ten steps,
+validation evidence and explicit limitations. This closes an arithmetic
+inspection path, not the complete invoice/GL/VAT/XML runtime integration or any
+installed15/16 release gate. No live deployment or authority request occurred.
+
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and ninety-two bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and ninety-three bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,

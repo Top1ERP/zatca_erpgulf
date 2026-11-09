@@ -41,6 +41,7 @@ from .calculation_guarded_payments import GuardedPaymentRequest, GuardedPaymentA
 from .calculation_pos_profile_access import PosProfileRequest, PosProfileAcquisition
 from .calculation_settlement_access import SettlementRequest, SettlementAcquisition
 from .calculation_settlement_plan import SettlementPlanRequest, SettlementPlanAcquisition
+from .calculation_advance_settlement import AdvanceSettlementRequest, AdvanceSettlementAcquisition
 from .credential_bundle_access import CredentialStorageScope
 from . import financial_source_observation as financial
 from .financial_source_sql import (
@@ -564,6 +565,15 @@ class SavedCalculationDefaultsService:
         return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
             include_financial=True, erp_major=erp_major, field_rounding_target=SettlementPlanRequest(append_names))
 
+    def capture_advance_settlement_context(self, invoice_name, *, erp_major, append_names=(None, None), doctype="Sales Invoice"):
+        """Inspect saved advances through the ceiling and bounded settlement.
+
+        This internal read-only operation does not resolve historical references,
+        execute a controller, persist amounts or authorize an authority request.
+        """
+        return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
+            include_financial=True, erp_major=erp_major, field_rounding_target=AdvanceSettlementRequest(append_names))
+
     def _capture_display(self, invoice_name, *, doctype, include_metadata,
             include_financial=False, include_formats=False, format_scope="invoice", erp_major=None,
             child_table=_NO_CHILD, child_field=None, include_child_cache=False,
@@ -648,13 +658,16 @@ class SavedCalculationDefaultsService:
                     dependencies = dict(metadata_reader=self._rounding_metadata,cache_reader=self._rounding_cache,
                         format_metadata=self._format_metadata, format_cache=self._format_cache,
                         owner_metadata=self._owner_currency_metadata, company_cache=self._company_currency_cache)
-                    if type(field_rounding_target) in (SettlementRequest, SettlementPlanRequest):
-                        acquisition = SettlementPlanAcquisition if type(field_rounding_target) is SettlementPlanRequest else SettlementAcquisition
+                    if type(field_rounding_target) in (SettlementRequest, SettlementPlanRequest, AdvanceSettlementRequest):
+                        acquisition = {SettlementRequest: SettlementAcquisition, SettlementPlanRequest: SettlementPlanAcquisition,
+                            AdvanceSettlementRequest: AdvanceSettlementAcquisition}[type(field_rounding_target)]
+                        advance_dependencies = (dict(child_metadata=self._child_metadata, party_metadata=self._advance_party_metadata)
+                            if type(field_rounding_target) is AdvanceSettlementRequest else {})
                         financial_extension = acquisition(policy,actor,invoice_name,doctype,erp_major,
                             field_rounding_target, controls_metadata=self._payment_controls_metadata,
                             guard_metadata=self._outstanding_guard_metadata,write_off_metadata=self._write_off_metadata,
                             invoice_rounding_metadata=self._invoice_rounding_metadata,pos_metadata=self._pos_profile_metadata,
-                            **dependencies)
+                            **advance_dependencies, **dependencies)
                     elif type(field_rounding_target) is PosProfileRequest:
                         financial_extension = PosProfileAcquisition(policy,actor,invoice_name,doctype,
                             field_rounding_target,self._pos_profile_metadata)
@@ -823,7 +836,7 @@ class SavedCalculationDefaultsService:
                     else:
                         captured = SavedInvoiceRoundingContext(captured, observed_extension, financial_extension.tables, financial_extension.checks)
                 return captured
-            if type(field_rounding_target) is SettlementPlanRequest:
+            if type(field_rounding_target) in (SettlementPlanRequest, AdvanceSettlementRequest):
                 # Resolve optional related sources only after consumed numeric
                 # proofs exist, BEFORE all final callback/source/cleanup checks.
                 financial_extension.resolve_plan(connection, build_base_result(), observed_extension)
