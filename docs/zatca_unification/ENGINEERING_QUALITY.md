@@ -41,6 +41,16 @@ Keep reference fixtures and test evidence distinct from dead runtime code.
 
 ## Current performance work
 
+Increment196 removes repeated whole-invoice reconstruction during checked
+field-precision resolution while preserving the same rule and independently
+validating public APIs. It also preserves bounded installer diagnostics for
+failed NEW test-database setup. See
+[PRECISION_SOURCE_COST.md](PRECISION_SOURCE_COST.md). This remains isolated work,
+not installation or a waiver of performance/accounting acceptance gates.
+Controlled stage/field CPU measurements improved 48.2–49.9%, scoped Python peak
+allocations improved 23.9–27.6%, and one connected synthetic selection decreased
+from 124.98s to 73.33s. These are separate workloads, not production guarantees.
+
 Increment195 continues with shared source reconstruction for sibling rounding
 fields and one field-validation kernel. A controlled two-field stage benchmark
 used 48.5–49.2% less CPU and 44.8–46.0% lower scoped peak allocations. Each stage

@@ -14,7 +14,7 @@ from .calculation_child_cache import _precision, _MISSING, _state, _bucket, _slo
 from .calculation_rounding_access import RoundingAcquisition, SavedRoundingContext
 from .calculation_precision import FieldPrecisionResolution, _requires_currency_format, PARENT_CURRENCY_SCOPES
 from .calculation_defaults import _fold
-from .calculation_format_access import FormatAcquisition, SavedFieldCurrencyRead
+from .calculation_format_access import FormatAcquisition, SavedFieldCurrencyRead, _require_cached_field_currency
 from .calculation_owner_currency_access import OwnerCurrencyAcquisition
 from .child_field_currency import ABSENT
 from .financial_numeric_view import FIXED_TYPES, _native_cells
@@ -301,8 +301,9 @@ def _resolve_field(numeric, method, target, owner_document, cache, formats, curr
     if _target(supplied, schema, native.financial.doctype, native.financial.name, numeric.tables) != target:
         raise ValueError
     cell = next(cell for cell in _native_cells(native) if cell[:3] == target)
+    defaults = numeric.financial.context.settings.defaults
     needs_formats = _requires_currency_format(meta.get_field(name),
-        _fold(json.loads(numeric.financial.context.settings.defaults._payload)["rows"]), method.erp_major)
+        _fold(json.loads(defaults._payload)["rows"]), method.erp_major)
     supplied_formats, formats = formats, None
     if needs_formats:
         if type(supplied_formats) is not SavedFieldCurrencyRead:
@@ -312,10 +313,15 @@ def _resolve_field(numeric, method, target, owner_document, cache, formats, curr
         if formats != supplied_formats or formats.financial != numeric.financial:
             raise ValueError
         parentfield = None if group == "header" else group
-        precision = formats.resolve_precision(name, parentfield=parentfield)
+        if formats._field(name, parentfield) != doctype:
+            raise ValueError
+        # Numeric and format sources have already been reconstructed and
+        # matched above. Resolve the same independently validating precision
+        # rule without recursively rebuilding the invoice for this field.
+        precision = FieldPrecisionResolution(meta, name, defaults, method.erp_major, formats.formats.context)
         cached = _cache_slot(currency_cache, allow_null=True)
         if cached != ABSENT:
-            formats.require_field_currency_match(name, _validate_scalar(list(cached)), parentfield=parentfield)
+            _require_cached_field_currency(formats, _validate_scalar(list(cached)))
         if formats.company_currency is not None and cached == ABSENT:
             if type(company_cache) is not tuple or company_cache != ("str",formats.company_currency.currency):
                 raise ValueError
@@ -324,7 +330,7 @@ def _resolve_field(numeric, method, target, owner_document, cache, formats, curr
     else:
         if supplied_formats is not None or currency_cache is not None or company_cache is not None:
             raise ValueError
-        precision = numeric.financial.resolve_precision(doctype, name)
+        precision = FieldPrecisionResolution(meta, name, defaults, method.erp_major)
     _require_cache(cache, precision)
     result = round_field_value(_validate_scalar(cell[4]), precision=precision.precision,
         method=method.method, erp_major=method.erp_major)

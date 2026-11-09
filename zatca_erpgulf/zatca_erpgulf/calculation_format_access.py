@@ -29,6 +29,17 @@ class CalculationFormatAccessError(ArchiveSourceAccessError):
     """Static English internal code, without source/actor/cache disclosure."""
 
 
+def _require_cached_field_currency(source, cached):
+    """Compare a cache scalar after the caller checks source and field scope.
+
+    This pure check does not load, pin, populate or grant trust to a source.
+    Standalone callers reconstruct independently; the field-rounding kernel
+    uses its freshly reconstructed, scope-checked format source.
+    """
+    if type(cached) is not str or cached != source.formats.currency:
+        raise ValueError
+
+
 class FormatSourceRow(SavedSourceRow):
     """Exact related READ projection; Singleton has NO fabricated revision."""
 
@@ -206,7 +217,7 @@ class SavedFieldCurrencyRead:
             pinned = SavedFieldCurrencyRead(self.financial, self.related, self.formats, self.company_currency, self.owner_currency)
             if pinned != self or type(fieldname) is not str: raise ValueError
             pinned._field(fieldname, parentfield)
-            if type(cached) is not str or cached != pinned.formats.currency: raise ValueError
+            _require_cached_field_currency(pinned, cached)
         except Exception:
             invalid = True
         else:

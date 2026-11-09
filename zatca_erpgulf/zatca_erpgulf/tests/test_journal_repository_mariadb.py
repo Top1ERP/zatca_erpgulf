@@ -67,8 +67,18 @@ def isolated_server(tmp_path_factory):
     if len(str(socket).encode()) >= 100:
         pytest.fail("Private rehearsal socket path exceeds the conservative bound")
     install_arguments, arguments = guard.register_private_server(root, install_binary, server_binary)
-    with (root / "install.log").open("wb") as install_log:
-        subprocess.run(install_arguments, check=True, stdout=install_log, stderr=subprocess.STDOUT, timeout=30)
+    try:
+        with (root / "install.log").open("wb") as install_log:
+            subprocess.run(install_arguments, check=True, stdout=install_log, stderr=subprocess.STDOUT, timeout=30)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        # This log belongs only to the NEW guard-owned installer, never a site
+        # or running server. Preserve a bounded diagnostic before guard cleanup
+        # removes the scratch directory; a failed install still fails the test.
+        with (root / "install.log").open("rb") as install_log:
+            install_log.seek(0, 2)
+            install_log.seek(max(0, install_log.tell() - 4096))
+            diagnostic = install_log.read(4096).decode("utf-8", errors="replace")
+        pytest.fail("Private MariaDB installation failed. Owned installer log tail:\n" + diagnostic, pytrace=False)
     with (root / "server.log").open("wb") as server_log:
         process = subprocess.Popen(arguments, stdout=server_log, stderr=subprocess.STDOUT)
 

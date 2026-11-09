@@ -19,6 +19,13 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment196 resolves field precision directly from the already reconstructed
+numeric/format sources using the same validating precision constructor. Keep
+independent public API revalidation, field/currency scope and cache checks;
+share the cache scalar check instead of re-entering whole-source APIs inside
+the checked kernel. Add bounded owned-installer failure diagnostics to offline
+test infrastructure. See [PRECISION_SOURCE_COST.md](PRECISION_SOURCE_COST.md).
+
 Increment195 shares one reconstructed numeric/method source across sibling
 rounding fields and one numerical field kernel across standalone/grouped reads.
 Compare every supplied sibling against the freshly checked sources and its

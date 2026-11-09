@@ -137,11 +137,14 @@ def test_configured_rows_share_one_fresh_precision_resolution(defaults_operator,
     case = scenario(defaults_operator, monkeypatch)
     result = capture(case)
     calls = []
-    original = access.SavedCalculationFinancialRead.resolve_precision
-    def resolve(source, doctype, fieldname, **options):
-        calls.append((doctype, fieldname))
-        return original(source, doctype, fieldname, **options)
-    monkeypatch.setattr(access.SavedCalculationFinancialRead, "resolve_precision", resolve)
+    from zatca_erpgulf.zatca_erpgulf.calculation_precision import FieldPrecisionResolution
+    # Count the shared rule, not an adapter that checked header fields no longer
+    # need. Both the header and configured rows still resolve fresh precision.
+    original = FieldPrecisionResolution.__post_init__
+    def resolve(source):
+        calls.append((source.metadata.name, source.fieldname))
+        return original(source)
+    monkeypatch.setattr(FieldPrecisionResolution, "__post_init__", resolve)
     rebuilt = replace(result)
     assert rebuilt.row_precisions == result.row_precisions
     assert calls == [(case.invoice.doctype, "total_advance"), ("Sales Invoice Advance", "allocated_amount")]

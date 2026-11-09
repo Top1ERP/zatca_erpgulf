@@ -1,5 +1,34 @@
 # Implementation status — 2026-11-10
 
+## Latest supporting improvement — increment196
+
+Checked field precision now uses the same validating precision constructor
+directly after numeric/format source reconstruction. This avoids rebuilding the
+whole invoice again for each field. Standalone APIs still validate afresh;
+format field scope, cache ownership, exact values/hashes and all 25 capture
+method bodies remain. A pure cache scalar check is shared by both paths.
+
+Validation: 1,036 distinct cases passed (983 local, 53 private SQL), including 54
+new cases. The manifest has 166 local/57 private suites; only reviewed selections
+ran. These include ordinary and format-dependent Sales/POS parents/children,
+independent API revalidation, Arabic aggregate failure, actual15/pinned16 stage
+probes, advance precision and all connected/native stage scenarios.
+
+Controlled stage/field CPU cost decreased 48.2–49.9%; scoped Python peak
+allocations decreased 23.9–27.6%. One complete synthetic selection decreased
+from 124.98s to 73.33s (41.3%). These are specific offline workloads, not production
+latency, process RSS or throughput guarantees. The inspection remains expensive
+and off invoice-save/polling paths; installed15/16 and fiscal/rehearsal gates
+remain open.
+
+A failed NEW test-database bootstrap exposed missing installer diagnostics.
+The harness now preserves a bounded owned-log tail and still fails on error;
+local tests simulate failures without binaries/processes. The affected selection
+passed on fresh fixtures. The configured-row precision observer now counts the
+shared rule directly, retaining its header/row freshness expectation. No live
+source, settings, schema, data, Bench/workers or authority requests changed.
+See [PRECISION_SOURCE_COST.md](PRECISION_SOURCE_COST.md).
+
 ## Latest supporting improvement — increment195
 
 Grouped rounding fields now use one reconstructed numeric/method graph per
@@ -74,7 +103,7 @@ installed15/16 release gate. No live deployment or authority request occurred.
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and ninety-five bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and ninety-six bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
