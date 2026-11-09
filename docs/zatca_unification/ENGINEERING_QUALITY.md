@@ -41,6 +41,13 @@ Keep reference fixtures and test evidence distinct from dead runtime code.
 
 ## Current priorities after increment 193
 
+Increment194 delivers the first supporting improvement against this priority:
+shared captured-row composition removes redundant metadata reconstruction and
+one private document facade. A controlled component benchmark uses 27.7% less
+CPU; one selected connected synthetic test is 28.6% shorter. This does not close
+the invoice-save performance gate. See
+[METADATA_CAPTURE_COST.md](METADATA_CAPTURE_COST.md) for parity, scope and limits.
+
 The connected advance/settlement inspection now has 464 distinct passing cases
 in its reviewed validation set, including 11 new cases. Its repeated evidence
 reconstruction is still expensive. Those test-group durations are not invoice

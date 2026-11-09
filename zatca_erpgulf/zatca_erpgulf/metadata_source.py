@@ -20,7 +20,7 @@ from .financial_source_observation import (
 )
 from .metadata_reconciliation import (
     CAST_TYPES, EDITABLE, FRAMEWORK_VERSION, MAX_CUSTOM_FIELDS,
-    MAX_SETTERS, SETTER_FIELDS, FieldCustomizationMatch, reconcile_field_customizations,
+    MAX_SETTERS, CUSTOM_FIELDS, SETTER_FIELDS, FieldCustomizationMatch, _match_captured_rows,
 )
 from .source_metadata import (
     BASE_TYPES, PROPERTIES, SOURCE_FIELDS, PROFILE_FIELDS, PROFILE as APPLIED_PROFILE,
@@ -127,11 +127,16 @@ def _rows(doctype, group, records, *, preflight=False, profile=APPLIED_PROFILE):
         raise ValueError
 
 
-def _document(group, record):
-    """Narrow already-validated row facade for the existing shared matcher."""
-    values = {name: _validate_scalar(value) for name, value in record["header"]}
-    return SimpleNamespace(doctype=SPECS[group][0], name=record["name"],
-        get=lambda name: _validate_scalar(record["modified"]) if name == "modified" else values.get(name))
+def _customization_row(record):
+    """Project privately decoded SQL tags without an intermediate document.
+
+    Source membership, idx and is_virtual were already checked by _rows. They
+    stay in the SQL observation, while the match retains its original narrower
+    CUSTOM_FIELDS wire shape. The match constructor validates this projection.
+    """
+    values = dict(record["header"])
+    return dict(name=record["name"], modified=record["modified"],
+        header=[[name, values[name]] for name in CUSTOM_FIELDS])
 
 
 def _baseline(doctype, type_values, records, *, profile=APPLIED_PROFILE):
@@ -174,9 +179,9 @@ class SelectedMetadataRows:
             for group in PREFLIGHT:
                 _rows(doctype, group, body[group], profile=applied.profile)
             base = _baseline(doctype, type_values, body["docfields"], profile=applied.profile)
-            matched = reconcile_field_customizations(base, applied,
-                custom_fields=[_document("custom_fields", row) for row in body["custom_fields"]],
-                property_setters=[_document("property_setters", row) for row in body["property_setters"]])
+            matched = _match_captured_rows(base, applied,
+                custom_fields=[_customization_row(row) for row in body["custom_fields"]],
+                property_setters=body["property_setters"])
         except Exception:
             invalid = True
         else:

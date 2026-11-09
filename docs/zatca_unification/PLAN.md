@@ -19,6 +19,13 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment194 reduces repeated metadata reconstruction by sharing one checked
+match factory between ordinary document capture and direct captured SQL tags.
+Retain source-only column checks, the full match constructor, pre-getter guards
+and exact wire/digest behavior. Remove only the unused private document facade;
+measure the component and connected inspection separately. See
+[METADATA_CAPTURE_COST.md](METADATA_CAPTURE_COST.md).
+
 Supporting engineering improvements are required alongside functional work:
 performance, shared implementations and safe cleanup, readable English source
 documentation, aggregated bilingual messages, effective settings/aliases,

@@ -1,5 +1,25 @@
 # Implementation status — 2026-11-09
 
+## Latest supporting improvement — increment194
+
+SQL metadata capture now sends its checked raw tags to the same match factory
+used by ordinary document capture. The full match constructor, source-only
+column checks, public pre-getter validation and all 25 capture method bodies
+remain. One private document facade was removed after checking its callers.
+
+Validation: 2,650 distinct cases passed (2,600 local, 50 private SQL), including
+162 new cases. Source/match bytes and digests match the former bridge across
+22 default-profile types and all 47 declared metadata profile/DocType pairs.
+The manifest now has 163 local/57 private suites; only reviewed selections ran.
+
+A controlled metadata reconstruction benchmark used 27.7% less CPU. One complete
+synthetic ERP15 chain test decreased from 295.44s to 211.00s (28.6%). These are
+specific offline workloads, not production latency or throughput. The connected
+inspection remains expensive; further reduction is required before invoice-save
+integration. Installed15/16, full accounting/XML and rehearsal gates remain open.
+No live application change or authority request occurred. See
+[METADATA_CAPTURE_COST.md](METADATA_CAPTURE_COST.md) for evidence and limitations.
+
 ## Scope clarification: supporting improvements are required
 
 The user explicitly includes supporting engineering improvements in completion.
@@ -31,7 +51,7 @@ installed15/16 release gate. No live deployment or authority request occurred.
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and ninety-three bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and ninety-four bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,

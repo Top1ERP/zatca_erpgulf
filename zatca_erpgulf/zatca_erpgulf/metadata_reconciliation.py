@@ -152,6 +152,22 @@ def _capture_row(document,doctype,fields):
     return dict(name=name,modified=modified,header=[[key,_scalar(document.get(key))] for key in fields])
 
 
+def _match_captured_rows(base, applied, *, custom_fields, property_setters):
+    """Build the same checked match from already captured scalar-tagged rows.
+
+    Both callers retain their acquisition checks: ordinary document capture
+    validates before reading getters; SQL capture validates its private raw
+    rows before projecting them. The constructor still independently pins both
+    declarations and validates every row, cast, bound and declared effect.
+    No cache, prevalidated flag or alternative validation path is introduced.
+    """
+    return FieldCustomizationMatch(base, applied, _canonical(dict(
+        profile=PROFILE, framework_version=FRAMEWORK_VERSION,
+        base_sha256=base.sha256, applied_sha256=applied.sha256,
+        custom_fields=sorted(custom_fields, key=lambda row: row["name"]),
+        property_setters=sorted(property_setters, key=lambda row: row["name"]))))
+
+
 def reconcile_field_customizations(base,applied,*,custom_fields,property_setters):
     """Require complete explicit baseline and raw-row declarations for ONE type.
 
@@ -177,10 +193,7 @@ def reconcile_field_customizations(base,applied,*,custom_fields,property_setters
                 or document.get("property") not in EDITABLE or document.get("property_type") not in CAST_TYPES):
                 raise ValueError
             setters.append(_capture_row(document,"Property Setter",SETTER_FIELDS))
-        result=FieldCustomizationMatch(base,applied,_canonical(dict(profile=PROFILE,framework_version=FRAMEWORK_VERSION,
-            base_sha256=base.sha256,applied_sha256=applied.sha256,
-            custom_fields=sorted(captured,key=lambda row:row["name"]),
-            property_setters=sorted(setters,key=lambda row:row["name"]))))
+        result = _match_captured_rows(base, applied, custom_fields=captured, property_setters=setters)
     except Exception:
         invalid=True
     else:

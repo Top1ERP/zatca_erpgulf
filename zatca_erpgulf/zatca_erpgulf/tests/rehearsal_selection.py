@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "metadata_capture_composition",
     "metadata_encoding",
     "settlement_shared_graph",
     "settlement_stage_projection",
