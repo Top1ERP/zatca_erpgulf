@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Combined batch185–188 adds a separate saved-numeric two-call inspection with
+automatic lazy POS dependencies on the existing owned capture. Share the pending
+balance primitive with redistribution, authorize each related dependency before
+its provider/SQL, retain early/unused-source exits and complete deferred default
+consumption in the second call. All final source/permission/cleanup checks remain.
+No public financial override or actual append identity is accepted/generated.
+Existing capture methods and runtime registration remain unchanged. See
+[SETTLEMENT_PLAN.md](SETTLEMENT_PLAN.md).
+
 Combined batch182–184 binds one write-off/outstanding re-entry to the preceding
 in-memory prefix, automatic flag and payment effects. Reuse the original paid
 kernel for processed/replaced rows, preserve ordinary table-clear effects, and

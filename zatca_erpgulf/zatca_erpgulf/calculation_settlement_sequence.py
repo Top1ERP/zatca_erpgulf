@@ -47,6 +47,7 @@ class OutstandingSequence:
     return_paid: PosReturnPaidCalculation | None = field(repr=False)
     prefix: OutstandingPrefixCalculation | None = field(default=None, repr=False)
     reentry: "WriteOffReentry | None" = field(default=None, repr=False)
+    pos_deferred: bool = field(default=False, repr=False)
     calls: tuple = field(init=False)
 
     def __post_init__(self):
@@ -54,6 +55,8 @@ class OutstandingSequence:
             if type(self.source) is not SavedSettlementRead or type(self.entry) is not GuardedOutstandingEntry:
                 raise ValueError
             source = self.source.pin()
+            if type(self.pos_deferred) is not bool or self.pos_deferred and self.reentry is not None:
+                raise ValueError
             reentry = None
             if self.reentry is not None:
                 if type(self.reentry) is not WriteOffReentry:
@@ -76,7 +79,7 @@ class OutstandingSequence:
             payable = change = outstanding = tail = return_paid = None
             prefix = None
             if entry.decision.skip_balance:
-                if any(value is not None for value in (self.payable, self.change, self.outstanding, self.tail, self.return_paid, self.prefix, source.pos)):
+                if self.pos_deferred or any(value is not None for value in (self.payable, self.change, self.outstanding, self.tail, self.return_paid, self.prefix, source.pos)):
                     raise ValueError
             else:
                 if (type(self.payable) is not PayableAmountCalculation or type(self.outstanding) is not OutstandingAmountCalculation
@@ -172,8 +175,11 @@ class OutstandingSequence:
                     raise ValueError
                 # A read consumed by the first call need not be queried again.
                 # A newly needed source is still mandatory; never fabricate it.
+                if self.pos_deferred and (needed is not None or source.pos is None or source.pos.lookup.kind != "default"
+                        or not tail.redistributes or tail.automatic_after != 1 or prefix is None):
+                    raise ValueError
                 if ((needed is not None and source.pos is None)
-                        or needed is None and source.pos is not None and reentry is None):
+                        or needed is None and source.pos is not None and reentry is None and not self.pos_deferred):
                     raise ValueError
                 calls.extend(tail.calls)
         except Exception:
@@ -188,7 +194,7 @@ class OutstandingSequence:
             object.__setattr__(self, name, value)
 
     def pin(self):
-        result = OutstandingSequence(self.source, self.entry, self.payable, self.change, self.outstanding, self.tail, self.return_paid, self.prefix, self.reentry)
+        result = OutstandingSequence(self.source, self.entry, self.payable, self.change, self.outstanding, self.tail, self.return_paid, self.prefix, self.reentry, self.pos_deferred)
         if result != self or type(self.calls) is not tuple or any(type(value) is not str for value in self.calls):
             raise SettlementAccessError("settlement_sequence")
         return result

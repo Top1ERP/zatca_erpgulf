@@ -164,6 +164,35 @@ def _require_append(actual, expected):
         raise ValueError
 
 
+def default_mop_balance(currency, party_currency, amount_to_pay, rows):
+    """Shared unrounded row sum/pending decision BEFORE a lazy default read.
+
+    Match the primary's units and integer empty sum; loyalty is not a row.
+    Reject malformed/duplicate/NULL-selected rows before any source lookup.
+    """
+    try:
+        for name in (currency, party_currency):
+            if type(name) is not str or not name: raise ValueError
+            _scalar(name)
+        _input_tag(amount_to_pay, nullable=False)
+        if type(rows) is not tuple or len(rows) > MAX_ROWS: raise ValueError
+        total, names = 0, set()
+        for row in rows:
+            if type(row) is not tuple or len(row) != 3 or type(row[0]) is not str or not row[0] or row[0] in names: raise ValueError
+            _name(row[0]);names.add(row[0])
+            _input_tag(row[1], nullable=True);_input_tag(row[2], nullable=True)
+            total += row[1] if party_currency == currency else row[2]
+        _input_tag(total, nullable=False)
+        pending = amount_to_pay - total
+        _input_tag(pending, nullable=False)
+    except Exception:
+        invalid = True
+    else:
+        invalid = False
+    if invalid: raise PosAdjustmentError("default_mop_balance")
+    return total, pending
+
+
 @dataclass(frozen=True, repr=False)
 class DefaultMopRedistributionCalculation:
     """Plan exact row replacement in party currency, without FX correction.
@@ -185,20 +214,10 @@ class DefaultMopRedistributionCalculation:
 
     def __post_init__(self):
         try:
-            for name in (self.currency,self.party_currency):
-                if type(name) is not str or not name:raise ValueError
-                _scalar(name)
-            _link(self.pos_profile);_input_tag(self.amount_to_pay,nullable=False)
-            if type(self.rows) is not tuple or len(self.rows)>MAX_ROWS or type(self.lookup) is not DefaultMopObservation:
-                raise ValueError
-            lookup=self.lookup.pin();total=0;names=set()
-            for row in self.rows:
-                if type(row) is not tuple or len(row)!=3 or type(row[0]) is not str or not row[0] or row[0] in names:raise ValueError
-                _name(row[0]);names.add(row[0])
-                _input_tag(row[1],nullable=True);_input_tag(row[2],nullable=True)
-                total+=row[1] if self.party_currency==self.currency else row[2]
-            _input_tag(total,nullable=False)
-            pending=self.amount_to_pay-total;_input_tag(pending,nullable=False)
+            _link(self.pos_profile)
+            if type(self.lookup) is not DefaultMopObservation: raise ValueError
+            lookup=self.lookup.pin()
+            total,pending=default_mop_balance(self.currency,self.party_currency,self.amount_to_pay,self.rows)
             queried=pending>0
             if lookup.queried!=queried:raise ValueError
             replaces=bool(queried and lookup.found)

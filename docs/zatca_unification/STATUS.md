@@ -2,7 +2,7 @@
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and eighty-four bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and eighty-eight bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
@@ -4730,6 +4730,65 @@ lookup API/cache provenance, missing-profile policy, Mode/account/company/
 currency/return eligibility, installed15/16 lifecycle and GL/VAT/XML/SDK gates
 remain before separately approved fictional-Company rehearsal. This checkpoint
 changes no live app/site/config/schema/data, worker/Bench or authority request.
+
+## Combined batch185–188: lazy saved-numeric two-call source planning
+
+- **185 — shared decision kernel:** extract the existing unrounded payment-row
+  sum/pending computation into `default_mop_balance`, used by redistribution and
+  the new planner. Preserve integer empty sums, selected currency, NULL-selected
+  failure, unique bounded rows and no extra FX/rounding/loyalty allocation.
+- **186 — separate inspection:** add `capture_settlement_plan_context`, reading
+  only native `NUMERIC_FIXED` inputs, with bounded explicit hypothetical append
+  labels instead of amount/flag overrides or allocated child identities. Reuse
+  all existing calculation kernels, guards and bounded write-off re-entry.
+  All23 preceding capture method ASTs remain unchanged; there are24 now. The
+  private base-result composition was extracted without changing its layering.
+- **187 — conditional same-owner dependency:** resolve POS master/table/child/
+  field READ before that dependency's provider/native SQL on the existing owned
+  transaction. Numeric/default proof construction precedes lazy related READ.
+  Unused related permissions are not required. Final callbacks, financial and
+  related source rechecks and rollback/close ownership remain unchanged. An
+  explicit partial first-call deferral is allowed only when the completed plan
+  proves actual second-call consumption; the old default still refuses unused
+  sources. No second factory/capture or saved-amount refresh is introduced.
+- **188 — matrix and negative evidence:** cover first-unused/later-needed and
+  first-used/later-unused default sources, no queries, repeated limit use,
+  ordinary clearing, internal exit and NULL-disabled write-off. Check actual15/
+  pinned16 method/settings variants, both quiet permission signatures and a late
+  callback changing another native source plus close-time permission drift.
+
+See [SETTLEMENT_PLAN.md](SETTLEMENT_PLAN.md). Source/append/controller provenance,
+broader accounting/currency/advance eligibility, reconstruction performance,
+concurrency, installed15/16 lifecycle and GL/VAT/XML/SDK acceptance remain gates
+before separately approved isolated fictional-Company rehearsal. This is still
+uninstalled comparison code, not a new invoice-save or authority-send path.
+
+Distinct affected verification passed **805 cases: 790 local + 15 private SQL**,
+including **15 new cases**. Existing defaults/financial acquisition passed
+**380 in45.22s**. Existing POS primary comparisons passed **407 in1.41s** after
+the shared sum extraction. The manifest selection passed **3 in0.06s** (78
+deselected). It now lists161 local and55 private SQL suites. Changed/new Python
+parses, whitespace checks pass, all23 old capture ASTs match, and eager relative
+imports are acyclic across74 reachable modules (excluding type-only imports).
+
+All new native evidence used NEW guard-owned TCP-disabled SQL instances. The
+critical late-default primary16 case passed **1 in295.48s (4m55s)** with11
+deselected. First-used/default and repeated-limit primary15 cases passed **2 in
+438.38s (7m18s)** with10 deselected. Unused/ordinary/internal/inactive cases passed
+**4 in580.85s (9m40s)** with8 deselected. Lazy related denials passed **3 in159.48s
+(2m39s)** under the15 quiet signature (9 deselected) and **3 in139.26s (2m19s)**
+under16 (12 deselected). Final provider/close drift cases passed **2 in356.87s
+(5m56s)** with10 deselected, including independent rollback visibility. The
+earlier selections preceded adding the three16-signature cases; inner asserts
+or observation phases do not add pytest counts. The final inactive receipt
+reconstruction/tampered-lookup check repeated **1 in189.04s (3m09s)** with14
+deselected and adds no distinct case. These private rehearsal times
+are not installed invoice latency or release-performance qualification.
+
+No app/site/data/configuration, migration, Bench/worker or authority change was
+performed. Read-only live inspection retained `ba51f25` and the address hotfix
+hash. The pre-existing live `customer_zatca_tooltips.js` modification remains
+outside this DEV batch and was preserved; no live-clean claim is made.
 
 ## Combined batch182–184: bounded write-off/outstanding re-entry
 

@@ -44,9 +44,10 @@ previously continuing guard. No first/last invoice, ICV, UUID or PIH is changed.
 An already consumed POS read may be unused in the second call. If a required
 second-call read was never captured, supplied default observations cannot replace
 that missing source. In particular, a first return can skip the default query,
-then require it after write-off changes the amount to pay. That path currently
-requires review. The two-pass acquisition planner must supply that source on
-the same owned transaction before this group can be adopted as a whole service.
+then require it after write-off changes the amount to pay. Batch185–188 supplies
+that source on the same owned transaction in a separate saved-numeric inspection;
+the smaller unplanned operation still requires review on a missing source. See
+[SETTLEMENT_PLAN.md](SETTLEMENT_PLAN.md) for scope and remaining adoption gates.
 
 ## 184: unchanged primary bodies on continuous synthetic document state
 
@@ -72,8 +73,8 @@ Exact executed selections and counts are recorded in [STATUS.md](STATUS.md).
 
 ## Remaining gates
 
-Complete two-pass conditional POS acquisition, including first-unused/later-needed
-default sources on one owner. Test the expanded branch/version/rounding/currency
+Two-pass conditional POS acquisition is now compared in a separate saved-numeric
+inspection (batch185–188). Extend its branch/version/rounding/currency
 matrix, profile repeated evidence reconstruction and do not infer invoice-save
 latency from private rehearsal timings. Historical advance allocation, payment
 account/return/company eligibility, cached/provider provenance, concurrency,

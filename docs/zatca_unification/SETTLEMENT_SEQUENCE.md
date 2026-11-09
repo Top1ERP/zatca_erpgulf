@@ -1,4 +1,4 @@
-# Co-owned Sales outstanding/POS/write-off comparisons — batch177–184
+# Co-owned Sales outstanding/POS/write-off comparisons — batch177–188
 
 This checkpoint joins the earlier paid/guard, receivable and consumed POS source
 components. It is an internal offline inspection/comparison, not an installed
@@ -130,9 +130,10 @@ selection. No controller is installed or invoked on a saved application invoice.
 No controller, RPC, hook, schema, cache, invoice/counter, Bench/worker or authority
 request is enabled. Batch182–184 now compares one second outstanding call after
 write-off, retaining changed state and derived payment identities on the original
-source. It preserves the single-call order and does not guarantee zero. Complete
-two-pass POS acquisition for newly required default reads and expand the primary
-matrix before whole settlement adoption. See [WRITE_OFF_REENTRY.md](WRITE_OFF_REENTRY.md).
+source. It preserves the single-call order and does not guarantee zero. Batch185–188
+adds a separate saved-numeric plan with lazy two-pass POS acquisition; expand its
+primary matrix before whole settlement adoption. See [WRITE_OFF_REENTRY.md](WRITE_OFF_REENTRY.md)
+and [SETTLEMENT_PLAN.md](SETTLEMENT_PLAN.md).
 Historical advance aggregation, missing-profile policy and Mode/account/company/
 currency/return eligibility, audited provider/cache/API/committed-source provenance, concurrency,
 installed15/16 lifecycle, GL/VAT/XML/SDK, performance and separately approved

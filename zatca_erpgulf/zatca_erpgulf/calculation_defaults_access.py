@@ -40,6 +40,7 @@ from .calculation_outstanding_guard import OutstandingGuardRequest, OutstandingG
 from .calculation_guarded_payments import GuardedPaymentRequest, GuardedPaymentAcquisition
 from .calculation_pos_profile_access import PosProfileRequest, PosProfileAcquisition
 from .calculation_settlement_access import SettlementRequest, SettlementAcquisition
+from .calculation_settlement_plan import SettlementPlanRequest, SettlementPlanAcquisition
 from .credential_bundle_access import CredentialStorageScope
 from . import financial_source_observation as financial
 from .financial_source_sql import (
@@ -554,6 +555,15 @@ class SavedCalculationDefaultsService:
         return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
             include_financial=True, erp_major=erp_major, field_rounding_target=SettlementRequest(pos_lookup))
 
+    def capture_settlement_plan_context(self, invoice_name, *, erp_major, append_names=(None, None), doctype="Sales Invoice"):
+        """Inspect saved-numeric two-call effects with lazy same-owner POS reads.
+
+        Append names are explicit hypothetical labels only. No actual child or
+        invoice is created, no controller runs and no transport is registered.
+        """
+        return self._capture_display(invoice_name, doctype=doctype, include_metadata=True,
+            include_financial=True, erp_major=erp_major, field_rounding_target=SettlementPlanRequest(append_names))
+
     def _capture_display(self, invoice_name, *, doctype, include_metadata,
             include_financial=False, include_formats=False, format_scope="invoice", erp_major=None,
             child_table=_NO_CHILD, child_field=None, include_child_cache=False,
@@ -638,8 +648,9 @@ class SavedCalculationDefaultsService:
                     dependencies = dict(metadata_reader=self._rounding_metadata,cache_reader=self._rounding_cache,
                         format_metadata=self._format_metadata, format_cache=self._format_cache,
                         owner_metadata=self._owner_currency_metadata, company_cache=self._company_currency_cache)
-                    if type(field_rounding_target) is SettlementRequest:
-                        financial_extension = SettlementAcquisition(policy,actor,invoice_name,doctype,erp_major,
+                    if type(field_rounding_target) in (SettlementRequest, SettlementPlanRequest):
+                        acquisition = SettlementPlanAcquisition if type(field_rounding_target) is SettlementPlanRequest else SettlementAcquisition
+                        financial_extension = acquisition(policy,actor,invoice_name,doctype,erp_major,
                             field_rounding_target, controls_metadata=self._payment_controls_metadata,
                             guard_metadata=self._outstanding_guard_metadata,write_off_metadata=self._write_off_metadata,
                             invoice_rounding_metadata=self._invoice_rounding_metadata,pos_metadata=self._pos_profile_metadata,
@@ -776,12 +787,15 @@ class SavedCalculationDefaultsService:
             if field_rounding_target is not None:
                 observed_extension = financial_extension.complete_defaults(connection, observed_extension,
                     observed, context_metadata[0])
-            def build_result():
+            def build_base_result():
                 captured = SavedCalculationDefaultsRead(policy._scope, actor[1], rows, observed)
                 if include_metadata:
                     captured = SavedCalculationContextRead(captured, context_metadata)
                 if include_financial:
                     captured = SavedCalculationFinancialRead(captured, observed_financial)
+                return captured
+            def build_result():
+                captured = build_base_result()
                 if include_formats and children is None:
                     captured = SavedInvoiceCurrencyRead(captured, formats.rows, observed_formats, formats.company_source)
                 if children is not None:
@@ -809,6 +823,10 @@ class SavedCalculationDefaultsService:
                     else:
                         captured = SavedInvoiceRoundingContext(captured, observed_extension, financial_extension.tables, financial_extension.checks)
                 return captured
+            if type(field_rounding_target) is SettlementPlanRequest:
+                # Resolve optional related sources only after consumed numeric
+                # proofs exist, BEFORE all final callback/source/cleanup checks.
+                financial_extension.resolve_plan(connection, build_base_result(), observed_extension)
             if include_child_cache:
                 cache_read = observe_child_caches(build_result(), children.field_source)
             recheck()
