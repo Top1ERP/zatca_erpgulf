@@ -1,0 +1,64 @@
+# Engineering quality as part of completion
+
+The user explicitly requires supporting improvements alongside functional
+development. They are part of the release scope, not optional work deferred
+until after the fictional-client rehearsal. Apply the same development-only
+and no-authority-request restrictions as [PLAN.md](PLAN.md).
+
+## Required work and evidence
+
+| Area | Work included | Evidence required before completion |
+| --- | --- | --- |
+| Performance | Reduce repeated snapshot reconstruction and validation; avoid unused dependency reads and unnecessary database queries; keep expensive work off save and polling paths | Before/after profiles on identical fixtures, query counts, and measured time/CPU/memory where relevant; preserve numeric, byte and access invariants |
+| Shared implementation | Consolidate calculations, settings resolution, XML, signing and QR behind explicit adapters | Caller/dependency map, parity checks, and documented compatibility wrappers; no duplicated business rule hidden in an alternate path |
+| Unused code and files | Retire superseded implementations and obsolete imports/helpers after runtime adoption | Check Python callers, dotted RPC paths, hooks, patches, fixtures, DocTypes, JavaScript, templates and supported integrations; a text search alone cannot prove a file unused |
+| Readability and maintenance | Clear names and ownership; English docstrings/comments explaining invariants and non-obvious decisions; a current entry-point map | A reviewer can follow each supported flow from entry point to output without reconstructing the conversation |
+| Messages and translation | One comprehensive user-facing result per operation; Arabic display for Arabic users and English display for English users; English structured internal diagnostics | Success, warning and failure checks in both UI languages; stable machine codes and original authority payloads remain intact; no nested popup cascade |
+| Settings and aliases | One explicit precedence policy for Company, device/POS and linked-company sources; distinguish absent, NULL, zero and false; detect conflicts | A field/alias and settings matrix covering Phase 1/2 and each purpose; no implicit credential or company substitution |
+| Background work and retries | Clear operation state, useful progress, bounded polling and deterministic retry identity; prevent duplicate scheduling | Offline duplicate/concurrency and recovery cases; measure polling/query load instead of choosing an arbitrary delay |
+| Compatibility | Preserve supported public entry points and data while consolidating internals; support the reviewed ERPNext/Frappe 15/16 matrices | Pinned-source comparisons plus fresh-install, upgrade and installed-runtime evidence on separately approved isolated benches |
+| Diagnostics and recovery | Actionable aggregated messages, useful English logs and explicit ownership of artifacts/transactions | No key/token leakage, unchanged accepted artifacts, tested cleanup/recovery, and a documented rollback procedure |
+| Documentation and delivery | Keep architecture, settings, test scope and remaining limitations aligned with the implementation | Reviewable DEV commits, accurate test counts, current acceptance checklist and no unsupported readiness or performance claim |
+
+Do not remove a live/public entry point merely because its replacement passes
+isolated tests. Use a small compatibility wrapper where callers must be
+preserved, and retire it only after its supported dependencies are accounted for.
+Keep reference fixtures and test evidence distinct from dead runtime code.
+
+## How each development bundle closes
+
+1. Identify the affected functional paths and applicable quality rows above.
+2. Implement the feature/fix and its supporting cleanup together, using shared
+   logic rather than adding another parallel implementation.
+3. Run meaningful affected regressions. Profile changes that claim better
+   performance under comparable conditions; documentation-only changes do not
+   require an unrelated application test run.
+4. Record what improved, what was actually verified, and what remains open.
+   A bundle may be complete while a release gate remains open; state both.
+5. Before the fictional-client rehearsal, review every row and the functional
+   acceptance matrix in [PLAN.md](PLAN.md). Essential quality work must not be
+   silently excluded from the release decision.
+
+## Current priorities after increment 193
+
+The connected advance/settlement inspection now has 464 distinct passing cases
+in its reviewed validation set, including 11 new cases. Its repeated evidence
+reconstruction is still expensive. Those test-group durations are not invoice
+latency measurements. The earlier bounded metadata improvement does not close
+the performance gate for the combined pipeline.
+
+The next implementation priority is to profile and reduce this reconstruction
+cost while preserving source ownership, exact numeric types/rounding, metadata
+bytes and late permission/source checks. Do this before putting the inspection
+on an actual invoice-save or polling path. Avoid a global cache or an unchecked
+validation bypass as a shortcut.
+
+Alongside that work, maintain the shared caller map and identify which legacy
+paths can become compatibility wrappers when runtime consolidation is ready.
+Then check aggregated bilingual output and the effective settings/alias matrix
+at each adopted boundary. File removal follows verified caller migration; no
+unused-file count or complete de-duplication is claimed yet.
+
+Full GL/VAT/XML reconciliation, installed 15/16 runtime acceptance and the other
+functional gates remain open. No live installation, worker restart, migration,
+working-site data change or authority request is authorized by this plan update.

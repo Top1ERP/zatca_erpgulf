@@ -1,5 +1,16 @@
 # Implementation status — 2026-11-09
 
+## Scope clarification: supporting improvements are required
+
+The user explicitly includes supporting engineering improvements in completion.
+[ENGINEERING_QUALITY.md](ENGINEERING_QUALITY.md) now defines required work and
+evidence for performance, de-duplication and safe removal, readability, bilingual
+aggregated messages, settings/aliases, background/retries, compatibility and
+maintenance. These remain part of development before fictional-client
+acceptance. This documentation update does not claim a new runtime improvement
+or add to the 464-test validation count. Performance of the connected inspection
+is the next implementation priority.
+
 ## Latest connected arithmetic bundle — increment193
 
 The ten-step development bundle now composes saved advance aggregation, ceiling,

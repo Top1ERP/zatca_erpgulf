@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Supporting engineering improvements are required alongside functional work:
+performance, shared implementations and safe cleanup, readable English source
+documentation, aggregated bilingual messages, effective settings/aliases,
+background/retry behavior, compatibility and maintainability. Track their
+evidence and release criteria in [ENGINEERING_QUALITY.md](ENGINEERING_QUALITY.md).
+They are included before fictional-client acceptance, not an optional phase
+after functional development. The immediate priority is reducing the connected
+inspection's reconstruction cost before invoice-save integration.
+
 Increment193 connects saved advance aggregation, the old-write-off ceiling,
 conditional reset, outstanding and bounded write-off re-entry on one owned
 source. Reuse the row-precision lifecycle and existing arithmetic kernels;
