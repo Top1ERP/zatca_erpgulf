@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "signed_xml_pipeline",
     "private_database_diagnostics",
     "rounding_precision_sources",
     "rounding_stage_batch",

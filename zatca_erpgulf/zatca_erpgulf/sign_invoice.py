@@ -19,6 +19,9 @@ from datetime import datetime, timezone
 from lxml import etree
 from frappe import _
 import frappe
+from zatca_erpgulf.zatca_erpgulf.signed_xml_pipeline import (
+    SigningTools, sign_invoice_xml, encode_qr_payload,
+)
 from zatca_erpgulf.zatca_erpgulf.compliance_dispatch import (
     dispatch_generator_compliance, normalize_generator_compliance_type,
 )
@@ -926,48 +929,14 @@ def zatca_call(
                 invoice = item_data_with_template(invoice, sales_invoice_doc)
 
         file_content=xml_structuring(invoice)
-        # try:
-        #     with open(
-        #         f"{frappe.local.site}/private/files/finalzatcaxml_{invoice_number}.xml",
-        #         "r",
-        #         encoding="utf-8",
-        #     ) as file:
-        #         file_content = file.read()
-        # except FileNotFoundError:
-        #     frappe.throw("XML file not found")
-        tag_removed_xml = removetags(file_content)
-        canonicalized_xml = canonicalize_xml(tag_removed_xml)
-        hash1, encoded_hash = getinvoicehash(canonicalized_xml)
-        encoded_signature = digital_signature(hash1, company_abbr, source_doc)
-        issuer_name, serial_number = extract_certificate_details(
-            company_abbr, source_doc
-        )
-        encoded_certificate_hash = certificate_hash(company_abbr, source_doc)
-        modified_xml_string,namespaces, signing_time = signxml_modify(company_abbr,file_content,source_doc)
-        signed_properties_base64 = generate_signed_properties_hash(
-            signing_time,
-            issuer_name,
-            serial_number,
-            encoded_certificate_hash,
-        )
-        final_xml_string=populate_the_ubl_extensions_output(
-            modified_xml_string,
-            encoded_signature,
-            namespaces,
-            signed_properties_base64,
-            encoded_hash,
-            company_abbr,
-            source_doc,
-        )
-        tlv_data = generate_tlv_xml(final_xml_string,company_abbr, source_doc)
 
-        tagsbufsarray = []
-        for tag_num, tag_value in tlv_data.items():
-            tagsbufsarray.append(get_tlv_for_value(tag_num, tag_value))
-
-        qrcodebuf = b"".join(tagsbufsarray)
-        qrcodeb64 = base64.b64encode(qrcodebuf).decode("utf-8")
-        updated_xml_string=update_qr_toxml(final_xml_string,qrcodeb64, company_abbr)
+        signed_xml = sign_invoice_xml(
+            file_content, company_abbr, source_doc,
+            tools=SigningTools.from_namespace(globals()),
+        )
+        encoded_hash = signed_xml.encoded_hash
+        qrcodeb64 = signed_xml.qr_payload
+        updated_xml_string = signed_xml.xml
         signed_xmlfile_name = structuring_signedxml(invoice_number,updated_xml_string)
         # Example usage
         # file_path = generate_invoice_pdf(
@@ -1115,47 +1084,14 @@ def zatca_call_compliance(
             item_data_with_template(invoice, sales_invoice_doc)
         # Generate and process the XML data
         file_content=xml_structuring(invoice)
-        # with open(
-        #     f"{frappe.local.site}/private/files/finalzatcaxml_{invoice_number}.xml",
-        #     "r",
-        #     encoding="utf-8",
-        # ) as file:
-        #     file_content = file.read()
 
-        tag_removed_xml = removetags(file_content)
-        canonicalized_xml = canonicalize_xml(tag_removed_xml)
-        hash1, encoded_hash = getinvoicehash(canonicalized_xml)
-        encoded_signature = digital_signature(hash1, company_abbr, source_doc)
-        issuer_name, serial_number = extract_certificate_details(
-            company_abbr, source_doc
+        signed_xml = sign_invoice_xml(
+            file_content, company_abbr, source_doc,
+            tools=SigningTools.from_namespace(globals()),
         )
-        encoded_certificate_hash = certificate_hash(company_abbr, source_doc)
-        modified_xml_string,namespaces, signing_time = signxml_modify(company_abbr,file_content, source_doc)
-        signed_properties_base64 = generate_signed_properties_hash(
-            signing_time,
-            issuer_name,
-            serial_number,
-            encoded_certificate_hash,
-        )
-        final_xml_string = populate_the_ubl_extensions_output(
-            modified_xml_string,
-            encoded_signature,
-            namespaces,
-            signed_properties_base64,
-            encoded_hash,
-            company_abbr,
-            source_doc,
-        )
-        # Generate the TLV data and QR code
-        tlv_data = generate_tlv_xml(final_xml_string,company_abbr, source_doc)
-        tagsbufsarray = []
-        for tag_num, tag_value in tlv_data.items():
-            tagsbufsarray.append(get_tlv_for_value(tag_num, tag_value))
-
-        qrcodebuf = b"".join(tagsbufsarray)
-        qrcodeb64 = base64.b64encode(qrcodebuf).decode("utf-8")
-
-        updated_xml_string=update_qr_toxml(final_xml_string,qrcodeb64,company_abbr)
+        encoded_hash = signed_xml.encoded_hash
+        qrcodeb64 = signed_xml.qr_payload
+        updated_xml_string = signed_xml.xml
         # Use the established formatter, but never write the live invoice's
         # submission filename. The sample disappears even when the API raises.
         with temporary_compliance_xml(format_zatca_signed_xml(updated_xml_string)) as sample_path:
@@ -2335,9 +2271,7 @@ def _prepare_signed_onboarding_document(company_doc, validation_type):
         if verified_encoded_hash != encoded_hash:
             frappe.throw(_("Unable to stabilize the ZATCA invoice hash for the onboarding document."))
     tlv_data = generate_tlv_xml(final_xml_string, company_doc.abbr, source_doc)
-    qr_payload = base64.b64encode(
-        b"".join(get_tlv_for_value(tag, value) for tag, value in tlv_data.items())
-    ).decode()
+    qr_payload = encode_qr_payload(tlv_data, get_tlv_for_value)
     final_xml_string = update_qr_toxml(final_xml_string, qr_payload, company_doc.abbr)
     # Keep the onboarding output identical to the formatting used by the
     # production submission path; SignedProperties hashing includes it.

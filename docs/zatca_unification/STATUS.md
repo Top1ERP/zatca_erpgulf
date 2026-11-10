@@ -1,5 +1,26 @@
 # Implementation status — 2026-11-10
 
+## Latest runtime consolidation — increment197
+
+Ten repeated signing/QR sequences now use one in-memory implementation across
+ordinary Sales/POS, foreground/background without-XML, invoice Compliance and
+Debug. Automatic Company onboarding shares QR encoding while keeping its
+separate hash-stabilization policy. Existing adapter functions, imported
+compatibility points, issuer arguments, final formatting and outer behavior
+remain. Adjacent obsolete commented file bridges were removed; affected runtime
+source is 222 lines shorter, including the new shared module. No latency or
+memory gain is inferred from line count.
+
+Validation: 4,384 distinct local cases passed across 28 reviewed suites, including
+59 new cases. Real XML/crypto parity covers all six types, Sales/POS and three
+certificate owner modes with ephemeral certificates. Failure order, QR/tag bytes,
+Debug/Compliance isolation, Phase-1 preservation, routing, scheduling, settings,
+messages and offline guard regressions passed. Remaining adapter ASTs match the
+previous commit after only the extracted spans/imports are normalized. The
+manifest is 167 local/57 private suites; no SQL fixture or whole-manifest run was
+needed. No live change or authority request occurred. SDK/fiscal/installed15/16
+and rehearsal gates remain open. See [SIGNING_PIPELINE.md](SIGNING_PIPELINE.md).
+
 ## Latest supporting improvement — increment196
 
 Checked field precision now uses the same validating precision constructor
@@ -103,7 +124,7 @@ installed15/16 release gate. No live deployment or authority request occurred.
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and ninety-six bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and ninety-seven bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,

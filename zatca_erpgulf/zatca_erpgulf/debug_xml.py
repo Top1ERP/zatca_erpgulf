@@ -1,4 +1,7 @@
 import frappe
+from zatca_erpgulf.zatca_erpgulf.signed_xml_pipeline import (
+    SigningTools, sign_invoice_xml,
+)
 from zatca_erpgulf.zatca_erpgulf.debug_artifact import DebugArtifactError, prepare_debug_source, save_debug_attachment
 from zatca_erpgulf.zatca_erpgulf.operation_messages import (
     DEBUG_CREATED, DEBUG_FAILED, DEBUG_SKIPPED,
@@ -6,7 +9,6 @@ from zatca_erpgulf.zatca_erpgulf.operation_messages import (
 )
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
 import json
-import base64
 from frappe import _
 import traceback
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
@@ -214,46 +216,12 @@ def _debug_call(
 
             # Step 6: XML Structuring & reading
             file_content = xml_structuring(invoice)
-            # xml_file_path = f"{frappe.local.site}/private/files/finalzatcaxml_{invoice_number}.xml"
-            # try:
-            #     with open(xml_file_path, "r", encoding="utf-8") as file:
-            #         xml_content = file.read()
-            # except FileNotFoundError:
-            #     frappe.throw(_("XML file not found"))
 
-            # # Step 7: Signing & QR
-            tag_removed_xml = removetags(file_content)
-            canonicalized_xml = canonicalize_xml(tag_removed_xml)
-            hash1, encoded_hash = getinvoicehash(canonicalized_xml)
-            encoded_signature = digital_signature(hash1, company_abbr, source_doc)
-            issuer_name, serial_number = extract_certificate_details(company_abbr, source_doc)
-            encoded_certificate_hash = certificate_hash(company_abbr, source_doc)
-            modified_xml_string, namespaces, signing_time = signxml_modify(company_abbr,file_content, source_doc)
-            signed_properties_base64 = generate_signed_properties_hash(
-                signing_time,
-                issuer_name,
-                serial_number,
-                encoded_certificate_hash,
+            signed_xml = sign_invoice_xml(
+                file_content, company_abbr, source_doc,
+                tools=SigningTools.from_namespace(globals()),
             )
-            
-            final_xml_string = populate_the_ubl_extensions_output(
-                modified_xml_string,
-                encoded_signature,
-                namespaces,
-                signed_properties_base64,
-                encoded_hash,
-                company_abbr,
-                source_doc,
-            )
-            tlv_data = generate_tlv_xml(final_xml_string, company_abbr, source_doc)
-
-            tagsbufsarray = []
-            for tag_num, tag_value in tlv_data.items():
-                tagsbufsarray.append(get_tlv_for_value(tag_num, tag_value))
-
-            qrcodebuf = b"".join(tagsbufsarray)
-            qrcodeb64 = base64.b64encode(qrcodebuf).decode("utf-8")
-            updated_xml_string = update_qr_toxml(final_xml_string, qrcodeb64, company_abbr)
+            updated_xml_string = signed_xml.xml
             # Attach the same formatted bytes without writing, replacing, or
             # unlinking an intermediate file that a live worker may be using.
             xml_data = format_zatca_signed_xml(updated_xml_string)

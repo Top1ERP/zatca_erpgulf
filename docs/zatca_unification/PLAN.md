@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment197 adopts a shared in-memory signing/QR sequence at ten existing
+generator call sites. Preserve the actual cryptographic rules, adapter import
+compatibility, issuer arguments, formatting and all preparation/dispatch policies.
+Automatic onboarding shares QR encoding but retains its hash-stabilization gate.
+Remove only superseded blocks/comments and verify real XML/QR parity plus
+unchanged surrounding adapter ASTs. This improves runtime organization without
+installing the branch or adopting expensive inspectors on save. See
+[SIGNING_PIPELINE.md](SIGNING_PIPELINE.md).
+
 Increment196 resolves field precision directly from the already reconstructed
 numeric/format sources using the same validating precision constructor. Keep
 independent public API revalidation, field/currency scope and cache checks;

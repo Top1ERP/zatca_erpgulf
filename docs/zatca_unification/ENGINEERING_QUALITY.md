@@ -39,6 +39,17 @@ Keep reference fixtures and test evidence distinct from dead runtime code.
    acceptance matrix in [PLAN.md](PLAN.md). Essential quality work must not be
    silently excluded from the release decision.
 
+## Current runtime consolidation
+
+Increment197 replaces ten repeated signing/QR sequences with one shared
+implementation, preserving existing adapter compatibility points and policies.
+It removes adjacent obsolete commented file bridges and reduces affected runtime
+source by 222 lines including the shared module. This is maintainability/source
+evidence, not a performance claim. The reviewed selection passed 4,384 distinct
+cases, including 59 new real-XML/crypto and failure-boundary cases. See
+[SIGNING_PIPELINE.md](SIGNING_PIPELINE.md). Full runtime, fiscal, SDK and installed
+15/16 acceptance remain required before rehearsal or deployment.
+
 ## Current performance work
 
 Increment196 removes repeated whole-invoice reconstruction during checked

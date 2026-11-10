@@ -1,5 +1,10 @@
 # Shared invoice XML and first-invoice boundaries
 
+Increment197 additionally consolidates the repeated in-memory signing/QR
+sequence across ten ordinary/Compliance/Debug call sites, preserving existing
+cryptographic and first-chain policies. Automatic onboarding shares QR encoding
+only. See [SIGNING_PIPELINE.md](SIGNING_PIPELINE.md).
+
 Increment 96 is an OFFLINE development batch, not a runtime installation or
 permission to contact any authority environment. Public Sales/POS function names
 remain available; no fixture, Company, site, counter or stored PIH is migrated.

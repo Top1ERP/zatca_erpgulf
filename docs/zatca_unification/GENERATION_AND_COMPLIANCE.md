@@ -1,5 +1,10 @@
 # Generation request ownership and early Compliance dispatch — increment 7
 
+Increment197 replaces the repeated signing/QR blocks at ten existing generator
+call sites with a shared in-memory sequence. Preparation, early Compliance
+diversion, issuer ownership, final artifact boundaries and dispatch below are
+preserved. See the current [caller map and parity evidence](SIGNING_PIPELINE.md).
+
 Development-only source changes. No site migration, running-process restart,
 customer document write, counter migration, or real ZATCA call was performed.
 

@@ -3,6 +3,9 @@
 import base64
 from frappe import _  # pylint: disable=unused-import
 import frappe
+from zatca_erpgulf.zatca_erpgulf.signed_xml_pipeline import (
+    SigningTools, sign_invoice_xml,
+)
 from zatca_erpgulf.zatca_erpgulf.compliance_dispatch import (
     dispatch_generator_compliance, normalize_generator_compliance_type,
 )
@@ -126,49 +129,13 @@ def zatca_call_pos_without_xml(
 
         file_content = xml_structuring(invoice)
 
-        # try:
-        #     with open(
-        #         f"{frappe.local.site}/private/files/finalzatcaxml_{invoice_number}.xml",
-        #         "r",
-        #         encoding="utf-8",
-        #     ) as file:
-        #         file_content = file.read()
-        # except FileNotFoundError:
-        #     frappe.throw("XML file not found")
-
-        tag_removed_xml = removetags(file_content)
-        canonicalized_xml = canonicalize_xml(tag_removed_xml)
-        hash1, encoded_hash = getinvoicehash(canonicalized_xml)
-        encoded_signature = digital_signature(hash1, company_abbr, source_doc)
-        issuer_name, serial_number = extract_certificate_details(
-            company_abbr, source_doc
+        signed_xml = sign_invoice_xml(
+            file_content, company_abbr, source_doc,
+            tools=SigningTools.from_namespace(globals()),
         )
-        encoded_certificate_hash = certificate_hash(company_abbr, source_doc)
-        modified_xml_string, namespaces, signing_time = signxml_modify(company_abbr,file_content, source_doc)
-        signed_properties_base64 = generate_signed_properties_hash(
-            signing_time,
-            issuer_name,
-            serial_number,
-            encoded_certificate_hash,
-        )
-        final_xml_string = populate_the_ubl_extensions_output(
-            modified_xml_string,
-            encoded_signature,
-            namespaces,
-            signed_properties_base64,
-            encoded_hash,
-            company_abbr,
-            source_doc,
-        )
-        tlv_data = generate_tlv_xml(final_xml_string, company_abbr, source_doc)
-
-        tagsbufsarray = []
-        for tag_num, tag_value in tlv_data.items():
-            tagsbufsarray.append(get_tlv_for_value(tag_num, tag_value))
-
-        qrcodebuf = b"".join(tagsbufsarray)
-        qrcodeb64 = base64.b64encode(qrcodebuf).decode("utf-8")
-        updated_xml_string = update_qr_toxml(final_xml_string, qrcodeb64, company_abbr)
+        encoded_hash = signed_xml.encoded_hash
+        qrcodeb64 = signed_xml.qr_payload
+        updated_xml_string = signed_xml.xml
         signed_xmlfile_name = structuring_signedxml(invoice_number, updated_xml_string)
 
         if get_alias_value("customer_b2c", customer_doc, 0) == 1:
