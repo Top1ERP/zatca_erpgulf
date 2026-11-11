@@ -1,5 +1,10 @@
 # Shared document discount/tax composition — increment200
 
+Increment201 additionally shares the actual regular-line implementation behind
+ordinary Sales item builders with/without templates. Caller item/advance
+selection and direct-reference behavior remain. See
+[SALES_ITEM_CONSOLIDATION.md](SALES_ITEM_CONSOLIDATION.md).
+
 Development only. `document_tax_xml.py` now composes existing allowance and tax
 builders at ten generator contexts. POS Debug keeps two explicit template
 branches, so eleven physical spans use the shared sequence. No live installation

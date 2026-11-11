@@ -1,5 +1,25 @@
 # Implementation status — 2026-11-11
 
+## Latest item implementation consolidation — increment201
+
+Ordinary Sales item builders with/without templates now share their actual
+regular-line implementation in the existing module. Public signatures and
+error handlers, ordered source reads, XML layout, net/price/tax helpers and
+direct-reference handoff remain. Legacy advance wrappers and POS implementations
+retain their distinct behavior pending separate review. One duplicate Decimal
+import was consolidated; runtime source is 48 lines shorter, with no performance
+gain inferred from that count.
+
+Validation: 6,145 distinct local cases passed across 37 reviewed suites, including
+544 new cases. A hashed frozen prior implementation verifies bytes, ordered
+reads, historical direct references, duplicate prevention and partial errors.
+Specializing the shared helper for each template flag reproduces the exact old
+body AST; all other function ASTs and error boundaries remain. The manifest is
+171 local/57 private suites; no native SQL or whole-manifest run was needed.
+Fiscal/GL/SDK/installed15/16 and rehearsal gates remain open. No live change or
+authority request occurred. See
+[SALES_ITEM_CONSOLIDATION.md](SALES_ITEM_CONSOLIDATION.md).
+
 ## Latest document tax composition — increment200
 
 Eleven discount/tax spans in ten generator contexts now use one sequence, with
@@ -184,7 +204,7 @@ installed15/16 release gate. No live deployment or authority request occurred.
 
 ## Scope delivered in this increment
 
-Safety preparation and two hundred bounded increments (Compliance outcomes, dedicated
+Safety preparation and two hundred and one bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,

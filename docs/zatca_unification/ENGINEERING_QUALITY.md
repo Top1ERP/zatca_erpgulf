@@ -41,6 +41,14 @@ Keep reference fixtures and test evidence distinct from dead runtime code.
 
 ## Current runtime consolidation
 
+Increment201 shares the actual ordinary Sales item-line body in its existing
+module, retaining exact source/read/price/XML/error semantics and direct-advance
+handoff. A frozen old implementation and exact specialized-AST comparison
+support the change; 6,145 selected cases passed, including 544 new cases. Runtime
+source is 48 lines shorter, not a performance claim. Distinct legacy advance/POS
+builders and redundant legacy tax-detail work remain review tasks. See
+[SALES_ITEM_CONSOLIDATION.md](SALES_ITEM_CONSOLIDATION.md).
+
 Increment200 composes existing allowance/tax builders at ten generator contexts
 with explicit nominal read timing and unchanged item/advance dispatch. The
 reviewed selection passed 5,500 distinct cases, including 332 new cases and 288

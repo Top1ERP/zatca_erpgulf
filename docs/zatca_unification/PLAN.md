@@ -19,6 +19,13 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment201 consolidates the actual regular-line body of ordinary Sales item
+builders with/without templates in their existing module. Retain source/read/
+error/XML/price semantics and direct-advance handoff; verify both specialized
+bodies against a frozen old implementation. Keep distinct legacy advance and POS
+implementations until their differences are separately reviewed. See
+[SALES_ITEM_CONSOLIDATION.md](SALES_ITEM_CONSOLIDATION.md).
+
 Increment200 composes allowance then tax at ten generator contexts using the
 existing per-adapter functions. Preserve required twice-read Sales nominal
 policy, optional once-captured Debug policy and no POS nominal consumption.
