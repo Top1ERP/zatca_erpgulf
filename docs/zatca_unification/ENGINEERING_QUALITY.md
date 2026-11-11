@@ -41,6 +41,15 @@ Keep reference fixtures and test evidence distinct from dead runtime code.
 
 ## Current runtime consolidation
 
+Increment198 shares five-tag serialization across ordinary Phase-1 Sales/POS and
+the eligible initial-advance hook. It fixes UTF-8 byte lengths, adds bounded
+English-code/localized-display failures and avoids encoding obviously oversized
+input. Monetary/name/eligibility policies and artifacts remain separate; the
+Phase-2 encoder moves unchanged with an import alias. The reviewed selection
+passed 4,867 distinct cases, including 145 new local/private SQL cases. See
+[QR_SERIALIZATION.md](QR_SERIALIZATION.md). Fiscal amount reconciliation and
+complete alias/settings consistency are not inferred from serialization parity.
+
 Increment197 replaces ten repeated signing/QR sequences with one shared
 implementation, preserving existing adapter compatibility points and policies.
 It removes adjacent obsolete commented file bridges and reduces affected runtime

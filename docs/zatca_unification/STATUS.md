@@ -1,4 +1,24 @@
-# Implementation status — 2026-11-10
+# Implementation status — 2026-11-11
+
+## Latest QR consolidation — increment198
+
+Ordinary Sales/POS Phase-1 and eligible initial-advance QR now share a pure
+five-tag serializer. Existing amount strings/formulas, name policy, gates and
+artifact/transaction ownership remain distinct and unchanged. UTF-8 byte-length
+counting fixes the ordinary VAT-tag character/byte mismatch. Bounded encoding
+errors show one localized English/Arabic message before image/File writes, with
+an English internal code and no rejected content. Obviously oversized input is
+refused before encoding. Phase-2 wire encoding moved unchanged behind its old
+compatibility import; binary/long-tag rules remain.
+
+Validation: 4,867 distinct cases passed (4,815 local, 52 private SQL), including
+145 new cases. Byte/amount parity, all tag boundaries, localization, source/gate
+and artifact preservation, signing/Debug/Compliance, settings/routing and parent
+transaction behavior passed. AST comparison retained all non-encoding adapter
+nodes and the exact Phase-2 encoder implementation. The manifest is 168 local/
+57 private suites; only reviewed selections ran. No live change or authority
+request occurred. Fiscal/SDK/installed15/16/optical QR and rehearsal gates remain
+open. See [QR_SERIALIZATION.md](QR_SERIALIZATION.md).
 
 ## Latest runtime consolidation — increment197
 
@@ -124,7 +144,7 @@ installed15/16 release gate. No live deployment or authority request occurred.
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and ninety-seven bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and ninety-eight bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,

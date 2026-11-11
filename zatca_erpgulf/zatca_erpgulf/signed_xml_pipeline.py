@@ -5,9 +5,10 @@ neither identity allocation nor credentials, files, transactions, API routing or
 submission. Keep those boundaries in the Sales/POS/Debug/Compliance adapters.
 """
 
-import base64
 from dataclasses import dataclass, fields
 from typing import Callable
+
+from zatca_erpgulf.zatca_erpgulf.qr_encoding import encode_qr_payload
 
 
 @dataclass(frozen=True, repr=False)
@@ -51,13 +52,6 @@ class SignedInvoiceXml:
 
     def __repr__(self):
         return "<SignedInvoiceXml protected local artifact>"
-
-
-def encode_qr_payload(tlv_data, encode_tag):
-    """Keep the producer's tag order and existing UTF-8/binary TLV policy."""
-    return base64.b64encode(
-        b"".join(encode_tag(tag, value) for tag, value in tlv_data.items())
-    ).decode("utf-8")
 
 
 def sign_invoice_xml(file_content, company_abbr, source_doc, *, tools: SigningTools):

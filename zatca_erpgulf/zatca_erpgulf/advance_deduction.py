@@ -12,6 +12,9 @@ from zatca_erpgulf.zatca_erpgulf.advance_lifecycle import (
 )
 from zatca_erpgulf.zatca_erpgulf.create_qr import _existing_qr_reference
 from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
+from zatca_erpgulf.zatca_erpgulf.qr_encoding import (
+    PHASE1_QR_VALUE_ERROR, Phase1QREncodingError, encode_phase1_qr,
+)
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
     PHASE_2_VALUE,
     is_advance_payment_invoice,
@@ -1183,7 +1186,6 @@ def ensure_final_sales_invoice_qr_for_print(doc, event=None, force=False):
     if _existing_qr_reference(doc):
         return
 
-    import base64
     import io
 
     import pyqrcode
@@ -1223,21 +1225,18 @@ def ensure_final_sales_invoice_qr_for_print(doc, event=None, force=False):
         qr_invoice_total = base_final_amount_due
         qr_vat_total = flt(doc.get("base_total_taxes_and_charges") or 0)
 
-    def tlv(tag, value):
-        value = str(value or "").encode("utf-8")
-        if len(value) > 255:
-            frappe.throw(f"ZATCA QR TLV value for tag {tag} is too long.")
-        return bytes([tag, len(value)]) + value
-
-    payload = base64.b64encode(
-        b"".join([
-            tlv(1, seller_name),
-            tlv(2, vat_number),
-            tlv(3, timestamp),
-            tlv(4, f"{qr_invoice_total:.2f}"),
-            tlv(5, f"{qr_vat_total:.2f}"),
-        ])
-    ).decode("utf-8")
+    try:
+        payload = encode_phase1_qr(
+            seller_name=str(seller_name or ""), vat_number=str(vat_number or ""),
+            timestamp=timestamp, invoice_total=f"{qr_invoice_total:.2f}",
+            vat_total=f"{qr_vat_total:.2f}",
+        )
+    except Phase1QREncodingError as error:
+        invalid_tag = error.tag
+    else:
+        invalid_tag = None
+    if invalid_tag is not None:
+        frappe.throw(_(PHASE1_QR_VALUE_ERROR).format(invalid_tag))
 
     png = io.BytesIO()
     pyqrcode.create(payload, error="L").png(png, scale=4, quiet_zone=4)

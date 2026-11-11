@@ -917,6 +917,53 @@ def test_later_parent_failure_rolls_back_qr_and_its_other_work_together(qr_schem
     assert case.doc.ksa_einv_qr == "/files/SYNTHETIC-QR.png"
 
 
+@pytest.mark.parametrize("route,doctype", [("ordinary", "Sales Invoice"),
+    ("ordinary", "POS Invoice"), ("advance", "Sales Invoice")])
+@pytest.mark.parametrize("bad_value", [pytest.param("ع" * 128, id="oversized"),
+                                       pytest.param("private-marker\ud800", id="invalid-utf8")])
+@pytest.mark.parametrize("parent_commit", [False, True])
+def test_encoding_rejection_keeps_pending_sql_under_parent_control(
+    qr_schema, local_qr, connections, namespace, monkeypatch, route, doctype, bad_value, parent_commit,
+):
+    """A rejected QR must neither commit nor discard unrelated parent work."""
+    from zatca_erpgulf.zatca_erpgulf.qr_encoding import PHASE1_QR_VALUE_ERROR
+
+    case = prepare(local_qr, connections, namespace, doctype)
+    for module in (create_qr, advance_deduction):
+        monkeypatch.setattr(module, "_", lambda message: message)
+    company = case.runtime.get_cached_doc("Company", case.doc.company)
+    company.company_name_in_arabic = bad_value
+    try:
+        with case.transaction.cursor() as cursor:
+            cursor.execute("UPDATE qr_invoice_test SET business_value=%s WHERE namespace=%s AND doctype=%s AND name=%s",
+                ("PARENT-PENDING", namespace, doctype, case.doc.name))
+        with pytest.raises(ValidationError) as raised:
+            if route == "ordinary":
+                create_qr.create_qr_code(case.doc)
+            else:
+                advance_deduction.ensure_final_sales_invoice_qr_for_print(case.doc)
+        assert str(raised.value) == PHASE1_QR_VALUE_ERROR.format(1)
+        assert raised.value.__context__ is None
+        assert read_saved(connections, namespace, doctype, case.doc.name) == (
+            (None, "Not Submitted", "ORIGINAL-BUSINESS", "2026-10-01 00:00:00"), 0)
+        with case.transaction.cursor() as cursor:
+            cursor.execute("SELECT business_value FROM qr_invoice_test WHERE namespace=%s AND doctype=%s AND name=%s",
+                (namespace, doctype, case.doc.name))
+            assert cursor.fetchone() == ("PARENT-PENDING",)
+        (case.transaction.commit if parent_commit else case.transaction.rollback)()
+    finally:
+        case.transaction.close()
+    assert read_saved(connections, namespace, doctype, case.doc.name) == (
+        (None, "Not Submitted", "PARENT-PENDING" if parent_commit else "ORIGINAL-BUSINESS", "2026-10-01 00:00:00"), 0)
+    assert not case.payloads and case.doc.ksa_einv_qr is None
+    local_qr[3].assert_not_called()
+    case.runtime.db.set_value.assert_not_called()
+    case.runtime.db.commit.assert_not_called()
+    case.runtime.db.rollback.assert_not_called()
+    case.doc.save.assert_not_called()
+    case.doc.db_set.assert_not_called()
+
+
 @pytest.mark.parametrize("doctype", ["Sales Invoice", "POS Invoice"])
 @pytest.mark.parametrize("failure", ["file", "metadata", "notify"])
 def test_propagated_failure_allows_parent_rollback_no_half_saved_qr(qr_schema, local_qr, connections, namespace, doctype, failure):

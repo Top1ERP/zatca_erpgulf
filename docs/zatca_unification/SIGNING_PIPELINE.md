@@ -1,5 +1,10 @@
 # Shared in-memory signing sequence — increment197
 
+Increment198 moves `encode_qr_payload` unchanged to the pure `qr_encoding`
+module. Its import here remains a compatibility alias. Phase-1 uses a separate
+five-tag text encoder, preserving Phase-2's existing binary/long-tag policy.
+See [QR_SERIALIZATION.md](QR_SERIALIZATION.md).
+
 This development bundle consolidates existing runtime call sites in the isolated
 branch. It does not install that branch, change a tenant or contact any authority
 environment. It does not adopt the expensive saved-calculation inspectors on an

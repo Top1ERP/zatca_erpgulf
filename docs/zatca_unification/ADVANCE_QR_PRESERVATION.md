@@ -1,5 +1,11 @@
 # Non-destructive advance QR print hook — increment 37
 
+Increment198 replaces this hook's local TLV assembly with the same pure
+five-tag serializer used by ordinary Phase-1 Sales/POS QR. Existing two-decimal
+amounts, name fallback, gates and preservation/transaction behavior remain.
+Encoding errors gain one English/Arabic display message before image/File
+writes. See [QR_SERIALIZATION.md](QR_SERIALIZATION.md).
+
 ## Bounded development change
 
 `advance_deduction.ensure_final_sales_invoice_qr_for_print` is registered on

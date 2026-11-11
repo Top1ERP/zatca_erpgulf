@@ -1,5 +1,10 @@
 # Phase-1 QR metadata transaction ownership — increment 35
 
+Increment198 shares the five-tag serializer with the eligible initial-advance
+hook, fixes UTF-8 byte-length counting and localizes bounded encoding errors.
+Amount strings and the transaction/artifact boundaries below remain. See
+[QR_SERIALIZATION.md](QR_SERIALIZATION.md) for current scope and evidence.
+
 ## Development change
 
 The ordinary Sales/POS Phase-1 QR generator no longer calls `doc.db_set`,

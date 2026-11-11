@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment198 shares pure five-tag Phase-1 serialization across ordinary Sales/
+POS and eligible initial advances, preserving their own monetary/name/gate
+policies. Count UTF-8 bytes, fail before image/File writes with one localized
+message, and reject obviously oversized text before encoding. Move the existing
+Phase-2 wire helper unchanged behind its compatibility import; keep binary and
+long-tag policies separate. Verify byte/amount parity and parent transaction
+ownership before considering fiscal/runtime adoption. See
+[QR_SERIALIZATION.md](QR_SERIALIZATION.md).
+
 Increment197 adopts a shared in-memory signing/QR sequence at ten existing
 generator call sites. Preserve the actual cryptographic rules, adapter import
 compatibility, issuer arguments, formatting and all preparation/dispatch policies.

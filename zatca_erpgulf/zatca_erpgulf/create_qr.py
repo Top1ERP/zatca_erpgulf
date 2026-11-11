@@ -20,7 +20,6 @@ If not, it fails without changing schema inside the invoice transaction.
 
 import io
 import os
-from base64 import b64encode
 
 import frappe
 from frappe import _
@@ -30,6 +29,9 @@ from erpnext import get_region
 
 from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country
 from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
+from zatca_erpgulf.zatca_erpgulf.qr_encoding import (
+    PHASE1_QR_VALUE_ERROR, Phase1QREncodingError, encode_phase1_qr,
+)
 from zatca_erpgulf.zatca_erpgulf.qr_attachment_policy import (
     FILE_FIELDS, MAX_FILE_OBSERVATIONS, QRAttachmentPolicyError, decide_qr_reuse,
 )
@@ -123,8 +125,6 @@ def create_qr_code(doc, method=None):  # pylint: disable=unused-argument
     meta = frappe.get_meta(doc.doctype)
 
     if "ksa_einv_qr" in [d.fieldname for d in meta.get_image_fields()]:
-        tlv_array = []
-
         # Seller's Name
         seller_name = get_company_arabic_name(doc.company)
 
@@ -138,11 +138,6 @@ def create_qr_code(doc, method=None):  # pylint: disable=unused-argument
                 ).format(doc.company)
             )
 
-        tag = bytes([1]).hex()
-        length = bytes([len(seller_name.encode("utf-8"))]).hex()
-        value = seller_name.encode("utf-8").hex()
-        tlv_array.append("".join([tag, length, value]))
-
         # VAT Number
         tax_id = frappe.db.get_value("Company", doc.company, "tax_id")
         if not tax_id:
@@ -150,38 +145,24 @@ def create_qr_code(doc, method=None):  # pylint: disable=unused-argument
                 _("Tax ID missing for {} in the company document").format(doc.company)
             )
 
-        tag = bytes([2]).hex()
-        length = bytes([len(tax_id)]).hex()
-        value = tax_id.encode("utf-8").hex()
-        tlv_array.append("".join([tag, length, value]))
-
         # Time Stamp
         time_stamp = format_zatca_qr_timestamp(doc.posting_date, doc.posting_time)
 
-        tag = bytes([3]).hex()
-        length = bytes([len(time_stamp)]).hex()
-        value = time_stamp.encode("utf-8").hex()
-        tlv_array.append("".join([tag, length, value]))
-
         # Invoice Amount
         invoice_amount = str(doc.base_grand_total)
-        tag = bytes([4]).hex()
-        length = bytes([len(invoice_amount)]).hex()
-        value = invoice_amount.encode("utf-8").hex()
-        tlv_array.append("".join([tag, length, value]))
-
         # VAT Amount
         vat_amount = str(doc.total_taxes_and_charges)
-        tag = bytes([5]).hex()
-        length = bytes([len(vat_amount)]).hex()
-        value = vat_amount.encode("utf-8").hex()
-        tlv_array.append("".join([tag, length, value]))
-
-        # Join bytes into one buffer
-        tlv_buff = "".join(tlv_array)
-
-        # Base64 conversion for QR Code
-        base64_string = b64encode(bytes.fromhex(tlv_buff)).decode()
+        try:
+            base64_string = encode_phase1_qr(
+                seller_name=seller_name, vat_number=tax_id, timestamp=time_stamp,
+                invoice_total=invoice_amount, vat_total=vat_amount,
+            )
+        except Phase1QREncodingError as error:
+            invalid_tag = error.tag
+        else:
+            invalid_tag = None
+        if invalid_tag is not None:
+            frappe.throw(_(PHASE1_QR_VALUE_ERROR).format(invalid_tag))
 
         qr_image = io.BytesIO()
         url = qr_create(base64_string, error="L")
