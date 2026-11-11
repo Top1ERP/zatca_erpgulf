@@ -1,5 +1,10 @@
 # Shared invoice XML and first-invoice boundaries
 
+Increment199 shares the reference/party/payment sequence at ten generator sites.
+It preserves existing builder content, ICV-purpose and PIH policy, including
+failure on a missing selected hash; it does not add automatic first-chain
+initialization. See [PARTY_XML_SEQUENCE.md](PARTY_XML_SEQUENCE.md).
+
 Increment197 additionally consolidates the repeated in-memory signing/QR
 sequence across ten ordinary/Compliance/Debug call sites, preserving existing
 cryptographic and first-chain policies. Automatic onboarding shares QR encoding

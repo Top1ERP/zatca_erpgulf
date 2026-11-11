@@ -5,6 +5,9 @@ import json
 import requests
 from frappe import _
 import frappe
+from zatca_erpgulf.zatca_erpgulf.invoice_party_xml import (
+    PartyXmlTools, populate_invoice_parties,
+)
 from zatca_erpgulf.zatca_erpgulf.signed_xml_pipeline import (
     SigningTools, sign_invoice_xml,
 )
@@ -176,11 +179,12 @@ def _debug_call(
             else:
                 invoice = invoice_typecode_compliance(invoice, compliance_type)
 
-            invoice = doc_reference(invoice, invoice_doc, invoice_number, debug=True)
-            invoice = additional_reference(invoice, company_abbr, invoice_doc)
-            invoice = company_data(invoice, invoice_doc)
-            invoice = customer_data(invoice, invoice_doc)
-            invoice = delivery_and_paymentmeans(invoice, invoice_doc, invoice_doc.is_return)
+            invoice = populate_invoice_parties(
+                invoice, invoice_doc, invoice_number, company_abbr,
+                tools=PartyXmlTools.from_namespace(
+                    globals(), doctype="POS Invoice", purpose="debug",
+                ),
+            )
 
             if not any_item_has_tax_template:
                 invoice = add_document_level_discount_with_tax(invoice, invoice_doc)

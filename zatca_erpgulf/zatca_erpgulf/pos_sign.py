@@ -11,6 +11,9 @@ from functools import partial
 import requests
 from frappe import _
 import frappe
+from zatca_erpgulf.zatca_erpgulf.invoice_party_xml import (
+    PartyXmlTools, populate_invoice_parties,
+)
 from zatca_erpgulf.zatca_erpgulf.signed_xml_pipeline import (
     SigningTools, sign_invoice_xml,
 )
@@ -624,12 +627,11 @@ def zatca_call(
             invoice = invoice_typecode_simplified(invoice, pos_invoice_doc)
         else:
             invoice = invoice_typecode_standard(invoice, pos_invoice_doc)
-        invoice = doc_reference(invoice, pos_invoice_doc, invoice_number)
-        invoice = additional_reference(invoice, company_abbr, pos_invoice_doc)
-        invoice = company_data(invoice, pos_invoice_doc)
-        invoice = customer_data(invoice, pos_invoice_doc)
-        invoice = delivery_and_paymentmeans(
-            invoice, pos_invoice_doc, pos_invoice_doc.is_return
+        invoice = populate_invoice_parties(
+            invoice, pos_invoice_doc, invoice_number, company_abbr,
+            tools=PartyXmlTools.from_namespace(
+                globals(), doctype="POS Invoice", purpose="invoice",
+            ),
         )
         if not any_item_has_tax_template:
             invoice = add_document_level_discount_with_tax(invoice, pos_invoice_doc)
@@ -739,14 +741,12 @@ def zatca_call_compliance(
             frappe.throw(ITEM_TAX_TEMPLATE_WARNING)
 
         invoice = invoice_typecode_compliance(invoice, compliance_type)
-        invoice = doc_reference_compliance(
-            invoice, pos_invoice_doc, invoice_number, compliance_type
-        )
-        invoice = additional_reference(invoice, company_abbr, pos_invoice_doc)
-        invoice = company_data(invoice, pos_invoice_doc)
-        invoice = customer_data(invoice, pos_invoice_doc)
-        invoice = delivery_and_paymentmeans_for_compliance(
-            invoice, pos_invoice_doc, compliance_type
+        invoice = populate_invoice_parties(
+            invoice, pos_invoice_doc, invoice_number, company_abbr,
+            tools=PartyXmlTools.from_namespace(
+                globals(), doctype="POS Invoice", purpose="compliance",
+            ),
+            compliance_type=compliance_type,
         )
         if not any_item_has_tax_template:
             invoice = add_document_level_discount_with_tax(invoice, pos_invoice_doc)

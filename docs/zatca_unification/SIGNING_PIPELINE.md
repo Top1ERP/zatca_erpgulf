@@ -1,5 +1,10 @@
 # Shared in-memory signing sequence — increment197
 
+Increment199 additionally shares the preceding invoice reference/party/payment
+sequence at the ten existing ordinary/Compliance/Debug call sites. Monetary
+preparation and signing policy remain in their existing owners. See
+[PARTY_XML_SEQUENCE.md](PARTY_XML_SEQUENCE.md).
+
 Increment198 moves `encode_qr_payload` unchanged to the pure `qr_encoding`
 module. Its import here remains a compatibility alias. Phase-1 uses a separate
 five-tag text encoder, preserving Phase-2's existing binary/long-tag policy.

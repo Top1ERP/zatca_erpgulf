@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment199 composes the five existing reference/party/payment functions at ten
+generator call sites with explicit ordinary/Debug/Compliance modes. Preserve
+builder order, returned roots, exact source/number/issuer arguments, late return
+reads and existing Sales/POS content differences. Keep classification, monetary/
+advance selection, automatic Company-only onboarding, signing and dispatch in
+their current owners. Verify real per-adapter XML/read parity and unchanged
+surrounding ASTs. See [PARTY_XML_SEQUENCE.md](PARTY_XML_SEQUENCE.md).
+
 Increment198 shares pure five-tag Phase-1 serialization across ordinary Sales/
 POS and eligible initial advances, preserving their own monetary/name/gate
 policies. Count UTF-8 bytes, fail before image/File writes with one localized

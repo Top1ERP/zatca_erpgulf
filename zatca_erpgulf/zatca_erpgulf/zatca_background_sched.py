@@ -6,6 +6,9 @@ import io
 import requests
 from frappe import _
 import frappe
+from zatca_erpgulf.zatca_erpgulf.invoice_party_xml import (
+    PartyXmlTools, populate_invoice_parties,
+)
 from zatca_erpgulf.zatca_erpgulf.signed_xml_pipeline import (
     SigningTools, sign_invoice_xml,
 )
@@ -166,12 +169,11 @@ def zatca_call_scheduler_background(
                 frappe.throw(
                     _("customer should be B2C sales invoice with xml during create xml")
                 )
-        invoice = doc_reference(invoice, sales_invoice_doc, invoice_number)
-        invoice = additional_reference(invoice, company_abbr, sales_invoice_doc)
-        invoice = company_data(invoice, sales_invoice_doc)
-        invoice = customer_data(invoice, sales_invoice_doc)
-        invoice = delivery_and_payment_means(
-            invoice, sales_invoice_doc, sales_invoice_doc.is_return
+        invoice = populate_invoice_parties(
+            invoice, sales_invoice_doc, invoice_number, company_abbr,
+            tools=PartyXmlTools.from_namespace(
+                globals(), doctype="Sales Invoice", purpose="invoice",
+            ),
         )
 
         if sales_invoice_doc.custom_zatca_nominal_invoice == 1:

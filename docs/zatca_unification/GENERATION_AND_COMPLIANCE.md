@@ -1,5 +1,10 @@
 # Generation request ownership and early Compliance dispatch — increment 7
 
+Increment199 shares the existing reference/party/payment sequence at ten
+generator sites with explicit ordinary/Debug/Compliance modes. The saved source,
+issuer, sample code, preparatory financial branches and dispatch remain. See
+[PARTY_XML_SEQUENCE.md](PARTY_XML_SEQUENCE.md) for the current caller map.
+
 Increment197 replaces the repeated signing/QR blocks at ten existing generator
 call sites with a shared in-memory sequence. Preparation, early Compliance
 diversion, issuer ownership, final artifact boundaries and dispatch below are

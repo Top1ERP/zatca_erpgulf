@@ -3,6 +3,9 @@
 import base64
 from frappe import _
 import frappe
+from zatca_erpgulf.zatca_erpgulf.invoice_party_xml import (
+    PartyXmlTools, populate_invoice_parties,
+)
 from zatca_erpgulf.zatca_erpgulf.signed_xml_pipeline import (
     SigningTools, sign_invoice_xml,
 )
@@ -103,12 +106,11 @@ def zatca_call_pos_without_xml_background(
             frappe.throw(
                 "customer should be B2C pos without xml during create xml "
             )
-        invoice = doc_reference(invoice, pos_invoice_doc, invoice_number)
-        invoice = additional_reference(invoice, company_abbr, pos_invoice_doc)
-        invoice = company_data(invoice, pos_invoice_doc)
-        invoice = customer_data(invoice, pos_invoice_doc)
-        invoice = delivery_and_paymentmeans(
-            invoice, pos_invoice_doc, pos_invoice_doc.is_return
+        invoice = populate_invoice_parties(
+            invoice, pos_invoice_doc, invoice_number, company_abbr,
+            tools=PartyXmlTools.from_namespace(
+                globals(), doctype="POS Invoice", purpose="invoice",
+            ),
         )
         if not any_item_has_tax_template:
             invoice = add_document_level_discount_with_tax(invoice, pos_invoice_doc)

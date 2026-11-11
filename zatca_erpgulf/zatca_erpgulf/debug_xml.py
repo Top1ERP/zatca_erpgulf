@@ -1,4 +1,7 @@
 import frappe
+from zatca_erpgulf.zatca_erpgulf.invoice_party_xml import (
+    PartyXmlTools, populate_invoice_parties,
+)
 from zatca_erpgulf.zatca_erpgulf.signed_xml_pipeline import (
     SigningTools, sign_invoice_xml,
 )
@@ -178,11 +181,12 @@ def _debug_call(
 
 
             # Step 3: Populate XML
-            invoice = doc_reference(invoice, invoice_doc, invoice_doc.name, debug=True)
-            invoice = additional_reference(invoice, company_abbr, invoice_doc)
-            invoice = company_data(invoice, invoice_doc)
-            invoice = customer_data(invoice, invoice_doc)
-            invoice = delivery_and_payment_means(invoice, invoice_doc, invoice_doc.is_return)
+            invoice = populate_invoice_parties(
+                invoice, invoice_doc, invoice_doc.name, company_abbr,
+                tools=PartyXmlTools.from_namespace(
+                    globals(), doctype="Sales Invoice", purpose="debug",
+                ),
+            )
 
             # Step 4: Discounts & Taxes
             if getattr(invoice_doc, "custom_zatca_nominal_invoice", 0) == 1:

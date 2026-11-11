@@ -41,6 +41,15 @@ Keep reference fixtures and test evidence distinct from dead runtime code.
 
 ## Current runtime consolidation
 
+Increment199 shares the five-step reference/party/payment sequence at ten
+existing generator sites. Explicit purpose/adapter bindings preserve builder
+order and content, exact issuer/source/number arguments and the late return flag.
+The reviewed selection passed 5,168 distinct local cases, including 164 new
+real-builder, missing-PIH and failure-boundary cases. See
+[PARTY_XML_SEQUENCE.md](PARTY_XML_SEQUENCE.md). This organizes runtime preparation
+without altering monetary policy or claiming performance, fiscal or installed
+15/16 acceptance.
+
 Increment198 shares five-tag serialization across ordinary Phase-1 Sales/POS and
 the eligible initial-advance hook. It fixes UTF-8 byte lengths, adds bounded
 English-code/localized-display failures and avoids encoding obviously oversized

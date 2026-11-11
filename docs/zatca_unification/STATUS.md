@@ -1,5 +1,25 @@
 # Implementation status — 2026-11-11
 
+## Latest XML preparation consolidation — increment199
+
+Ten ordinary Sales/POS, without-XML/background, invoice Compliance and Debug
+reference/party/payment spans now use one sequence. Explicit purposes retain
+the separate ordinary/Debug/Compliance reference and payment functions. Builder
+order, returned roots, source/number/abbreviation, late return-flag reads and
+selected issuer PIH remain; classification, tax/discount/advance calculations,
+identity policy, signing, artifacts and dispatch are unchanged. Company-only
+automatic onboarding gains no saved-customer/invoice requirement.
+
+Validation: 5,168 distinct local cases passed across 34 reviewed suites, including
+164 new cases. Real builder bytes, record-read order and ICV-purpose arguments
+match prior direct calls across six samples, issuer modes and SAR/USD. Note/
+advance headers, missing PIH without invented genesis, root replacement and
+failure order are covered. AST review matched all non-extracted adapter nodes
+and checked the extracted argument/mode bindings. The manifest is 169 local/
+57 private suites; no native SQL or whole-manifest run was needed. Fiscal/SDK/
+installed15/16 and rehearsal gates remain open. No live change or authority
+request occurred. See [PARTY_XML_SEQUENCE.md](PARTY_XML_SEQUENCE.md).
+
 ## Latest QR consolidation — increment198
 
 Ordinary Sales/POS Phase-1 and eligible initial-advance QR now share a pure
@@ -144,7 +164,7 @@ installed15/16 release gate. No live deployment or authority request occurred.
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and ninety-eight bounded increments (Compliance outcomes, dedicated
+Safety preparation and one hundred and ninety-nine bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
