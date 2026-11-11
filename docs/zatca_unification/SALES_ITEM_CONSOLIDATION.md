@@ -1,5 +1,11 @@
 # Shared ordinary Sales item builder — increment201
 
+Increment202 extends shared regular-line emission to the advance-named wrappers
+with explicit compatibility layouts. Their acquisition and legacy reference
+tails remain separate. The historical exact-body AST evidence below applies to
+increment201; current cross-layout/failure evidence is in
+[ADVANCE_ITEM_EMISSION.md](ADVANCE_ITEM_EMISSION.md).
+
 Development only. The regular-line implementation behind `item_data` and
 `item_data_with_template` is now shared inside the existing
 `create_xml_final_part.py` module. No new runtime module, public API, schema,

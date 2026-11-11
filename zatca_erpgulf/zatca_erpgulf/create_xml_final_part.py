@@ -650,13 +650,114 @@ def _line_tax_amount_from_net(net_amount, tax_rate):
         Decimal("0.01"), rounding=ROUND_HALF_UP
     )
 
+def _append_sales_line_amount(parent, tag, source, text_reader, *, constructor_attributes):
+    """Retain Python's original RHS, currency-read and node-creation order.
+
+    Advance layouts assign to a SubElement(...).text target: Python formats the
+    RHS first. Ordinary layouts create/set the node in earlier statements.
+    Evaluate the supplied formatter at that original point, including on errors.
+    """
+    if constructor_attributes:
+        text = text_reader()
+        node = ET.SubElement(parent, tag, currencyID=source.currency)
+    else:
+        node = ET.SubElement(parent, tag)
+        node.set("currencyID", source.currency)
+        text = text_reader()
+    node.text = text
+    return node
+
+
+def _append_sales_invoice_line(
+    invoice, sales_invoice_doc, single_item, line_net_amount, line_net_rate,
+    line_tax_amount, item_tax_percentage, *, has_template=False,
+    item_tax_template=None, layout="ordinary",
+):
+    """Emit one regular line with the original ordinary/advance layout policy.
+
+    Callers retain rate/template acquisition and arithmetic. Legacy advance
+    tails still consume their last-loop values. The three internal layouts
+    preserve unit coercion and attribute-read timing, including partial failures;
+    they do not choose monetary rules, issuer, allocation or reference source.
+    """
+    if layout not in ("ordinary", "advance_plain", "advance_template"):
+        raise ValueError("sales_item_layout")
+    constructor_attributes = layout != "ordinary"
+    line = ET.SubElement(invoice, "cac:InvoiceLine")
+    ET.SubElement(line, "cbc:ID").text = str(single_item.idx)
+    if layout == "advance_plain":
+        quantity_text = str(abs(single_item.qty))
+        quantity = ET.SubElement(line, "cbc:InvoicedQuantity", unitCode=single_item.uom)
+        quantity.text = quantity_text
+    else:
+        quantity = ET.SubElement(line, "cbc:InvoicedQuantity")
+        quantity.set("unitCode", str(single_item.uom))
+        quantity.text = str(abs(single_item.qty))
+    _append_sales_line_amount(
+        line, "cbc:LineExtensionAmount", sales_invoice_doc,
+        lambda: f"{line_net_amount:.2f}",
+        constructor_attributes=constructor_attributes,
+    )
+    tax_total = ET.SubElement(line, CAC_TAX_TOTAL)
+    _append_sales_line_amount(
+        tax_total, CBC_TAX_AMOUNT, sales_invoice_doc,
+        lambda: f"{line_tax_amount:.2f}",
+        constructor_attributes=constructor_attributes,
+    )
+    _append_sales_line_amount(
+        tax_total, "cbc:RoundingAmount", sales_invoice_doc,
+        lambda: f"{(line_net_amount + line_tax_amount):.2f}",
+        constructor_attributes=constructor_attributes,
+    )
+    item = ET.SubElement(line, "cac:Item")
+    if constructor_attributes:
+        ET.SubElement(item, "cbc:Name").text = _line_name(single_item)
+    else:
+        name = ET.SubElement(item, "cbc:Name")
+        name.text = _line_name(single_item)
+    category = ET.SubElement(item, "cac:ClassifiedTaxCategory")
+    category_id = ET.SubElement(category, "cbc:ID")
+    if has_template:
+        value = item_tax_template.custom_zatca_tax_category
+        if value == "Standard":
+            category_id.text = "S"
+        elif value == ZERO_RATED:
+            category_id.text = "Z"
+        elif value == "Exempted":
+            category_id.text = "E"
+        elif value == OUTSIDE_SCOPE:
+            category_id.text = "O"
+    elif sales_invoice_doc.custom_zatca_tax_category == "Standard":
+        category_id.text = "S"
+    elif sales_invoice_doc.custom_zatca_tax_category == ZERO_RATED:
+        category_id.text = "Z"
+    elif sales_invoice_doc.custom_zatca_tax_category == "Exempted":
+        category_id.text = "E"
+    elif sales_invoice_doc.custom_zatca_tax_category == OUTSIDE_SCOPE:
+        category_id.text = "O"
+    if constructor_attributes:
+        ET.SubElement(category, "cbc:Percent").text = f"{float(item_tax_percentage):.2f}"
+    else:
+        percent = ET.SubElement(category, "cbc:Percent")
+        percent.text = f"{float(item_tax_percentage):.2f}"
+    scheme = ET.SubElement(category, "cac:TaxScheme")
+    ET.SubElement(scheme, "cbc:ID").text = "VAT"
+    price = ET.SubElement(line, "cac:Price")
+    _append_sales_line_amount(
+        price, "cbc:PriceAmount", sales_invoice_doc,
+        lambda: _format_price_amount(line_net_rate),
+        constructor_attributes=constructor_attributes,
+    )
+    return line
+
+
 def _append_sales_invoice_item_lines(invoice, sales_invoice_doc, *, has_template):
     """Append regular Sales item lines, then existing direct-advance references.
 
     Keep template acquisition, ordinary tax-detail reads, Decimal/price helpers,
     field-read order and XML child/attribute order from the legacy builders.
     The plain category path rereads its source; the template path reads once.
-    Legacy Advance Sales Invoice wrappers retain their distinct implementation.
+    Advance wrappers retain their own rate acquisition and reference tails.
     """
     for single_item in sales_invoice_doc.items:
         if has_template:
@@ -674,56 +775,12 @@ def _append_sales_invoice_item_lines(invoice, sales_invoice_doc, *, has_template
         line_net_amount = _line_net_amount(single_item, sales_invoice_doc)
         line_net_rate = _line_net_rate(single_item, sales_invoice_doc)
         line_tax_amount = _line_tax_amount_from_net(line_net_amount, item_tax_percentage)
-        cac_invoiceline = ET.SubElement(invoice, "cac:InvoiceLine")
-        ET.SubElement(cac_invoiceline, "cbc:ID").text = str(single_item.idx)
-        cbc_invoicedquantity = ET.SubElement(cac_invoiceline, "cbc:InvoicedQuantity")
-        cbc_invoicedquantity.set("unitCode", str(single_item.uom))
-        cbc_invoicedquantity.text = str(abs(single_item.qty))
-        cbc_lineextensionamount_1 = ET.SubElement(
-            cac_invoiceline, "cbc:LineExtensionAmount"
+        _append_sales_invoice_line(
+            invoice, sales_invoice_doc, single_item, line_net_amount, line_net_rate,
+            line_tax_amount, item_tax_percentage,
+            has_template=has_template, item_tax_template=item_tax_template if has_template else None,
+            layout="ordinary",
         )
-        cbc_lineextensionamount_1.set("currencyID", sales_invoice_doc.currency)
-        cbc_lineextensionamount_1.text = f"{line_net_amount:.2f}"
-        cac_taxtotal_2 = ET.SubElement(cac_invoiceline, CAC_TAX_TOTAL)
-        cbc_taxamount_3 = ET.SubElement(cac_taxtotal_2, CBC_TAX_AMOUNT)
-        cbc_taxamount_3.set("currencyID", sales_invoice_doc.currency)
-        cbc_taxamount_3.text = f"{line_tax_amount:.2f}"
-        cbc_roundingamount = ET.SubElement(cac_taxtotal_2, "cbc:RoundingAmount")
-        cbc_roundingamount.set("currencyID", sales_invoice_doc.currency)
-        cbc_roundingamount.text = f"{line_net_amount + line_tax_amount:.2f}"
-        cac_item = ET.SubElement(cac_invoiceline, "cac:Item")
-        cbc_name = ET.SubElement(cac_item, "cbc:Name")
-        cbc_name.text = _line_name(single_item)
-        cac_classifiedtaxcategory = ET.SubElement(
-            cac_item, "cac:ClassifiedTaxCategory"
-        )
-        cbc_id_11 = ET.SubElement(cac_classifiedtaxcategory, "cbc:ID")
-        if has_template:
-            zatca_tax_category = item_tax_template.custom_zatca_tax_category
-            if zatca_tax_category == "Standard":
-                cbc_id_11.text = "S"
-            elif zatca_tax_category == ZERO_RATED:
-                cbc_id_11.text = "Z"
-            elif zatca_tax_category == "Exempted":
-                cbc_id_11.text = "E"
-            elif zatca_tax_category == OUTSIDE_SCOPE:
-                cbc_id_11.text = "O"
-        elif sales_invoice_doc.custom_zatca_tax_category == "Standard":
-            cbc_id_11.text = "S"
-        elif sales_invoice_doc.custom_zatca_tax_category == ZERO_RATED:
-            cbc_id_11.text = "Z"
-        elif sales_invoice_doc.custom_zatca_tax_category == "Exempted":
-            cbc_id_11.text = "E"
-        elif sales_invoice_doc.custom_zatca_tax_category == OUTSIDE_SCOPE:
-            cbc_id_11.text = "O"
-        cbc_percent_2 = ET.SubElement(cac_classifiedtaxcategory, "cbc:Percent")
-        cbc_percent_2.text = f"{float(item_tax_percentage):.2f}"
-        cac_taxscheme_4 = ET.SubElement(cac_classifiedtaxcategory, "cac:TaxScheme")
-        ET.SubElement(cac_taxscheme_4, "cbc:ID").text = "VAT"
-        cac_price = ET.SubElement(cac_invoiceline, "cac:Price")
-        cbc_priceamount = ET.SubElement(cac_price, "cbc:PriceAmount")
-        cbc_priceamount.set("currencyID", sales_invoice_doc.currency)
-        cbc_priceamount.text = _format_price_amount(line_net_rate)
     _append_direct_advance_reference_lines(invoice, sales_invoice_doc)
     return invoice
 
@@ -758,43 +815,12 @@ def item_data_advance_invoice(invoice, sales_invoice_doc):
                 line_net_amount, item_tax_percentage
             )
 
-            line = ET.SubElement(invoice, "cac:InvoiceLine")
-            ET.SubElement(line, "cbc:ID").text = str(single_item.idx)
-            ET.SubElement(
-                line, "cbc:InvoicedQuantity", unitCode=single_item.uom
-            ).text = str(abs(single_item.qty))
-            ET.SubElement(
-                line, "cbc:LineExtensionAmount", currencyID=sales_invoice_doc.currency
-            ).text = f"{line_net_amount:.2f}"
-
-            tax_total = ET.SubElement(line, "cac:TaxTotal")
-            ET.SubElement(
-                tax_total, "cbc:TaxAmount", currencyID=sales_invoice_doc.currency
-            ).text = f"{line_tax_amount:.2f}"
-            ET.SubElement(
-                tax_total, "cbc:RoundingAmount", currencyID=sales_invoice_doc.currency
-            ).text = f"{(line_net_amount + line_tax_amount):.2f}"
-
-            item = ET.SubElement(line, "cac:Item")
-            ET.SubElement(item, "cbc:Name").text = _line_name(single_item)
-            classified_tax = ET.SubElement(item, "cac:ClassifiedTaxCategory")
-            tax_id = ET.SubElement(classified_tax, "cbc:ID")
-            if sales_invoice_doc.custom_zatca_tax_category == "Standard":
-                tax_id.text = "S"
-            elif sales_invoice_doc.custom_zatca_tax_category == ZERO_RATED:
-                tax_id.text = "Z"
-            elif sales_invoice_doc.custom_zatca_tax_category == "Exempted":
-                tax_id.text = "E"
-            elif sales_invoice_doc.custom_zatca_tax_category == OUTSIDE_SCOPE:
-                tax_id.text = "O"
-            ET.SubElement(classified_tax, "cbc:Percent").text = f"{float(item_tax_percentage):.2f}"
-            tax_scheme = ET.SubElement(classified_tax, "cac:TaxScheme")
-            ET.SubElement(tax_scheme, "cbc:ID").text = "VAT"
-
-            price = ET.SubElement(line, "cac:Price")
-            ET.SubElement(
-                price, "cbc:PriceAmount", currencyID=sales_invoice_doc.currency
-            ).text = _format_price_amount(line_net_rate)
+            _append_sales_invoice_line(
+                invoice, sales_invoice_doc, single_item, line_net_amount, line_net_rate,
+                line_tax_amount, item_tax_percentage,
+                has_template=False, item_tax_template=None,
+                layout="advance_plain",
+            )
 
         _append_direct_advance_reference_lines(invoice, sales_invoice_doc)
 
@@ -968,49 +994,12 @@ def item_data_with_template_advance_invoice(invoice, sales_invoice_doc):
                 line_net_amount, item_tax_percentage
             )
 
-            cac_invoiceline = ET.SubElement(invoice, "cac:InvoiceLine")
-            ET.SubElement(cac_invoiceline, "cbc:ID").text = str(single_item.idx)
-            cbc_invoicedquantity = ET.SubElement(
-                cac_invoiceline, "cbc:InvoicedQuantity"
+            _append_sales_invoice_line(
+                invoice, sales_invoice_doc, single_item, line_net_amount, line_net_rate,
+                line_tax_amount, item_tax_percentage,
+                has_template=True, item_tax_template=item_tax_template,
+                layout="advance_template",
             )
-            cbc_invoicedquantity.set("unitCode", str(single_item.uom))
-            cbc_invoicedquantity.text = str(abs(single_item.qty))
-            ET.SubElement(
-                cac_invoiceline, "cbc:LineExtensionAmount", currencyID=sales_invoice_doc.currency
-            ).text = f"{line_net_amount:.2f}"
-
-            cac_taxtotal_2 = ET.SubElement(cac_invoiceline, CAC_TAX_TOTAL)
-            ET.SubElement(
-                cac_taxtotal_2, CBC_TAX_AMOUNT, currencyID=sales_invoice_doc.currency
-            ).text = f"{line_tax_amount:.2f}"
-            ET.SubElement(
-                cac_taxtotal_2, "cbc:RoundingAmount", currencyID=sales_invoice_doc.currency
-            ).text = f"{(line_net_amount + line_tax_amount):.2f}"
-
-            cac_item = ET.SubElement(cac_invoiceline, "cac:Item")
-            ET.SubElement(cac_item, "cbc:Name").text = _line_name(single_item)
-
-            cac_classifiedtaxcategory = ET.SubElement(
-                cac_item, "cac:ClassifiedTaxCategory"
-            )
-            cbc_id_11 = ET.SubElement(cac_classifiedtaxcategory, "cbc:ID")
-            zatca_tax_category = item_tax_template.custom_zatca_tax_category
-            if zatca_tax_category == "Standard":
-                cbc_id_11.text = "S"
-            elif zatca_tax_category == ZERO_RATED:
-                cbc_id_11.text = "Z"
-            elif zatca_tax_category == "Exempted":
-                cbc_id_11.text = "E"
-            elif zatca_tax_category == OUTSIDE_SCOPE:
-                cbc_id_11.text = "O"
-            ET.SubElement(cac_classifiedtaxcategory, "cbc:Percent").text = f"{float(item_tax_percentage):.2f}"
-            tax_scheme = ET.SubElement(cac_classifiedtaxcategory, "cac:TaxScheme")
-            ET.SubElement(tax_scheme, "cbc:ID").text = "VAT"
-
-            price = ET.SubElement(cac_invoiceline, "cac:Price")
-            ET.SubElement(
-                price, "cbc:PriceAmount", currencyID=sales_invoice_doc.currency
-            ).text = _format_price_amount(line_net_rate)
 
         _append_direct_advance_reference_lines(invoice, sales_invoice_doc)
 

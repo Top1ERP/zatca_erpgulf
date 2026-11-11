@@ -1,5 +1,9 @@
 # Shared document discount/tax composition — increment200
 
+Increment202 additionally shares regular-line emission across ordinary and
+advance-named Sales builders, preserving their acquisition and reference tails.
+See [ADVANCE_ITEM_EMISSION.md](ADVANCE_ITEM_EMISSION.md).
+
 Increment201 additionally shares the actual regular-line implementation behind
 ordinary Sales item builders with/without templates. Caller item/advance
 selection and direct-reference behavior remain. See

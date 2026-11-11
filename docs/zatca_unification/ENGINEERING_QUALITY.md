@@ -41,6 +41,14 @@ Keep reference fixtures and test evidence distinct from dead runtime code.
 
 ## Current runtime consolidation
 
+Increment202 shares regular-line emission across all four Sales item builders
+inside the existing module, preserving explicit unit/RHS/attribute timing and
+advance acquisition/tails. The reviewed selection passed 6,570 distinct cases,
+including 425 new advance and partial-failure cases plus the previous ordinary
+reference suite. See [ADVANCE_ITEM_EMISSION.md](ADVANCE_ITEM_EMISSION.md).
+Reference-tail/fiscal reconciliation and runtime acceptance remain required;
+source is 11 lines shorter without a measured performance claim.
+
 Increment201 shares the actual ordinary Sales item-line body in its existing
 module, retaining exact source/read/price/XML/error semantics and direct-advance
 handoff. A frozen old implementation and exact specialized-AST comparison

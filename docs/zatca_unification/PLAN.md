@@ -19,6 +19,13 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment202 shares regular-line XML emission across all four Sales item
+builders, including the advance-named wrappers. Preserve explicit legacy unit/
+attribute/RHS timing, rate/template acquisition and last-loop/reference tails.
+Verify full bytes, source/master/app-read order and partial errors against frozen
+old wrappers; retain actual monetary and allocation rules. See
+[ADVANCE_ITEM_EMISSION.md](ADVANCE_ITEM_EMISSION.md).
+
 Increment201 consolidates the actual regular-line body of ordinary Sales item
 builders with/without templates in their existing module. Retain source/read/
 error/XML/price semantics and direct-advance handoff; verify both specialized

@@ -1,5 +1,25 @@
 # Implementation status — 2026-11-11
 
+## Latest advance-line consolidation — increment202
+
+All four Sales item builders now share regular-line XML emission in the existing
+module. Explicit internal layouts retain unit coercion, Python RHS/node timing,
+source read order and partial errors. Advance wrappers keep their rate/template
+acquisition, last-loop values and reference tails. Direct/legacy precedence,
+historical references, arithmetic, price and public error boundaries remain.
+No new runtime module or Company setting was added; source is 11 lines shorter,
+without a performance gain claim.
+
+Validation: 6,570 distinct local cases passed across 38 reviewed suites, including
+425 new cases and all 544 ordinary frozen-reference cases. Complete bytes,
+attribute/get/master/app-read order, source priority, last-row values, empty/time
+edges and partial failures match the old implementations. AST review retains all
+non-emission code and checks each new binding. The manifest is 172 local/57
+private suites; no native SQL or whole-manifest run was needed. Legacy-tail,
+fiscal/GL/SDK/installed15/16 and rehearsal gates remain open. No live change or
+authority request occurred. See
+[ADVANCE_ITEM_EMISSION.md](ADVANCE_ITEM_EMISSION.md).
+
 ## Latest item implementation consolidation — increment201
 
 Ordinary Sales item builders with/without templates now share their actual
@@ -204,7 +224,7 @@ installed15/16 release gate. No live deployment or authority request occurred.
 
 ## Scope delivered in this increment
 
-Safety preparation and two hundred and one bounded increments (Compliance outcomes, dedicated
+Safety preparation and two hundred and two bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,
