@@ -1,5 +1,9 @@
 # Shared invoice reference and party sequence — increment199
 
+Increment200 additionally shares the following allowance/tax composition while
+preserving nominal read timing, actual builder algorithms and caller-owned
+item/advance selection. See [DOCUMENT_TAX_SEQUENCE.md](DOCUMENT_TAX_SEQUENCE.md).
+
 Development only. Ten existing generator spans now use one reference/party/
 payment sequence in `invoice_party_xml.py`. This does not install the branch or
 authorize any authority request, including Compliance or synthetic onboarding.

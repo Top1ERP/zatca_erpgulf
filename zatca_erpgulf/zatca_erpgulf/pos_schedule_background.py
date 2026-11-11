@@ -3,6 +3,9 @@
 import base64
 from frappe import _
 import frappe
+from zatca_erpgulf.zatca_erpgulf.document_tax_xml import (
+    DocumentTaxTools, populate_document_tax,
+)
 from zatca_erpgulf.zatca_erpgulf.invoice_party_xml import (
     PartyXmlTools, populate_invoice_parties,
 )
@@ -112,17 +115,12 @@ def zatca_call_pos_without_xml_background(
                 globals(), doctype="POS Invoice", purpose="invoice",
             ),
         )
-        if not any_item_has_tax_template:
-            invoice = add_document_level_discount_with_tax(invoice, pos_invoice_doc)
-        else:
-            invoice = add_document_level_discount_with_tax_template(
-                invoice, pos_invoice_doc
-            )
-
-        if not any_item_has_tax_template:
-            invoice = tax_data(invoice, pos_invoice_doc)
-        else:
-            invoice = tax_data_with_template(invoice, pos_invoice_doc)
+        invoice = populate_document_tax(
+            invoice, pos_invoice_doc,
+            tools=DocumentTaxTools.from_namespace(
+                globals(), has_template=any_item_has_tax_template,
+            ),
+        )
 
         if not any_item_has_tax_template:
             invoice = item_data(invoice, pos_invoice_doc)

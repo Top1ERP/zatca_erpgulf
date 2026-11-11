@@ -1,4 +1,7 @@
 import frappe
+from zatca_erpgulf.zatca_erpgulf.document_tax_xml import (
+    DocumentTaxTools, populate_document_tax,
+)
 from zatca_erpgulf.zatca_erpgulf.invoice_party_xml import (
     PartyXmlTools, populate_invoice_parties,
 )
@@ -189,19 +192,14 @@ def _debug_call(
             )
 
             # Step 4: Discounts & Taxes
-            if getattr(invoice_doc, "custom_zatca_nominal_invoice", 0) == 1:
-                invoice = add_nominal_discount_tax(invoice, invoice_doc)
-                if not any_item_has_tax_template:
-                    invoice = tax_data_nominal(invoice, invoice_doc)
-                else:
-                    invoice = tax_data_with_template_nominal(invoice, invoice_doc)
-            else:
-                if not any_item_has_tax_template:
-                    invoice = add_document_level_discount_with_tax(invoice, invoice_doc)
-                    invoice = tax_data(invoice, invoice_doc)
-                else:
-                    invoice = add_document_level_discount_with_tax_template(invoice, invoice_doc)
-                    invoice = tax_data_with_template(invoice, invoice_doc)
+            debug_nominal = getattr(invoice_doc, "custom_zatca_nominal_invoice", 0) == 1
+            invoice = populate_document_tax(
+                invoice, invoice_doc,
+                tools=DocumentTaxTools.from_namespace(
+                    globals(), has_template=any_item_has_tax_template, include_nominal=True,
+                ),
+                is_nominal=lambda: debug_nominal,
+            )
 
             # Step 5: Item data
             is_claudion_installed = "claudion4saudi" in frappe.get_installed_apps()

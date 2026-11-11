@@ -1,5 +1,9 @@
 # Shared in-memory signing sequence — increment197
 
+Increment200 shares the preceding document allowance/tax composition across ten
+generator contexts without changing actual tax algorithms or item/advance
+selection. See [DOCUMENT_TAX_SEQUENCE.md](DOCUMENT_TAX_SEQUENCE.md).
+
 Increment199 additionally shares the preceding invoice reference/party/payment
 sequence at the ten existing ordinary/Compliance/Debug call sites. Monetary
 preparation and signing policy remain in their existing owners. See

@@ -19,6 +19,13 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment200 composes allowance then tax at ten generator contexts using the
+existing per-adapter functions. Preserve required twice-read Sales nominal
+policy, optional once-captured Debug policy and no POS nominal consumption.
+Keep template semantics, item/advance dispatch and arithmetic unchanged; verify
+real XML/master-read parity and surrounding ASTs independently of the binding
+factory. See [DOCUMENT_TAX_SEQUENCE.md](DOCUMENT_TAX_SEQUENCE.md).
+
 Increment199 composes the five existing reference/party/payment functions at ten
 generator call sites with explicit ordinary/Debug/Compliance modes. Preserve
 builder order, returned roots, exact source/number/issuer arguments, late return

@@ -41,6 +41,14 @@ Keep reference fixtures and test evidence distinct from dead runtime code.
 
 ## Current runtime consolidation
 
+Increment200 composes existing allowance/tax builders at ten generator contexts
+with explicit nominal read timing and unchanged item/advance dispatch. The
+reviewed selection passed 5,500 distinct cases, including 332 new cases and 288
+real builder byte/read-order parity combinations. See
+[DOCUMENT_TAX_SEQUENCE.md](DOCUMENT_TAX_SEQUENCE.md). Arithmetic consolidation,
+fiscal reconciliation and full runtime/installed acceptance remain required;
+orchestration cleanup is not proof of those gates or a performance gain.
+
 Increment199 shares the five-step reference/party/payment sequence at ten
 existing generator sites. Explicit purpose/adapter bindings preserve builder
 order and content, exact issuer/source/number arguments and the late return flag.

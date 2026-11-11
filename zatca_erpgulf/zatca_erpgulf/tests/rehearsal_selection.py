@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "document_tax_xml",
     "invoice_party_xml",
     "qr_encoding",
     "signed_xml_pipeline",

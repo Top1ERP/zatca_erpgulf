@@ -1,5 +1,25 @@
 # Implementation status — 2026-11-11
 
+## Latest document tax composition — increment200
+
+Eleven discount/tax spans in ten generator contexts now use one sequence, with
+existing Sales/POS builders and explicit nominal-reader policy. Sales retains
+its two required-field reads, Debug its one optional-field capture and POS its
+absence of nominal consumption. Template truthiness, returned roots and original
+errors remain. Item/advance selection, actual arithmetic and surrounding source/
+identity/header/signing/dispatch behavior are unchanged.
+
+Validation: 5,500 distinct local cases passed across 35 reviewed suites, including
+332 new cases. These include 288 real builder XML/read-order parity cases across
+ordinary/nominal Sales and POS, templates, SAR/USD, discounts, signs, synthetic
+15/16 tax-detail shapes and inclusive settings. Source-read frequency, mutation,
+failure order and binding boundaries passed. AST review matched all surrounding
+adapter nodes and checked extracted predicates/arguments. The manifest is 170
+local/57 private suites; no native SQL or whole-manifest run was needed. Full
+fiscal/advance/runtime/SDK/installed15/16 and rehearsal gates remain open. No live
+change or authority request occurred. See
+[DOCUMENT_TAX_SEQUENCE.md](DOCUMENT_TAX_SEQUENCE.md).
+
 ## Latest XML preparation consolidation — increment199
 
 Ten ordinary Sales/POS, without-XML/background, invoice Compliance and Debug
@@ -164,7 +184,7 @@ installed15/16 release gate. No live deployment or authority request occurred.
 
 ## Scope delivered in this increment
 
-Safety preparation and one hundred and ninety-nine bounded increments (Compliance outcomes, dedicated
+Safety preparation and two hundred bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,

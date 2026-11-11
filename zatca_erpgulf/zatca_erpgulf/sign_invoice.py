@@ -19,6 +19,9 @@ from datetime import datetime, timezone
 from lxml import etree
 from frappe import _
 import frappe
+from zatca_erpgulf.zatca_erpgulf.document_tax_xml import (
+    DocumentTaxTools, populate_document_tax,
+)
 from zatca_erpgulf.zatca_erpgulf.invoice_party_xml import (
     PartyXmlTools, populate_invoice_parties,
 )
@@ -879,27 +882,13 @@ def zatca_call(
             ),
         )
 
-        if sales_invoice_doc.custom_zatca_nominal_invoice == 1:
-            invoice = add_nominal_discount_tax(invoice, sales_invoice_doc)
-
-        elif not any_item_has_tax_template:
-            invoice = add_document_level_discount_with_tax(invoice, sales_invoice_doc)
-        else:
-            # Add document-level discount with tax template
-            invoice = add_document_level_discount_with_tax_template(
-                invoice, sales_invoice_doc
-            )
-
-        if sales_invoice_doc.custom_zatca_nominal_invoice == 1:
-            if not any_item_has_tax_template:
-                invoice = tax_data_nominal(invoice, sales_invoice_doc)
-            else:
-                invoice = tax_data_with_template_nominal(invoice, sales_invoice_doc)
-        else:
-            if not any_item_has_tax_template:
-                invoice = tax_data(invoice, sales_invoice_doc)
-            else:
-                invoice = tax_data_with_template(invoice, sales_invoice_doc)
+        invoice = populate_document_tax(
+            invoice, sales_invoice_doc,
+            tools=DocumentTaxTools.from_namespace(
+                globals(), has_template=any_item_has_tax_template, include_nominal=True,
+            ),
+            is_nominal=lambda: sales_invoice_doc.custom_zatca_nominal_invoice == 1,
+        )
         is_claudion_installed = "claudion4saudi" in frappe.get_installed_apps()
         has_advance_copy = (
             hasattr(sales_invoice_doc, "custom_advances_copy")
@@ -940,11 +929,6 @@ def zatca_call(
         qrcodeb64 = signed_xml.qr_payload
         updated_xml_string = signed_xml.xml
         signed_xmlfile_name = structuring_signedxml(invoice_number,updated_xml_string)
-        # Example usage
-        # file_path = generate_invoice_pdf(
-        #     invoice_number, l anguage="en", letterhead="Sample letterhead"
-        # )
-        # frappe.throw(f"PDF saved at: {file_path}")
         if get_alias_value("customer_b2c", customer_doc, 0) == 1:
             attach_qr_image(qrcodeb64, sales_invoice_doc)
             reporting_api(
@@ -1056,26 +1040,13 @@ def zatca_call_compliance(
             compliance_type=compliance_type,
         )
 
-        if sales_invoice_doc.custom_zatca_nominal_invoice == 1:
-            # Add document-level discount with tax
-            invoice = add_nominal_discount_tax(invoice, sales_invoice_doc)
-        elif not any_item_has_tax_template:
-            invoice = add_document_level_discount_with_tax(invoice, sales_invoice_doc)
-        else:
-            # Add document-level discount with tax template
-            invoice = add_document_level_discount_with_tax_template(
-                invoice, sales_invoice_doc
-            )
-        if sales_invoice_doc.custom_zatca_nominal_invoice == 1:
-            if not any_item_has_tax_template:
-                invoice = tax_data_nominal(invoice, sales_invoice_doc)
-            else:
-                invoice = tax_data_with_template_nominal(invoice, sales_invoice_doc)
-        else:
-            if not any_item_has_tax_template:
-                invoice = tax_data(invoice, sales_invoice_doc)
-            else:
-                invoice = tax_data_with_template(invoice, sales_invoice_doc)
+        invoice = populate_document_tax(
+            invoice, sales_invoice_doc,
+            tools=DocumentTaxTools.from_namespace(
+                globals(), has_template=any_item_has_tax_template, include_nominal=True,
+            ),
+            is_nominal=lambda: sales_invoice_doc.custom_zatca_nominal_invoice == 1,
+        )
 
         if not any_item_has_tax_template:
             invoice = item_data(invoice, sales_invoice_doc)
