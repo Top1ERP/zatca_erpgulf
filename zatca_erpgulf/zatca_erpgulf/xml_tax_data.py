@@ -13,7 +13,11 @@ from decimal import Decimal, ROUND_HALF_UP
 
 import frappe
 from frappe import _
-from zatca_erpgulf.ksa_compliance.tax_details import get_item_tax_detail
+# Keep the full-detail import available as an integration compatibility alias.
+from zatca_erpgulf.ksa_compliance.tax_details import (
+    get_item_tax_detail,
+    get_item_tax_rate,
+)
 
 TAX_CALCULATION_ERROR = "Tax Calculation Error"
 CAC_TAX_TOTAL = "cac:TaxTotal"
@@ -95,7 +99,7 @@ def get_tax_total_from_items(sales_invoice_doc):
     try:
         total_tax = Decimal("0.00")
         for single_item in sales_invoice_doc.items:
-            _item_tax_amount, tax_percent = get_item_tax_detail(sales_invoice_doc, single_item)
+            tax_percent = get_item_tax_rate(sales_invoice_doc, single_item)
             net_amount = _get_item_net_amount(single_item, sales_invoice_doc.currency)
             tax_percent = Decimal(str(tax_percent or 0))
             line_tax = q2(net_amount * tax_percent / Decimal("100"))
@@ -187,7 +191,7 @@ def _get_item_tax_rate_without_template(sales_invoice_doc, item):
     """Get tax rate for an item from item-wise tax detail or fallback to invoice tax rate."""
     try:
         if sales_invoice_doc.get("taxes"):
-            _tax_amount, tax_percentage = get_item_tax_detail(sales_invoice_doc, item)
+            tax_percentage = get_item_tax_rate(sales_invoice_doc, item)
             if tax_percentage not in (None, "") and tax_percentage != 0:
                 return q2(tax_percentage)
     except Exception:

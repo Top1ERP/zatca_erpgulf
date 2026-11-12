@@ -11,7 +11,11 @@ import xml.etree.ElementTree as ET
 from xml.dom import minidom
 from datetime import datetime
 from frappe.utils.data import get_time
-from zatca_erpgulf.ksa_compliance.tax_details import get_item_tax_detail
+# Keep the full-detail import available as an integration compatibility alias.
+from zatca_erpgulf.ksa_compliance.tax_details import (
+    get_item_tax_detail,
+    get_item_tax_rate,
+)
 import frappe
 import json
 from frappe import _
@@ -275,7 +279,7 @@ def _nominal_item_base_net_amount(single_item):
 def _nominal_tax_rate_without_template(sales_invoice_doc, single_item):
     try:
         if sales_invoice_doc.get("taxes"):
-            _item_tax_amount, tax_percentage = get_item_tax_detail(sales_invoice_doc, single_item)
+            tax_percentage = get_item_tax_rate(sales_invoice_doc, single_item)
             if tax_percentage not in (None, "") and tax_percentage != 0:
                 return _nominal_q2(tax_percentage)
     except Exception:
@@ -774,7 +778,7 @@ def _append_sales_invoice_item_lines(invoice, sales_invoice_doc, *, has_template
                 item_tax_template.taxes[0].tax_rate if item_tax_template.taxes else 15
             )
         else:
-            _item_tax_amount, item_tax_percentage = get_item_tax_detail(
+            item_tax_percentage = get_item_tax_rate(
                 sales_invoice_doc, single_item
             )
         line_net_amount = _line_net_amount(single_item, sales_invoice_doc)
@@ -905,7 +909,7 @@ def item_data_advance_invoice(invoice, sales_invoice_doc):
     try:
         # Add regular item lines
         for single_item in sales_invoice_doc.items:
-            _item_tax_amount, item_tax_percentage = get_item_tax_detail(sales_invoice_doc, single_item)
+            item_tax_percentage = get_item_tax_rate(sales_invoice_doc, single_item)
 
             line_net_amount = _line_net_amount(single_item, sales_invoice_doc)
             line_net_rate = _line_net_rate(single_item, sales_invoice_doc)

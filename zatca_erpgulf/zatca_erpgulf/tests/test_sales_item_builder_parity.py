@@ -51,6 +51,9 @@ def source(monkeypatch):
     # Increment205 intentionally retires this unused acquisition/serialization.
     # Parent-version tests separately execute it and prove byte/error deltas.
     reference_globals["get_tax_wise_detail"] = lambda *args: None
+    # Increment207 retires only the unused amount work in these tuple callers.
+    # A separate frozen-parent selector proves the full API remains unchanged.
+    reference_globals["get_item_tax_detail"] = lambda doc, item: (None, core.get_item_tax_rate(doc, item))
     exec(compile(content, str(REFERENCE), "exec"), reference_globals)
     return SimpleNamespace(trace=trace, document=document, template=template, advance=advance,
                            runtime=runtime, reference=reference_globals)

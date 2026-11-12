@@ -46,13 +46,16 @@ def test_parent_xml_and_master_reads_match_with_half_the_tax_calls(
     doc = prepare(s, route=route, erp_major=erp_major, currency=currency, quantity=quantity)
     reader = Mock(wraps=core.get_item_tax_detail)
     monkeypatch.setattr(core, "get_item_tax_detail", reader)
+    rate_reader = Mock(wraps=core.get_item_tax_rate)
+    monkeypatch.setattr(core, "get_item_tax_rate", rate_reader)
     parent = parent_builders()
     name = builder_name(advance)
     expected = run_builder(s, doc, parent[name])
     assert reader.call_args_list == [entry for item in doc.items for entry in [call(doc, item)] * 2]
     reader.reset_mock()
     actual = run_builder(s, doc, getattr(core, name))
-    assert reader.call_args_list == [call(doc, item) for item in doc.items]
+    reader.assert_not_called()
+    assert rate_reader.call_args_list == [call(doc, item) for item in doc.items]
     assert expected[:2] == actual[:2] and actual[0] is None
     assert expected[3:] == actual[3:]
 
@@ -72,13 +75,16 @@ def test_remaining_tax_read_faults_keep_error_and_partial_xml(
         return original(document, item)
     reader = Mock(side_effect=tax_reader)
     monkeypatch.setattr(core, "get_item_tax_detail", reader)
+    rate_reader = Mock(side_effect=lambda document, item: tax_reader(document, item)[1])
+    monkeypatch.setattr(core, "get_item_tax_rate", rate_reader)
     parent = parent_builders()
     name = builder_name(advance)
     expected = run_builder(s, doc, parent[name])
     assert reader.call_count == failing_item * 2 + 1
     reader.reset_mock()
     actual = run_builder(s, doc, getattr(core, name))
-    assert reader.call_count == failing_item + 1
+    reader.assert_not_called()
+    assert rate_reader.call_count == failing_item + 1
     assert expected[:2] == actual[:2] and actual[0] is not None
     assert "synthetic-required-tax-read-failure" in actual[0][1]
     assert expected[3:] == actual[3:]
@@ -98,13 +104,16 @@ def test_unused_json_no_longer_rejects_valid_native_decimal_tax_tuple(
         return Decimal(str(amount)), Decimal(str(rate))
     reader = Mock(side_effect=decimal_details)
     monkeypatch.setattr(core, "get_item_tax_detail", reader)
+    rate_reader = Mock(side_effect=lambda document, item: decimal_details(document, item)[1])
+    monkeypatch.setattr(core, "get_item_tax_rate", rate_reader)
     parent = parent_builders()
     name = builder_name(advance)
     old = run_builder(s, doc, parent[name])
     assert old[0] is not None and "not JSON serializable" in old[0][1]
     reader.reset_mock()
     actual = run_builder(s, doc, getattr(core, name))
-    assert actual[0] is None and reader.call_count == len(doc.items)
+    assert actual[0] is None and rate_reader.call_count == len(doc.items)
+    reader.assert_not_called()
     # An independent native-float parent run supplies the unchanged XML bytes.
     monkeypatch.setattr(core, "get_item_tax_detail", original)
     expected = run_builder(s, doc, parent_builders()[name])
@@ -143,8 +152,8 @@ def test_each_row_uses_one_fresh_result_without_cross_row_cache(
     def read_once(document, item):
         assert all(item is not previous for previous in calls), "A row must not be acquired twice"
         calls.append(item)
-        return 0, 5.0 if item is doc.items[0] else 15.0
-    monkeypatch.setattr(core, "get_item_tax_detail", read_once)
+        return 5.0 if item is doc.items[0] else 15.0
+    monkeypatch.setattr(core, "get_item_tax_rate", read_once)
     root = ET.Element("Invoice")
     getattr(core, builder_name(advance))(root, doc)
     rates = [line.find("cac:Item").find("cac:ClassifiedTaxCategory").find("cbc:Percent").text

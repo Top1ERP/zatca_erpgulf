@@ -1,4 +1,26 @@
-# Implementation status — 2026-11-12
+# Implementation status — 2026-11-13
+
+## Latest shared rate-only tax selection — increment207
+
+Seven Sales/POS item/total/nominal consumers now use a native rate-only API backed
+by the same selector as the unchanged full-detail API. Finite rates skip unused
+line-net amount calculation. Payload amount conversion and non-finite line
+handling remain, preventing removal of inherited Infinity rejection. Public
+aliases/JSON helper, consumer math, source/rate/identity policy and handlers stay.
+
+Validation: 8,335 distinct local cases passed across 42 reviewed suites, including
+662 new cases. Exact full-function AST specialization and seven caller-module
+restorations pass; full API values/reads and actual consumer outputs/errors match
+the parent. Older remaining-read oracles explicitly retire only unused amount
+work; new cases independently execute the full parent. Manifest is 176 local/
+57 private suites; no private SQL or whole-manifest run. Measured synthetic
+100-item CPU reductions were modest (2.37–3.82%), with unchanged peak heap.
+
+Four characterization cases retain an inherited zero-to-invoice-rate fallback
+in nominal/Sales helpers; source-presence versus authoritative-zero policy needs
+review next. It is not corrected or certified by this optimization. Fiscal,
+runtime/SDK and rehearsal gates remain open. No live change or authority request
+occurred. See [ITEM_TAX_RATE_ONLY.md](ITEM_TAX_RATE_ONLY.md).
 
 ## Latest v15 selected-key cost reduction — increment206
 
@@ -303,7 +325,7 @@ installed15/16 release gate. No live deployment or authority request occurred.
 
 ## Scope delivered in this increment
 
-Safety preparation and two hundred and six bounded increments (Compliance outcomes, dedicated
+Safety preparation and two hundred and seven bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,

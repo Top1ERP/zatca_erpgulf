@@ -13,7 +13,11 @@ for ZATCA and provides support for multiple currencies (SAR and USD).
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 from frappe import _
-from zatca_erpgulf.ksa_compliance.tax_details import get_item_tax_detail
+# Keep the full-detail import available as an integration compatibility alias.
+from zatca_erpgulf.ksa_compliance.tax_details import (
+    get_item_tax_detail,
+    get_item_tax_rate,
+)
 import frappe
 from zatca_erpgulf.zatca_erpgulf.posxml import (
     get_exemption_reason_map,
@@ -279,7 +283,7 @@ def item_data(invoice, pos_invoice_doc):
     """Function for item data"""
     try:
         for single_item in pos_invoice_doc.items:
-            _item_tax_amount, item_tax_percentage = get_item_tax_detail(pos_invoice_doc, single_item)
+            item_tax_percentage = get_item_tax_rate(pos_invoice_doc, single_item)
             cac_invoiceline = ET.SubElement(invoice, "cac:InvoiceLine")
             cbc_id_10 = ET.SubElement(cac_invoiceline, "cbc:ID")
             cbc_id_10.text = str(single_item.idx)

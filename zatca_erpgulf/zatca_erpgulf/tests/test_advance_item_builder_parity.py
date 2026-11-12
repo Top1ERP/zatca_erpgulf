@@ -64,6 +64,7 @@ def advance_source(sales_source):
     # Match the explicitly retired unused-read boundary from the Sales oracle.
     # The full parent-version reader remains independently exercised at205.
     s.advance_reference["get_tax_wise_detail"] = s.reference["get_tax_wise_detail"]
+    s.advance_reference["get_item_tax_detail"] = s.reference["get_item_tax_detail"]
     exec(compile(content, str(REFERENCE), "exec"), s.advance_reference)
     return s
 
@@ -230,7 +231,7 @@ def test_layout_read_timing_exception_and_partial_xml_match_old_code(advance_sou
                    "get_tax_wise_detail": lambda *args: "{}"}
         if fault.startswith("currency"):
             doc.currency_fault_at = 1 if fault.endswith("first") else 4
-            patches["get_item_tax_detail"] = lambda *args: (0, 15)
+            patches["get_item_tax_rate"] = lambda *args: 15
         elif fault in ("name", "price"):
             patches["_line_name" if fault == "name" else "_format_price_amount"] = Mock(side_effect=ValueError("synthetic-" + fault + "-failure"))
         else:
@@ -238,7 +239,7 @@ def test_layout_read_timing_exception_and_partial_xml_match_old_code(advance_sou
                 def __float__(self):
                     raise ValueError("synthetic-rate-failure")
             s.template.taxes[0].tax_rate = BrokenRate()
-            patches["get_item_tax_detail"] = lambda *args: (0, s.template.taxes[0].tax_rate)
+            patches["get_item_tax_rate"] = lambda *args: s.template.taxes[0].tax_rate
         for name, value in patches.items():
             monkeypatch.setattr(core, name, value)
             s.reference[name] = s.advance_reference[name] = value
@@ -350,13 +351,8 @@ def test_legacy_multiplication_failure_keeps_tax_amount_assignment_in_caller(
     if has_template:
         s.template.taxes[0].tax_rate = rate
     else:
-        reader = lambda *args: (0, rate)
-        monkeypatch.setattr(core, "get_item_tax_detail", reader)
-        s.advance_reference["get_item_tax_detail"] = reader
-        # Bypass the plain adapter's redundant JSON encoding only in this
-        # targeted fault test, so both versions reach legacy multiplication.
-        monkeypatch.setattr(core, "get_tax_wise_detail", lambda *args: "{}")
-        s.advance_reference["get_tax_wise_detail"] = core.get_tax_wise_detail
+        # Both normalized frozen/current item paths consume this rate only.
+        monkeypatch.setattr(core, "get_item_tax_rate", lambda *args: rate)
     outcome, *_ = compare(s, doc, has_template)
     assert outcome is not None
     assert "synthetic-legacy-rate-failure" in outcome[1]

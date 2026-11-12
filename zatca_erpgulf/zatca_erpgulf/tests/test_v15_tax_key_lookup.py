@@ -181,11 +181,16 @@ def test_actual_sales_pos_nominal_and_totals_keep_parent_outputs_and_reads(
     for module in (pos_final, posxml, xml_tax_data):
         monkeypatch.setattr(module, "frappe", s.runtime)
         monkeypatch.setattr(module, "_", lambda message, *args: message)
-    parent = parent_functions()["get_item_tax_detail"]
+    reference = parent_functions()
+    reference["_line_tax_amount"] = lambda *args: 0.0
+    # Rate consumers skip line-net calculation but retain v16 payload amounts.
+    # These remaining-read cases own untracked v16 amount fields; the exact207
+    # parent suite independently verifies both retained and skipped fields.
+    parent_rate = lambda doc, item: reference["get_item_tax_detail"](doc, item)[1]
     outputs = []
-    for lookup in (parent, tax.get_item_tax_detail):
+    for lookup in (parent_rate, tax.get_item_tax_rate):
         for module in (sales, pos_final, posxml, xml_tax_data):
-            monkeypatch.setattr(module, "get_item_tax_detail", lookup)
+            monkeypatch.setattr(module, "get_item_tax_rate", lookup)
         s.trace.clear()
         s.runtime.get_doc.reset_mock()
         s.runtime.get_installed_apps.reset_mock()

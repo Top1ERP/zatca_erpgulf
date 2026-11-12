@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment207 shares full-detail/rate-only selection and adopts rate-only at
+seven existing Sales/POS consumers, preserving payload conversion, non-finite
+handling, the full API and caller math. Verify exact full-mode AST, seven caller
+bindings, native values/reads and actual finite/non-finite consumer outputs.
+Next resolve the characterized zero-to-invoice-rate fallback in nominal/Sales
+helpers with explicit source-presence and fiscal rules, rather than assuming
+selector zero authority means whole-system correctness. See
+[ITEM_TAX_RATE_ONLY.md](ITEM_TAX_RATE_ONLY.md).
+
 Increment206 narrows v15 JSON folding to the exact requested key, preserving
 complete direct-dict/custom-subclass/default folds and all existing rate/amount
 and v16 rules. Verify exact parent outputs/reads, selected normalization counts,

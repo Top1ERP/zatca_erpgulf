@@ -1,5 +1,10 @@
 # Retire unused item-tax JSON work — increment205
 
+Subsequent increment207 shares native full-detail/rate-only selection and uses
+rate-only in seven existing consumers; see
+[ITEM_TAX_RATE_ONLY.md](ITEM_TAX_RATE_ONLY.md). Evidence below records its own
+earlier boundary and measurement baseline.
+
 Subsequent increment206 narrows the native v15 JSON fold to the selected item
 key; see [V15_TAX_KEY_LOOKUP.md](V15_TAX_KEY_LOOKUP.md). Measurements below record
 the earlier duplicate-call removal and must not be added to the later figures.

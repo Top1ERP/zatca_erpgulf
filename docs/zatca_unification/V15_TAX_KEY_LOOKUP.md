@@ -1,5 +1,10 @@
 # Select the requested v15 JSON tax key — increment206
 
+Subsequent increment207 shares native full-detail/rate-only selection and uses
+rate-only in seven existing consumers; see
+[ITEM_TAX_RATE_ONLY.md](ITEM_TAX_RATE_ONLY.md). Evidence below records its own
+earlier boundary and measurement baseline.
+
 Development only. The existing `ksa_compliance/tax_details.py` now folds only
 the requested item key from native dictionaries parsed from v15 JSON text.
 This follows [duplicate-read removal](ITEM_TAX_READ_COST.md) without introducing

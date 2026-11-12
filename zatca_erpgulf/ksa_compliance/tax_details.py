@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from decimal import Decimal, ROUND_HALF_UP
+from math import isfinite
 
 
 def _value(row, key, default=None):
@@ -159,8 +160,28 @@ def _line_tax_amount(doc, item, tax_rate, fallback_amount=0.0):
     return _number(fallback_amount)
 
 
-def get_item_tax_detail(doc, item):
-    """Return ``(tax_amount, tax_rate)`` for an item on v15 or v16."""
+def _rate_without_line_amount(doc, item, tax_rate, fallback_amount=0.0):
+    """Skip unused finite-rate amount math without weakening non-finite handling.
+
+    Keep payload amount conversion in the shared selector. For a non-finite
+    rate, execute the original line calculation so its old rejection behavior
+    remains; a rate-only caller must not start emitting Infinity because that
+    formerly checked calculation was removed. No source is reacquired here.
+    """
+    normalized_rate = _number(tax_rate)
+    if not isfinite(normalized_rate):
+        _line_tax_amount(doc, item, tax_rate, fallback_amount)
+    return normalized_rate
+
+
+def _resolve_item_tax(doc, item, *, rate_only):
+    """Select native tax sources once for full-detail and rate-only callers.
+
+    Full-detail mode retains the legacy reads and numeric ordering. Rate-only
+    mode skips line-net tax calculation for finite rates; callers own their
+    actual XML amount math. Payload amount conversion and v15 folds remain.
+    There is no cache or cross-item reuse; every call reads its current source.
+    """
 
     # ERPNext 16 stores one row per item/tax combination and references the
     # Sales Invoice Item child row by its ``name``. Match that reference
@@ -177,12 +198,14 @@ def get_item_tax_detail(doc, item):
                 amount += _number(_value(detail, "amount"))
                 rate += _number(_value(detail, "rate"))
         if matched:
+            if rate_only:
+                return _rate_without_line_amount(doc, item, rate, amount)
             return _line_tax_amount(doc, item, rate, amount), rate
 
         # A populated ERPNext 16 table is authoritative. Falling back to a
         # stale v15 JSON map for an unmatched row could reintroduce an
         # item_code/idx collision.
-        return 0.0, 0.0
+        return 0.0 if rate_only else (0.0, 0.0)
 
     if v16_details is not None:
         # An empty v16 table can occur while the invoice uses one invoice-level
@@ -190,8 +213,10 @@ def get_item_tax_detail(doc, item):
         for tax_row in (_value(doc, "taxes", []) or []):
             tax_rate = _value(tax_row, "rate", None)
             if tax_rate is not None:
+                if rate_only:
+                    return _rate_without_line_amount(doc, item, tax_rate)
                 return _line_tax_amount(doc, item, tax_rate), _number(tax_rate)
-        return 0.0, 0.0
+        return 0.0 if rate_only else (0.0, 0.0)
 
     # ERPNext 15 stores a JSON map keyed by item_code (or item_name when no
     # item_code exists). Resolve exactly one key. Do not inspect ``name`` or
@@ -203,6 +228,11 @@ def get_item_tax_detail(doc, item):
     if item_tax_rate is None and legacy_value is not None:
         item_tax_rate = legacy_value[1]
     if item_tax_rate is not None:
+        if rate_only:
+            return _rate_without_line_amount(
+                doc, item, item_tax_rate,
+                legacy_value[0] if legacy_value is not None else 0.0,
+            )
         return _line_tax_amount(
             doc,
             item,
@@ -210,4 +240,19 @@ def get_item_tax_detail(doc, item):
             legacy_value[0] if legacy_value is not None else 0.0,
         ), item_tax_rate
 
-    return 0.0, 0.0
+    return 0.0 if rate_only else (0.0, 0.0)
+
+
+def get_item_tax_detail(doc, item):
+    """Return ``(tax_amount, tax_rate)`` for an item on v15 or v16."""
+    return _resolve_item_tax(doc, item, rate_only=False)
+
+
+def get_item_tax_rate(doc, item):
+    """Return the selected rate, avoiding unused amount math for finite rates.
+
+    This keeps source precedence and authoritative v16 zero/unmatched results.
+    Payload amount conversion and non-finite line-calculation behavior remain.
+    Finite rates do not validate line-net amounts; each consumer owns that math.
+    """
+    return _resolve_item_tax(doc, item, rate_only=True)

@@ -41,6 +41,15 @@ Keep reference fixtures and test evidence distinct from dead runtime code.
 
 ## Current runtime consolidation
 
+Increment207 uses one shared native selector for full details and rate-only
+consumers at seven Sales/POS sites. Finite rates avoid unused line-tax math;
+payload conversion and non-finite rejection remain. Exact AST proofs and 8,335
+selected cases (662 new) cover full API compatibility and actual consumer
+outputs/errors. The inherited nominal/Sales zero fallback is explicitly open.
+A local paired component run showed modest 2.37–3.82% CPU reductions at 100 items,
+with effectively unchanged heap; no broad performance/runtime claim. See
+[ITEM_TAX_RATE_ONLY.md](ITEM_TAX_RATE_ONLY.md).
+
 Increment204 shares a bounded native mixed-number tax bridge at both legacy
 reference paths. Compatible results and float bits remain; Decimal operands are
 not converted to float. Exact surrounding-AST proof, explicit old-failure/new-

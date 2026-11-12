@@ -22,7 +22,11 @@ from zatca_erpgulf.zatca_erpgulf.credential_settings import get_previous_invoice
 from zatca_erpgulf.zatca_erpgulf.invoice_xml_core import (
     append_additional_references, append_compliance_type, append_invoice_metadata,
 )
-from zatca_erpgulf.ksa_compliance.tax_details import get_item_tax_detail
+# Keep the full-detail import available as an integration compatibility alias.
+from zatca_erpgulf.ksa_compliance.tax_details import (
+    get_item_tax_detail,
+    get_item_tax_rate,
+)
 from frappe import _
 import frappe
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
@@ -853,8 +857,7 @@ def get_tax_total_from_items(pos_invoice_doc):
     try:
         total_tax = 0
         for single_item in pos_invoice_doc.items:
-            # _ = item_tax_amount
-            _item_tax_amount, tax_percent = get_item_tax_detail(pos_invoice_doc, single_item)
+            tax_percent = get_item_tax_rate(pos_invoice_doc, single_item)
             total_tax = total_tax + (single_item.net_amount * (tax_percent / 100))
         return total_tax
     except (AttributeError, KeyError, ValueError, TypeError) as e:
