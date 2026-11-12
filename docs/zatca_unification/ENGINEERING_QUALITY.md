@@ -41,6 +41,14 @@ Keep reference fixtures and test evidence distinct from dead runtime code.
 
 ## Current runtime consolidation
 
+Increment209 shares preflight selected-rate/reason decisions across category-owner
+branches, preserving invoice zero and declared reason overrides. Mixed-source
+context reuses existing English/Arabic keys. One overwritten category set is
+removed and five synthetic tests are made portable with unchanged test bodies.
+Final selection: 9,066 local cases, 396 new; rules/gates/messages remain under exact
+AST scope proof. No performance or full compliance claim. See
+[TAX_SOURCE_CONSISTENCY.md](TAX_SOURCE_CONSISTENCY.md).
+
 Increment208 repairs selected-zero fallback and first-rate-only non-template
 subtotals. Ordinary/nominal builders share empty accumulators while retaining
 net/rounding/category and SAR/OOS ownership. Optional missing defaults preserve

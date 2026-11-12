@@ -1,5 +1,10 @@
 # Preserve selected zero and group non-template rates — increment208
 
+Subsequent increment209 corrects preflight invoice-level rate/reason priority;
+see [TAX_SOURCE_CONSISTENCY.md](TAX_SOURCE_CONSISTENCY.md). Historical evidence
+below does not imply that all per-item/source/validation-policy discrepancies
+are resolved or that any captured observation is adopted at runtime.
+
 Development only. The two zero-discarding Sales/nominal consumers identified in
 [ITEM_TAX_RATE_ONLY.md](ITEM_TAX_RATE_ONLY.md) now preserve selected zero rates.
 Their non-template breakdowns also separate different rates rather than label

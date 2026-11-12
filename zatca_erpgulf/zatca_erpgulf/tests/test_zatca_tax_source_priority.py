@@ -1,9 +1,9 @@
 from decimal import Decimal
 from types import SimpleNamespace
+from unittest import TestCase
 from unittest.mock import patch
 
-import frappe
-from frappe.tests.utils import FrappeTestCase
+from frappe.exceptions import ValidationError
 
 from zatca_erpgulf.zatca_erpgulf.xml_tax_data import (
     _get_invoice_level_zatca_tax_source,
@@ -92,7 +92,20 @@ def _item_tax_template(category, exemption_reason="", tax_rate=15):
     )
 
 
-class TestZATCATaxSourcePriority(FrappeTestCase):
+class TestZATCATaxSourcePriority(TestCase):
+    def setUp(self):
+        # These source-priority cases need no installed site, session or DB.
+        translate = patch("zatca_erpgulf.zatca_erpgulf.tax_error._zt", side_effect=lambda text: text)
+        throw = patch("zatca_erpgulf.zatca_erpgulf.tax_error.frappe.throw", side_effect=self._raise_validation)
+        translate.start()
+        self.addCleanup(translate.stop)
+        throw.start()
+        self.addCleanup(throw.stop)
+
+    @staticmethod
+    def _raise_validation(message, *args, **kwargs):
+        raise ValidationError(str(message))
+
     def test_sales_invoice_values_override_sales_taxes_template(self):
         sales_template = _sales_tax_template(
             category="Zero Rated",

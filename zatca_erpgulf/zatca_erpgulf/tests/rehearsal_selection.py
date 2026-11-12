@@ -1,6 +1,8 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "tax_source_consistency",
+    "zatca_tax_source_priority",
     "zero_rate_selection",
     "item_tax_rate_only",
     "v15_tax_key_lookup",

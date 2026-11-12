@@ -76,11 +76,6 @@ _ZATCA_NEGATIVE_LINE_VALIDATION_MODES = {"Strict", "Warn Only", "Disabled"}
 _ZATCA_TAX_TABLE_VALIDATION_FIELD = "custom_enforce_zatca_tax_table_validation"
 
 _ZATCA_CATEGORY_RATE_VALIDATION_FIELD = "custom_enforce_zatca_tax_category_rate_validation"
-_ZATCA_NON_STANDARD_CATEGORIES = {
-    "Zero Rated",
-    "Exempted",
-    "Services outside scope of tax / Not subject to VAT",
-}
 
 
 def _is_phase2_category_rate_validation_enabled(company_doc) -> bool:
@@ -651,14 +646,15 @@ def _get_sales_taxes_template_doc(doc):
     return frappe.get_doc("Sales Taxes and Charges Template", template_name)
 
 
-def _get_invoice_level_tax_rate(doc) -> float:
+def _get_invoice_level_tax_rate(doc, *, default=0.0) -> float | None:
+    """Read the first present invoice rate, retaining zero as an actual value."""
     for tax_row in getattr(doc, "taxes", []) or []:
         value = getattr(tax_row, "rate", None)
 
         if value not in (None, ""):
             return flt(value)
 
-    return 0.0
+    return default
 
 
 def _get_invoice_level_tax_rates(doc) -> set[float]:
@@ -672,11 +668,17 @@ def _get_invoice_level_tax_rates(doc) -> set[float]:
 
 
 def _get_invoice_level_zatca_source(doc):
-    """Resolve invoice-level ZATCA fields, preferring Sales Invoice values."""
+    """Select declared category/reason and the first present invoice rate.
+
+    Invoice rows and a declared invoice reason keep their own precedence even
+    when category comes from the Sales Taxes template. Only an absent invoice
+    rate uses its template fallback; zero must not become a template rate. Mixed
+    source labels identify both records. Category rules/Company gates stay put.
+    """
     sales_template = _get_sales_taxes_template_doc(doc)
     invoice_category = _safe_str(getattr(doc, "custom_zatca_tax_category", None))
     invoice_exemption_reason = _safe_str(getattr(doc, "custom_exemption_reason_code", None))
-    invoice_rate = _get_invoice_level_tax_rate(doc)
+    invoice_rate = _get_invoice_level_tax_rate(doc, default=None)
 
     template_category = ""
     template_exemption_reason = ""
@@ -688,24 +690,31 @@ def _get_invoice_level_zatca_source(doc):
         )
         template_rate = _get_template_rate(sales_template)
 
+    # Rate ownership is independent of which record supplies the category.
+    selected_rate = invoice_rate if invoice_rate is not None else template_rate
+    selected_reason = invoice_exemption_reason or template_exemption_reason
+
     if invoice_category:
         return {
             "source_type": "invoice",
             "source_name": _zt("Sales Invoice ZATCA fields"),
             "category": invoice_category,
-            "exemption_reason": invoice_exemption_reason or template_exemption_reason,
-            "rate": invoice_rate if invoice_rate else template_rate,
+            "exemption_reason": selected_reason,
+            "rate": selected_rate,
         }
 
     if template_category:
+        source_label = (
+            "Sales Taxes and Charges Template {0} or Sales Invoice ZATCA fields"
+            if invoice_rate is not None or invoice_exemption_reason
+            else "Sales Taxes and Charges Template {0}"
+        )
         return {
             "source_type": "sales_taxes_template",
-            "source_name": _zt("Sales Taxes and Charges Template {0}").format(
-                sales_template.name
-            ),
+            "source_name": _zt(source_label).format(sales_template.name),
             "category": template_category,
-            "exemption_reason": template_exemption_reason,
-            "rate": template_rate,
+            "exemption_reason": selected_reason,
+            "rate": selected_rate,
         }
 
     location = (

@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment209 aligns preflight invoice-level rate/reason priority with the reviewed
+XML source scenarios, preserving zero, genuinely absent fallback and category
+ownership. Reuse bilingual mixed-source labels and retain existing rules/gates.
+Make the five synthetic source-priority tests site-independent and remove only
+the proven overwritten category assignment. Per-item/Phase1/2/source/category/
+code policy and full fiscal/runtime acceptance still need separate review. See
+[TAX_SOURCE_CONSISTENCY.md](TAX_SOURCE_CONSISTENCY.md).
+
 Increment208 preserves selected zero in ordinary/nominal consumers using an
 optional native missing-source default. Keep legacy two-argument/full-detail
 behavior and v16 authority. Group non-template subtotals per quantized rate,

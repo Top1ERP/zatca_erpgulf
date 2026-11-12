@@ -1,5 +1,24 @@
 # Implementation status — 2026-11-13
 
+## Latest preflight tax-source consistency — increment209
+
+The preflight selector preserves invoice zero and positive rates even when
+category comes from the template; absent rates alone use the template fallback.
+Declared invoice exemption reasons also retain precedence in both category-owner
+branches. Shared selection expressions and existing bilingual combined-source
+labels keep the context clear. Category/rate rules, Company/phase gates and
+other module functions remain. One overwritten duplicate category set is removed.
+
+Validation: 9,066 distinct local cases passed across 45 reviewed suites, including
+396 new cases and five older synthetic cases made site-independent without
+changing their test bodies. Old/new source deltas, XML helper agreement,
+English/Arabic rejection display, settings and disabled-company exit passed.
+AST scope review preserves all rules/gates/messages and verifies the constant
+cleanup. Manifest is 179 local/57 private suites; no private SQL or whole-manifest
+run. No performance claim. Per-item, strict source/category/code, Phase1/2 and
+full fiscal/SDK/runtime/rehearsal gates remain open. No live change or authority
+request occurred. See [TAX_SOURCE_CONSISTENCY.md](TAX_SOURCE_CONSISTENCY.md).
+
 ## Latest zero-rate and subtotal correction — increment208
 
 Selected zero now survives the two ordinary/nominal fallback helpers. The native
@@ -344,7 +363,7 @@ installed15/16 release gate. No live deployment or authority request occurred.
 
 ## Scope delivered in this increment
 
-Safety preparation and two hundred and eight bounded increments (Compliance outcomes, dedicated
+Safety preparation and two hundred and nine bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,

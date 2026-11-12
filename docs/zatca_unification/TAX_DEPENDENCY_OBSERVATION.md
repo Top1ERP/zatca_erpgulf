@@ -1,5 +1,10 @@
 # Explicit invoice tax-template dependency observations
 
+Subsequent increment209 corrects preflight invoice-level rate/reason priority;
+see [TAX_SOURCE_CONSISTENCY.md](TAX_SOURCE_CONSISTENCY.md). Historical evidence
+below does not imply that all per-item/source/validation-policy discrepancies
+are resolved or that any captured observation is adopted at runtime.
+
 Increment 105 — 2026-10-25. Pure offline development; uninstalled.
 
 Increment 108 reuses template capture/validation helpers for explicit POS Profile
