@@ -61,6 +61,9 @@ def advance_source(sales_source):
     content = REFERENCE.read_bytes()
     assert hashlib.sha256(content).hexdigest() == REFERENCE_SHA256
     s.advance_reference = dict(vars(core))
+    # Match the explicitly retired unused-read boundary from the Sales oracle.
+    # The full parent-version reader remains independently exercised at205.
+    s.advance_reference["get_tax_wise_detail"] = s.reference["get_tax_wise_detail"]
     exec(compile(content, str(REFERENCE), "exec"), s.advance_reference)
     return s
 

@@ -48,6 +48,9 @@ def source(monkeypatch):
     content = REFERENCE.read_bytes()
     assert hashlib.sha256(content).hexdigest() == REFERENCE_SHA256
     reference_globals = dict(vars(core))
+    # Increment205 intentionally retires this unused acquisition/serialization.
+    # Parent-version tests separately execute it and prove byte/error deltas.
+    reference_globals["get_tax_wise_detail"] = lambda *args: None
     exec(compile(content, str(REFERENCE), "exec"), reference_globals)
     return SimpleNamespace(trace=trace, document=document, template=template, advance=advance,
                            runtime=runtime, reference=reference_globals)

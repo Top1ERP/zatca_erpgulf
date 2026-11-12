@@ -111,6 +111,16 @@ cases, including 59 new real-XML/crypto and failure-boundary cases. See
 
 ## Current performance work
 
+Increment205 removes duplicate item-tax acquisition and unused JSON construction
+in plain Sales/advance loops. Exact-parent cases prove two calls become one per
+item while preserving compatible bytes and required errors; incidental unused-
+serializer errors are explicit deltas. The public serializer remains. Final
+selection: 7,135 local cases, 96 new. A guarded no-tracing real-builder benchmark
+measured 29.97–40.76% less median CPU on 100-item synthetic fixtures; peak heap
+was effectively unchanged. This is not production latency, installed16 or query
+savings. Remaining repeated table scans/unused amount calculation need separate
+review. See [ITEM_TAX_READ_COST.md](ITEM_TAX_READ_COST.md).
+
 Increment196 removes repeated whole-invoice reconstruction during checked
 field-precision resolution while preserving the same rule and independently
 validating public APIs. It also preserves bounded installer diagnostics for

@@ -1,5 +1,25 @@
 # Implementation status — 2026-11-12
 
+## Latest item-tax acquisition cost reduction — increment205
+
+Plain ordinary/advance Sales item loops now resolve native item tax details once
+per item. Two unused JSON assignments are removed; the public serializer remains
+with its original contract. Template/POS paths, numeric helpers, reference/source
+policy and handlers remain. Removed-read/serialization failures are explicit
+intentional deltas, verified against an exact-parent fixture. Older parity
+namespaces suppress only that retired dependency; their fixture hashes remain.
+
+Validation: 7,135 distinct local cases passed across 40 reviewed suites, including
+96 new cases. Full bytes, ordered adapter arguments, required failures, native
+Decimal/missing-code deltas and public JSON compatibility passed. AST review
+matches the parent after only the two removals and docstring normalization.
+Manifest is 174 local/57 private suites; no private SQL or whole-manifest run.
+A separate real-builder synthetic benchmark measured 29.97–40.76% less median
+CPU at 100 items; heap was effectively unchanged. This is not production latency
+or installed16 evidence. Fiscal/runtime/rehearsal gates remain open. No live
+change or authority request occurred. See
+[ITEM_TAX_READ_COST.md](ITEM_TAX_READ_COST.md).
+
 ## Latest legacy mixed-number repair — increment204
 
 Both legacy advance reference branches share a finite native Decimal/float
@@ -263,7 +283,7 @@ installed15/16 release gate. No live deployment or authority request occurred.
 
 ## Scope delivered in this increment
 
-Safety preparation and two hundred and four bounded increments (Compliance outcomes, dedicated
+Safety preparation and two hundred and five bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,

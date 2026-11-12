@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "item_tax_read_cost",
     "legacy_advance_tax_amount",
     "advance_item_builder_parity",
     "sales_item_builder_parity",

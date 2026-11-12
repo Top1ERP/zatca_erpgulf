@@ -1,5 +1,9 @@
 # Shared ordinary Sales item builder — increment201
 
+Subsequent increment205 retires the unused duplicate tax/JSON acquisition; see
+[ITEM_TAX_READ_COST.md](ITEM_TAX_READ_COST.md). The evidence below records the
+earlier extraction before that intentional read-boundary change.
+
 Increment202 extends shared regular-line emission to the advance-named wrappers
 with explicit compatibility layouts. Their acquisition and legacy reference
 tails remain separate. The historical exact-body AST evidence below applies to

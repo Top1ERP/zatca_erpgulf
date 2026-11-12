@@ -1,5 +1,9 @@
 # Shared Sales/advance regular-line emission — increment202
 
+Subsequent increment205 retires the unused duplicate tax/JSON acquisition; see
+[ITEM_TAX_READ_COST.md](ITEM_TAX_READ_COST.md). The evidence below records the
+earlier extraction before that intentional read-boundary change.
+
 Subsequent increment203 shares selected legacy reference-tail emission; see
 [LEGACY_ADVANCE_XML.md](LEGACY_ADVANCE_XML.md). The evidence below records the
 regular-line extraction at increment202, when those tails were unchanged.

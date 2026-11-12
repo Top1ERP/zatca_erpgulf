@@ -533,7 +533,11 @@ def add_line_item_discount(cac_price, single_item, sales_invoice_doc):
 
 
 def get_tax_wise_detail(sales_invoice_doc,single_item):
-    """getting item wise tax"""
+    """Return legacy JSON for integrations that still call this public helper.
+
+    Item builders consume the native tax tuple directly, once per item. Keep
+    this serialization API available without making XML depend on unused JSON.
+    """
     tax_amount, tax_rate = get_item_tax_detail(sales_invoice_doc, single_item)
     return json.dumps({str(single_item.item_code): [tax_rate, tax_amount]})
 
@@ -755,8 +759,9 @@ def _append_sales_invoice_line(
 def _append_sales_invoice_item_lines(invoice, sales_invoice_doc, *, has_template):
     """Append regular Sales item lines, then existing direct-advance references.
 
-    Keep template acquisition, ordinary tax-detail reads, Decimal/price helpers,
-    field-read order and XML child/attribute order from the legacy builders.
+    Resolve plain tax details once per item; unused legacy JSON is not built.
+    Keep template acquisition, Decimal/price helpers, the remaining field reads
+    and XML child/attribute order from the legacy builders.
     The plain category path rereads its source; the template path reads once.
     Advance wrappers retain their own rate acquisition and reference tails.
     """
@@ -769,7 +774,6 @@ def _append_sales_invoice_item_lines(invoice, sales_invoice_doc, *, has_template
                 item_tax_template.taxes[0].tax_rate if item_tax_template.taxes else 15
             )
         else:
-            tax_json = get_tax_wise_detail(sales_invoice_doc, single_item)
             _item_tax_amount, item_tax_percentage = get_item_tax_detail(
                 sales_invoice_doc, single_item
             )
@@ -901,7 +905,6 @@ def item_data_advance_invoice(invoice, sales_invoice_doc):
     try:
         # Add regular item lines
         for single_item in sales_invoice_doc.items:
-            tax_json = get_tax_wise_detail(sales_invoice_doc, single_item)
             _item_tax_amount, item_tax_percentage = get_item_tax_detail(sales_invoice_doc, single_item)
 
             line_net_amount = _line_net_amount(single_item, sales_invoice_doc)

@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment205 removes the unused first tax acquisition/JSON serialization from
+plain Sales/advance item loops, keeping the public JSON compatibility helper.
+Verify exact parent bytes/errors and explicit removed-read deltas, one fresh
+native result per row, remaining read-order parity and the entire unchanged
+numeric/source/handler AST. Measure the real item-builder component separately
+from production latency or installed runtime. See
+[ITEM_TAX_READ_COST.md](ITEM_TAX_READ_COST.md).
+
 Increment204 repairs finite native Decimal/float pairs at the two legacy
 reference tax-amount expressions, using the float's decimal text without
 projecting Decimal through float. Retain all already-compatible results, context,
