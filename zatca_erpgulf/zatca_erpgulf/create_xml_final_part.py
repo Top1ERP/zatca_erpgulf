@@ -21,6 +21,7 @@ import json
 from frappe import _
 from zatca_erpgulf.zatca_erpgulf.xml_tax_data import (
     get_exemption_reason_map,
+    _new_tax_rate_bucket,
     resolve_exemption_reason_text,
 )
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
@@ -277,10 +278,11 @@ def _nominal_item_base_net_amount(single_item):
 
 
 def _nominal_tax_rate_without_template(sales_invoice_doc, single_item):
+    # Preserve selected zero; absent/failed lookup keeps the invoice fallback.
     try:
         if sales_invoice_doc.get("taxes"):
-            tax_percentage = get_item_tax_rate(sales_invoice_doc, single_item)
-            if tax_percentage not in (None, "") and tax_percentage != 0:
+            tax_percentage = get_item_tax_rate(sales_invoice_doc, single_item, default=None)
+            if tax_percentage not in (None, ""):
                 return _nominal_q2(tax_percentage)
     except Exception:
         pass
@@ -291,34 +293,38 @@ def _nominal_tax_rate_without_template(sales_invoice_doc, single_item):
 
 
 def _nominal_breakdown_without_template(sales_invoice_doc):
+    """Group nominal values by selected rate without inferring tax categories."""
     tax_category = sales_invoice_doc.get("custom_zatca_tax_category") or "Standard"
     exemption_reason_code = sales_invoice_doc.get("custom_exemption_reason_code")
-
-    taxable_amount = Decimal("0.00")
-    tax_amount = Decimal("0.00")
-    sar_tax_amount = Decimal("0.00")
-    effective_rate = None
+    groups = {}
 
     for item in sales_invoice_doc.items:
         item_tax_rate = _nominal_tax_rate_without_template(sales_invoice_doc, item)
-        if effective_rate is None:
-            effective_rate = item_tax_rate
-
+        # Preserve the original net/base acquisition order and per-line rounding.
         line_net = _nominal_item_net_amount(item, sales_invoice_doc)
         line_base_net = _nominal_item_base_net_amount(item)
+        # NaN does not equal itself; use a stable diagnostic key.
+        rate_key = item_tax_rate if item_tax_rate.is_finite() else None
+        if rate_key not in groups:
+            groups[rate_key] = _new_tax_rate_bucket(
+                tax_category, item_tax_rate, exemption_reason_code, include_sar=True
+            )
+        row = groups[rate_key]
+        row["taxable_amount"] += line_net
+        row["tax_amount"] += _nominal_q2(line_net * item_tax_rate / Decimal("100"))
+        row["sar_tax_amount"] += _nominal_q2(line_base_net * item_tax_rate / Decimal("100"))
 
-        taxable_amount += line_net
-        tax_amount += _nominal_q2(line_net * item_tax_rate / Decimal("100"))
-        sar_tax_amount += _nominal_q2(line_base_net * item_tax_rate / Decimal("100"))
-
-    return [{
-        "zatca_tax_category": tax_category,
-        "taxable_amount": _nominal_q2(taxable_amount),
-        "tax_amount": _nominal_q2(tax_amount),
-        "sar_tax_amount": _nominal_q2(sar_tax_amount),
-        "tax_rate": _nominal_q2(effective_rate or 0),
-        "exemption_reason_code": exemption_reason_code if tax_category != "Standard" else None,
-    }]
+    if not groups:
+        # Keep the prior empty-table row rather than dropping required subtotals.
+        groups[Decimal("0.00")] = _new_tax_rate_bucket(
+            tax_category, Decimal("0.00"), exemption_reason_code, include_sar=True
+        )
+    for row in groups.values():
+        row["taxable_amount"] = _nominal_q2(row["taxable_amount"])
+        row["tax_amount"] = _nominal_q2(row["tax_amount"])
+        row["sar_tax_amount"] = _nominal_q2(row["sar_tax_amount"])
+        row["tax_rate"] = _nominal_q2(row["tax_rate"])
+    return list(groups.values())
 
 
 def _nominal_breakdown_with_template(sales_invoice_doc):

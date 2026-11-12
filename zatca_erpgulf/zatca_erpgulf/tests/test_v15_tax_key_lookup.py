@@ -186,7 +186,7 @@ def test_actual_sales_pos_nominal_and_totals_keep_parent_outputs_and_reads(
     # Rate consumers skip line-net calculation but retain v16 payload amounts.
     # These remaining-read cases own untracked v16 amount fields; the exact207
     # parent suite independently verifies both retained and skipped fields.
-    parent_rate = lambda doc, item: reference["get_item_tax_detail"](doc, item)[1]
+    parent_rate = lambda doc, item, **kwargs: reference["get_item_tax_detail"](doc, item)[1]
     outputs = []
     for lookup in (parent_rate, tax.get_item_tax_rate):
         for module in (sales, pos_final, posxml, xml_tax_data):

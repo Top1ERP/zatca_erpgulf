@@ -174,7 +174,7 @@ def _rate_without_line_amount(doc, item, tax_rate, fallback_amount=0.0):
     return normalized_rate
 
 
-def _resolve_item_tax(doc, item, *, rate_only):
+def _resolve_item_tax(doc, item, *, rate_only, missing_rate=0.0):
     """Select native tax sources once for full-detail and rate-only callers.
 
     Full-detail mode retains the legacy reads and numeric ordering. Rate-only
@@ -216,7 +216,7 @@ def _resolve_item_tax(doc, item, *, rate_only):
                 if rate_only:
                     return _rate_without_line_amount(doc, item, tax_rate)
                 return _line_tax_amount(doc, item, tax_rate), _number(tax_rate)
-        return 0.0 if rate_only else (0.0, 0.0)
+        return missing_rate if rate_only else (0.0, 0.0)
 
     # ERPNext 15 stores a JSON map keyed by item_code (or item_name when no
     # item_code exists). Resolve exactly one key. Do not inspect ``name`` or
@@ -240,7 +240,7 @@ def _resolve_item_tax(doc, item, *, rate_only):
             legacy_value[0] if legacy_value is not None else 0.0,
         ), item_tax_rate
 
-    return 0.0 if rate_only else (0.0, 0.0)
+    return missing_rate if rate_only else (0.0, 0.0)
 
 
 def get_item_tax_detail(doc, item):
@@ -248,11 +248,15 @@ def get_item_tax_detail(doc, item):
     return _resolve_item_tax(doc, item, rate_only=False)
 
 
-def get_item_tax_rate(doc, item):
+def get_item_tax_rate(doc, item, *, default=0.0):
     """Return the selected rate, avoiding unused amount math for finite rates.
 
     This keeps source precedence and authoritative v16 zero/unmatched results.
     Payload amount conversion and non-finite line-calculation behavior remain.
     Finite rates do not validate line-net amounts; each consumer owns that math.
+    An explicit default is returned only when no rate source is available.
+    Populated v16 unmatched rows remain authoritative zero, never that default.
+    Existing malformed-number coercion is unchanged; this is source presence,
+    not strict payload validation or a tax-category/exemption decision.
     """
-    return _resolve_item_tax(doc, item, rate_only=True)
+    return _resolve_item_tax(doc, item, rate_only=True, missing_rate=default)

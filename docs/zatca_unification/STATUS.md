@@ -1,5 +1,24 @@
 # Implementation status — 2026-11-13
 
+## Latest zero-rate and subtotal correction — increment208
+
+Selected zero now survives the two ordinary/nominal fallback helpers. The native
+rate API has an optional missing default; its old two-argument/full-detail
+contracts and populated-v16 unmatched-zero policy remain. Non-template ordinary
+and nominal breakdowns now group per selected rate, using shared zeroed buckets
+and unchanged per-line rounding/net sources. Category/reason, nominal SAR/OOS,
+empty/homogeneous behavior and template branches remain.
+
+Validation: 8,665 distinct local cases passed across 43 reviewed suites, including
+330 new cases. Exact pre-fix functions show old15/new0; literal mixed-rate buckets,
+ordinary item/subtotal totals, nominal/legal totals, positive/empty parent
+output/read order and complete XML parity passed. AST scope review passes.
+Manifest is 177 local/57 private suites; no private SQL or whole-manifest run.
+No performance claim. Presence defaults do not add strict payload validation,
+and mixed-rate math does not certify category/rate combinations. Full fiscal/
+SDK/runtime/rehearsal gates remain open. No live change or authority request
+occurred. See [ZERO_RATE_SELECTION.md](ZERO_RATE_SELECTION.md).
+
 ## Latest shared rate-only tax selection — increment207
 
 Seven Sales/POS item/total/nominal consumers now use a native rate-only API backed
@@ -325,7 +344,7 @@ installed15/16 release gate. No live deployment or authority request occurred.
 
 ## Scope delivered in this increment
 
-Safety preparation and two hundred and seven bounded increments (Compliance outcomes, dedicated
+Safety preparation and two hundred and eight bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,

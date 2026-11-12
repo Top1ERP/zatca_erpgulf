@@ -187,7 +187,7 @@ def test_real_consumer_results_and_errors_match_full_parent_rate(
         monkeypatch.setattr(module, "_", lambda message, *args: message)
     original = parent_function()
     results = []
-    for lookup in (lambda doc, item: original(doc, item)[1], tax.get_item_tax_rate):
+    for lookup in (lambda doc, item, **kwargs: original(doc, item)[1], tax.get_item_tax_rate):
         for module in modules:
             monkeypatch.setattr(module, "get_item_tax_rate", lookup)
         s.runtime.get_doc.reset_mock()
@@ -227,7 +227,7 @@ def test_real_consumer_results_and_errors_match_full_parent_rate(
 
 @pytest.mark.parametrize("major", [15, 16])
 @pytest.mark.parametrize("helper", ["nominal", "sales-fallback"])
-def test_inherited_zero_to_invoice_rate_fallback_is_characterized_not_corrected(
+def test_selected_zero_no_longer_falls_back_to_invoice_rate(
     advance_source, monkeypatch, major, helper,
 ):
     s = advance_source
@@ -241,11 +241,11 @@ def test_inherited_zero_to_invoice_rate_fallback_is_characterized_not_corrected(
     module = sales if helper == "nominal" else xml_tax_data
     operation = sales._nominal_tax_rate_without_template if helper == "nominal" else xml_tax_data._get_item_tax_rate_without_template
     results = []
-    for lookup in (lambda doc, item: old(doc, item)[1], tax.get_item_tax_rate):
+    for lookup in (lambda doc, item, **kwargs: old(doc, item)[1], tax.get_item_tax_rate):
         monkeypatch.setattr(module, "get_item_tax_rate", lookup)
         results.append(operation(doc, doc.items[0]))
-    # The consumer's inherited zero fallback is unchanged. This assertion is
-    # characterization, not fiscal endorsement of substituting the invoice rate.
-    assert results == [Decimal("15.00"), Decimal("15.00")]
+    # The native selector remains zero; both consumer bindings now preserve it.
+    # Exact pre-fix consumer functions are exercised independently at208.
+    assert results == [Decimal("0.00"), Decimal("0.00")]
     s.runtime.db.commit.assert_not_called()
     doc.save.assert_not_called()

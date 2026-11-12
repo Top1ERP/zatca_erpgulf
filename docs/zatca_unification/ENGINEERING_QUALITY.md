@@ -41,6 +41,15 @@ Keep reference fixtures and test evidence distinct from dead runtime code.
 
 ## Current runtime consolidation
 
+Increment208 repairs selected-zero fallback and first-rate-only non-template
+subtotals. Ordinary/nominal builders share empty accumulators while retaining
+net/rounding/category and SAR/OOS ownership. Optional missing defaults preserve
+the old native contracts. Exact-parent evidence and 8,665 selected cases (330 new)
+cover the intended zero/mixed-rate deltas and unchanged positive/empty XML.
+No performance or category-validity claim. See
+[ZERO_RATE_SELECTION.md](ZERO_RATE_SELECTION.md). Strict source/category/fiscal/
+SDK/installed-runtime acceptance remains open.
+
 Increment207 uses one shared native selector for full details and rate-only
 consumers at seven Sales/POS sites. Finite rates avoid unused line-tax math;
 payload conversion and non-finite rejection remain. Exact AST proofs and 8,335

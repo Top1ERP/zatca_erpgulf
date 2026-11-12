@@ -189,10 +189,11 @@ def _get_item_net_amount(item, currency):
 
 def _get_item_tax_rate_without_template(sales_invoice_doc, item):
     """Get tax rate for an item from item-wise tax detail or fallback to invoice tax rate."""
+    # Preserve selected zero; absent/failed lookup keeps the invoice fallback.
     try:
         if sales_invoice_doc.get("taxes"):
-            tax_percentage = get_item_tax_rate(sales_invoice_doc, item)
-            if tax_percentage not in (None, "") and tax_percentage != 0:
+            tax_percentage = get_item_tax_rate(sales_invoice_doc, item, default=None)
+            if tax_percentage not in (None, ""):
                 return q2(tax_percentage)
     except Exception:
         pass
@@ -231,36 +232,52 @@ def _get_invoice_level_zatca_tax_source(sales_invoice_doc):
     return tax_category, exemption_reason_code
 
 
+def _new_tax_rate_bucket(category, rate, exemption_reason_code, *, include_sar=False):
+    """Create zeroed accumulators; callers own source selection and rounding."""
+    row = {
+        "zatca_tax_category": category,
+        "taxable_amount": Decimal("0.00"),
+        "tax_amount": Decimal("0.00"),
+    }
+    if include_sar:
+        row["sar_tax_amount"] = Decimal("0.00")
+    row["tax_rate"] = rate
+    row["exemption_reason_code"] = exemption_reason_code if category != "Standard" else None
+    return row
+
+
 def _get_tax_breakdown_without_template(sales_invoice_doc):
-    """Build VAT breakdown from line net amounts for invoices without item tax template."""
+    """Build separate net/tax subtotals for each selected non-template rate."""
     tax_category, exemption_reason_code = _get_invoice_level_zatca_tax_source(sales_invoice_doc)
-
+    # Retain the original whole-document net read/validation before rate reads.
     taxable_amount = _sum_line_net_amounts(sales_invoice_doc)
-
-    # Sum tax with line-level rounding to match ERPNext / ZATCA expectations.
-    total_tax = Decimal("0.00")
-    effective_rate = None
+    groups = {}
     for item in sales_invoice_doc.items:
         item_tax_rate = _get_item_tax_rate_without_template(sales_invoice_doc, item)
-        if effective_rate is None:
-            effective_rate = item_tax_rate
         item_net_amount = _get_item_net_amount(item, sales_invoice_doc.currency)
-        total_tax += q2(item_net_amount * item_tax_rate / Decimal("100"))
+        # NaN does not equal itself; use a stable diagnostic key.
+        rate_key = item_tax_rate if item_tax_rate.is_finite() else None
+        if rate_key not in groups:
+            groups[rate_key] = _new_tax_rate_bucket(
+                tax_category, item_tax_rate, exemption_reason_code
+            )
+        row = groups[rate_key]
+        row["taxable_amount"] += item_net_amount
+        row["tax_amount"] += q2(item_net_amount * item_tax_rate / Decimal("100"))
 
-    total_tax = q2(total_tax)
-    effective_rate = q2(effective_rate or 0)
-
-    return [
-        {
-            "zatca_tax_category": tax_category,
-            "taxable_amount": taxable_amount,
-            "tax_amount": total_tax,
-            "tax_rate": effective_rate,
-            "exemption_reason_code": (
-                exemption_reason_code if tax_category != "Standard" else None
-            ),
-        }
-    ]
+    if not groups:
+        groups[Decimal("0.00")] = _new_tax_rate_bucket(
+            tax_category, Decimal("0.00"), exemption_reason_code
+        )
+        groups[Decimal("0.00")]["taxable_amount"] = taxable_amount
+    elif len(groups) == 1:
+        # Keep the original aggregate source for homogeneous invoices.
+        next(iter(groups.values()))["taxable_amount"] = taxable_amount
+    for row in groups.values():
+        row["taxable_amount"] = q2(row["taxable_amount"])
+        row["tax_amount"] = q2(row["tax_amount"])
+        row["tax_rate"] = q2(row["tax_rate"])
+    return list(groups.values())
 
 
 def _get_tax_breakdown_with_template(sales_invoice_doc):

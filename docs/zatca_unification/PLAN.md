@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment208 preserves selected zero in ordinary/nominal consumers using an
+optional native missing-source default. Keep legacy two-argument/full-detail
+behavior and v16 authority. Group non-template subtotals per quantized rate,
+share empty accumulators and retain line rounding, net acquisition, category/
+reason and nominal SAR/OOS ownership. Verify exact pre-fix deltas, literal
+mixed-rate totals and unchanged homogeneous/empty XML. Category/rate/exemption,
+malformed/source-completeness and full GL/SDK checks remain required. See
+[ZERO_RATE_SELECTION.md](ZERO_RATE_SELECTION.md).
+
 Increment207 shares full-detail/rate-only selection and adopts rate-only at
 seven existing Sales/POS consumers, preserving payload conversion, non-finite
 handling, the full API and caller math. Verify exact full-mode AST, seven caller

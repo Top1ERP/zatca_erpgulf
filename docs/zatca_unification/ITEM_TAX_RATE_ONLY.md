@@ -1,5 +1,10 @@
 # Shared native rate-only selection — increment207
 
+Subsequent increment208 repairs the characterized selected-zero fallback and
+first-rate-only non-template subtotals; see
+[ZERO_RATE_SELECTION.md](ZERO_RATE_SELECTION.md). Evidence below records 207
+before that intentional correction.
+
 Development only. Seven Sales/POS item, total and nominal/fallback consumers now
 use `get_item_tax_rate` when they discard the amount returned by the full-detail
 API. Both APIs use one `_resolve_item_tax` implementation in the existing
@@ -141,7 +146,7 @@ The native selector preserves authoritative zero rates. However, the inherited
 `_nominal_tax_rate_without_template` and
 `xml_tax_data._get_item_tax_rate_without_template` explicitly reject zero as an
 effective row rate and fall back to the first invoice tax rate. A selected zero
-with invoice rate15 therefore still yields15 in these consumers, both before
+with invoice rate 15 therefore still yields15 in these consumers, both before
 and after this change. Four tests freeze that conflict without correcting it.
 Next review must distinguish absent/invalid rate from authoritative zero and
 reconcile nominal/mixed-rate rules and actual XML/GL behavior. Do not infer
