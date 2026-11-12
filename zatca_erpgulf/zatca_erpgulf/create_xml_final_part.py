@@ -798,6 +798,82 @@ def item_data(invoice, sales_invoice_doc):
         return None
 
 
+def _append_legacy_advance_tax_subtotal(line, sales_invoice_doc, single_item):
+    """Create a zero-total legacy reference and return its taxable subtotal.
+
+    The caller retains the tax-amount assignment: its last regular-row rate
+    must be resolved only after this subtotal exists, even on an empty table.
+    This helper neither selects an advance nor changes its monetary policy.
+    """
+    tax_total = ET.SubElement(line, "cac:TaxTotal")
+    ET.SubElement(
+        tax_total, "cbc:TaxAmount", currencyID=sales_invoice_doc.currency
+    ).text = "0"
+    ET.SubElement(
+        tax_total,
+        "cbc:RoundingAmount",
+        currencyID=sales_invoice_doc.currency,
+    ).text = "0"
+
+    subtotal = ET.SubElement(tax_total, "cac:TaxSubtotal")
+    ET.SubElement(
+        subtotal, "cbc:TaxableAmount", currencyID=sales_invoice_doc.currency
+    ).text = str(abs(single_item.amount))
+    return subtotal
+
+
+def _append_legacy_advance_line_details(
+    line, subtotal, sales_invoice_doc, single_item, item_tax_percentage, *,
+    has_template=False, item_tax_template=None,
+):
+    """Append legacy tax categories, item and zero price in their original order.
+
+    Plain categories are read twice; template categories are read/cached once.
+    Reference identity/time and inherited last-row tax policy stay in callers.
+    """
+    tax_cat = ET.SubElement(subtotal, "cac:TaxCategory")
+    if has_template:
+        # Cache exactly once at the original template-category read boundary.
+        zatca_tax_category = item_tax_template.custom_zatca_tax_category
+        tax_category_code = get_tax_code(zatca_tax_category)
+        ET.SubElement(tax_cat, "cbc:ID").text = tax_category_code
+    else:
+        ET.SubElement(tax_cat, "cbc:ID").text = get_tax_code(
+            sales_invoice_doc.custom_zatca_tax_category
+        )
+    ET.SubElement(tax_cat, "cbc:Percent").text = (
+        f"{float(item_tax_percentage):.2f}"
+    )
+    ET.SubElement(
+        ET.SubElement(tax_cat, "cac:TaxScheme"), "cbc:ID"
+    ).text = "VAT"
+
+    item_tag = ET.SubElement(line, "cac:Item")
+    ET.SubElement(item_tag, "cbc:Name").text = (
+        f"{single_item.item_code}:{single_item.item_name}"
+    )
+
+    tax_cat_item = ET.SubElement(item_tag, "cac:ClassifiedTaxCategory")
+    if has_template:
+        ET.SubElement(tax_cat_item, "cbc:ID").text = tax_category_code
+    else:
+        ET.SubElement(tax_cat_item, "cbc:ID").text = get_tax_code(
+            sales_invoice_doc.custom_zatca_tax_category
+        )
+    ET.SubElement(tax_cat_item, "cbc:Percent").text = (
+        f"{float(item_tax_percentage):.2f}"
+    )
+    ET.SubElement(
+        ET.SubElement(tax_cat_item, "cac:TaxScheme"), "cbc:ID"
+    ).text = "VAT"
+
+    ET.SubElement(
+        ET.SubElement(line, "cac:Price"),
+        "cbc:PriceAmount",
+        currencyID=sales_invoice_doc.currency,
+    ).text = "0.00"
+
+
 def item_data_advance_invoice(invoice, sales_invoice_doc):
     """
     Generate <cac:InvoiceLine> XML nodes for standard and advance invoice items.
@@ -862,58 +938,17 @@ def item_data_advance_invoice(invoice, sales_invoice_doc):
                 )
                 ET.SubElement(docref, "cbc:DocumentTypeCode").text = "386"
 
-                tax_total = ET.SubElement(line, "cac:TaxTotal")
-                ET.SubElement(
-                    tax_total, "cbc:TaxAmount", currencyID=sales_invoice_doc.currency
-                ).text = "0"
-                ET.SubElement(
-                    tax_total,
-                    "cbc:RoundingAmount",
-                    currencyID=sales_invoice_doc.currency,
-                ).text = "0"
-
-                subtotal = ET.SubElement(tax_total, "cac:TaxSubtotal")
-                ET.SubElement(
-                    subtotal, "cbc:TaxableAmount", currencyID=sales_invoice_doc.currency
-                ).text = str(abs(single_item.amount))
+                subtotal = _append_legacy_advance_tax_subtotal(
+                    line, sales_invoice_doc, single_item
+                )
                 ET.SubElement(
                     subtotal, "cbc:TaxAmount", currencyID=sales_invoice_doc.currency
                 ).text = str(
                     abs(round(single_item.amount * item_tax_percentage / 100, 2))
                 )
-
-                tax_cat = ET.SubElement(subtotal, "cac:TaxCategory")
-                ET.SubElement(tax_cat, "cbc:ID").text = get_tax_code(
-                    sales_invoice_doc.custom_zatca_tax_category
+                _append_legacy_advance_line_details(
+                    line, subtotal, sales_invoice_doc, single_item, item_tax_percentage
                 )
-                ET.SubElement(tax_cat, "cbc:Percent").text = (
-                    f"{float(item_tax_percentage):.2f}"
-                )
-                ET.SubElement(
-                    ET.SubElement(tax_cat, "cac:TaxScheme"), "cbc:ID"
-                ).text = "VAT"
-
-                item_tag = ET.SubElement(line, "cac:Item")
-                ET.SubElement(item_tag, "cbc:Name").text = (
-                    f"{single_item.item_code}:{single_item.item_name}"
-                )
-
-                tax_cat_item = ET.SubElement(item_tag, "cac:ClassifiedTaxCategory")
-                ET.SubElement(tax_cat_item, "cbc:ID").text = get_tax_code(
-                    sales_invoice_doc.custom_zatca_tax_category
-                )
-                ET.SubElement(tax_cat_item, "cbc:Percent").text = (
-                    f"{float(item_tax_percentage):.2f}"
-                )
-                ET.SubElement(
-                    ET.SubElement(tax_cat_item, "cac:TaxScheme"), "cbc:ID"
-                ).text = "VAT"
-
-                ET.SubElement(
-                    ET.SubElement(line, "cac:Price"),
-                    "cbc:PriceAmount",
-                    currencyID=sales_invoice_doc.currency,
-                ).text = "0.00"
 
         # Final Debug
         total_lines = len(_invoice_line_nodes(invoice))
@@ -1063,61 +1098,18 @@ def item_data_with_template_advance_invoice(invoice, sales_invoice_doc):
                         ET.SubElement(docref, "cbc:IssueTime").text = "00:00:00"
                     ET.SubElement(docref, "cbc:DocumentTypeCode").text = "386"
 
-                    tax_total_adv = ET.SubElement(adv_line, "cac:TaxTotal")
-                    ET.SubElement(
-                        tax_total_adv,
-                        "cbc:TaxAmount",
-                        currencyID=sales_invoice_doc.currency,
-                    ).text = "0"
-                    ET.SubElement(
-                        tax_total_adv,
-                        "cbc:RoundingAmount",
-                        currencyID=sales_invoice_doc.currency,
-                    ).text = "0"
-
-                    subtotal = ET.SubElement(tax_total_adv, "cac:TaxSubtotal")
-                    ET.SubElement(
-                        subtotal,
-                        "cbc:TaxableAmount",
-                        currencyID=sales_invoice_doc.currency,
-                    ).text = str(abs(single_item.amount))
+                    subtotal = _append_legacy_advance_tax_subtotal(
+                        adv_line, sales_invoice_doc, single_item
+                    )
                     ET.SubElement(
                         subtotal, "cbc:TaxAmount", currencyID=sales_invoice_doc.currency
                     ).text = str(
                         abs(round(single_item.amount * item_tax_percentage / 100, 2))
                     )
-
-                    tax_cat = ET.SubElement(subtotal, "cac:TaxCategory")
-                    zatca_tax_category = item_tax_template.custom_zatca_tax_category
-                    tax_category_code = get_tax_code(zatca_tax_category)
-                    ET.SubElement(tax_cat, "cbc:ID").text = tax_category_code
-                    ET.SubElement(tax_cat, "cbc:Percent").text = (
-                        f"{float(item_tax_percentage):.2f}"
+                    _append_legacy_advance_line_details(
+                        adv_line, subtotal, sales_invoice_doc, single_item, item_tax_percentage,
+                        has_template=True, item_tax_template=item_tax_template,
                     )
-                    ET.SubElement(
-                        ET.SubElement(tax_cat, "cac:TaxScheme"), "cbc:ID"
-                    ).text = "VAT"
-
-                    item_tag_adv = ET.SubElement(adv_line, "cac:Item")
-                    ET.SubElement(item_tag_adv, "cbc:Name").text = (
-                        f"{single_item.item_code}:{single_item.item_name}"
-                    )
-                    tax_cat_adv = ET.SubElement(
-                        item_tag_adv, "cac:ClassifiedTaxCategory"
-                    )
-                    ET.SubElement(tax_cat_adv, "cbc:ID").text = tax_category_code
-                    ET.SubElement(tax_cat_adv, "cbc:Percent").text = (
-                        f"{float(item_tax_percentage):.2f}"
-                    )
-                    ET.SubElement(
-                        ET.SubElement(tax_cat_adv, "cac:TaxScheme"), "cbc:ID"
-                    ).text = "VAT"
-
-                    ET.SubElement(
-                        ET.SubElement(adv_line, "cac:Price"),
-                        "cbc:PriceAmount",
-                        currencyID=sales_invoice_doc.currency,
-                    ).text = "0.00"
 
         return invoice
     except (ValueError, KeyError, TypeError) as e:

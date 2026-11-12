@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment203 shares legacy advance tax-subtotal and category/item/zero-price
+emission while retaining the exact tax-amount statement between the shared
+steps in each caller. Preserve discovery, direct priority, identity/time and
+last-row semantics; verify full bytes/reads/partial failures and exact specialized
+module AST. The inherited Decimal/float failure and legacy monetary/time/source
+policy still need separate resolution. See
+[LEGACY_ADVANCE_XML.md](LEGACY_ADVANCE_XML.md).
+
 Increment202 shares regular-line XML emission across all four Sales item
 builders, including the advance-named wrappers. Preserve explicit legacy unit/
 attribute/RHS timing, rate/template acquisition and last-loop/reference tails.

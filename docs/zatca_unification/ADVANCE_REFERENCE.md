@@ -1,5 +1,12 @@
 # Original advance reference observations — increment 31
 
+## Subsequent runtime extraction
+
+Increment203 shares selected legacy reference-tail XML emission while retaining
+this report's time, last-row tax and provenance issues. See
+[LEGACY_ADVANCE_XML.md](LEGACY_ADVANCE_XML.md). The original-reference observation
+contract below remains unadopted by runtime assembly.
+
 ## Scope and current defects
 
 This increment is offline development only. It adds a read-only metadata contract

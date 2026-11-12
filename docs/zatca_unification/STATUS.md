@@ -1,4 +1,23 @@
-# Implementation status — 2026-11-11
+# Implementation status — 2026-11-12
+
+## Latest legacy advance-tail consolidation — increment203
+
+Both advance-named Sales item builders share legacy tax-subtotal and category/
+item/zero-price emission in their existing module. The exact tax-amount statement
+stays in each caller between the shared steps, retaining last-loop resolution
+and partial failures. Discovery/direct priority, reference identity/date/time,
+coercion, arithmetic and public boundaries remain. Specialized helper inlining
+reproduces the entire parent module AST. No new runtime module or setting.
+
+Validation: 6,766 distinct local cases passed across 38 reviewed suites, including
+196 new cases (621 in the advance parity suite). Complete bytes, reads and
+partial errors cover amount types/categories, missing fields, all six first-line
+legacy currency failures and targeted category/multiplication faults. Manifest
+remains 172 local/57 private suites; no private SQL or whole-manifest run.
+An inherited plain Decimal-amount/float-rate failure is characterized, not fixed.
+Legacy monetary/time/provenance and fiscal/GL/SDK/installed15/16 acceptance remain
+open. No live change or authority request occurred. See
+[LEGACY_ADVANCE_XML.md](LEGACY_ADVANCE_XML.md).
 
 ## Latest advance-line consolidation — increment202
 
@@ -224,7 +243,7 @@ installed15/16 release gate. No live deployment or authority request occurred.
 
 ## Scope delivered in this increment
 
-Safety preparation and two hundred and two bounded increments (Compliance outcomes, dedicated
+Safety preparation and two hundred and three bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,

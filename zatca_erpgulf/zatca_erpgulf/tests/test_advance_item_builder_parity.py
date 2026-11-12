@@ -17,7 +17,9 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_sales_item_builder_parity import (
 REFERENCE = Path(__file__).parent / "fixtures" / "advance_item_builders_03b4982.py"
 REFERENCE_SHA256 = "2fab4743ddd59103e86e50b2198453d16dab6d5698870a20e05c27eac7772814"
 WATCHED = {"currency", "items", "idx", "uom", "qty", "taxes", "tax_rate",
-           "custom_zatca_tax_category", "custom_advances_copy", "custom_item"}
+           "custom_zatca_tax_category", "custom_advances_copy", "custom_item",
+           "amount", "item_code", "item_name", "reference_name", "uuid",
+           "difference_posting_date", "posting_time"}
 
 
 class AttributeDocument(TrackedDocument):
@@ -208,3 +210,111 @@ def test_unknown_internal_layout_fails_before_appending_any_line():
     with pytest.raises(ValueError, match="^sales_item_layout$"):
         core._append_sales_invoice_line(root, object(), object(), 0, 0, 0, 0, layout="invalid")
     assert not list(root)
+
+
+@pytest.mark.parametrize("has_template", [False, True])
+@pytest.mark.parametrize("currency", ["SAR", "USD"])
+@pytest.mark.parametrize("erp_major", [15, 16])
+@pytest.mark.parametrize("amount", [0, 20.15, -50, Decimal("20.1500"), Decimal("-50.005"), None, "10"])
+@pytest.mark.parametrize("category", ["Standard", "Exempted", "UNKNOWN"])
+def test_legacy_tail_amount_types_categories_and_failures_match_frozen_code(
+    advance_source, has_template, currency, erp_major, amount, category,
+):
+    s = advance_source
+    doc = prepare(s, route="legacy", currency=currency, erp_major=erp_major, category=category)
+    s.legacy.custom_item[0].amount = amount
+    outcome, *_ = compare(s, doc, has_template)
+    # The inherited plain tax adapter supplies float rates; Decimal amounts
+    # therefore fail there, while integer template rates preserve Decimal math.
+    expected_failure = amount is None or isinstance(amount, str) or (
+        isinstance(amount, Decimal) and not has_template
+    )
+    assert (outcome is not None) == expected_failure
+
+
+@pytest.mark.parametrize("has_template", [False, True])
+@pytest.mark.parametrize("field", ["amount", "item_code", "item_name", "uom", "template-category"])
+def test_missing_legacy_fields_keep_original_partial_xml(advance_source, has_template, field):
+    s = advance_source
+    doc = prepare(s, route="legacy")
+    if field == "template-category":
+        # Missing category on the last template would also fail regular emission.
+        # The legacy master fields below instead target only the reference tail.
+        del s.template.custom_zatca_tax_category
+    else:
+        delattr(s.legacy.custom_item[0], field)
+    outcome, *_ = compare(s, doc, has_template)
+    assert (outcome is not None) == (field != "template-category" or has_template)
+
+
+@pytest.mark.parametrize("has_template", [False, True])
+@pytest.mark.parametrize("legacy_currency_read", range(1, 7))
+def test_each_legacy_currency_failure_keeps_read_order_and_partial_xml(
+    advance_source, has_template, legacy_currency_read,
+):
+    s = advance_source
+    doc = prepare(s, route="legacy")
+    outcome, _xml, reads, *_ = compare(s, doc, has_template)
+    assert outcome is None
+    boundary = reads.index(("legacy-row-1", "attribute:uom"))
+    before = sum(entry == ("invoice", "attribute:currency") for entry in reads[:boundary])
+    doc.currency_fault_at = before + legacy_currency_read
+    outcome, *_ = compare(s, doc, has_template)
+    assert outcome is not None
+    assert "synthetic-currency-read-failure" in outcome[1]
+
+
+@pytest.mark.parametrize("has_template", [False, True])
+@pytest.mark.parametrize("failing_call", [1, 2])
+def test_legacy_category_lookup_failure_keeps_original_partial_xml(
+    advance_source, monkeypatch, has_template, failing_call,
+):
+    s = advance_source
+    doc = prepare(s, route="legacy")
+    original = core.get_tax_code
+    calls = []
+    def category(value):
+        calls.append(value)
+        if len(calls) == failing_call:
+            raise ValueError("synthetic-legacy-category-failure")
+        return original(value)
+    # Reset per invocation; compare() constructs one root for each old/new run.
+    original_element = ET.Element
+    def element(*args, **kwargs):
+        calls.clear()
+        return original_element(*args, **kwargs)
+    monkeypatch.setattr(ET, "Element", element)
+    monkeypatch.setattr(core, "get_tax_code", category)
+    s.advance_reference["get_tax_code"] = category
+    outcome, *_ = compare(s, doc, has_template)
+    assert outcome is not None
+    assert "synthetic-legacy-category-failure" in outcome[1]
+
+
+@pytest.mark.parametrize("has_template", [False, True])
+def test_legacy_multiplication_failure_keeps_tax_amount_assignment_in_caller(
+    advance_source, monkeypatch, has_template,
+):
+    s = advance_source
+    doc = prepare(s, route="legacy")
+    class LegacyRate:
+        def __str__(self):
+            return "15"
+        def __float__(self):
+            return 15.0
+        def __rmul__(self, other):
+            raise ValueError("synthetic-legacy-rate-failure")
+    rate = LegacyRate()
+    if has_template:
+        s.template.taxes[0].tax_rate = rate
+    else:
+        reader = lambda *args: (0, rate)
+        monkeypatch.setattr(core, "get_item_tax_detail", reader)
+        s.advance_reference["get_item_tax_detail"] = reader
+        # Bypass the plain adapter's redundant JSON encoding only in this
+        # targeted fault test, so both versions reach legacy multiplication.
+        monkeypatch.setattr(core, "get_tax_wise_detail", lambda *args: "{}")
+        s.advance_reference["get_tax_wise_detail"] = core.get_tax_wise_detail
+    outcome, *_ = compare(s, doc, has_template)
+    assert outcome is not None
+    assert "synthetic-legacy-rate-failure" in outcome[1]

@@ -1,5 +1,9 @@
 # Shared Sales/advance regular-line emission — increment202
 
+Subsequent increment203 shares selected legacy reference-tail emission; see
+[LEGACY_ADVANCE_XML.md](LEGACY_ADVANCE_XML.md). The evidence below records the
+regular-line extraction at increment202, when those tails were unchanged.
+
 Development only. Four public Sales item builders now use one regular-line XML
 emitter inside the existing `create_xml_final_part.py`. This extends the ordinary
 [Sales item consolidation](SALES_ITEM_CONSOLIDATION.md) to the two advance-named

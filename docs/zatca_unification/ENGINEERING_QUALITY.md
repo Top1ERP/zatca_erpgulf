@@ -41,6 +41,15 @@ Keep reference fixtures and test evidence distinct from dead runtime code.
 
 ## Current runtime consolidation
 
+Increment203 shares the legacy advance subtotal and category/item/zero-price
+emission, retaining the original tax-amount statement and its failure boundary.
+Specialized inlining matches the entire parent module AST; 6,766 selected local
+cases passed, including 196 new legacy boundary cases. The inherited plain
+Decimal/float failure is explicitly recorded, not silently converted. Source is
+eight lines shorter; no performance claim. See
+[LEGACY_ADVANCE_XML.md](LEGACY_ADVANCE_XML.md). Legacy monetary/time/provenance,
+fiscal/GL/SDK and installed-runtime acceptance remain required.
+
 Increment202 shares regular-line emission across all four Sales item builders
 inside the existing module, preserving explicit unit/RHS/attribute timing and
 advance acquisition/tails. The reviewed selection passed 6,570 distinct cases,
