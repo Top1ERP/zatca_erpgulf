@@ -41,6 +41,14 @@ Keep reference fixtures and test evidence distinct from dead runtime code.
 
 ## Current runtime consolidation
 
+Increment204 shares a bounded native mixed-number tax bridge at both legacy
+reference paths. Compatible results and float bits remain; Decimal operands are
+not converted to float. Exact surrounding-AST proof, explicit old-failure/new-
+XML expectations and 7,039 selected local cases (273 new) support the repair.
+No performance improvement or installed legacy schema is claimed. See
+[LEGACY_ADVANCE_NUMERIC.md](LEGACY_ADVANCE_NUMERIC.md). Full monetary/rate/time/
+provenance, GL/SDK and installed15/16 acceptance remain required.
+
 Increment203 shares the legacy advance subtotal and category/item/zero-price
 emission, retaining the original tax-amount statement and its failure boundary.
 Specialized inlining matches the entire parent module AST; 6,766 selected local

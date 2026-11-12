@@ -82,39 +82,77 @@ def prepare(s, *, route="none", mixed=False, **kwargs):
     return doc
 
 
-def compare(s, doc, has_template, *, ordinary=False):
-    name = ("item_data_with_template" if has_template else "item_data") if ordinary else (
-        "item_data_with_template_advance_invoice" if has_template else "item_data_advance_invoice")
-    reference = s.reference if ordinary else s.advance_reference
-    outcomes = []
-    for operation in (reference[name], getattr(core, name)):
-        root = ET.Element("Invoice")
-        s.trace.clear()
-        s.runtime.get_doc.reset_mock()
-        s.runtime.get_installed_apps.reset_mock()
-        doc.currency_reads = 0
-        try:
-            result = operation(root, doc)
-        except Exception as error:
-            outcome = type(error), str(error)
-        else:
-            assert result is root
-            outcome = None
-        outcomes.append((outcome, ET.tostring(root), s.trace[:],
-                         s.runtime.get_doc.call_args_list[:], s.runtime.get_installed_apps.call_args_list[:]))
-    if outcomes[0][2] != outcomes[1][2]:
-        before, after = outcomes[0][2], outcomes[1][2]
-        first = next((i for i, pair in enumerate(zip(before, after)) if pair[0] != pair[1]), min(len(before), len(after)))
-        pytest.fail("Synthetic read-order mismatch at {0}: {1!r} versus {2!r}".format(
-            first, before[max(0, first - 2):first + 3], after[max(0, first - 2):first + 3]))
-    assert outcomes[0] == outcomes[1]
+def run_builder(s, doc, operation, *, root=None):
+    root = ET.Element("Invoice") if root is None else root
+    s.trace.clear()
+    s.runtime.get_doc.reset_mock()
+    s.runtime.get_installed_apps.reset_mock()
+    doc.currency_reads = 0
+    try:
+        result = operation(root, doc)
+    except Exception as error:
+        outcome = type(error), str(error)
+    else:
+        assert result is root
+        outcome = None
+    result = (outcome, ET.tostring(root), s.trace[:],
+              s.runtime.get_doc.call_args_list[:], s.runtime.get_installed_apps.call_args_list[:])
     doc.save.assert_not_called()
     doc.db_set.assert_not_called()
     s.runtime.db.commit.assert_not_called()
     s.runtime.db.set_value.assert_not_called()
     s.runtime.log_error.assert_not_called()
     s.runtime.msgprint.assert_not_called()
+    return result
+
+
+def compare(s, doc, has_template, *, ordinary=False):
+    name = ("item_data_with_template" if has_template else "item_data") if ordinary else (
+        "item_data_with_template_advance_invoice" if has_template else "item_data_advance_invoice")
+    reference = s.reference if ordinary else s.advance_reference
+    outcomes = [run_builder(s, doc, operation) for operation in (reference[name], getattr(core, name))]
+    if outcomes[0][2] != outcomes[1][2]:
+        before, after = outcomes[0][2], outcomes[1][2]
+        first = next((i for i, pair in enumerate(zip(before, after)) if pair[0] != pair[1]), min(len(before), len(after)))
+        pytest.fail("Synthetic read-order mismatch at {0}: {1!r} versus {2!r}".format(
+            first, before[max(0, first - 2):first + 3], after[max(0, first - 2):first + 3]))
+    assert outcomes[0] == outcomes[1]
     return outcomes[-1]
+
+
+def compare_fixed_mixed_amount(s, doc, has_template, expected_tax):
+    """Check the intentional repair against an explicit old-failure/new-XML oracle.
+
+    Run the frozen code first with the mixed pair, then with native floats.
+    Only the two first-reference amount texts are adjusted to literal expected
+    values; every other XML byte and the complete successful read trace match.
+    The frozen fixture itself remains unchanged.
+    """
+    name = "item_data_with_template_advance_invoice" if has_template else "item_data_advance_invoice"
+    amount = s.legacy.custom_item[0].amount
+    old = run_builder(s, doc, s.advance_reference[name])
+    assert old[0] is not None and "unsupported operand type(s)" in old[0][1]
+    actual = run_builder(s, doc, getattr(core, name))
+    assert actual[0] is None
+    template_rate = s.template.taxes[0].tax_rate
+    expected_root = ET.Element("Invoice")
+    try:
+        s.legacy.custom_item[0].amount = float(amount)
+        if has_template:
+            s.template.taxes[0].tax_rate = float(template_rate)
+        expected = run_builder(s, doc, s.advance_reference[name], root=expected_root)
+    finally:
+        s.legacy.custom_item[0].amount = amount
+        s.template.taxes[0].tax_rate = template_rate
+    assert expected[0] is None
+    legacy_lines = expected_root.findall("cac:InvoiceLine")[len(doc.items):]
+    assert len(legacy_lines) == 2
+    subtotal = legacy_lines[0].find("cac:TaxTotal").find("cac:TaxSubtotal")
+    subtotal.find("cbc:TaxableAmount").text = str(abs(amount))
+    subtotal.find("cbc:TaxAmount").text = expected_tax
+    assert actual[1] == ET.tostring(expected_root)
+    assert actual[2:] == expected[2:]
+    return actual
 
 
 @pytest.mark.parametrize("has_template", [False, True])
@@ -223,13 +261,14 @@ def test_legacy_tail_amount_types_categories_and_failures_match_frozen_code(
     s = advance_source
     doc = prepare(s, route="legacy", currency=currency, erp_major=erp_major, category=category)
     s.legacy.custom_item[0].amount = amount
-    outcome, *_ = compare(s, doc, has_template)
-    # The inherited plain tax adapter supplies float rates; Decimal amounts
-    # therefore fail there, while integer template rates preserve Decimal math.
-    expected_failure = amount is None or isinstance(amount, str) or (
-        isinstance(amount, Decimal) and not has_template
-    )
-    assert (outcome is not None) == expected_failure
+    if isinstance(amount, Decimal) and not has_template:
+        expected_tax = "0.00" if category != "Standard" else {
+            Decimal("20.1500"): "3.02", Decimal("-50.005"): "7.50",
+        }[amount]
+        compare_fixed_mixed_amount(s, doc, has_template, expected_tax)
+    else:
+        outcome, *_ = compare(s, doc, has_template)
+        assert (outcome is not None) == (amount is None or isinstance(amount, str))
 
 
 @pytest.mark.parametrize("has_template", [False, True])

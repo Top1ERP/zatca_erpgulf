@@ -1,5 +1,9 @@
 # Shared legacy advance reference tails — increment203
 
+Subsequent increment204 repairs finite native Decimal/float multiplication; see
+[LEGACY_ADVANCE_NUMERIC.md](LEGACY_ADVANCE_NUMERIC.md). Evidence and the unfixed
+behavior described below record increment203 before that intentional change.
+
 Development only. The two Sales advance-named item builders now share the
 repeated tax-subtotal and category/item/zero-price emission in the existing
 `create_xml_final_part.py`. No runtime module, field, setting or endpoint is added.

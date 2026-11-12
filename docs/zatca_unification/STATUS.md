@@ -1,5 +1,25 @@
 # Implementation status — 2026-11-12
 
+## Latest legacy mixed-number repair — increment204
+
+Both legacy advance reference branches share a finite native Decimal/float
+bridge at their original TaxAmount expression. Only the float's decimal text is
+converted; Decimal values never pass through float. Existing compatible math,
+float bits, Decimal context, non-finite/custom errors, last-row/time/source and
+public boundaries remain. No field/module/endpoint or extra database read.
+External legacy DocType schema is absent; this is synthetic mixed-input evidence,
+not a newly diagnosed live-client incident or installed15/16 acceptance.
+
+Validation: 7,039 distinct local cases passed across 39 reviewed suites, including
+273 new cases. The 621-case advance suite retains its frozen fixture; 48 old
+plain-Decimal failures now explicitly check the intended repair. Repaired full
+XML differs only in the expected first-reference amount texts and preserves
+successful read order. Restoring the two expressions reproduces the exact parent
+module AST. Manifest is 173 local/57 private suites; no private SQL or whole-
+manifest run. Remaining legacy monetary/time/provenance and fiscal/GL/SDK/runtime
+gates remain open. No live change or authority request occurred. See
+[LEGACY_ADVANCE_NUMERIC.md](LEGACY_ADVANCE_NUMERIC.md).
+
 ## Latest legacy advance-tail consolidation — increment203
 
 Both advance-named Sales item builders share legacy tax-subtotal and category/
@@ -243,7 +263,7 @@ installed15/16 release gate. No live deployment or authority request occurred.
 
 ## Scope delivered in this increment
 
-Safety preparation and two hundred and three bounded increments (Compliance outcomes, dedicated
+Safety preparation and two hundred and four bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,

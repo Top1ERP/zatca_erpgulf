@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment204 repairs finite native Decimal/float pairs at the two legacy
+reference tax-amount expressions, using the float's decimal text without
+projecting Decimal through float. Retain all already-compatible results, context,
+source/read/error boundaries and the frozen old fixture; explicitly assert the
+intentional old-failure/new-XML delta. Do not treat synthetic type repair as an
+installed legacy-field contract or fiscal rounding/rate certification. See
+[LEGACY_ADVANCE_NUMERIC.md](LEGACY_ADVANCE_NUMERIC.md).
+
 Increment203 shares legacy advance tax-subtotal and category/item/zero-price
 emission while retaining the exact tax-amount statement between the shared
 steps in each caller. Preserve discovery, direct priority, identity/time and

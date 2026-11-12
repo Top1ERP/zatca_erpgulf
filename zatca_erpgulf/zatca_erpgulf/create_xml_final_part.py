@@ -6,6 +6,7 @@ Includes functions for XML parsing, API interactions, and custom handling.
 from decimal import Decimal, ROUND_DOWN, ROUND_HALF_UP
 import re
 from html import unescape
+from math import isfinite
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 from datetime import datetime
@@ -798,6 +799,24 @@ def item_data(invoice, sales_invoice_doc):
         return None
 
 
+def _legacy_advance_tax_amount(amount, tax_rate):
+    """Retain legacy rounding while bridging finite native Decimal/float pairs.
+
+    Existing compatible operands keep their original arithmetic/result type.
+    For a mixed pair, convert only the float's decimal text; never project the
+    Decimal operand through float. Non-finite and custom operands retain their
+    original failure behavior. This does not select a tax rate or change the
+    inherited last-row policy, Decimal context, XML formatting or fiscal rules.
+    """
+    if type(amount) is Decimal and type(tax_rate) is float:
+        if amount.is_finite() and isfinite(tax_rate):
+            tax_rate = Decimal(str(tax_rate))
+    elif type(amount) is float and type(tax_rate) is Decimal:
+        if isfinite(amount) and tax_rate.is_finite():
+            amount = Decimal(str(amount))
+    return abs(round(amount * tax_rate / 100, 2))
+
+
 def _append_legacy_advance_tax_subtotal(line, sales_invoice_doc, single_item):
     """Create a zero-total legacy reference and return its taxable subtotal.
 
@@ -944,7 +963,7 @@ def item_data_advance_invoice(invoice, sales_invoice_doc):
                 ET.SubElement(
                     subtotal, "cbc:TaxAmount", currencyID=sales_invoice_doc.currency
                 ).text = str(
-                    abs(round(single_item.amount * item_tax_percentage / 100, 2))
+                    _legacy_advance_tax_amount(single_item.amount, item_tax_percentage)
                 )
                 _append_legacy_advance_line_details(
                     line, subtotal, sales_invoice_doc, single_item, item_tax_percentage
@@ -1104,7 +1123,7 @@ def item_data_with_template_advance_invoice(invoice, sales_invoice_doc):
                     ET.SubElement(
                         subtotal, "cbc:TaxAmount", currencyID=sales_invoice_doc.currency
                     ).text = str(
-                        abs(round(single_item.amount * item_tax_percentage / 100, 2))
+                        _legacy_advance_tax_amount(single_item.amount, item_tax_percentage)
                     )
                     _append_legacy_advance_line_details(
                         adv_line, subtotal, sales_invoice_doc, single_item, item_tax_percentage,
