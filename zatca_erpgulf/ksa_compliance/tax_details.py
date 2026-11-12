@@ -58,7 +58,14 @@ def _normalise_v15_value(value):
     return 0.0, 0.0
 
 
-def _v15_details(doc):
+def _v15_details(doc, *, item_key=None):
+    """Fold v15 details, optionally selecting one key from parsed JSON text.
+
+    JSON object keys are strings, so a native parsed dict supports exact lookup
+    without normalizing unrelated item values. Direct dict inputs retain the
+    full legacy fold, including non-string keys and str(key) collisions. The
+    default still returns the complete map for callers that need it.
+    """
     totals = defaultdict(lambda: [0.0, 0.0])
     for tax_row in (_value(doc, "taxes", []) or []):
         raw = _value(tax_row, "item_wise_tax_detail")
@@ -70,7 +77,11 @@ def _v15_details(doc):
             continue
         if not isinstance(parsed, dict):
             continue
-        for key, value in parsed.items():
+        if item_key is not None and isinstance(raw, str) and type(parsed) is dict:
+            entries = ((item_key, parsed[item_key]),) if item_key in parsed else ()
+        else:
+            entries = parsed.items()
+        for key, value in entries:
             amount, rate = _normalise_v15_value(value)
             totals[str(key)][0] += amount
             totals[str(key)][1] += rate
@@ -186,7 +197,7 @@ def get_item_tax_detail(doc, item):
     # item_code exists). Resolve exactly one key. Do not inspect ``name`` or
     # ``idx`` here: those values identify the child row, not the JSON entry.
     legacy_key = _legacy_item_key(item)
-    v15 = _v15_details(doc)
+    v15 = _v15_details(doc, item_key=legacy_key)
     legacy_value = v15.get(legacy_key)
     item_tax_rate = _v15_item_tax_rate(doc, item)
     if item_tax_rate is None and legacy_value is not None:

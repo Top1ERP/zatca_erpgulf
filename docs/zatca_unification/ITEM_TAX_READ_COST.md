@@ -1,5 +1,9 @@
 # Retire unused item-tax JSON work — increment205
 
+Subsequent increment206 narrows the native v15 JSON fold to the selected item
+key; see [V15_TAX_KEY_LOOKUP.md](V15_TAX_KEY_LOOKUP.md). Measurements below record
+the earlier duplicate-call removal and must not be added to the later figures.
+
 Development only. Plain ordinary Sales items and the regular prefix of the
 plain advance-named Sales builder now acquire `get_item_tax_detail` **once per
 physical item**, rather than twice. Two unused `tax_json` assignments are

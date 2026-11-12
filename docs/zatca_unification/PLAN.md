@@ -19,6 +19,13 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment206 narrows v15 JSON folding to the exact requested key, preserving
+complete direct-dict/custom-subclass/default folds and all existing rate/amount
+and v16 rules. Verify exact parent outputs/reads, selected normalization counts,
+key collisions, retired off-target errors and real Sales/POS/nominal consumers.
+Measure the native adapter change independently; retain installed/fiscal gates.
+See [V15_TAX_KEY_LOOKUP.md](V15_TAX_KEY_LOOKUP.md).
+
 Increment205 removes the unused first tax acquisition/JSON serialization from
 plain Sales/advance item loops, keeping the public JSON compatibility helper.
 Verify exact parent bytes/errors and explicit removed-read deltas, one fresh

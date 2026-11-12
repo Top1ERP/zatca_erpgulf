@@ -1,5 +1,25 @@
 # Implementation status — 2026-11-12
 
+## Latest v15 selected-key cost reduction — increment206
+
+The shared tax adapter folds only the requested item key from native dicts
+parsed from v15 JSON text. Direct dictionaries/custom dict subclasses and the
+optional helper's default retain complete folding, including stringified-key
+collisions. Public tuple/signature, rate precedence, numeric helpers, v16
+branches and generator consumers remain. Off-target JSON conversion failures
+are an explicit retired-work delta, not whole-invoice validation.
+
+Validation: 7,673 distinct local cases passed across 41 reviewed suites, including
+538 new cases. Exact parent functions verify amount/rate bits, source-read order,
+normalization counts, default/dict collisions, v16 authority, targeted errors and
+128 real consumer XML/total/nominal cases. AST scope review passes. Manifest is
+175 local/57 private suites; no private SQL or whole-manifest run. A separate
+synthetic 100-item v15 JSON benchmark measured 44.90–46.14% less median CPU
+relative to the previous bundle, with unchanged peak heap and no meaningful
+v16 gain. Smaller fixtures are not uniformly faster. Fiscal/runtime/rehearsal
+gates remain open. No live change or authority request occurred. See
+[V15_TAX_KEY_LOOKUP.md](V15_TAX_KEY_LOOKUP.md).
+
 ## Latest item-tax acquisition cost reduction — increment205
 
 Plain ordinary/advance Sales item loops now resolve native item tax details once
@@ -283,7 +303,7 @@ installed15/16 release gate. No live deployment or authority request occurred.
 
 ## Scope delivered in this increment
 
-Safety preparation and two hundred and five bounded increments (Compliance outcomes, dedicated
+Safety preparation and two hundred and six bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,

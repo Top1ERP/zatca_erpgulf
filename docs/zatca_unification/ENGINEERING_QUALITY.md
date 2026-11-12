@@ -111,6 +111,15 @@ cases, including 59 new real-XML/crypto and failure-boundary cases. See
 
 ## Current performance work
 
+Increment206 narrows v15 parsed-JSON folding to the exact requested item key,
+without caching or duplicating tax-selection rules. Complete dict/default folds,
+numeric rules and v16 authority remain. Final selection: 7,673 local cases, 538
+new, with exact parent scope/output/read checks. A native-adapter paired benchmark
+measured 44.90–46.14% less median CPU at 100 v15 JSON items, unchanged peak heap
+and no meaningful v16 gain; small fixtures were not uniformly faster. This is
+not production latency, installed-runtime or query-savings evidence. See
+[V15_TAX_KEY_LOOKUP.md](V15_TAX_KEY_LOOKUP.md).
+
 Increment205 removes duplicate item-tax acquisition and unused JSON construction
 in plain Sales/advance loops. Exact-parent cases prove two calls become one per
 item while preserving compatible bytes and required errors; incidental unused-
