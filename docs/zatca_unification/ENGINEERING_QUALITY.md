@@ -41,6 +41,14 @@ Keep reference fixtures and test evidence distinct from dead runtime code.
 
 ## Current runtime consolidation
 
+Increment211 shares the active reconciliation account policy with an injected
+reader and compatibility wrapper. An unresolved observation is cached separately
+from each caller's fallback, retaining one lookup per local account and legacy
+prepopulated values. Parent parity and actual preflight consumers are covered by
+196 new cases; 9,507 selected cases pass. Native mixed-charge characterization
+keeps VAT ownership explicit as unfinished work; no XML/math or performance claim.
+See [TAX_ACCOUNT_POLICY.md](TAX_ACCOUNT_POLICY.md).
+
 Increment210 shares the canonical metadata sequence and adds an explicit Phase-1
 boundary, preserving item values and the full remaining submit body. Existing
 setting descriptions clarify that scope with two appended Arabic translations;

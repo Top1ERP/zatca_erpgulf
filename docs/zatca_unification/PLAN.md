@@ -19,6 +19,13 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment211 extracts the active reconciliation account classifier behind its
+existing adapter and fixes caller-default contamination in unresolved-account
+caches. Preserve query, known-account and direct-template policies. Characterize
+native v15/v16 mixed-charge rates without using generic Tax/Liability eligibility
+as VAT identity. Establish declared VAT-source ownership before changing the
+native XML selector. See [TAX_ACCOUNT_POLICY.md](TAX_ACCOUNT_POLICY.md).
+
 Increment210 centralizes the five canonical save/submit tax-metadata checks and
 skips them only for explicitly resolved Phase-1. Preserve general enablement,
 item values, Phase-2/unknown behavior, field-schema alias priority and the entire

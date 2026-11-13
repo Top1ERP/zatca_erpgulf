@@ -1,5 +1,23 @@
 # Implementation status — 2026-11-13
 
+## Latest reconciliation account policy — increment211
+
+The existing preflight classifier delegates to a pure shared policy through its
+compatibility wrapper. Account type/root decisions and query shape remain.
+Unknown-account caches now preserve the unresolved observation rather than the
+first caller's default; each subsequent call applies its own fallback without
+another lookup. Current internal callers still use default True. No native XML
+rate/amount policy is changed, and Tax-account eligibility is not VAT identity.
+
+Validation: 9,507 distinct local cases passed across 47 reviewed suites, including
+196 new cases. Exact parent classification, query/cache boundaries, actual
+preflight consumers and v15/v16 VAT/other-charge characterization passed. AST
+scope and unchanged native-adapter bytes are verified. Manifest:181 local/57
+private suites; no private SQL or whole-manifest run. No performance claim.
+Explicit VAT ownership and full fiscal/SDK/installed-runtime/rehearsal gates remain
+open. No live change or authority request occurred. See
+[TAX_ACCOUNT_POLICY.md](TAX_ACCOUNT_POLICY.md).
+
 ## Latest canonical tax phase boundary — increment210
 
 The two Sales/POS tax hooks share a five-validator metadata sequence and skip it
