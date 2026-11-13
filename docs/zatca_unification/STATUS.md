@@ -1,5 +1,24 @@
 # Implementation status — 2026-11-13
 
+## Latest canonical tax phase boundary — increment210
+
+The two Sales/POS tax hooks share a five-validator metadata sequence and skip it
+only for explicit Phase-1. General enablement, item-value checks, Phase-2/unknown
+phase behavior and the entire remaining submit body are retained. Preferred-field
+schema priority is preserved; blank primary fields cannot use a legacy Phase-1
+value to skip checks. Lower-level/direct and other lifecycle hooks are unchanged.
+
+Validation: 9,311 distinct local cases passed across 46 reviewed suites, including
+245 new cases. Exact parent sequences/errors, real ordinary/advance Phase-1
+source/category deltas, retained negative values/submit requirements and alias/
+metadata failures passed. AST inlining restores both full parent hooks and all
+other runtime nodes. Existing field descriptions and two Arabic entries are
+staged only; no setup/migration ran. Manifest is 180 local/57 private suites; no
+private SQL or whole-manifest run. No performance claim. VAT/non-VAT ownership,
+remaining phase policy and full fiscal/SDK/runtime/rehearsal gates remain open.
+No live change or authority request occurred. See
+[TAX_PHASE_POLICY.md](TAX_PHASE_POLICY.md).
+
 ## Latest preflight tax-source consistency — increment209
 
 The preflight selector preserves invoice zero and positive rates even when
@@ -363,7 +382,7 @@ installed15/16 release gate. No live deployment or authority request occurred.
 
 ## Scope delivered in this increment
 
-Safety preparation and two hundred and nine bounded increments (Compliance outcomes, dedicated
+Safety preparation and two hundred and ten bounded increments (Compliance outcomes, dedicated
 Compliance/Debug isolation, shared API routing, signing/Compliance credential
 selection, primary live request/PIH ownership, existing-XML request ownership,
 generator/background request ownership with early Compliance dispatch,

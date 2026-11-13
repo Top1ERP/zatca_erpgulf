@@ -1,5 +1,10 @@
 # Preflight invoice/template source consistency — increment209
 
+Subsequent increment210 makes the five metadata checks phase-aware in the
+canonical save/submit hooks; see [TAX_PHASE_POLICY.md](TAX_PHASE_POLICY.md).
+Other direct validators, submit requirements and phase-policy questions remain
+separate from that boundary. Evidence below records increment209.
+
 Development only. This corrects the source supplied to existing category/rate/
 reason checks in `tax_error.py`. It adds no new tax rule, Company field, checkbox,
 schema, API request, generator algorithm or persistence. The prior

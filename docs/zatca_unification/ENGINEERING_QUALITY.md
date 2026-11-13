@@ -41,6 +41,14 @@ Keep reference fixtures and test evidence distinct from dead runtime code.
 
 ## Current runtime consolidation
 
+Increment210 shares the canonical metadata sequence and adds an explicit Phase-1
+boundary, preserving item values and the full remaining submit body. Existing
+setting descriptions clarify that scope with two appended Arabic translations;
+no live customization runs. Exact-parent inlining and 9,311 selected cases (245
+new) cover aliases, failures and real ordinary/advance metadata false blocks.
+No performance or complete Phase1/2-lifecycle claim. See
+[TAX_PHASE_POLICY.md](TAX_PHASE_POLICY.md).
+
 Increment209 shares preflight selected-rate/reason decisions across category-owner
 branches, preserving invoice zero and declared reason overrides. Mixed-source
 context reuses existing English/Arabic keys. One overwritten category set is

@@ -12,6 +12,7 @@ from zatca_erpgulf.zatca_erpgulf.createxml import get_zatca_discount_reason_code
 from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country
 from zatca_erpgulf.zatca_erpgulf.customer_address import resolve_customer_address
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
+    PHASE_1_VALUE,
     PHASE_2_VALUE,
     is_zatca_invoice_enabled,
     resolve_zatca_phase,
@@ -1078,13 +1079,39 @@ def validate_zatca_tax_source_presence(doc, company_doc=None) -> None:
         )
 
 
+def _validate_tax_metadata_for_phase(
+    doc, company_doc, event=None, *, enforce_source_consistency=False
+):
+    """Run tax-metadata checks except for an explicitly resolved Phase-1.
+
+    The canonical save/submit hooks already own the Company and enablement
+    check. Keep Phase-2 and unknown/blank phase behavior unchanged; a missing
+    primary field value must not silently select a legacy Phase-1 alias. These
+    validators are called through their existing module bindings and order.
+    Item-value checks and the remaining submit requirements stay in the hooks.
+    """
+    if resolve_zatca_phase(company_doc) == PHASE_1_VALUE:
+        return
+
+    validate_advance_payment_invoice_tax_structure(doc)
+    validate_zatca_tax_source_presence(doc, company_doc)
+    if enforce_source_consistency:
+        validate_zatca_tax_category_and_exemption_reason(
+            doc, company_doc, enforce_source_consistency=True
+        )
+    else:
+        validate_zatca_tax_category_and_exemption_reason(doc, company_doc)
+    validate_zatca_zero_rate_categories(doc, company_doc)
+    validate_zatca_tax_table(doc, event, company_doc)
+
+
 def validate_negative_item_values_on_save(doc, event=None):
     """
     Validate item quantities and negative values on document save.
 
-    This is intentionally limited to item value validation only.
-    Do not run the full ZATCA submit validation here because drafts may still
-    be incomplete while users are entering invoice data.
+    Keep item-value checks and phase-appropriate tax metadata on this hook.
+    Explicit Phase-1 skips Phase-2 metadata. Submission-only requirements stay
+    in before_submit rather than running while a draft is being edited.
     """
     if doc.doctype not in {"Sales Invoice", "POS Invoice"}:
         return
@@ -1099,11 +1126,7 @@ def validate_negative_item_values_on_save(doc, event=None):
         return
 
     validate_positive_item_values_for_zatca(doc, company_doc)
-    validate_advance_payment_invoice_tax_structure(doc)
-    validate_zatca_tax_source_presence(doc, company_doc)
-    validate_zatca_tax_category_and_exemption_reason(doc, company_doc)
-    validate_zatca_zero_rate_categories(doc, company_doc)
-    validate_zatca_tax_table(doc, event, company_doc)
+    _validate_tax_metadata_for_phase(doc, company_doc, event)
 
 def validate_sales_invoice_taxes(doc, event=None):
     """
@@ -1119,11 +1142,9 @@ def validate_sales_invoice_taxes(doc, event=None):
         return
 
     validate_positive_item_values_for_zatca(doc, company_doc)
-    validate_advance_payment_invoice_tax_structure(doc)
-    validate_zatca_tax_source_presence(doc, company_doc)
-    validate_zatca_tax_category_and_exemption_reason(doc, company_doc, enforce_source_consistency=True)
-    validate_zatca_zero_rate_categories(doc, company_doc)
-    validate_zatca_tax_table(doc, event, company_doc)
+    _validate_tax_metadata_for_phase(
+        doc, company_doc, event, enforce_source_consistency=True
+    )
 
     is_gpos_installed = "gpos" in frappe.get_installed_apps()
     meta = frappe.get_meta(doc.doctype)

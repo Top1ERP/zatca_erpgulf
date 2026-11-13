@@ -4032,8 +4032,9 @@ def sync_tax_template_zatca_source_fields() -> dict[str, list[str]]:
                     "insert_after": "custom_zatca_negative_line_validation_mode",
                     "default": "1",
                     "description": (
-                        "When enabled, the system validates ZATCA tax category source "
-                        "and consistency using Item Tax Template or Sales Taxes and Charges Template."
+                        "When enabled, check tax category and rate consistency against the selected tax source before submission. "
+                        "Explicit Phase-1 skips the tax-metadata group in normal save/submit flows; "
+                        "Phase-2 and unspecified phase retain existing checks."
                     ),
                 },
                 {
@@ -4043,8 +4044,9 @@ def sync_tax_template_zatca_source_fields() -> dict[str, list[str]]:
                     "insert_after": company_fieldname,
                     "default": "1",
                     "description": (
-                        "When enabled, tax Account Head rows in Sales Taxes and Charges are checked "
-                        "against the configured ZATCA VAT source before saving Sales Invoices."
+                        "When enabled, check tax Account Head rows against the configured VAT source on save and submit. "
+                        "Explicit Phase-1 skips this tax-metadata group in normal invoice flows; "
+                        "Phase-2 and unspecified phase retain existing checks."
                     ),
                 },
                 {

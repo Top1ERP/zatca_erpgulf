@@ -19,6 +19,15 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment210 centralizes the five canonical save/submit tax-metadata checks and
+skips them only for explicitly resolved Phase-1. Preserve general enablement,
+item values, Phase-2/unknown behavior, field-schema alias priority and the entire
+remaining submit body. Clarify the two existing setting descriptions with Arabic
+translations in development definitions only. Resolve VAT/non-VAT row ownership
+before expanding effective-item rate checks; complete the remaining phase and
+installed/fiscal acceptance audit separately. See
+[TAX_PHASE_POLICY.md](TAX_PHASE_POLICY.md).
+
 Increment209 aligns preflight invoice-level rate/reason priority with the reviewed
 XML source scenarios, preserving zero, genuinely absent fallback and category
 ownership. Reuse bilingual mixed-source labels and retain existing rules/gates.
