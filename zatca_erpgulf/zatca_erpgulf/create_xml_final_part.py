@@ -7,6 +7,7 @@ from decimal import Decimal, ROUND_DOWN, ROUND_HALF_UP
 import re
 from html import unescape
 from math import isfinite
+from zatca_erpgulf.ksa_compliance.vat_math import vat_from_group
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 from datetime import datetime
@@ -291,10 +292,11 @@ def _nominal_breakdown_without_template(sales_invoice_doc):
     tax_category = sales_invoice_doc.get("custom_zatca_tax_category") or "Standard"
     exemption_reason_code = sales_invoice_doc.get("custom_exemption_reason_code")
     groups = {}
+    sar_bases = {}
 
     for item in sales_invoice_doc.items:
         item_tax_rate = _nominal_tax_rate_without_template(sales_invoice_doc, item)
-        # Preserve the original net/base acquisition order and per-line rounding.
+        # Keep line net/base reads and their existing currency quantization.
         line_net = _nominal_item_net_amount(item, sales_invoice_doc)
         line_base_net = _nominal_item_base_net_amount(item)
         # NaN does not equal itself; use a stable diagnostic key.
@@ -305,24 +307,24 @@ def _nominal_breakdown_without_template(sales_invoice_doc):
             )
         row = groups[rate_key]
         row["taxable_amount"] += line_net
-        row["tax_amount"] += _nominal_q2(line_net * item_tax_rate / Decimal("100"))
-        row["sar_tax_amount"] += _nominal_q2(line_base_net * item_tax_rate / Decimal("100"))
+        sar_bases[rate_key] = sar_bases.get(rate_key, Decimal("0.00")) + line_base_net
 
     if not groups:
         # Keep the prior empty-table row rather than dropping required subtotals.
         groups[Decimal("0.00")] = _new_tax_rate_bucket(
             tax_category, Decimal("0.00"), exemption_reason_code, include_sar=True
         )
-    for row in groups.values():
+    for rate_key, row in groups.items():
         row["taxable_amount"] = _nominal_q2(row["taxable_amount"])
-        row["tax_amount"] = _nominal_q2(row["tax_amount"])
-        row["sar_tax_amount"] = _nominal_q2(row["sar_tax_amount"])
+        row["tax_amount"] = vat_from_group(row["taxable_amount"], row["tax_rate"])
+        row["sar_tax_amount"] = vat_from_group(sar_bases.get(rate_key, Decimal("0.00")), row["tax_rate"])
         row["tax_rate"] = _nominal_q2(row["tax_rate"])
     return list(groups.values())
 
 
 def _nominal_breakdown_with_template(sales_invoice_doc):
     tax_category_totals = {}
+    sar_bases = {}
 
     for item in sales_invoice_doc.items:
         item_tax_template = frappe.get_doc(ITEM_TAX_TEMPLATE, item.item_tax_template)
@@ -349,14 +351,13 @@ def _nominal_breakdown_with_template(sales_invoice_doc):
             }
 
         tax_category_totals[key]["taxable_amount"] += line_net
-        tax_category_totals[key]["tax_amount"] += _nominal_q2(line_net * _nominal_q2(tax_rate) / Decimal("100"))
-        tax_category_totals[key]["sar_tax_amount"] += _nominal_q2(line_base_net * _nominal_q2(tax_rate) / Decimal("100"))
+        sar_bases[key] = sar_bases.get(key, Decimal("0.00")) + line_base_net
 
     result = []
-    for _, totals in tax_category_totals.items():
+    for key, totals in tax_category_totals.items():
         totals["taxable_amount"] = _nominal_q2(totals["taxable_amount"])
-        totals["tax_amount"] = _nominal_q2(totals["tax_amount"])
-        totals["sar_tax_amount"] = _nominal_q2(totals["sar_tax_amount"])
+        totals["tax_amount"] = vat_from_group(totals["taxable_amount"], totals["tax_rate"])
+        totals["sar_tax_amount"] = vat_from_group(sar_bases[key], totals["tax_rate"])
         result.append(totals)
 
     return result

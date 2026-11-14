@@ -13,6 +13,7 @@ from decimal import Decimal, ROUND_HALF_UP
 
 import frappe
 from frappe import _
+from zatca_erpgulf.ksa_compliance.vat_math import vat_from_group
 # Keep the full-detail import available as an integration compatibility alias.
 from zatca_erpgulf.ksa_compliance.tax_details import (
     get_item_tax_detail,
@@ -256,7 +257,6 @@ def _get_tax_breakdown_without_template(sales_invoice_doc):
             )
         row = groups[rate_key]
         row["taxable_amount"] += item_net_amount
-        row["tax_amount"] += q2(item_net_amount * item_tax_rate / Decimal("100"))
 
     if not groups:
         groups[Decimal("0.00")] = _new_tax_rate_bucket(
@@ -268,7 +268,7 @@ def _get_tax_breakdown_without_template(sales_invoice_doc):
         next(iter(groups.values()))["taxable_amount"] = taxable_amount
     for row in groups.values():
         row["taxable_amount"] = q2(row["taxable_amount"])
-        row["tax_amount"] = q2(row["tax_amount"])
+        row["tax_amount"] = vat_from_group(row["taxable_amount"], row["tax_rate"])
         row["tax_rate"] = q2(row["tax_rate"])
     return list(groups.values())
 
@@ -300,12 +300,11 @@ def _get_tax_breakdown_with_template(sales_invoice_doc):
             }
 
         tax_category_totals[key]["taxable_amount"] += item_net_amount
-        tax_category_totals[key]["tax_amount"] += q2(item_net_amount * q2(tax_rate) / Decimal("100"))
 
     result = []
     for _, totals in tax_category_totals.items():
         totals["taxable_amount"] = q2(totals["taxable_amount"])
-        totals["tax_amount"] = q2(totals["tax_amount"])
+        totals["tax_amount"] = vat_from_group(totals["taxable_amount"], totals["tax_rate"])
         result.append(totals)
 
     return result

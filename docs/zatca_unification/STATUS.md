@@ -1,5 +1,25 @@
 # Implementation status — 2026-11-14
 
+## Latest final Sales group rounding — increment215
+
+Four ordinary/nominal, plain/template calculators share pure Decimal group VAT
+math. Preserve sources, group keys, per-line builders, nominal offsets, native
+selection, POS and settings. Three0.03/15% lines now emit0.01 rather than0.00;
+1.01/2.03 emits0.46 rather than0.45. Five additional baseline differences alter
+only nominal USD/distributed SAR TaxAmount101.26 to101.25. Current original
+matrix:171 identical/69 different; all80 POS outputs remain identical.
+
+Validation:10,105 distinct local cases passed across51 suites, including176 new
+cases. Old/new literals, templates, source snapshots, currencies, returns and
+actual XML passed. Four-parent-body restoration and unchanged surrounding/native/
+POS/preflight/settings AST/bytes pass. Manifest:185 local/57 private; no SQL/site
+or whole-manifest run. Ordinary scoped Sales findings close; eight POS findings
+remain. A known ERP row-rounded0.00 versus XML0.01 mismatch is explicitly tested
+and still lacks a universal runtime guard: reconciliation is a blocking release
+gate. Foreign SAR accounting policy, fiscal/SDK/runtime/rehearsal gates remain.
+No live change or authority request. See
+[GROUP_VAT_ROUNDING.md](GROUP_VAT_ROUNDING.md).
+
 ## Latest published-standard arithmetic audit — increment214
 
 Tests/documentation only. Compared original and DEV to the currently linked

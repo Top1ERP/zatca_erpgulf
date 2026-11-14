@@ -197,13 +197,13 @@ def test_published_tax_rules_expose_original_and_current_gaps(monkeypatch, audit
         should_fail = (
             (case == "mixed-invoice" and (family == "pos" or version == "original"))
             or (case == "mixed-item-templates" and family == "pos")
-            or (case.startswith("small-") and family == "sales")
+            or (case.startswith("small-") and family == "sales" and version == "original")
             or (case.startswith("half-up-") and family == "pos")
         )
         assert bool(result["findings"]) == should_fail, (case, family, version, result)
         if case.startswith("small-"):
             assert result["expected_total"] == "0.01"
-            assert Decimal(result["actual_total"]) == (Decimal("0.00") if family == "sales" else Decimal("0.01"))
+            assert Decimal(result["actual_total"]) == (Decimal("0.00") if family == "sales" and version == "original" else Decimal("0.01"))
         if case.startswith("half-up-"):
             assert result["expected_total"] == "0.02"
             assert Decimal(result["actual_total"]) == (Decimal("0.02") if family == "sales" else Decimal("0.01"))

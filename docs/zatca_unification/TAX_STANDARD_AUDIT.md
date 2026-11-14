@@ -6,6 +6,10 @@ fixes one mixed-rate grouping scenario; inherited Sales rounding and POS source/
 rounding gaps remain. This increment adds review/tests only, with no runtime,
 financial-field, configuration, schema or live-data change.
 
+The later [group-rounding correction](GROUP_VAT_ROUNDING.md) updates the current
+results. Counts and findings below describe this historical review; current
+runs may replace the default temporary matrix artifacts.
+
 ## Primary reference and bounded criteria
 
 The [official developer specifications page](https://zatca.gov.sa/en/E-Invoicing/SystemsDevelopers/Pages/E-Invoice-specifications.aspx)

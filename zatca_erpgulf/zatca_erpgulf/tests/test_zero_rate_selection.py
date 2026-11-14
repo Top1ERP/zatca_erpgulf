@@ -23,7 +23,7 @@ PATTERNS = [
     ([0, 15], [(0, "1.01", "0.00", "0.00"), (15, "2.03", "0.30", "1.14")]),
     ([15, 0], [(15, "1.01", "0.15", "0.57"), (0, "2.03", "0.00", "0.00")]),
     ([5, 15], [(5, "1.01", "0.05", "0.19"), (15, "2.03", "0.30", "1.14")]),
-    ([15, 15], [(15, "3.04", "0.45", "1.71")]),
+    ([15, 15], [(15, "3.04", "0.46", "1.71")]),
     ([5, 5], [(5, "3.04", "0.15", "0.57")]),
     ([0, 5, 15], [(0, "1.01", "0.00", "0.00"), (5, "2.03", "0.10", "0.38"), (15, "3.07", "0.46", "1.73")]),
     ([15, 5, 15], [(15, "4.08", "0.61", "2.30"), (5, "2.03", "0.10", "0.38")]),
@@ -171,7 +171,7 @@ def test_literal_per_rate_buckets_keep_zero_separate_and_sum_physical_lines(
 @pytest.mark.parametrize("currency", ["SAR", "USD"])
 @pytest.mark.parametrize("nominal", [False, True])
 @pytest.mark.parametrize("rates", [[], [15, 15], [5, 5]])
-def test_unaffected_empty_and_homogeneous_positive_breakdowns_keep_parent_reads_and_output(
+def test_empty_and_homogeneous_breakdowns_keep_reads_and_explicit_rounding_delta(
     advance_source, major, currency, nominal, rates,
 ):
     s = advance_source
@@ -182,7 +182,16 @@ def test_unaffected_empty_and_homogeneous_positive_breakdowns_keep_parent_reads_
     expected = old(doc)
     reads = s.trace[:]
     s.trace.clear()
-    assert current(doc) == expected and s.trace == reads
+    actual = current(doc)
+    if rates == [15, 15]:
+        assert expected[0]["tax_amount"] == D("0.45")
+        assert actual[0]["tax_amount"] == D("0.46")
+        expected[0]["tax_amount"] = D("0.46")
+        if nominal and currency == "SAR":
+            assert expected[0]["sar_tax_amount"] == D("0.45")
+            assert actual[0]["sar_tax_amount"] == D("0.46")
+            expected[0]["sar_tax_amount"] = D("0.46")
+    assert actual == expected and s.trace == reads
     no_writes(s, doc)
 
 
@@ -212,8 +221,10 @@ def test_actual_tax_xml_has_one_subtotal_per_rate_and_consistent_document_totals
     tax_sum = sum(D(amount) for _, _, amount, _ in expected)
     net_sum = sum(D(net) for _, net, _, _ in expected)
     if not nominal:
-        assert sum(D(line.find("cac:TaxTotal").find("cbc:TaxAmount").text)
-                   for line in root.findall("cac:InvoiceLine")) == tax_sum
+        # The final group amount can differ from separately rounded line taxes.
+        line_sum = sum(D(line.find("cac:TaxTotal").find("cbc:TaxAmount").text)
+                       for line in root.findall("cac:InvoiceLine"))
+        assert line_sum == (D("0.45") if rates == [15, 15] else tax_sum)
     legal = root.find("cac:LegalMonetaryTotal")
     assert D(legal.find("cbc:TaxInclusiveAmount").text) == (tax_sum if nominal else net_sum + tax_sum)
     assert D(legal.find("cbc:PayableAmount").text) == (tax_sum if nominal else net_sum + tax_sum)
@@ -226,7 +237,7 @@ def test_actual_tax_xml_has_one_subtotal_per_rate_and_consistent_document_totals
 @pytest.mark.parametrize("currency", ["SAR", "USD"])
 @pytest.mark.parametrize("nominal", [False, True])
 @pytest.mark.parametrize("rates", [[], [15, 15], [5, 5]])
-def test_empty_and_homogeneous_positive_complete_xml_keeps_parent_bytes(
+def test_empty_and_homogeneous_xml_retains_bytes_except_declared_rounding_delta(
     advance_source, monkeypatch, major, currency, nominal, rates,
 ):
     s = advance_source
@@ -244,7 +255,10 @@ def test_empty_and_homogeneous_positive_complete_xml_keeps_parent_bytes(
         root = ET.Element("Invoice")
         assert operation(root, doc) is root
         outputs.append(ET.tostring(root))
-    assert outputs[0] == outputs[1]
+    if rates == [15, 15]:
+        assert outputs[0] != outputs[1]  # Group half-up replaces summed line rounding.
+    else:
+        assert outputs[0] == outputs[1]
     no_writes(s, doc)
 
 

@@ -36,6 +36,15 @@ See [BASELINE_TAX_COMPATIBILITY.md](BASELINE_TAX_COMPATIBILITY.md).
 
 ## Target design
 
+Increment215 fixes final group rounding in four Sales ordinary/nominal calculators
+using shared pure Decimal arithmetic. Keep rate/category/source and per-line math
+unchanged; expose tiny DOC/SAR changes with complete original-output evidence.
+The explicit row-rounded ERP0.00/XML0.01 negative case is still not blocked by a
+universal runtime guard. Close source/accounting reconciliation before any pilot,
+then unify POS groups/rounding and verify its net/inclusive/discount settings.
+Foreign/nominal currency policy and full SDK/runtime gates remain. See
+[GROUP_VAT_ROUNDING.md](GROUP_VAT_ROUNDING.md).
+
 Increment214 adds a bounded independent standards audit alongside original-output
 parity. Officially linked XML v1.2 grouping/final-rounding criteria expose inherited
 Sales/POS gaps; the36 new comparisons do not change numerical policies. Correct

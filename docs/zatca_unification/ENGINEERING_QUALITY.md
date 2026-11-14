@@ -63,6 +63,15 @@ acceptance of the64 changes. See
 
 ## Current runtime consolidation
 
+Increment215 shares final group VAT arithmetic at four active Sales calculators,
+retaining source/category/rate and per-line behavior.176 new cases and10,105
+selected cases verify explicit financial changes, exact originals and source
+preservation; surrounding native/POS/preflight/settings code stays unchanged.
+171/240 original financial fragments match, with five additional single-SAR-node
+rounding changes. The explicit ERP row-rounded mismatch remains a blocking release
+gate, not a reconciled invoice. No runtime-performance or full compliance claim.
+See [GROUP_VAT_ROUNDING.md](GROUP_VAT_ROUNDING.md).
+
 Increment212 consolidates duplicate non-template rate/fallback mechanics at two
 active subtotal consumers. Compatibility wrappers retain aliases, rounding and
 empty behavior; exact shared-function specialization restores both old bodies.

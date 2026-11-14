@@ -251,6 +251,21 @@ def test_original_deployed_and_development_financial_xml(
     old_xml, new_xml = ET.tostring(old_root), ET.tostring(new_root)
     same = old_xml == new_xml
     expected_difference = case in CHARACTERIZED_XML_DELTAS and family != "pos"
+    # Increment215 also corrects one SAR group-rounding cent in these nominal
+    # USD/distributed-discount examples. Keep all other XML bytes frozen.
+    sar_group_rounding_delta = (
+        family == "nominal" and currency == "USD" and distributed_discount
+        and (case in {"invoice-template-15", "item-template-two-taxes"}
+             or (case == "invoice-template-two-taxes" and major == 15))
+    )
+    if sar_group_rounding_delta:
+        old_sar = old_root.findall("cac:TaxTotal")[0].find("cbc:TaxAmount")
+        new_sar = new_root.findall("cac:TaxTotal")[0].find("cbc:TaxAmount")
+        assert old_sar.text == "101.26" and new_sar.text == "101.25"
+        restored = copy.deepcopy(new_root)
+        restored.findall("cac:TaxTotal")[0].find("cbc:TaxAmount").text = old_sar.text
+        assert ET.tostring(restored) == old_xml
+    expected_difference = expected_difference or sar_group_rounding_delta
     assert same == (not expected_difference)
     old_summary, new_summary = financial_summary(old_root), financial_summary(new_root)
     if family == "sales" and currency == "SAR" and not distributed_discount:

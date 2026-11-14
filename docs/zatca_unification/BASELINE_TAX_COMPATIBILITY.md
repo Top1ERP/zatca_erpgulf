@@ -10,6 +10,10 @@ The subsequent [published-standard audit](TAX_STANDARD_AUDIT.md) separately
 checks correctness. It exposes inherited rounding/POS gaps despite some exact
 original/DEV matches; the preservation evidence below is not a standards verdict.
 
+The later [group-rounding correction](GROUP_VAT_ROUNDING.md) updates the current
+results. Counts and findings below describe this historical review; current
+runs may replace the default temporary matrix artifacts.
+
 ## Which original implementation is compared
 
 Baseline `2e97708e115e31c675182647d10829d6175e7449` predates the unification
