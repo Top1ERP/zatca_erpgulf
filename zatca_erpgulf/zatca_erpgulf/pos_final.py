@@ -106,3 +106,11 @@ def xml_structuring(invoice):
             )
         )
         return None
+
+
+# Stable code identities let the compositor recognize unchanged public adapters.
+_CANONICAL_POS_BUILDERS = {
+    "tax_data_with_template": tax_data_with_template,
+    "item_data": item_data,
+    "item_data_with_template": item_data_with_template,
+}

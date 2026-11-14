@@ -10,6 +10,7 @@ boundary records one canonical diagnostic and presents its translated key.
 
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+from types import MappingProxyType
 import xml.etree.ElementTree as ET
 
 import frappe
@@ -100,14 +101,54 @@ def _classification(source, rate):
     reason = source.get("custom_exemption_reason_code")
     if (category not in CATEGORIES or rate < 0
             or (category == "Standard" and rate <= 0)
-            or (category != "Standard" and (rate != 0 or not reason))):
+            or (category != "Standard" and (rate != 0 or not reason or not isinstance(reason, str)))):
         raise PosFinancialError("classification", MISSING)
     return category, reason if category != "Standard" else None
 
 
 @dataclass(frozen=True)
+class PosItemValues:
+    """Only immutable presentation values consumed by the shared line emitter."""
+
+    name: object
+    idx: object
+    qty: object
+    uom: object
+    item_code: object
+    item_name: object
+    description: object
+
+    def get(self, key, default=None):
+        return getattr(self, key, default)
+
+
+@dataclass(frozen=True)
+class PosDocumentValues:
+    """Rendering values only; never a saved document or authorization context."""
+
+    currency: str
+    custom_exemption_reason: object
+    base_total_taxes_and_charges: Decimal
+
+    def get(self, key, default=None):
+        return getattr(self, key, default)
+
+
+@dataclass(frozen=True)
+class PosTemplateValues:
+    custom_zatca_tax_category: str
+
+
+def _presentation_value(doc, field):
+    value = doc.get(field)
+    if value is not None and not isinstance(value, (str, int, float, Decimal)):
+        raise PosFinancialError("invalid_source", MISSING, f"Invalid presentation field: {field}")
+    return value
+
+
+@dataclass(frozen=True)
 class PosLine:
-    source: object
+    item: PosItemValues
     net: Decimal
     price: Decimal
     rate: Decimal
@@ -120,7 +161,7 @@ class PosLine:
 
 @dataclass(frozen=True)
 class PosFinancials:
-    source: object
+    document: PosDocumentValues
     lines: tuple
     breakdown: tuple
     net: Decimal
@@ -145,6 +186,9 @@ def prepare_pos_financials(doc, *, has_template, get_doc, read_rate):
              and _number(doc.get("discount_amount") or 0))):
         raise PosFinancialError("special_transaction", SPECIAL)
     if not doc.items or not doc.get("currency"):
+        raise PosFinancialError("invalid_source", MISSING)
+    currency = _presentation_value(doc, "currency")
+    if not isinstance(currency, str):
         raise PosFinancialError("invalid_source", MISSING)
     if (_number(doc.get("discount_amount") or 0) != 0
             and not any(_number(item.get("distributed_discount_amount") or 0) != 0
@@ -202,9 +246,11 @@ def prepare_pos_financials(doc, *, has_template, get_doc, read_rate):
             rate = _quantized(tax.rate if selected is None else selected)
             source = category_source
         category, reason = _classification(source, rate)
-        net_field = "base_net_amount" if doc.currency == "SAR" else "net_amount"
+        net_field = "base_net_amount" if currency == "SAR" else "net_amount"
         signed_net = _amount(item, net_field)
-        quantity = _number(item.qty)
+        presentation = PosItemValues(*(_presentation_value(item, field) for field in
+            ("name", "idx", "qty", "uom", "item_code", "item_name", "description")))
+        quantity = _number(presentation.qty)
         if quantity == 0 or signed_net * sign < 0 or quantity * sign < 0:
             raise PosFinancialError("invalid_source", MISSING)
         net = abs(signed_net)
@@ -222,7 +268,8 @@ def prepare_pos_financials(doc, *, has_template, get_doc, read_rate):
             if _flag(tax, "included_in_print_rate"):
                 gross /= 1 + rate / 100
             gross = _quantized(gross, price=True)
-        rows.append(PosLine(item, net, price, rate, category, reason, template,
+        template_values = PosTemplateValues(category) if template is not None else None
+        rows.append(PosLine(presentation, net, price, rate, category, reason, template_values,
                             tax.account_head, gross))
         key = category, rate, reason
         if any(previous[:2] == key[:2] and previous[2] != reason for previous in groups):
@@ -245,13 +292,16 @@ def prepare_pos_financials(doc, *, has_template, get_doc, read_rate):
     expected = {"net_total": net, "total_taxes_and_charges": vat, "grand_total": net + vat}
     if not rounding_disabled:
         expected["rounded_total"] = net + vat + rounding
-    if doc.currency == "SAR":
+    if currency == "SAR":
         expected.update(base_net_total=net, base_total_taxes_and_charges=vat)
     mismatches = [f"{field}: ERP={doc.get(field)}, XML={value}"
         for field, value in expected.items() if _amount(doc, field) * sign != value]
     if mismatches:
         raise PosFinancialError("reconciliation", RECALCULATE, "; ".join(mismatches))
-    return PosFinancials(doc, tuple(rows), tuple(groups.values()), net, vat, accounting_vat,
+    document_values = PosDocumentValues(currency,
+        _presentation_value(doc, "custom_exemption_reason"), accounting_vat)
+    breakdown = tuple(MappingProxyType(dict(bucket)) for bucket in groups.values())
+    return PosFinancials(document_values, tuple(rows), breakdown, net, vat, accounting_vat,
                          rounding, show_discount)
 
 
@@ -273,10 +323,10 @@ def _reconcile_vat_accounts(doc, prepared_lines, tax_by_account, sign):
     issues, groups = [], {}
     for line in prepared_lines:
         for account in tax_by_account:
-            actual = _quantized(native.rate(line.source, account))
+            actual = _quantized(native.rate(line.item, account))
             expected = line.rate if line.account == account else ZERO
             if actual != expected:
-                issues.append(f"item {line.source.idx}, account {account}: native rate={actual}, template rate={expected}")
+                issues.append(f"item {line.item.idx}, account {account}: native rate={actual}, template rate={expected}")
         key = line.account, line.category, line.rate, line.reason
         groups[key] = groups.get(key, ZERO) + line.net
     if issues:
@@ -310,7 +360,7 @@ def _reconcile_vat_accounts(doc, prepared_lines, tax_by_account, sign):
 
 def append_pos_totals(invoice, financials):
     """Emit group VAT and ERP-reconciled money without a second allowance."""
-    doc = financials.source
+    doc = financials.document
     # The view supplies an absolute accounting amount for credit-note XML.
     view = _DocumentView(doc, base_total_taxes_and_charges=financials.accounting_vat)
     start = len(invoice)
@@ -339,16 +389,16 @@ class _DocumentView:
 
 def append_pos_lines(invoice, financials):
     """Share Sales line emission with precise final-net unit prices for POS."""
-    doc = financials.source
+    doc = financials.document
     for row in financials.lines:
         view = _DocumentView(doc, custom_zatca_tax_category=row.category)
-        node = lines._append_sales_invoice_line(invoice, view, row.source, row.net,
+        node = lines._append_sales_invoice_line(invoice, view, row.item, row.net,
             row.price, lines._line_tax_amount_from_net(row.net, row.rate), row.rate,
             has_template=row.template is not None, item_tax_template=row.template)
-        node.find("cac:Item").find("cbc:Name").text = f"{row.source.item_code}:{row.source.item_name}"
+        node.find("cac:Item").find("cbc:Name").text = f"{row.item.item_code}:{row.item.item_name}"
         if financials.show_discount:
             price = node.find("cac:Price")
-            ET.SubElement(price, "cbc:BaseQuantity", unitCode=str(row.source.uom)).text = "1"
+            ET.SubElement(price, "cbc:BaseQuantity", unitCode=str(row.item.uom)).text = "1"
             if row.gross_price > row.price:
                 allowance = ET.SubElement(price, "cac:AllowanceCharge")
                 ET.SubElement(allowance, "cbc:ChargeIndicator").text = "false"
@@ -360,13 +410,21 @@ def append_pos_lines(invoice, financials):
 
 def render_pos_financials(invoice, doc, *, has_template, get_doc, read_rate, section):
     """Compatibility entry: validate first, then append only the requested part."""
+    if section not in ("totals", "lines", "complete"):
+        raise ValueError("pos_financial_section")
     financials = prepare_pos_financials(doc, has_template=has_template,
         get_doc=get_doc, read_rate=read_rate)
     if section == "totals":
         return append_pos_totals(invoice, financials)
     if section == "lines":
         return append_pos_lines(invoice, financials)
-    raise ValueError("pos_financial_section")
+    # Build both parts from one immutable projection. If emission fails, keep
+    # the caller's root intact rather than leaving a partial financial section.
+    staging = ET.Element("POSFinancials")
+    append_pos_totals(staging, financials)
+    append_pos_lines(staging, financials)
+    invoice.extend(list(staging))
+    return invoice
 
 
 def render_pos_section(invoice, doc, *, has_template, section, runtime, translate, read_rate):

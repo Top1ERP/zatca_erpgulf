@@ -17,6 +17,25 @@ pilot/rollout. API sending needs separate explicit authority changing the ban.
 See [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md); it supersedes any older
 operational request or less restrictive deployment wording in historical records.
 
+## One POS financial rendering projection — increment219
+
+Adopt one preparation for the five standard POS generation entry points, keeping
+explicit immutable rendering values for currency, items, category and monetary
+breakdown. Build complete financial XML in a private root before appending it.
+Preserve imported hooks and independent adapter calls; distinct dependency
+bindings continue their declared public composition. This does not bind a trusted
+saved-source snapshot or make earlier party/identity/ICV effects transactional.
+
+Continue multi-row item-template ownership/exclusion and non-VAT charge policy.
+The inspected native detail schema stores account/rate while current ZATCA
+category/reason fields are on the parent template. Do not infer a row's role
+from zero/nonzero rate alone or discard zero overrides. Verify declaration
+propagation through native15/16 source rows and reconcile charge tax bases before
+relaxing the unchanged guard. Complete trusted source/settings/credential and
+transaction integration, installed lifecycle and SDK before the separately
+approved fictional-client rehearsal. No live or authority API action is included.
+See [POS_FINANCIAL_PREPARATION.md](POS_FINANCIAL_PREPARATION.md).
+
 ## Declared POS VAT-account adoption — increment218
 
 Extend the financial adapter to several VAT accounts only when single-row item

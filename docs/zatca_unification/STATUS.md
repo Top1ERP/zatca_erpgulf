@@ -1,6 +1,29 @@
 # Implementation status — 2026-11-14
 
 
+## Latest single POS financial preparation — increment219
+
+Five POS generation/Compliance/background/Debug entry points now compose their
+standard totals and lines from one prepared, reconciled rendering projection.
+Frozen document/item/category values and read-only VAT groups retain no mutable
+invoice or master. Both sections are built in a private XML root and appended
+only after successful emission. This is financial XML staging, not transaction
+or ICV rollback. Imported builders/factories/helpers and distinct dependency
+bindings retain their public composition and return-root behavior.
+
+Validation:12,448 distinct offline cases across56 suites;779 new.720 frozen218
+comparisons preserve688 emitted XML fragments and32 rejection codes. Ten real
+entry-point compositions prepare once and sign with the original saved source,
+using mocked signing/transport. Financial get_doc calls halve (4→2 plain,6→3
+two-template examples); no CPU/SQL/production latency claim. Five browser suites
+pass. Original240 oracle remains91 identical/117 changed/32 blocked. Numeric
+expressions and shared calculators remain; malformed presentation values fail
+through typed localization. Manifest190 local/57 private. No live/SQL/authority
+API operation. Multi-row item-template roles remain a separate policy gate;
+full source/credential/transaction provenance, installed15/16 lifecycle, SDK and
+fictional-client rehearsal remain. See
+[POS_FINANCIAL_PREPARATION.md](POS_FINANCIAL_PREPARATION.md).
+
 ## Latest declared POS VAT-account scope — increment218
 
 Several POS VAT accounts are now supported when each item template explicitly

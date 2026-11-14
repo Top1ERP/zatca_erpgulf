@@ -765,3 +765,12 @@ def tax_data(invoice, pos_invoice_doc):
     return _render_pos_financials(invoice, pos_invoice_doc,
         has_template=False, section="totals",
         runtime=frappe, translate=_, read_rate=get_item_tax_rate)
+
+
+# Stable code identities only, not a cache of financial values or settings.
+# Preserve imported integration overrides when composing a complete POS section.
+_CANONICAL_POS_BUILDERS = {
+    "add_document_level_discount_with_tax": add_document_level_discount_with_tax,
+    "add_document_level_discount_with_tax_template": add_document_level_discount_with_tax_template,
+    "tax_data": tax_data,
+}

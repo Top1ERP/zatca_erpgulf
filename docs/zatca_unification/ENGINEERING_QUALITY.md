@@ -5,6 +5,25 @@ development. They are part of the release scope, not optional work deferred
 until after the fictional-client rehearsal. Apply the same development-only
 and no-authority-request restrictions as [PLAN.md](PLAN.md).
 
+## One POS preparation and immutable rendering — increment219
+
+The standard POS entry points now share one reconciled financial projection;
+private code-reference maps recognize default adapters without caching source
+values. Public imported integrations retain their hooks and return-root policy.
+A whitelist of frozen rendering values plus read-only group maps prevents later
+in-memory source/master changes from splitting totals and lines. A private XML
+root prevents a failed second line leaving financial fragments on the caller.
+No full transaction/ICV atomicity or trusted-source claim is made.
+
+12,448 distinct offline cases across56 suites include779 new.720 frozen218
+comparisons preserve XML/rejection codes; original pre-development comparisons
+remain separate. Ten entry-point compositions use one preparation with mocked
+signing/transport and the original source owner. Component get_doc calls halve
+(4→2 and6→3); this is not SQL, CPU or production timing. Existing five browser
+suites pass; existing translated display/English diagnostic boundaries remain.
+The multi-row-template source review preserves current rejections pending an
+explicit role model. See [POS_FINANCIAL_PREPARATION.md](POS_FINANCIAL_PREPARATION.md).
+
 ## Account-specific native source evidence — increment218
 
 The new pure index reads native physical item/account rates once per preparation,

@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "pos_financial_composition",
     "account_tax_rates",
     "pos_vat_accounts",
     "pos_financial_xml",

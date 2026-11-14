@@ -13,6 +13,8 @@ from frappe import _
 import frappe
 from zatca_erpgulf.zatca_erpgulf.pos_financial_xml import PosFinancialError
 from zatca_erpgulf.zatca_erpgulf.createxml import _has_erp_distributed_discount
+from zatca_erpgulf.zatca_erpgulf.pos_financial_composition import populate_pos_financials
+# Imported hooks remain available to the compositor through globals().
 from zatca_erpgulf.zatca_erpgulf.document_tax_xml import (
     DocumentTaxTools, populate_document_tax,
 )
@@ -638,17 +640,10 @@ def zatca_call(
                 globals(), doctype="POS Invoice", purpose="invoice",
             ),
         )
-        invoice = populate_document_tax(
-            invoice, pos_invoice_doc,
-            tools=DocumentTaxTools.from_namespace(
-                globals(), has_template=any_item_has_tax_template,
-            ),
+        invoice = populate_pos_financials(
+            invoice, pos_invoice_doc, namespace=globals(),
+            has_template=any_item_has_tax_template,
         )
-
-        if not any_item_has_tax_template:
-            invoice = item_data(invoice, pos_invoice_doc)
-        else:
-            invoice = item_data_with_template(invoice, pos_invoice_doc)
 
         file_content = xml_structuring(invoice)
 
@@ -750,17 +745,11 @@ def zatca_call_compliance(
             ),
             compliance_type=compliance_type,
         )
-        invoice = populate_document_tax(
-            invoice, pos_invoice_doc,
-            tools=DocumentTaxTools.from_namespace(
-                globals(), has_template=any_item_has_tax_template,
-            ),
+        invoice = populate_pos_financials(
+            invoice, pos_invoice_doc, namespace=globals(),
+            has_template=any_item_has_tax_template,
+            use_item_result=not bool(any_item_has_tax_template),
         )
-
-        if not any_item_has_tax_template:
-            invoice = item_data(invoice, pos_invoice_doc)
-        else:
-            item_data_with_template(invoice, pos_invoice_doc)
 
         # Generate and process the XML data
         file_content = xml_structuring(invoice)

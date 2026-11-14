@@ -4,6 +4,8 @@ import base64
 from frappe import _
 import frappe
 from zatca_erpgulf.zatca_erpgulf.pos_financial_xml import PosFinancialError
+from zatca_erpgulf.zatca_erpgulf.pos_financial_composition import populate_pos_financials
+# Imported hooks remain available to the compositor through globals().
 from zatca_erpgulf.zatca_erpgulf.document_tax_xml import (
     DocumentTaxTools, populate_document_tax,
 )
@@ -116,17 +118,10 @@ def zatca_call_pos_without_xml_background(
                 globals(), doctype="POS Invoice", purpose="invoice",
             ),
         )
-        invoice = populate_document_tax(
-            invoice, pos_invoice_doc,
-            tools=DocumentTaxTools.from_namespace(
-                globals(), has_template=any_item_has_tax_template,
-            ),
+        invoice = populate_pos_financials(
+            invoice, pos_invoice_doc, namespace=globals(),
+            has_template=any_item_has_tax_template,
         )
-
-        if not any_item_has_tax_template:
-            invoice = item_data(invoice, pos_invoice_doc)
-        else:
-            invoice = item_data_with_template(invoice, pos_invoice_doc)
 
         file_content = xml_structuring(invoice)
 

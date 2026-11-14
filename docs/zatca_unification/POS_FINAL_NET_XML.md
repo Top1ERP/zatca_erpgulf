@@ -11,6 +11,10 @@ supports separate accounts explicitly owned by single-row item templates, with
 account-scoped native and monetary checks. Its restrictions and FX notes
 supersede the single-invoice-account restriction below;217 counts stay historical.
 
+[Increment219](POS_FINANCIAL_PREPARATION.md) subsequently shares one immutable
+rendering projection across both financial parts in standard POS generation,
+while retaining standalone/imported integration adapters.
+
 ## Result and ownership
 
 `pos_financial_xml.py` prepares a complete financial view before appending tax,

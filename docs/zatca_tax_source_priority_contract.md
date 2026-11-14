@@ -1,6 +1,6 @@
 # ZATCA tax-source priority contract
 
-Current development contract, reviewed through increment218 on 2026-11-14. It replaces
+Current development contract, reviewed through increment219 on 2026-11-14. It replaces
 older prose that incorrectly placed Sales Taxes and Charges Template values above
 explicit invoice values. The original five tests already required invoice-first
 behavior; their bodies are preserved. See the scope map and remaining work in
@@ -77,6 +77,18 @@ settings, rules and localized display behavior. The shared helper adds no rule,
 message or persisted diagnostic. The backfill helper intentionally declines an
 Excise name inference; that safeguard does not identify VAT rows in a mixed
 invoice/template. No setup/backfill operation was executed.
+
+## Standard POS preparation lifetime — increment219
+
+The five normal POS generation/Compliance/background/Debug paths now prepare
+financial values once and share an immutable rendering projection across totals
+and lines. This changes read lifetime, not category/rate/amount priority. Private
+XML staging prevents a failed emitter leaving a partial financial section on the
+caller's root. Standalone public adapters still prepare independently. Imported
+integration hooks or distinct runtime/rate/translation bindings keep their
+original public composition. Original saved-source signing ownership is unchanged;
+the rendering view is not an authorization/credential context. See
+[POS_FINANCIAL_PREPARATION.md](zatca_unification/POS_FINANCIAL_PREPARATION.md).
 
 ## Local evidence and maintenance
 

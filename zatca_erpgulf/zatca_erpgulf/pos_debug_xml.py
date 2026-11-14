@@ -6,6 +6,8 @@ import requests
 from frappe import _
 import frappe
 from zatca_erpgulf.zatca_erpgulf.pos_financial_xml import PosFinancialError
+from zatca_erpgulf.zatca_erpgulf.pos_financial_composition import populate_pos_financials
+# Imported hooks remain available to the compositor through globals().
 from zatca_erpgulf.zatca_erpgulf.document_tax_xml import (
     DocumentTaxTools, populate_document_tax,
 )
@@ -190,22 +192,10 @@ def _debug_call(
                 ),
             )
 
-            if not any_item_has_tax_template:
-                invoice = populate_document_tax(
-                    invoice, invoice_doc,
-                    tools=DocumentTaxTools.from_namespace(
-                        globals(), has_template=False,
-                    ),
-                )
-                invoice = item_data(invoice, invoice_doc)
-            else:
-                invoice = populate_document_tax(
-                    invoice, invoice_doc,
-                    tools=DocumentTaxTools.from_namespace(
-                        globals(), has_template=True,
-                    ),
-                )
-                invoice = item_data_with_template(invoice, invoice_doc)
+            invoice = populate_pos_financials(
+                invoice, invoice_doc, namespace=globals(),
+                has_template=any_item_has_tax_template,
+            )
 
             file_content = xml_structuring(invoice)
 

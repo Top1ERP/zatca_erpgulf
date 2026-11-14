@@ -4,6 +4,10 @@ Development only, 2026-11-14. This extends the ordinary POS adapter from
 [increment217](POS_FINAL_NET_XML.md); no site, setting, schema, invoice, worker,
 credential or authority API was changed. No new configuration field is required.
 
+[Increment219](POS_FINANCIAL_PREPARATION.md) now prepares the financial view once
+for standard POS generation. The account-role and FX policies below remain;
+its rendering values are frozen and totals/lines are staged together.
+
 ## Supported account declaration
 
 Several invoice VAT accounts can now be used when **each item template contains
