@@ -41,6 +41,14 @@ Keep reference fixtures and test evidence distinct from dead runtime code.
 
 ## Current runtime consolidation
 
+Increment212 consolidates duplicate non-template rate/fallback mechanics at two
+active subtotal consumers. Compatibility wrappers retain aliases, rounding and
+empty behavior; exact shared-function specialization restores both old bodies.
+146 new cases join 9,653 selected passing cases. The corrected source contract
+and route/settings map document remaining VAT identity and category-source gaps;
+no numeric, performance or full-route unification claim. See
+[NON_TEMPLATE_TAX_RATE.md](NON_TEMPLATE_TAX_RATE.md).
+
 Increment211 shares the active reconciliation account policy with an injected
 reader and compatibility wrapper. An unresolved observation is cached separately
 from each caller's fallback, retaining one lookup per local account and legacy

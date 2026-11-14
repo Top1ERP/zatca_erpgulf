@@ -1,4 +1,22 @@
-# Implementation status — 2026-11-13
+# Implementation status — 2026-11-14
+
+## Latest shared non-template rate mechanics — increment212
+
+Ordinary and nominal subtotal wrappers delegate their duplicate native-read/
+quantization/first-row fallback mechanics to one pure helper. Selected zero,
+callback aliases, exception boundaries and each route's distinct empty zero
+remain. Existing native/financial/category/settings behavior is unchanged.
+The corrected root source contract and route/settings map distinguish invoice-
+first metadata, template fallback, missing-source defaults and VAT ownership.
+
+Validation: 9,653 distinct local cases passed across 48 reviewed suites, including
+146 new cases. Complete parent outputs/errors/reads, native15/16 examples,
+callback bindings and two source-contract boundaries passed. Structural inlining
+restores both exact prior wrappers and remaining consumer/native ASTs. Manifest:
+182 local/57 private suites; no private SQL or whole-manifest run. No performance
+claim. VAT-role selection, known category-source differences and full fiscal/
+SDK/installed-runtime/rehearsal gates remain open. No live change or authority
+request occurred. See [NON_TEMPLATE_TAX_RATE.md](NON_TEMPLATE_TAX_RATE.md).
 
 ## Latest reconciliation account policy — increment211
 

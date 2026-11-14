@@ -17,6 +17,7 @@ from frappe import _
 from zatca_erpgulf.ksa_compliance.tax_details import (
     get_item_tax_detail,
     get_item_tax_rate,
+    resolve_non_template_tax_rate,
 )
 
 TAX_CALCULATION_ERROR = "Tax Calculation Error"
@@ -188,19 +189,11 @@ def _get_item_net_amount(item, currency):
 
 
 def _get_item_tax_rate_without_template(sales_invoice_doc, item):
-    """Get tax rate for an item from item-wise tax detail or fallback to invoice tax rate."""
-    # Preserve selected zero; absent/failed lookup keeps the invoice fallback.
-    try:
-        if sales_invoice_doc.get("taxes"):
-            tax_percentage = get_item_tax_rate(sales_invoice_doc, item, default=None)
-            if tax_percentage not in (None, ""):
-                return q2(tax_percentage)
-    except Exception:
-        pass
-
-    if sales_invoice_doc.get("taxes"):
-        return q2(sales_invoice_doc.taxes[0].get("rate", 0))
-    return Decimal("0.00")
+    """Use shared selection while retaining this route's rounding and empty zero."""
+    found, rate = resolve_non_template_tax_rate(
+        sales_invoice_doc, item, read_rate=get_item_tax_rate, quantize=q2,
+    )
+    return rate if found else Decimal("0.00")
 
 
 def _sum_line_net_amounts(sales_invoice_doc):

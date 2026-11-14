@@ -11,6 +11,7 @@ from zatca_erpgulf.zatca_erpgulf.xml_tax_data import (
     _get_tax_breakdown_without_template,
 )
 from zatca_erpgulf.zatca_erpgulf.tax_error import (
+    _get_invoice_level_zatca_source,
     validate_zatca_tax_category_and_exemption_reason,
 )
 
@@ -145,6 +146,31 @@ class TestZATCATaxSourcePriority(TestCase):
 
         self.assertEqual(category, OUTSIDE_SCOPE)
         self.assertEqual(exemption_reason, "VATEX-SA-OOS")
+
+    def test_template_category_fallback_keeps_independent_invoice_reason_override(self):
+        template = _sales_tax_template("Zero Rated", "VATEX-SA-32", 0)
+        invoice = _sales_invoice(
+            taxes_and_charges=template.name, invoice_category="",
+            invoice_exemption_reason="VATEX-SA-33", tax_rate=0,
+        )
+        with patch(
+            "zatca_erpgulf.zatca_erpgulf.xml_tax_data.frappe.get_doc",
+            return_value=template,
+        ):
+            self.assertEqual(
+                _get_invoice_level_zatca_tax_source(invoice), ("Zero Rated", "VATEX-SA-33")
+            )
+
+    def test_undeclared_category_xml_default_does_not_satisfy_preflight_source(self):
+        invoice = _sales_invoice(invoice_category="", invoice_exemption_reason=None)
+        with patch(
+            "zatca_erpgulf.zatca_erpgulf.tax_error._get_sales_taxes_template_doc",
+            return_value=None,
+        ):
+            source = _get_invoice_level_zatca_source(invoice)
+        self.assertEqual(_get_invoice_level_zatca_tax_source(invoice), ("Standard", None))
+        self.assertEqual(source["source_type"], "missing")
+        self.assertEqual(source["category"], "")
 
     def test_tax_breakdown_without_item_template_prefers_invoice_source(self):
         sales_template = _sales_tax_template(

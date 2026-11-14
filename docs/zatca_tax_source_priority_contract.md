@@ -1,166 +1,93 @@
-# ZATCA Tax Source Priority Contract
-
-## Purpose
-
-This document defines the canonical tax-source priority contract used by `zatca_erpgulf` when resolving ZATCA VAT category and exemption reason values for Sales Invoice XML generation.
-
-The purpose is to prevent future regressions in XML generation, validation, and VAT reporting behavior.
-
-## Scope
-
-This contract applies to Sales Invoice tax-category source resolution for:
-
-- XML tax breakdown without Item Tax Template.
-- XML tax breakdown with Item Tax Template.
-- Sales Invoice validation before save or submit.
-- Regression tests covering ZATCA tax-source priority.
-
-This document does not cover ZATCA API submission, certificate handling, CSID handling, QR generation, or clearance/reporting transport behavior.
-
-## Canonical Priority Rules
-
-### 1. Item Tax Template has highest priority when all item rows use it
-
-If every Sales Invoice item row has an `Item Tax Template`, ZATCA tax category and exemption reason must be resolved from each row's linked Item Tax Template.
-
-In this mode:
-
-- XML tax breakdown is grouped by Item Tax Template category, rate, and exemption reason.
-- Sales Invoice-level ZATCA fields must not override Item Tax Template values.
-- Sales Taxes and Charges Template values must not override Item Tax Template values.
-
-Relevant implementation:
-
-- `zatca_erpgulf/zatca_erpgulf/xml_tax_data.py`
-  - `_get_tax_breakdown_with_template`
-  - `tax_data_with_template`
-
-### 2. Sales Taxes and Charges Template has priority when no item rows use Item Tax Template
-
-If no Sales Invoice item row has an `Item Tax Template`, ZATCA tax category and exemption reason must be resolved from the linked `Sales Taxes and Charges Template`, when that template has `custom_zatca_tax_category`.
-
-Relevant implementation:
-
-- `zatca_erpgulf/zatca_erpgulf/xml_tax_data.py`
-  - `_get_invoice_level_zatca_tax_source`
-  - `_get_tax_breakdown_without_template`
-  - `tax_data`
-
-### 3. Sales Invoice fields are fallback only
-
-Sales Invoice ZATCA fields are used only when:
-
-- Item Tax Template mode is not active.
-- The linked Sales Taxes and Charges Template has no `custom_zatca_tax_category`.
-
-Fallback fields:
-
-- `Sales Invoice.custom_zatca_tax_category`
-- `Sales Invoice.custom_exemption_reason_code`
-
-Relevant implementation:
-
-- `zatca_erpgulf/zatca_erpgulf/xml_tax_data.py`
-  - `_get_invoice_level_zatca_tax_source`
-
-### 4. Mixed Item Tax Template usage is invalid
-
-A Sales Invoice must not mix item rows where some rows have `Item Tax Template` and other rows do not.
-
-If any one item row has an Item Tax Template, all item rows must have an Item Tax Template.
-
-This is a validation error.
-
-Relevant implementation:
-
-- `zatca_erpgulf/zatca_erpgulf/tax_error.py`
-  - `validate_zatca_tax_category_and_exemption_reason`
-
-### 5. Exemption reason is required for non-standard VAT categories
-
-For ZATCA categories that require an exemption reason, the corresponding exemption reason code must be present on the selected source.
-
-Examples include:
-
-- Zero Rated
-- Exempted
-- Services outside scope of tax / Not subject to VAT
-
-The selected source depends on the priority rules above.
-
-### 6. Excise templates are not safely inferred as VAT categories
-
-KSA Excise templates must not be automatically inferred as VAT categories during sync or backfill unless a future explicit rule is added.
-
-Current behavior:
-
-- Excise templates are skipped by the ZATCA backfill process when no safe inference exists.
-- This skip is intentional and must not be treated as a sync error.
-
-Relevant implementation:
-
-- `zatca_erpgulf/setup_customizations.py`
-  - `infer_zatca_source_values_from_tax_template`
-  - `sync_existing_tax_template_zatca_values`
-
-## Regression Tests
-
-The canonical regression tests for this contract are located at:
-
-`zatca_erpgulf/zatca_erpgulf/tests/test_zatca_tax_source_priority.py`
-
-The test pack verifies:
-
-1. Sales Taxes and Charges Template overrides Sales Invoice fallback when it has ZATCA category.
-2. Sales Invoice fallback is used when Sales Taxes and Charges Template has no ZATCA category.
-3. Tax breakdown without Item Tax Template uses Sales Taxes Template or invoice fallback source.
-4. Tax breakdown with Item Tax Template groups by Item Tax Template category, rate, and exemption reason.
-5. Mixed Item Tax Template rows are rejected.
-6. Validation assertions are language-independent for Arabic and English site translations.
-
-## Validation Command
-
-Run the test pack with:
-
-    bench --site <site-name> set-config allow_tests true
-
-    bench --site <site-name> run-tests \
-      --module zatca_erpgulf.zatca_erpgulf.tests.test_zatca_tax_source_priority
-
-    bench --site <site-name> set-config allow_tests false
-
-Validated sites during v35:
-
-- `squareangles.top1erp.com`
-- `usfc.top1erp.com`
-
-Expected result:
-
-    .....
-    ----------------------------------------------------------------------
-    Ran 5 tests
-
-    OK
-
-## Production Impact
-
-This contract document is documentation only.
-
-It does not change:
-
-- XML generation code.
-- Validation code.
-- Fixtures.
-- Hooks.
-- Custom fields.
-- Migrations.
-- ZATCA submission behavior.
-
-## Maintenance Rule
-
-Any future change to ZATCA tax-source behavior must update both:
-
-1. This contract document.
-2. `test_zatca_tax_source_priority.py`
-
-A change to implementation without updating the contract and tests should be considered incomplete.
+# ZATCA tax-source priority contract
+
+Current development contract, reviewed at increment212 on 2026-11-14. It replaces
+older prose that incorrectly placed Sales Taxes and Charges Template values above
+explicit invoice values. The original five tests already required invoice-first
+behavior; their bodies are preserved. See the scope map and remaining work in
+[NON_TEMPLATE_TAX_RATE.md](zatca_unification/NON_TEMPLATE_TAX_RATE.md).
+
+## Separate the questions
+
+Category, exemption reason, rate, account ownership and financial amount are
+separate decisions. A category is not evidence that every account in the same
+table contains VAT. The current application has no universal row-level VAT-role
+selector. This contract describes existing runtime behavior and its known gaps;
+it is not a declaration that every generator has been unified or fiscally
+certified.
+
+## Ordinary Sales Invoice subtotal sources
+
+1. With Item Tax Templates on every item, each linked Item Tax Template owns
+   its category, reason and first tax-row rate. Invoice-level overrides do not
+   replace these item-template values. Existing default15 for an empty template
+   remains an inherited behavior requiring strict-source review.
+2. Without Item Tax Templates, an explicit invoice category takes priority over
+   the linked Sales Taxes and Charges Template category. The invoice reason
+   independently takes priority over the template reason. These two fields need
+   not come from the same record. XML uses Python truthiness, not a new trimming
+   or normalization policy.
+3. If neither source supplies a category, the ordinary XML subtotal helper uses
+   Standard. This rendering fallback does not satisfy preflight's requirement
+   for an explicitly declared category; preflight retains source_type missing.
+4. The preflight selector trims declared text and does not invent a category.
+   Its first present invoice rate, including zero, takes priority over the
+   template-rate fallback. These text/default distinctions from XML remain
+   visible; they are not silently normalized by the rate consolidation.
+5. Mixed presence of Item Tax Templates remains rejected by the existing
+   category validator. Explicit Phase-1 skips the canonical five-validator
+   metadata group, not every lower-level/direct or submit check. See
+   [TAX_PHASE_POLICY.md](zatca_unification/TAX_PHASE_POLICY.md).
+
+For example, blank invoice category plus template Zero Rated and an explicit
+invoice reason selects the template category and the invoice reason. When both
+categories are undeclared, ordinary XML renders Standard while the preflight
+source remains missing. Two additional local tests preserve these distinctions.
+
+## Rates are selected independently
+
+The ordinary and nominal non-template rate wrappers now delegate their common
+read/fallback mechanics to `tax_details.resolve_non_template_tax_rate`:
+
+- A present native zero is retained. Only None/empty-string or a native-read/
+  selected-rounding failure enters the existing first-invoice-row fallback.
+- A fallback read/rounding failure propagates. No tax rows leaves the wrapper's
+  original empty-document zero behavior intact.
+- Native v15 item-map/first-rate and v16 exact-item-child/all-matched-rate rules
+  remain. A populated v16 table with an unmatched item remains authoritative zero.
+- The shared policy does not exclude freight, retention, excise or other taxes.
+  Tax-account eligibility is not a VAT-role selector. See
+  [TAX_ACCOUNT_POLICY.md](zatca_unification/TAX_ACCOUNT_POLICY.md).
+
+## Boundaries still needing unification
+
+Ordinary Sales subtotals use the invoice/template fallback above. Plain Sales
+item-category nodes currently read the invoice category directly. Nominal plain
+subtotals use the invoice category or Standard and the invoice reason; they do
+not perform that template fallback. POS plain item/summary paths also have their
+own direct invoice-field policies. Sharing the rate helper does not change those
+category sources, nominal OOS-offset behavior, POS totals or advance references.
+Do not assume this ordinary-subtotal contract applies to every XML node.
+
+Non-standard-category reason and category/rate validators retain their existing
+settings, rules and localized display behavior. The shared helper adds no rule,
+message or persisted diagnostic. The backfill helper intentionally declines an
+Excise name inference; that safeguard does not identify VAT rows in a mixed
+invoice/template. No setup/backfill operation was executed.
+
+## Local evidence and maintenance
+
+`test_zatca_tax_source_priority.py` contains the five original source/grouping/
+mixed-template tests and two additional fallback-boundary tests, all without an
+installed-site dependency. `test_tax_source_consistency.py` covers existing
+preflight rate/reason overrides and language/settings behavior.
+`test_non_template_tax_rate.py` adds complete frozen-parent rate comparisons,
+read/rounding failures and native15/16 examples. The documented guarded runner
+uses explicit reviewed local files; site test settings and tenant data are not
+part of this work.
+
+Any change to category, reason, rate or account-source behavior must update the
+applicable source map, this contract and corresponding tests. Preserve the
+separate missing-source/default and category-versus-account distinctions.
+Installed ERPNext/Frappe15/16, full fiscal/SDK and the separately approved
+fictional-client rehearsal remain release gates. No production readiness or
+remote acceptance is inferred from these unit tests.

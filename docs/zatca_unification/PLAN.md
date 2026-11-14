@@ -19,6 +19,14 @@ operational request or less restrictive deployment wording in historical records
 
 ## Target design
 
+Increment212 shares non-template native-read/rounding/fallback mechanics behind
+ordinary/nominal compatibility wrappers, preserving their exact results, reads,
+errors and separate empty-zero behavior. Correct the stale template-first source
+contract and map current category/rate/account/settings ownership without claiming
+all routes are unified. Establish explicit VAT-row ownership and reconcile known
+plain item/summary/nominal/POS source differences next; full fiscal/runtime gates
+remain. See [NON_TEMPLATE_TAX_RATE.md](NON_TEMPLATE_TAX_RATE.md).
+
 Increment211 extracts the active reconciliation account classifier behind its
 existing adapter and fixes caller-default contamination in unresolved-account
 caches. Preserve query, known-account and direct-template policies. Characterize

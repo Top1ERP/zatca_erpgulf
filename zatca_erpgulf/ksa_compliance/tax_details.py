@@ -260,3 +260,29 @@ def get_item_tax_rate(doc, item, *, default=0.0):
     not strict payload validation or a tax-category/exemption decision.
     """
     return _resolve_item_tax(doc, item, rate_only=True, missing_rate=default)
+
+
+def resolve_non_template_tax_rate(doc, item, *, read_rate, quantize):
+    """Return (found, rounded rate) using the existing XML fallback policy.
+
+    A selected zero is present. Missing/failed native selection or rounding
+    falls back to the first invoice row, including its existing default zero.
+    Fallback read/rounding errors propagate. With no tax rows, the caller owns
+    its empty-document zero behavior. Readers/rounding are supplied explicitly
+    to preserve each wrapper's current aliases and rounding implementation.
+
+    This shares selection mechanics only: it does not identify VAT accounts,
+    filter other charges, validate categories or infer a rate from an amount.
+    """
+    try:
+        if doc.get("taxes"):
+            rate = read_rate(doc, item, default=None)
+            if rate not in (None, ""):
+                return True, quantize(rate)
+    except Exception:
+        # Retain the legacy native-read/rounding fallback boundary.
+        pass
+
+    if doc.get("taxes"):
+        return True, quantize(doc.taxes[0].get("rate", 0))
+    return False, None

@@ -15,6 +15,7 @@ from frappe.utils.data import get_time
 from zatca_erpgulf.ksa_compliance.tax_details import (
     get_item_tax_detail,
     get_item_tax_rate,
+    resolve_non_template_tax_rate,
 )
 import frappe
 import json
@@ -278,18 +279,11 @@ def _nominal_item_base_net_amount(single_item):
 
 
 def _nominal_tax_rate_without_template(sales_invoice_doc, single_item):
-    # Preserve selected zero; absent/failed lookup keeps the invoice fallback.
-    try:
-        if sales_invoice_doc.get("taxes"):
-            tax_percentage = get_item_tax_rate(sales_invoice_doc, single_item, default=None)
-            if tax_percentage not in (None, ""):
-                return _nominal_q2(tax_percentage)
-    except Exception:
-        pass
-
-    if sales_invoice_doc.get("taxes"):
-        return _nominal_q2(sales_invoice_doc.taxes[0].get("rate", 0))
-    return _nominal_q2(0)
+    """Use shared selection while retaining this route's rounding and empty zero."""
+    found, rate = resolve_non_template_tax_rate(
+        sales_invoice_doc, single_item, read_rate=get_item_tax_rate, quantize=_nominal_q2,
+    )
+    return rate if found else _nominal_q2(0)
 
 
 def _nominal_breakdown_without_template(sales_invoice_doc):
