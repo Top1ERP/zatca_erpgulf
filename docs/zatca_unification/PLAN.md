@@ -36,6 +36,15 @@ See [BASELINE_TAX_COMPATIBILITY.md](BASELINE_TAX_COMPATIBILITY.md).
 
 ## Target design
 
+Increment214 adds a bounded independent standards audit alongside original-output
+parity. Officially linked XML v1.2 grouping/final-rounding criteria expose inherited
+Sales/POS gaps; the36 new comparisons do not change numerical policies. Correct
+category/rate groups and final rounding only after reviewing each intended delta
+and reconciling ERPNext invoice/ledger and row-wise-tax settings. Then run both
+parity/rule matrices and complete full XML/SDK/runtime gates. Unchanged POS or
+matched totals alone are not evidence of compliance. See
+[TAX_STANDARD_AUDIT.md](TAX_STANDARD_AUDIT.md).
+
 Increment212 shares non-template native-read/rounding/fallback mechanics behind
 ordinary/nominal compatibility wrappers, preserving their exact results, reads,
 errors and separate empty-zero behavior. Correct the stale template-first source

@@ -1,5 +1,24 @@
 # Implementation status — 2026-11-14
 
+## Latest published-standard arithmetic audit — increment214
+
+Tests/documentation only. Compared original and DEV to the currently linked
+ZATCA XML v1.2 criteria using an independent Decimal/category/rate oracle.
+Development corrects one ordinary Sales mixed-rate grouping case, while inherited
+Sales per-line-rounded group sums and POS grouping/float-round discrepancies
+remain. Three0.03 lines at15 expect0.01 but Sales emits0.00; POS separate5/15
+item templates emit10 instead of20 on two100 lines. These are scoped simulation
+findings, not a claim that all customer invoices fail or an SDK severity verdict.
+
+Validation:9,929 distinct local cases passed across50 reviewed suites, including
+36 new audit cases that execute original and DEV separately. Fourteen original
+and12 DEV combinations have scoped findings. Passing tests correctly detect these
+gaps; they are not regulatory acceptance. Full input/master snapshots, line-source
+checks and no-write boundaries passed. Manifest:184 local/57 private; no SQL or
+whole-manifest run. No runtime, live change or ZATCA API request occurred. Group/
+rounding/ERP ledger reconciliation, full SDK/runtime and rehearsal gates remain.
+See [TAX_STANDARD_AUDIT.md](TAX_STANDARD_AUDIT.md).
+
 ## Latest original-baseline compatibility review — increment213
 
 Tests/documentation only. The user's current priority is original-output

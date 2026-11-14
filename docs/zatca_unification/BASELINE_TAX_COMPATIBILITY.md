@@ -6,6 +6,10 @@ not automatically accepted. The user preferred simulation over selecting real
 customer invoices. This increment changes tests/documentation only, with no
 additional financial implementation, account filtering, setting or migration.
 
+The subsequent [published-standard audit](TAX_STANDARD_AUDIT.md) separately
+checks correctness. It exposes inherited rounding/POS gaps despite some exact
+original/DEV matches; the preservation evidence below is not a standards verdict.
+
 ## Which original implementation is compared
 
 Baseline `2e97708e115e31c675182647d10829d6175e7449` predates the unification

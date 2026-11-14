@@ -40,6 +40,16 @@ Keep reference fixtures and test evidence distinct from dead runtime code.
    acceptance matrix in [PLAN.md](PLAN.md). Essential quality work must not be
    silently excluded from the release decision.
 
+## Current standards review
+
+Increment214 adds an independent Decimal/category/rate oracle to original/DEV
+financial comparisons.36 new cases expose inherited Sales rounding and POS
+mixed-rate/rounding gaps; one ordinary mixed-rate grouping case improves in DEV.
+9,929 selected cases pass their assertions, including expected findings. This is
+an arithmetic review, not full SDK acceptance. Runtime and financial outputs are
+unchanged; reconcile ERP ledger/settings before any future correction. See
+[TAX_STANDARD_AUDIT.md](TAX_STANDARD_AUDIT.md).
+
 ## Current original-output review
 
 Increment213 adds240 simulated original-baseline financial comparisons without
