@@ -181,6 +181,10 @@ def test_real_consumer_results_and_errors_match_full_parent_rate(
         ("Sales Taxes and Charges Template", "VAT"): s.document("invoice-template", taxes=[s.document("invoice-tax", included_in_print_rate=0)]),
         ("Company", "SYNTHETIC"): s.document("company", custom_submit_line_item_discount_to_zatca=0),
     })
+    if mode == "pos-items":
+        from zatca_erpgulf.zatca_erpgulf.tests.test_pos_financial_xml import rate_consumer_invoice
+        doc, records = rate_consumer_invoice(major, currency, negative=negative, rate=rate)
+        s.records.update(records)
     modules = (sales, pos_final, posxml, xml_tax_data)
     for module in modules:
         monkeypatch.setattr(module, "frappe", s.runtime)
@@ -221,7 +225,14 @@ def test_real_consumer_results_and_errors_match_full_parent_rate(
     doc.db_set.assert_not_called()
     s.runtime.db.commit.assert_not_called()
     s.runtime.db.set_value.assert_not_called()
-    s.runtime.log_error.assert_not_called()
+    if mode == "pos-items" and rate != rate:
+        # Both reader variants reach the same strict POS source guard. Each
+        # separately invoked operation records one English diagnostic.
+        assert s.runtime.log_error.call_count == 2
+        assert s.runtime.log_error.call_args_list[0] == s.runtime.log_error.call_args_list[1]
+        assert s.runtime.log_error.call_args.kwargs["message"].startswith("invalid_source:")
+    else:
+        s.runtime.log_error.assert_not_called()
     s.runtime.msgprint.assert_not_called()
 
 

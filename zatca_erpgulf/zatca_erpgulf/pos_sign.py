@@ -11,6 +11,8 @@ from functools import partial
 import requests
 from frappe import _
 import frappe
+from zatca_erpgulf.zatca_erpgulf.pos_financial_xml import PosFinancialError
+from zatca_erpgulf.zatca_erpgulf.createxml import _has_erp_distributed_discount
 from zatca_erpgulf.zatca_erpgulf.document_tax_xml import (
     DocumentTaxTools, populate_document_tax,
 )
@@ -678,6 +680,8 @@ def zatca_call(
                 pos_invoice_doc,
             )
             attach_qr_image(qrcodeb64, pos_invoice_doc)
+    except PosFinancialError:
+        raise
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.log_error(
             title="ZATCA invoice call failed",
@@ -773,6 +777,8 @@ def zatca_call_compliance(
                 uuid1, encoded_hash, sample_path, company_abbr, source_doc
             )
 
+    except PosFinancialError:
+        raise
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.log_error(
             title="ZATCA invoice call failed",
@@ -969,7 +975,9 @@ def zatca_background_(invoice_number, source_doc, bypass_background_check=False)
                 )
             )
         base_discount_amount = pos_invoice_doc.get("base_discount_amount", 0.0)
-        if len(tax_categories) > 1 and base_discount_amount > 0:
+        if (len(tax_categories) > 1 and base_discount_amount > 0
+                and (pos_invoice_doc.get("custom_zatca_nominal_invoice") == 1
+                     or not _has_erp_distributed_discount(pos_invoice_doc))):
             frappe.throw(
                 _(
                     "As per ZATCA regulation, ZATCA does not respond for multiple items with multiple tax categories"
@@ -1074,6 +1082,8 @@ def zatca_background_(invoice_number, source_doc, bypass_background_check=False)
         else:
             create_qr_code(pos_invoice_doc, method=None)
 
+    except PosFinancialError:
+        raise
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(_("Error in background call: " + str(e)))
 
@@ -1315,7 +1325,9 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
                 )
             )
         base_discount_amount = pos_invoice_doc.get("base_discount_amount", 0.0)
-        if len(tax_categories) > 1 and base_discount_amount > 0:
+        if (len(tax_categories) > 1 and base_discount_amount > 0
+                and (pos_invoice_doc.get("custom_zatca_nominal_invoice") == 1
+                     or not _has_erp_distributed_discount(pos_invoice_doc))):
             frappe.throw(
                 _(
                     "As per ZATCA regulation, ZATCA does not respond for multiple items with multiple tax categories "
@@ -1435,6 +1447,8 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
             # If not Phase-2, create a QR code
             create_qr_code(pos_invoice_doc, method=None)
 
+    except PosFinancialError:
+        raise
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(_("Error in background call submit: " + str(e)))
 

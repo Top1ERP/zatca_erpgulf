@@ -3,6 +3,7 @@
 import base64
 from frappe import _
 import frappe
+from zatca_erpgulf.zatca_erpgulf.pos_financial_xml import PosFinancialError
 from zatca_erpgulf.zatca_erpgulf.document_tax_xml import (
     DocumentTaxTools, populate_document_tax,
 )
@@ -152,6 +153,8 @@ def zatca_call_pos_without_xml_background(
             frappe.throw(
                 "B2B is not supported for POS Invoices,customer should be B2C pos without xml "
             )
+    except PosFinancialError:
+        raise
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.log_error(
             title="ZATCA invoice call failed",

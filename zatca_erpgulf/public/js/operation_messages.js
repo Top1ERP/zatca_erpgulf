@@ -441,6 +441,12 @@ function zatca_debug_summary(value, context) {
         ["Debug XML was created, but its attachment list could not be refreshed. Review attachments manually; do not generate again just to refresh.",
             __("Debug XML was created, but its attachment list could not be refreshed. Review attachments manually; do not generate again just to refresh.")]
     ]);
+    // Financial policy failures have stable English keys. Translate only this
+    // display boundary; preserve the canonical diagnostic in technical details.
+    messages.set('Use one explicit VAT account charged on net total; other tax roles require a separate review.', __('Use one explicit VAT account charged on net total; other tax roles require a separate review.'));
+    messages.set('Recorded POS totals do not match the final line nets and VAT groups. Review the invoice calculation and rounding settings.', __('Recorded POS totals do not match the final line nets and VAT groups. Review the invoice calculation and rounding settings.'));
+    messages.set('Final POS amounts, quantities or VAT classification are missing or invalid. Recalculate and review the invoice.', __('Final POS amounts, quantities or VAT classification are missing or invalid. Recalculate and review the invoice.'));
+    messages.set('This POS discount or nominal transaction needs a separate fiscal calculation review.', __('This POS discount or nominal transaction needs a separate fiscal calculation review.'));
     const success = zatca_debug_succeeded(response);
     const skipped = response.status === "skipped" && [
         "Debug XML was skipped for an intra-company transfer. The invoice was not changed.",

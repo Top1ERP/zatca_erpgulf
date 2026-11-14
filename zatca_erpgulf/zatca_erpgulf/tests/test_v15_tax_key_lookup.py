@@ -181,6 +181,10 @@ def test_actual_sales_pos_nominal_and_totals_keep_parent_outputs_and_reads(
     for module in (pos_final, posxml, xml_tax_data):
         monkeypatch.setattr(module, "frappe", s.runtime)
         monkeypatch.setattr(module, "_", lambda message, *args: message)
+    if mode == "pos-items":
+        from zatca_erpgulf.zatca_erpgulf.tests.test_pos_financial_xml import rate_consumer_invoice
+        doc, records = rate_consumer_invoice(erp_major, currency, negative=negative, raw_kind=raw_kind)
+        s.records.update(records)
     reference = parent_functions()
     reference["_line_tax_amount"] = lambda *args: 0.0
     # Rate consumers skip line-net calculation but retain v16 payload amounts.

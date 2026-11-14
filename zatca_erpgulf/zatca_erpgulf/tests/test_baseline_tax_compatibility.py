@@ -245,12 +245,49 @@ def test_original_deployed_and_development_financial_xml(
     old_root = render(doc, has_template, family, old)
     assert numeric_snapshot(doc) == before
     assert input_snapshot((doc, records)) == supplied_inputs
+    identifier = "-".join((case, family, str(major), currency, "distributed" if distributed_discount else "none"))
+    directory = Path("/tmp/zatca-baseline-tax-compatibility-213")
+    directory.mkdir(exist_ok=True)
+    if family == "pos":
+        from zatca_erpgulf.zatca_erpgulf.pos_financial_xml import PosFinancialError
+        def financial_fail(message, *args, **kwargs):
+            if kwargs.get("exc") is not None:
+                raise kwargs["exc"]
+            fail(message, *args, **kwargs)
+        runtime.throw = financial_fail
+        blocked = {
+            "invoice-template-two-taxes": "tax_roles",
+            "item-template-two-taxes": "tax_roles",
+            "zero-then-fifteen": "classification",
+            "fifteen-then-zero": "classification",
+        }
+        if case in blocked:
+            with pytest.raises(PosFinancialError) as caught:
+                render(doc, has_template, family, current)
+            assert caught.value.code == blocked[case]
+            assert input_snapshot((doc, records)) == supplied_inputs
+            compatibility_report.append(dict(id=identifier, case=case, family=family, erp_major=major,
+                currency=currency, distributed_discount=distributed_discount,
+                xml_identical=None, original=financial_summary(old_root),
+                development=dict(blocked_code=caught.value.code),
+                review_status="blocked; ambiguous tax roles or invalid category/rate; user review required"))
+            (directory / (identifier + "-original.xml")).write_bytes(ET.tostring(old_root))
+            # A prior run's generated XML must not masquerade as a new result
+            # when this financial input is now intentionally rejected.
+            stale = directory / (identifier + "-development.xml")
+            stale.unlink(missing_ok=True)
+            assert not stale.exists()
+            doc.save.assert_not_called()
+            doc.db_set.assert_not_called()
+            runtime.db.commit.assert_not_called()
+            runtime.db.set_value.assert_not_called()
+            return
     new_root = render(doc, has_template, family, current)
     assert numeric_snapshot(doc) == before
     assert input_snapshot((doc, records)) == supplied_inputs
     old_xml, new_xml = ET.tostring(old_root), ET.tostring(new_root)
     same = old_xml == new_xml
-    expected_difference = case in CHARACTERIZED_XML_DELTAS and family != "pos"
+    expected_difference = family == "pos" or case in CHARACTERIZED_XML_DELTAS
     # Increment215 also corrects one SAR group-rounding cent in these nominal
     # USD/distributed-discount examples. Keep all other XML bytes frozen.
     sar_group_rounding_delta = (
@@ -268,6 +305,11 @@ def test_original_deployed_and_development_financial_xml(
     expected_difference = expected_difference or sar_group_rounding_delta
     assert same == (not expected_difference)
     old_summary, new_summary = financial_summary(old_root), financial_summary(new_root)
+    if family == "pos":
+        assert Decimal(new_summary["monetary"]["cbc:TaxExclusiveAmount"]) == Decimal(str(doc.net_total))
+        assert Decimal(new_summary["monetary"]["cbc:PayableAmount"]) == Decimal(str(doc.grand_total))
+        assert not new_root.findall("cac:AllowanceCharge")
+        assert [Decimal(row["net"]) for row in new_summary["lines"]] == [Decimal(str(item.net_amount)) for item in doc.items]
     if family == "sales" and currency == "SAR" and not distributed_discount:
         # Independent literal financial goldens, not a current-helper oracle.
         old_tax, new_tax = {
@@ -286,15 +328,12 @@ def test_original_deployed_and_development_financial_xml(
         assert new_summary["totals"][0]["tax"] == new_tax
         assert old_summary["monetary"]["cbc:PayableAmount"] == str(Decimal("200.00") + Decimal(old_tax))
         assert new_summary["monetary"]["cbc:PayableAmount"] == str(Decimal("200.00") + Decimal(new_tax))
-    identifier = "-".join((case, family, str(major), currency, "distributed" if distributed_discount else "none"))
     result = dict(id=identifier, case=case, family=family, erp_major=major, currency=currency,
         distributed_discount=distributed_discount, xml_identical=same,
         original=old_summary, development=new_summary,
         review_status="identical" if same else "observed difference; awaiting user review",
         input=dict(net=doc.net_total, tax=doc.total_taxes_and_charges, gross=doc.grand_total))
     compatibility_report.append(result)
-    directory = Path("/tmp/zatca-baseline-tax-compatibility-213")
-    directory.mkdir(exist_ok=True)
     (directory / (identifier + "-original.xml")).write_bytes(old_xml)
     (directory / (identifier + "-development.xml")).write_bytes(new_xml)
     doc.save.assert_not_called()

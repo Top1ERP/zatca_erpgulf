@@ -17,7 +17,7 @@ from zatca_erpgulf.zatca_erpgulf import (
     sign_invoice, pos_sign, xml_tax_data,
 )
 from zatca_erpgulf.zatca_erpgulf.document_tax_xml import DocumentTaxTools, populate_document_tax
-from zatca_erpgulf.zatca_erpgulf.tests.test_nonproduction_isolation import Document, fail
+from zatca_erpgulf.zatca_erpgulf.tests.test_nonproduction_isolation import Document, ValidationError, fail
 
 
 def previous_sequence(root, doc, namespace, has_template, mode):
@@ -74,7 +74,7 @@ def tax_source(monkeypatch):
     return templates, runtime
 
 
-@pytest.mark.parametrize("family,nominal", [("sales", 0), ("sales", 1), ("pos", 1)])
+@pytest.mark.parametrize("family,nominal", [("sales", 0), ("sales", 1), ("pos", 0), ("pos", 1)])
 @pytest.mark.parametrize("has_template", [False, True])
 @pytest.mark.parametrize("currency", ["SAR", "USD"])
 @pytest.mark.parametrize("discount_kind", ["none", "document", "distributed"])
@@ -106,23 +106,40 @@ def test_real_discount_tax_bytes_reads_and_numeric_inputs_match_previous_sequenc
     if erp_major == 16:
         doc.item_wise_tax_details = [Document(item_row="ROW", tax_row="TAX", rate=15, amount=net * .15)]
     templates["Sales Taxes and Charges Template", "INVOICE-VAT"].taxes[0].included_in_print_rate = inclusive
+    if family == "pos":
+        tax.charge_type, tax.add_deduct_tax = "On Net Total", "Add"
+        templates["Item Tax Template", "ITEM-VAT"].taxes[0].tax_type = "VAT"
+        templates["Company", doc.company] = Document(custom_submit_line_item_discount_to_zatca=0)
+        doc.grand_total = net * 1.15 * sign
     namespace = vars(sign_invoice if family == "sales" else pos_sign)
     numeric_before = (doc.total, doc.net_total, doc.base_total, doc.base_net_total,
                       doc.discount_amount, doc.base_discount_amount, item.net_amount, item.base_net_amount)
-    expected = previous_sequence(ET.Element("Invoice"), doc, namespace, has_template, family)
-    reads = runtime.get_doc.call_args_list[:]
-    runtime.get_doc.reset_mock()
-    actual = run_shared(ET.Element("Invoice"), doc, namespace, has_template, family)
-    assert ET.tostring(actual) == ET.tostring(expected)
-    assert runtime.get_doc.call_args_list == reads
-    assert actual.find("cac:TaxTotal") is not None and actual.find("cac:LegalMonetaryTotal") is not None
+    if family == "pos" and (nominal or discount_kind == "document"):
+        # The generic selector still picks ordinary POS tools. Their financial
+        # adapter now rejects nominal/unallocated-discount source rather than
+        # silently interpreting it as an ordinary no-discount transaction.
+        for builder in (previous_sequence, run_shared):
+            with pytest.raises(ValidationError, match="separate fiscal calculation review"):
+                builder(ET.Element("Invoice"), doc, namespace, has_template, family)
+    else:
+        expected = previous_sequence(ET.Element("Invoice"), doc, namespace, has_template, family)
+        reads = runtime.get_doc.call_args_list[:]
+        runtime.get_doc.reset_mock()
+        actual = run_shared(ET.Element("Invoice"), doc, namespace, has_template, family)
+        assert ET.tostring(actual) == ET.tostring(expected)
+        assert runtime.get_doc.call_args_list == reads
+        assert actual.find("cac:TaxTotal") is not None and actual.find("cac:LegalMonetaryTotal") is not None
     assert numeric_before == (doc.total, doc.net_total, doc.base_total, doc.base_net_total,
                               doc.discount_amount, doc.base_discount_amount, item.net_amount, item.base_net_amount)
     doc.save.assert_not_called()
     doc.db_set.assert_not_called()
     runtime.db.commit.assert_not_called()
     runtime.db.set_value.assert_not_called()
-    runtime.log_error.assert_not_called()
+    if family == "pos" and (nominal or discount_kind == "document"):
+        assert runtime.log_error.call_count == 2
+        assert runtime.log_error.call_args_list[0] == runtime.log_error.call_args_list[1]
+    else:
+        runtime.log_error.assert_not_called()
     runtime.msgprint.assert_not_called()
 
 

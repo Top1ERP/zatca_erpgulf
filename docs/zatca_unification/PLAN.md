@@ -17,6 +17,25 @@ pilot/rollout. API sending needs separate explicit authority changing the ban.
 See [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md); it supersedes any older
 operational request or less restrictive deployment wording in historical records.
 
+## POS final-net adoption scope — increment217
+
+Ordinary POS Invoice financial builders now delegate coherently to final ERP
+nets, shared line/tax/money emitters and a recorded-total reconciliation guard.
+Keep the old public entry points as compatibility wrappers. Preserve the native
+rounding source, including Global Defaults when the invoice field is absent;
+keep discount display financially neutral and group by actual category/rate.
+The original matrix explicitly records48 emitted POS changes and32 blocked POS
+examples. Review these deltas before adoption; a successful expected-rejection
+test does not make an unsupported scenario production-ready.
+
+Next resolve explicit VAT/non-VAT ledger roles and multiple tax/charge rows,
+then nominal/cash POS and wider Sales/advance reconciliation. Integrate trusted
+source/settings/credential and transaction provenance before installed v15/v16
+lifecycle, SDK and separately approved fictional-client rehearsal. Preserve
+accepted/supplied artifacts and verify ICV/rollback and concurrency in that
+rehearsal. No authority API request or deployment is authorized here. See
+[POS_FINAL_NET_XML.md](POS_FINAL_NET_XML.md).
+
 ## Original-output compatibility priority — 2026-11-14
 
 The user requires stable results for existing inputs, including multiple taxes

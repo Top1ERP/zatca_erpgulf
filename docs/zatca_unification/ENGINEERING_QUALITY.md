@@ -5,6 +5,24 @@ development. They are part of the release scope, not optional work deferred
 until after the fictional-client rehearsal. Apply the same development-only
 and no-authority-request restrictions as [PLAN.md](PLAN.md).
 
+## POS consolidation evidence — increment217
+
+The ordinary POS legacy calculation bodies are replaced by compatibility
+wrappers and one documented final-net adapter sharing Sales XML emitters.
+Source metadata is read once per preparation and repeated item templates are
+cached only within that call.100-item supplied get_doc calls are302→4 and501→4
+for plain/repeated-template routes; no SQL, latency or CPU saving is inferred.
+The public legacy helper aliases remain deliberately available pending wider
+integration review. No complete dead-file removal claim is made.
+
+Recorded-total guards, source/setting tests, English diagnostics and translated
+Arabic display accompany the changed calculations.10,827 distinct offline cases
+across53 suites and76 Debug browser cases pass. The original oracle remains
+frozen:48 POS fragments change and32 POS cases now block rather than guessing.
+These are explicit review items, not unqualified compatibility. See
+[POS_FINAL_NET_XML.md](POS_FINAL_NET_XML.md) for scope and outstanding fiscal,
+installed-runtime, SDK, transaction and rehearsal acceptance gates.
+
 ## Required work and evidence
 
 | Area | Work included | Evidence required before completion |

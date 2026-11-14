@@ -14,7 +14,14 @@ const local = "ZATCA E-Invoicing is disabled for this Company. Debug XML will be
 const existing = "Existing XML/QR was found. A separate debug XML will be generated.";
 const denied = "You do not have permission to create a debug XML attachment for this invoice.";
 const review = "Debug XML attachment could not be confirmed. Review the source and existing files before retrying.";
+const financial = [
+    "Use one explicit VAT account charged on net total; other tax roles require a separate review.",
+    "Recorded POS totals do not match the final line nets and VAT groups. Review the invoice calculation and rounding settings.",
+    "Final POS amounts, quantities or VAT classification are missing or invalid. Recalculate and review the invoice.",
+    "This POS discount or nominal transaction needs a separate fiscal calculation review."
+];
 const cases = [
+    ...financial.map(key => [{ status: "error", message: failed, technical_details: raw, notices: [key] }, "red"]),
     [{ status: "success", message: created, file_name: "DEBUG_INVOICE_MOCK.xml", notices: [] }, "green"],
     [{ status: "success", message: created, file_name: "DEBUG_INVOICE_<img>.xml", notices: [local, local, existing] }, "orange"],
     [{ status: "skipped", message: skipped, notices: [] }, "orange"],
@@ -87,6 +94,9 @@ for (const [doctype, file, method] of [
             if (response && response.technical_details) {
                 assert.equal((b.dialogs[0].message.match(/<details>/g) || []).length, 1);
                 assert.ok(b.dialogs[0].message.includes(escape(response.technical_details)));
+            }
+            for (const key of financial.filter(key => response?.notices?.includes(key))) {
+                assert.ok(b.dialogs[0].message.includes(escape(lang === "ar" ? catalog.get(key) : key)));
             }
             if (lang === "ar") {
                 assert.ok(b.dialogs[0].message.includes("عملية فحص تقني محلية"));

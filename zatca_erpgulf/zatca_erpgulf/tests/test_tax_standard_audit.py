@@ -2,7 +2,7 @@
 
 The oracle uses independently declared category/rate/net inputs and Decimal
 group arithmetic. Characterizing a finding is not a passing compliance verdict.
-No production calculator or policy is changed by this test-only review.
+Original findings stay frozen; current financial builders must satisfy this bounded oracle.
 """
 
 import copy
@@ -195,10 +195,10 @@ def test_published_tax_rules_expose_original_and_current_gaps(monkeypatch, audit
         assert input_snapshot((doc, records)) == before
     for version, result in observations.items():
         should_fail = (
-            (case == "mixed-invoice" and (family == "pos" or version == "original"))
-            or (case == "mixed-item-templates" and family == "pos")
+            (case == "mixed-invoice" and version == "original")
+            or (case == "mixed-item-templates" and family == "pos" and version == "original")
             or (case.startswith("small-") and family == "sales" and version == "original")
-            or (case.startswith("half-up-") and family == "pos")
+            or (case.startswith("half-up-") and family == "pos" and version == "original")
         )
         assert bool(result["findings"]) == should_fail, (case, family, version, result)
         if case.startswith("small-"):
@@ -206,7 +206,7 @@ def test_published_tax_rules_expose_original_and_current_gaps(monkeypatch, audit
             assert Decimal(result["actual_total"]) == (Decimal("0.00") if family == "sales" and version == "original" else Decimal("0.01"))
         if case.startswith("half-up-"):
             assert result["expected_total"] == "0.02"
-            assert Decimal(result["actual_total"]) == (Decimal("0.02") if family == "sales" else Decimal("0.01"))
+            assert Decimal(result["actual_total"]) == (Decimal("0.01") if family == "pos" and version == "original" else Decimal("0.02"))
     audit_report.append(dict(case=case, family=family, erp_format=major, **observations))
     doc.save.assert_not_called()
     doc.db_set.assert_not_called()

@@ -22,7 +22,7 @@ from zatca_erpgulf.zatca_erpgulf import (
     advance_deduction, createxml, create_xml_final_part as sales, pos_final, posxml,
     sign_invoice, xml_tax_data as totals,
 )
-from zatca_erpgulf.zatca_erpgulf.tests.test_baseline_tax_compatibility import fixture_data, input_snapshot, render
+from zatca_erpgulf.zatca_erpgulf.tests.test_baseline_tax_compatibility import fixture_data, input_snapshot, render, original_namespaces
 from zatca_erpgulf.zatca_erpgulf.tests.test_calculation_precision import upstream16
 from zatca_erpgulf.zatca_erpgulf.tests.test_field_rounding import framework
 from zatca_erpgulf.zatca_erpgulf.tests.test_nonproduction_isolation import Document, ValidationError, fail
@@ -272,7 +272,7 @@ def test_new_mixed_category_exception_requires_native_allocation_and_keeps_speci
 @pytest.mark.parametrize("major", [15, 16])
 @pytest.mark.parametrize("inclusive", [False, True])
 @pytest.mark.parametrize("has_template", [False, True])
-def test_existing_pos_discount_model_requires_whole_path_migration(
+def test_original_pos_discount_model_and_current_complete_migration(
     monkeypatch, upstream16, discount_evidence, case, major, inclusive, has_template,
 ):
     probe = framework(major, upstream16, monkeypatch, setting="Commercial Rounding")
@@ -287,8 +287,15 @@ def test_existing_pos_discount_model_requires_whole_path_migration(
         monkeypatch.setattr(module, "frappe", runtime)
         monkeypatch.setattr(module, "_", lambda message, *args: message)
     before = input_snapshot((doc, records))
-    root = render(doc, has_template, "pos", dict(discount=vars(posxml),
+    old = original_namespaces(runtime)
+    root = render(doc, has_template, "pos", dict(discount=old["posxml.py"],
+        tax=old["pos_final.py" if has_template else "posxml.py"], items=old["pos_final.py"]))
+    development = render(doc, has_template, "pos", dict(discount=vars(posxml),
         tax=vars(pos_final if has_template else posxml), items=vars(pos_final)))
+    assert not development.findall("cac:AllowanceCharge")
+    assert [Decimal(node.find("cbc:LineExtensionAmount").text)
+            for node in development.findall("cac:InvoiceLine")] == [Decimal("90.00")] * 2
+    assert Decimal(development.find("cac:LegalMonetaryTotal").find("cbc:PayableAmount").text) == Decimal("207.00")
     observed_lines = [Decimal(node.find("cbc:LineExtensionAmount").text) for node in root.findall("cac:InvoiceLine")]
     source_lines = [Decimal(str(item.net_amount)) for item in doc.items]
     assert observed_lines != source_lines
@@ -300,7 +307,7 @@ def test_existing_pos_discount_model_requires_whole_path_migration(
         assert payable == Decimal("207.00")  # Legacy gross-line/document-allowance alternative.
     if case[0] == "grand23":
         assert payable != Decimal("207.00")
-    discount_evidence.append(dict(kind="pos-current-observation", case=case[0], major=major,
+    discount_evidence.append(dict(kind="pos-original-observation", case=case[0], major=major,
         inclusive=inclusive, item_template=has_template, source_net=[str(value) for value in source_lines],
         xml_lines=[str(value) for value in observed_lines],
         source_payable=doc.grand_total, xml_payable=str(payable)))

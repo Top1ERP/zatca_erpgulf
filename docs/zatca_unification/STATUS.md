@@ -1,5 +1,29 @@
 # Implementation status — 2026-11-14
 
+
+## Latest POS final-net financial migration — increment217
+
+Ordinary POS Invoice tax/line/monetary builders now share a complete final-net
+adapter. ERP's recorded nets drive precise unit prices, category/rate VAT groups
+and money, without another header discount. Validate against recorded ERP totals
+before financial XML emission. The item-discount flag changes presentation only.
+Native rounding controls include missing-field Global Defaults fallback and
+saved consolidated adjustments. Typed failures preserve one translated outcome
+and English diagnostics across generation/background/Debug. Two mixed-category
+POS guards reuse proven native-allocation evidence.
+
+Validation:10,827 distinct offline cases across53 suites;343 new POS cases plus
+96 added ordinary-POS selector cases. Debug browser messages:76 synthetic cases.
+Original240 comparisons now show91 identical,117 changed and32 blocked; the48
+emitted POS examples change structure and some money. Multiple tax accounts,
+invalid classification, unsupported fiscal variants and ERP/group-rounding
+mismatches block for review. Passing these expected blocks is not acceptance or
+parity.100-item supplied get_doc calls:302/501 down to4 for plain/template paths;
+not SQL or production timing. Manifest:187 local/57 private. No tenant SQL run,
+live modification, restart or authority API request. ERPNext16 remains pinned-
+source evidence. See [POS_FINAL_NET_XML.md](POS_FINAL_NET_XML.md) for deltas,
+route/settings ownership, unsupported cases and remaining release gates.
+
 ## Latest ERP-distributed invoice-discount review — increment216
 
 Pinned15/16 allocation methods confirm final net_amount/base_net_amount are the
