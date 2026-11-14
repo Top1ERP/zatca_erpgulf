@@ -3,6 +3,7 @@
 import base64
 from frappe import _  # pylint: disable=unused-import
 import frappe
+from zatca_erpgulf.zatca_erpgulf.template_vat_source import DeclaredVatError
 from zatca_erpgulf.zatca_erpgulf.pos_financial_xml import PosFinancialError
 from zatca_erpgulf.zatca_erpgulf.pos_financial_composition import populate_pos_financials
 # Imported hooks remain available to the compositor through globals().
@@ -151,6 +152,8 @@ def zatca_call_pos_without_xml(
                 )
             )
     except PosFinancialError:
+        raise
+    except DeclaredVatError:
         raise
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.log_error(

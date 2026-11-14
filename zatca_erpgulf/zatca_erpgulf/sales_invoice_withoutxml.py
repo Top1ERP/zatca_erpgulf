@@ -5,6 +5,7 @@ import os
 import io
 from frappe import _
 import frappe
+from zatca_erpgulf.zatca_erpgulf.template_vat_source import DeclaredVatError
 from zatca_erpgulf.zatca_erpgulf.document_tax_xml import (
     DocumentTaxTools, populate_document_tax,
 )
@@ -215,6 +216,8 @@ def zatca_call_withoutxml(
             frappe.throw(
                 _("customer should be B2C type required for simplified invoice")
             )
+    except DeclaredVatError:
+        raise
     except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
         frappe.log_error(
             title="ZATCA invoice call failed",

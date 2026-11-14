@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from lxml import etree
 from frappe import _
 import frappe
+from zatca_erpgulf.zatca_erpgulf.template_vat_source import item_vat_rows, DeclaredVatError, verified_declared_templates
 from zatca_erpgulf.zatca_erpgulf.document_tax_xml import (
     DocumentTaxTools, populate_document_tax,
 )
@@ -959,6 +960,8 @@ def zatca_call(
                     sales_invoice_doc,
                 )
             attach_qr_image(qrcodeb64, sales_invoice_doc)
+    except DeclaredVatError:
+        raise
     except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
         frappe.log_error(
             title="ZATCA invoice call failed",
@@ -1071,6 +1074,8 @@ def zatca_call_compliance(
                 uuid1, encoded_hash, sample_path, company_abbr, source_doc
             )
 
+    except DeclaredVatError:
+        raise
     except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
         frappe.log_error(
             title="ZATCA invoice call failed", message=frappe.get_traceback()
@@ -1110,7 +1115,8 @@ def zatca_background(invoice_number, source_doc, bypass_background_check=False):
             sales_invoice_doc.taxes
             and sales_invoice_doc.taxes[0].included_in_print_rate == 1
         ):
-            if any(item.item_tax_template for item in sales_invoice_doc.items):
+            if (any(item.item_tax_template for item in sales_invoice_doc.items)
+                    and not verified_declared_templates(sales_invoice_doc, runtime=frappe, translate=_, sales=True)):
                 frappe.throw(
                     _(
                         "As per ZATCA regulation,Item Tax Template cannot be used when taxes "
@@ -1137,7 +1143,7 @@ def zatca_background(invoice_number, source_doc, bypass_background_check=False):
                 )
                 zatca_tax_category = item_tax_template.custom_zatca_tax_category
                 tax_categories.add(zatca_tax_category)
-                for tax in item_tax_template.taxes:
+                for tax in item_vat_rows(item_tax_template, runtime=frappe, translate=_):
                     tax_rate = float(tax.tax_rate)
 
                     if f"{tax_rate:.2f}" not in [
@@ -1483,6 +1489,8 @@ def zatca_background(invoice_number, source_doc, bypass_background_check=False):
         else:
             create_qr_code(sales_invoice_doc, method=None)
         return "Success"
+    except DeclaredVatError:
+        raise
     except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
         frappe.throw(_("Error in background call : " + str(e)))
 
@@ -1564,7 +1572,8 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
             sales_invoice_doc.taxes
             and sales_invoice_doc.taxes[0].included_in_print_rate == 1
         ):
-            if any(item.item_tax_template for item in sales_invoice_doc.items):
+            if (any(item.item_tax_template for item in sales_invoice_doc.items)
+                    and not verified_declared_templates(sales_invoice_doc, runtime=frappe, translate=_, sales=True)):
                 frappe.throw(
                     "As per ZATCA regulations, Item Tax Template cannot be used when taxes are included"
                     " in the print rate. Please remove Item Tax Templates."
@@ -1591,7 +1600,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
                 )
                 zatca_tax_category = item_tax_template.custom_zatca_tax_category
                 tax_categories.add(zatca_tax_category)
-                for tax in item_tax_template.taxes:
+                for tax in item_vat_rows(item_tax_template, runtime=frappe, translate=_):
                     tax_rate = float(tax.tax_rate)
 
                     if f"{tax_rate:.2f}" not in [
@@ -1918,6 +1927,8 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
         else:
             create_qr_code(sales_invoice_doc, method=None)
         doc.reload()
+    except DeclaredVatError:
+        raise
     except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
         frappe.throw(_(f"Error in background call on submit: {str(e)}"))
 
@@ -2373,6 +2384,8 @@ def resubmit_invoices(invoice_numbers, bypass_background_check=False):
                 #     sales_invoice_doc, bypass_background_check=True
                 # )
 
+        except DeclaredVatError:
+            raise
         except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
             frappe.throw(_(f"Error in background call: {str(e)}"))
             # Log errors and add to the results

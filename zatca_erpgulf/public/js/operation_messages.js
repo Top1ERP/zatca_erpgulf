@@ -450,6 +450,9 @@ function zatca_debug_summary(value, context) {
     messages.set('The POS VAT account sources are ambiguous or use unsupported tax roles. Review the tax rows and item templates.', __('The POS VAT account sources are ambiguous or use unsupported tax roles. Review the tax rows and item templates.'));
     messages.set('The POS item tax sources do not match their declared VAT accounts. Review item templates and native tax details.', __('The POS item tax sources do not match their declared VAT accounts. Review item templates and native tax details.'));
     messages.set('Recorded POS VAT amounts do not match their declared accounts. Review the tax rows after discount.', __('Recorded POS VAT amounts do not match their declared accounts. Review the tax rows after discount.'));
+    messages.set('Review the VAT account selected on the Item Tax Template. Select exactly one matching row and keep other tax rows at zero.', __('Review the VAT account selected on the Item Tax Template. Select exactly one matching row and keep other tax rows at zero.'));
+    messages.set('The declared VAT source does not match the saved invoice tax data. Recalculate and save the invoice before generating XML.', __('The declared VAT source does not match the saved invoice tax data. Recalculate and save the invoice before generating XML.'));
+    messages.set('The declared VAT source needs a confirmed company currency before foreign-currency Sales XML can be generated.', __('The declared VAT source needs a confirmed company currency before foreign-currency Sales XML can be generated.'));
     const success = zatca_debug_succeeded(response);
     const skipped = response.status === "skipped" && [
         "Debug XML was skipped for an intra-company transfer. The invoice was not changed.",

@@ -5,6 +5,21 @@ development. They are part of the release scope, not optional work deferred
 until after the fictional-client rehearsal. Apply the same development-only
 and no-authority-request restrictions as [PLAN.md](PLAN.md).
 
+## One explicit item-template VAT role — increment220
+
+Pure role selection and account reconciliation are shared across preflight and
+XML routes. The optional field has no implicit default or backfill; default
+legacy source reads and policies remain. New source verification is local to a
+builder, with no global cache or document mutation. Comments and diagnostics are
+English; Arabic UI keys and one-summary Debug handling are tested. Phase/rule
+and stale-company UI cases accompany monetary and native15/16 simulations.
+
+No dead-file, universal provenance, performance or fiscal-certification claim is
+made. Extra verification reads are intentional for opted-in scope; this bundle
+has no latency/SQL benchmark. Foreign Sales binding, positive non-VAT charge
+policy, installed lifecycle, SDK and rehearsal remain. See
+[ITEM_VAT_SELECTION.md](ITEM_VAT_SELECTION.md).
+
 ## One POS preparation and immutable rendering — increment219
 
 The standard POS entry points now share one reconciled financial projection;

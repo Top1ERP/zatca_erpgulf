@@ -1,4 +1,5 @@
 import frappe
+from zatca_erpgulf.zatca_erpgulf.template_vat_source import DeclaredVatError
 from zatca_erpgulf.zatca_erpgulf.document_tax_xml import (
     DocumentTaxTools, populate_document_tax,
 )
@@ -259,9 +260,12 @@ def _debug_call(
         # --- Generate and attach XML ---
         return generate_and_attach_xml(sales_invoice_doc, handle_b2c_simplified=handle_b2c_simplified)
     except Exception as e:
+        if isinstance(e, DeclaredVatError):
+            notices.append(e.template)
         if isinstance(e, DebugArtifactError):
             notices.append(str(e))
         # Keep the original traceback; only the app-owned label is English.
-        frappe.log_error(traceback.format_exc(), f"Debug XML Error for invoice {invoice_number}")
+        if not isinstance(e, DeclaredVatError) or not e.diagnostic_logged:
+            frappe.log_error(traceback.format_exc(), f"Debug XML Error for invoice {invoice_number}")
         return {"status": "error", "message": DEBUG_FAILED,
                 "technical_details": str(e), "notices": notices}

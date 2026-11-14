@@ -20,13 +20,21 @@
     function phase2Enabled(frm) {
         return Boolean(
             frm.doc.company &&
-            frm.__zatca_template_company_enabled === true
+            frm.__zatca_template_company_enabled === true &&
+            frm.__zatca_template_phase === "Phase-2"
         );
     }
 
     async function loadCompanyState(frm) {
-        if (!frm.doc.company) {
+        const company = frm.doc.company;
+        const request = (frm.__zatca_company_request || 0) + 1;
+        frm.__zatca_company_request = request;
+        frm.__zatca_template_company_enabled = false;
+        frm.__zatca_template_phase = null;
+        frm.__zatca_template_rate_rules = false;
+        if (!company) {
             frm.__zatca_template_company_enabled = false;
+            frm.__zatca_template_phase = null;
             return false;
         }
         try {
@@ -35,7 +43,7 @@
             try {
                 response = await frappe.db.get_value(
                     "Company",
-                    frm.doc.company,
+                    company,
                     ["custom_zatca_invoice_enabled", phaseField]
                 );
             } catch (primaryError) {
@@ -43,14 +51,27 @@
                 phaseField = "phase_1_or_2";
                 response = await frappe.db.get_value(
                     "Company",
-                    frm.doc.company,
+                    company,
                     ["custom_zatca_invoice_enabled", phaseField]
                 );
             }
+            if (request !== frm.__zatca_company_request || company !== frm.doc.company) return null;
             const values = (response && response.message) || {};
+            frm.__zatca_template_phase = String(values[phaseField] || "").trim();
+            try {
+                const rules = await frappe.db.get_value("Company", company, "custom_enforce_zatca_tax_category_rate_validation");
+                if (request !== frm.__zatca_company_request || company !== frm.doc.company) return null;
+                frm.__zatca_template_rate_rules = cint(rules?.message?.custom_enforce_zatca_tax_category_rate_validation) === 1;
+            } catch (optionalFieldError) {
+                if (request !== frm.__zatca_company_request || company !== frm.doc.company) return null;
+                frm.__zatca_template_rate_rules = false;
+            }
+            if (request !== frm.__zatca_company_request || company !== frm.doc.company) return null;
             frm.__zatca_template_company_enabled =
                 cint(values.custom_zatca_invoice_enabled) === 1;
         } catch (error) {
+            if (request !== frm.__zatca_company_request || company !== frm.doc.company) return null;
+            frm.__zatca_template_phase = null;
             // Shared sites may expose neither optional Company field.
             // Treat the optional ZATCA template rules as unavailable.
             frm.__zatca_template_company_enabled = false;
@@ -99,7 +120,20 @@
         }
     }
 
+    function updateVatAccount(frm) {
+        if (frm.doctype !== "Item Tax Template" || !frm.fields_dict.custom_zatca_vat_account) return;
+        const rows = frm.doc.taxes || [];
+        frm.toggle_display("custom_zatca_vat_account", phase2Enabled(frm) && (rows.length > 1 || Boolean(frm.doc.custom_zatca_vat_account)));
+        frm.set_df_property("custom_zatca_vat_account", "reqd", false);
+        frm.set_query("custom_zatca_vat_account", () => ({ filters: {
+            company: frm.doc.company, is_group: 0,
+            name: ["in", (frm.doc.taxes || []).map(row => row.tax_type).filter(Boolean)]
+        }}));
+    }
+
     function applyCategoryState(frm) {
+        updateVatAccount(frm);
+        if (!phase2Enabled(frm)) return;
         const category = String(frm.doc.custom_zatca_tax_category || "").trim();
         const nonStandard = NON_STANDARD.includes(category);
         const allowedCodes = EXEMPTION_CODES[category] || [];
@@ -115,7 +149,9 @@
             }
         }
 
-        if (nonStandard) {
+        // An explicit VAT selection is validation-only: never rewrite its
+        // VAT row or zero overrides as a side effect of category changes.
+        if (nonStandard && frm.__zatca_template_rate_rules === true && !frm.doc.custom_zatca_vat_account) {
             (frm.doc.taxes || []).forEach(function (row) {
                 const rateField = frm.doctype === "Item Tax Template" ? "tax_rate" : "rate";
                 if (flt(row[rateField])) {
@@ -136,7 +172,9 @@
             frm.set_df_property("custom_exemption_reason_code", "reqd", false);
         }
 
-        await loadCompanyState(frm);
+        if (frm.fields_dict.custom_zatca_vat_account) frm.toggle_display("custom_zatca_vat_account", false);
+        if (await loadCompanyState(frm) === null) return;
+        updateVatAccount(frm);
         const active = phase2Enabled(frm);
         if (frm.fields_dict.custom_zatca_tax_category) {
             frm.toggle_display("custom_zatca_tax_category", active);
@@ -154,11 +192,18 @@
             refresh: refreshTemplateState,
             company: refreshTemplateState,
             custom_zatca_tax_category: applyCategoryState,
+            custom_zatca_vat_account: applyCategoryState,
             validate: function (frm) {
                 if (phase2Enabled(frm)) {
                     applyCategoryState(frm);
                 }
             }
         });
+    });
+    frappe.ui.form.on("Item Tax Template Detail", {
+        tax_type: updateVatAccount,
+        tax_rate: updateVatAccount,
+        taxes_add: updateVatAccount,
+        taxes_remove: updateVatAccount
     });
 })();

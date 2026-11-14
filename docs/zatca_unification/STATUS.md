@@ -1,5 +1,34 @@
-# Implementation status — 2026-11-14
+# Implementation status — 2026-11-15
 
+
+## Explicit multi-row item-template VAT source — increment220
+
+Added optional fixture-only ZATCA VAT Account selection without default/backfill.
+One pure selector reaches preflight, advance signatures, Sales/nominal/advance
+XML and POS preparation. Other template rows must be zero overrides; native
+physical account/rate pairs and after-discount account/header money corroborate
+the declaration. POS and selected Sales share the extracted account comparison.
+Legacy no-selector behavior remains. Included-price preflight permits only the
+verified new scope. No rates or money are repaired. Foreign selected Sales needs
+an explicit SAR company-currency binding; otherwise it refuses pending native
+currency integration. The new field has not been installed on any site.
+
+Template UI respects Company enabled/Phase-2/rate-rule settings, preserves rates
+when an account is explicitly selected and ignores stale company responses.
+Arabic label/description/errors are display-only; typed diagnostics stay English
+and Debug avoids duplicate logging. New opt-in literal Sales delta: zero-first
+row payable200 becomes correctly declared5/15 VAT payable220, matching saved ERP.
+Existing original240 matrix stays91 identical/117 changed/32 blocked. Validation:13,032 cases in the58-suite guarded run (66.55s), plus four later
+Debug-boundary checks:13,036 distinct cases;588 new in total. The focused new
+suites pass588 cases;1,659 affected cases pass after final readability/source
+compatibility review (a subset, not an additional distinct-case total). Six browser suites pass1,184 synthetic cases (including392
+new template UI and100 Debug messages).192 local/57 private suites are listed;
+no whole-manifest/tenant-SQL run occurred. Original fixtures and native readers
+remain frozen. Evidence: `/tmp/zatca-declared-220-regression-final.log`,
+`/tmp/zatca-declared-220-focused.log`, `/tmp/zatca-declared-220-structure.json`.
+Installed lifecycle, SDK, wider fiscal/GL/source custody and fictional rehearsal
+remain release gates. See
+[ITEM_VAT_SELECTION.md](ITEM_VAT_SELECTION.md). No live/SQL/authority API operation.
 
 ## Latest single POS financial preparation — increment219
 

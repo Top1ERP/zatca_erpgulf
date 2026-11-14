@@ -19,6 +19,7 @@ from zatca_erpgulf.ksa_compliance.tax_details import (
     resolve_non_template_tax_rate,
 )
 import frappe
+from zatca_erpgulf.zatca_erpgulf.template_vat_source import DeclaredVatContext
 import json
 from frappe import _
 from zatca_erpgulf.zatca_erpgulf.xml_tax_data import (
@@ -326,14 +327,18 @@ def _nominal_breakdown_with_template(sales_invoice_doc):
     tax_category_totals = {}
     sar_bases = {}
 
+    vat_context = DeclaredVatContext(sales_invoice_doc, frappe, _)
     for item in sales_invoice_doc.items:
-        item_tax_template = frappe.get_doc(ITEM_TAX_TEMPLATE, item.item_tax_template)
+        item_tax_template = vat_context.get_template(item.item_tax_template)
         zatca_tax_category = item_tax_template.custom_zatca_tax_category
-        tax_rate = (
-            Decimal(str(item_tax_template.taxes[0].tax_rate))
-            if item_tax_template.taxes
-            else Decimal("15.00")
-        )
+        selected_vat_row = vat_context.row(item_tax_template)
+        if selected_vat_row is not None:
+            tax_rate = Decimal(str(selected_vat_row.tax_rate))
+        else:
+            tax_rate = (
+                Decimal(str(item_tax_template.taxes[0].tax_rate))
+                if item_tax_template.taxes else Decimal("15.00")
+            )
         exemption_reason_code = item_tax_template.custom_exemption_reason_code
 
         line_net = _nominal_item_net_amount(item, sales_invoice_doc)
@@ -770,12 +775,13 @@ def _append_sales_invoice_item_lines(invoice, sales_invoice_doc, *, has_template
     The plain category path rereads its source; the template path reads once.
     Advance wrappers retain their own rate acquisition and reference tails.
     """
+    vat_context = DeclaredVatContext(sales_invoice_doc, frappe, _)
     for single_item in sales_invoice_doc.items:
         if has_template:
-            item_tax_template = frappe.get_doc(
-                ITEM_TAX_TEMPLATE, single_item.item_tax_template
-            )
+            item_tax_template = vat_context.get_template(single_item.item_tax_template)
+            selected_vat_row = vat_context.row(item_tax_template)
             item_tax_percentage = (
+                selected_vat_row.tax_rate if selected_vat_row is not None else
                 item_tax_template.taxes[0].tax_rate if item_tax_template.taxes else 15
             )
         else:
@@ -1042,11 +1048,12 @@ def item_data_with_template(invoice, sales_invoice_doc):
 def item_data_with_template_advance_invoice(invoice, sales_invoice_doc):
     """Create item XML with Item Tax Template for advance invoices using line net values."""
     try:
+        vat_context = DeclaredVatContext(sales_invoice_doc, frappe, _)
         for single_item in sales_invoice_doc.items:
-            item_tax_template = frappe.get_doc(
-                ITEM_TAX_TEMPLATE, single_item.item_tax_template
-            )
+            item_tax_template = vat_context.get_template(single_item.item_tax_template)
+            selected_vat_row = vat_context.row(item_tax_template)
             item_tax_percentage = (
+                selected_vat_row.tax_rate if selected_vat_row is not None else
                 item_tax_template.taxes[0].tax_rate if item_tax_template.taxes else 15
             )
 

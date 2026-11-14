@@ -17,6 +17,22 @@ pilot/rollout. API sending needs separate explicit authority changing the ban.
 See [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md); it supersedes any older
 operational request or less restrictive deployment wording in historical records.
 
+## Opt-in multi-row VAT role adoption — increment220
+
+Use the optional Item Tax Template VAT Account only as an explicit role
+statement, corroborated by complete saved native rates and after-discount money.
+Keep the remaining rows as zero overrides; positive charges, compound/deducted
+roles and multiple applicable taxes on one item still need fiscal representation.
+Do not migrate/backfill live sites. The fixture requires a separately approved
+isolated fresh/upgrade trial. Preserve native Net/Grand discount allocation,
+category/rate groups, FX header rounding and no-selector output/rejection parity.
+
+The shared source now reaches draft checks, Sales/nominal/advance line XML, POS,
+Compliance and Debug composition. Next resolve foreign Sales currency bindings,
+remaining source/ledger/fiscal variants, trusted settings/credential/transaction
+custody, installed15/16 lifecycle and SDK checks. Then perform the separately
+approved fictional-client rehearsal. See [ITEM_VAT_SELECTION.md](ITEM_VAT_SELECTION.md).
+
 ## One POS financial rendering projection — increment219
 
 Adopt one preparation for the five standard POS generation entry points, keeping

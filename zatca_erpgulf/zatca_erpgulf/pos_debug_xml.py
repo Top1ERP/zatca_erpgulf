@@ -5,6 +5,7 @@ import json
 import requests
 from frappe import _
 import frappe
+from zatca_erpgulf.zatca_erpgulf.template_vat_source import DeclaredVatError
 from zatca_erpgulf.zatca_erpgulf.pos_financial_xml import PosFinancialError
 from zatca_erpgulf.zatca_erpgulf.pos_financial_composition import populate_pos_financials
 # Imported hooks remain available to the compositor through globals().
@@ -228,11 +229,11 @@ def _debug_call(
         return generate_and_attach_xml(pos_invoice_doc)
 
     except Exception as e:
-        if isinstance(e, PosFinancialError):
+        if isinstance(e, (PosFinancialError, DeclaredVatError)):
             notices.append(e.template)
         if isinstance(e, DebugArtifactError):
             notices.append(str(e))
-        if not isinstance(e, PosFinancialError) or not e.diagnostic_logged:
+        if not isinstance(e, (PosFinancialError, DeclaredVatError)) or not e.diagnostic_logged:
             frappe.log_error(traceback.format_exc(), f"Debug XML Error for invoice {invoice_number}")
         return {"status": "error", "message": DEBUG_FAILED,
                 "technical_details": str(e), "notices": notices}

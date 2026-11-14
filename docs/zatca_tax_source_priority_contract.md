@@ -1,6 +1,6 @@
 # ZATCA tax-source priority contract
 
-Current development contract, reviewed through increment219 on 2026-11-14. It replaces
+Current development contract, reviewed through increment220 on 2026-11-15. It replaces
 older prose that incorrectly placed Sales Taxes and Charges Template values above
 explicit invoice values. The original five tests already required invoice-first
 behavior; their bodies are preserved. See the scope map and remaining work in
@@ -10,15 +10,17 @@ behavior; their bodies are preserved. See the scope map and remaining work in
 
 Category, exemption reason, rate, account ownership and financial amount are
 separate decisions. A category is not evidence that every account in the same
-table contains VAT. The current application has no universal row-level VAT-role
-selector. This contract describes existing runtime behavior and its known gaps;
+table contains VAT. The optional Item Tax Template VAT Account declares one row explicitly
+within its checked scope; there is no universal role selector for all tax rows. This contract describes existing runtime behavior and its known gaps;
 it is not a declaration that every generator has been unified or fiscally
 certified.
 
 ## Ordinary Sales Invoice subtotal sources
 
 1. With Item Tax Templates on every item, each linked Item Tax Template owns
-   its category, reason and first tax-row rate. Invoice-level overrides do not
+   its category, reason and first tax-row rate by default. An explicit optional
+   VAT Account selects that exact row after saved-source verification; other
+   template rows must be zero overrides. Invoice-level overrides do not
    replace these item-template values. Existing default15 for an empty template
    remains an inherited behavior requiring strict-source review.
 2. Without Item Tax Templates, an explicit invoice category takes priority over
@@ -107,3 +109,14 @@ separate missing-source/default and category-versus-account distinctions.
 Installed ERPNext/Frappe15/16, full fiscal/SDK and the separately approved
 fictional-client rehearsal remain release gates. No production readiness or
 remote acceptance is inferred from these unit tests.
+
+## Explicit multi-row item-template branch — increment220
+
+The optional `custom_zatca_vat_account` field is fixture-only until a separately
+approved isolated install. Blank/absent retains legacy policy; a selection must
+match one unique row, with zero overrides elsewhere. Full native physical
+account/rate and required after-discount money corroborate the new scope before
+XML. Preflight/advance signatures use the same selector; category/reason remain
+on the parent. Foreign Sales needs an explicit SAR company-currency binding.
+This does not add VAT roles for positive non-VAT charges or invoice-level mixed
+accounts. See [ITEM_VAT_SELECTION.md](zatca_unification/ITEM_VAT_SELECTION.md).

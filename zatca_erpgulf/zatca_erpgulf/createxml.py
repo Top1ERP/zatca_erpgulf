@@ -10,6 +10,7 @@ import xml.etree.ElementTree as ET
 from difflib import SequenceMatcher
 from frappe import _
 import frappe
+from zatca_erpgulf.zatca_erpgulf.template_vat_source import DeclaredVatContext
 from frappe.utils import cint
 from zatca_erpgulf.zatca_erpgulf.country import normalize_country_code
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
@@ -1354,11 +1355,13 @@ def add_document_level_discount_with_tax_template(invoice, sales_invoice_doc):
             item_tax_template_doc = frappe.get_doc(
                 "Item Tax Template", item.item_tax_template
             )
+            selected_vat_row = DeclaredVatContext(sales_invoice_doc, frappe, _).row(item_tax_template_doc)
             vat_category_code = item_tax_template_doc.custom_zatca_tax_category
             tax_percentage = (
-                item_tax_template_doc.taxes[0].tax_rate
-                if item_tax_template_doc.taxes
-                else 15
+                selected_vat_row.tax_rate if selected_vat_row is not None else (
+                    item_tax_template_doc.taxes[0].tax_rate
+                    if item_tax_template_doc.taxes else 15
+                )
             )
             break  # Assuming that all items will have the same tax category and percentage
 

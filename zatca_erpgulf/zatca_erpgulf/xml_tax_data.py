@@ -12,6 +12,7 @@ import xml.etree.ElementTree as ET
 from decimal import Decimal, ROUND_HALF_UP
 
 import frappe
+from zatca_erpgulf.zatca_erpgulf.template_vat_source import DeclaredVatContext, DeclaredVatError
 from frappe import _
 from zatca_erpgulf.ksa_compliance.vat_math import vat_from_group
 # Keep the full-detail import available as an integration compatibility alias.
@@ -278,13 +279,17 @@ def _get_tax_breakdown_with_template(sales_invoice_doc):
     tax_category_totals = {}
     currency = sales_invoice_doc.currency
 
+    vat_context = DeclaredVatContext(sales_invoice_doc, frappe, _)
     for item in sales_invoice_doc.items:
-        item_tax_template = frappe.get_doc("Item Tax Template", item.item_tax_template)
+        item_tax_template = vat_context.get_template(item.item_tax_template)
         zatca_tax_category = item_tax_template.custom_zatca_tax_category
+        selected_vat_row = vat_context.row(item_tax_template)
         tax_rate = (
-            Decimal(str(item_tax_template.taxes[0].tax_rate))
-            if item_tax_template.taxes
-            else Decimal("15.00")
+            Decimal(str(selected_vat_row.tax_rate))
+            if selected_vat_row is not None else (
+                Decimal(str(item_tax_template.taxes[0].tax_rate))
+                if item_tax_template.taxes else Decimal("15.00")
+            )
         )
         exemption_reason_code = item_tax_template.custom_exemption_reason_code
         item_net_amount = _get_item_net_amount(item, currency)
@@ -302,7 +307,7 @@ def _get_tax_breakdown_with_template(sales_invoice_doc):
         tax_category_totals[key]["taxable_amount"] += item_net_amount
 
     result = []
-    for _, totals in tax_category_totals.items():
+    for _group_key, totals in tax_category_totals.items():
         totals["taxable_amount"] = q2(totals["taxable_amount"])
         totals["tax_amount"] = vat_from_group(totals["taxable_amount"], totals["tax_rate"])
         result.append(totals)
@@ -635,6 +640,8 @@ def tax_data_with_template(invoice, sales_invoice_doc):
 
         return invoice
 
+    except DeclaredVatError:
+        raise
     except Exception as e:
         frappe.throw(_(f"Data processing error in tax data template: {str(e)}"))
         return None

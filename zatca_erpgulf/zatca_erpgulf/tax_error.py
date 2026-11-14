@@ -6,6 +6,7 @@ in sales invoices."""
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 import frappe
+from zatca_erpgulf.zatca_erpgulf.template_vat_source import declared_vat_row, item_vat_rows, fail_declared_vat
 from frappe import _
 from frappe.utils import cint, flt
 from zatca_erpgulf.ksa_compliance.tax_account_policy import is_reconciliation_tax_account
@@ -104,7 +105,7 @@ def _advance_tax_template_signature(item_tax_template):
     category = _safe_str(getattr(item_tax_template, "custom_zatca_tax_category", None))
     rates = {
         round(flt(getattr(row, "tax_rate", 0) or 0), 6)
-        for row in (getattr(item_tax_template, "taxes", []) or [])
+        for row in item_vat_rows(item_tax_template, runtime=frappe, translate=_)
     }
     if not category or len(rates) != 1:
         return None
@@ -195,7 +196,7 @@ def validate_zatca_zero_rate_categories(doc, company_doc=None) -> None:
             category = _safe_str(getattr(template, "custom_zatca_tax_category", None))
             if category not in _ZATCA_NON_STANDARD_CATEGORIES:
                 continue
-            for tax in getattr(template, "taxes", []) or []:
+            for tax in item_vat_rows(template, runtime=frappe, translate=_, company=getattr(doc, "company", None)):
                 if abs(flt(getattr(tax, "tax_rate", 0) or 0)) > 0.000001:
                     frappe.throw(
                         _(
@@ -487,6 +488,9 @@ def _is_zatca_tax_category_source_validation_enabled(company_doc) -> bool:
 
 
 def _get_template_rate(template_doc, child_field="taxes") -> float:
+    selected = declared_vat_row(template_doc, runtime=frappe, translate=_zt)
+    if selected is not None:
+        return flt(selected.tax_rate)
     rows = list(getattr(template_doc, child_field, []) or [])
 
     if not rows:
@@ -1006,6 +1010,14 @@ def validate_tax_template_category_constraints(doc, event=None) -> None:
     if not _is_phase2_category_rate_validation_enabled(company_doc):
         return
 
+    selected = declared_vat_row(doc, runtime=frappe, translate=_, company=company)
+    if selected is not None:
+        account = frappe.get_doc("Account", selected.tax_type)
+        if (account.get("company") != company or account.get("is_group")
+                or not is_reconciliation_tax_account(selected.tax_type,
+                    read_account=lambda name: account, default=False)):
+            fail_declared_vat(frappe, _, "declared_vat_account_ownership")
+    validation_rows = [selected] if selected is not None else None
     category = _safe_str(getattr(doc, "custom_zatca_tax_category", None))
     if not category and not _tax_template_uses_only_non_tax_accounts(doc):
         frappe.throw(
@@ -1020,7 +1032,7 @@ def validate_tax_template_category_constraints(doc, event=None) -> None:
         rate_field = "tax_rate" if doc.doctype == "Item Tax Template" else "rate"
         has_positive_rate = any(
             abs(flt(getattr(row, rate_field, 0) or 0)) > 0.000001
-            for row in getattr(doc, "taxes", []) or []
+            for row in (validation_rows if validation_rows is not None else getattr(doc, "taxes", []) or [])
         )
         if not has_positive_rate:
             frappe.throw(
@@ -1039,7 +1051,7 @@ def validate_tax_template_category_constraints(doc, event=None) -> None:
                 )
             )
         rate_field = "tax_rate" if doc.doctype == "Item Tax Template" else "rate"
-        for row in getattr(doc, "taxes", []) or []:
+        for row in (validation_rows if validation_rows is not None else getattr(doc, "taxes", []) or []):
             if abs(flt(getattr(row, rate_field, 0) or 0)) > 0.000001:
                 frappe.throw(
                     _(
@@ -1578,7 +1590,10 @@ def _expected_tax_groups_from_item_templates(doc, account_cache=None):
         source_name = _zt("Item Tax Template {0}").format(template_name)
         line_net = _tax_reconciliation_line_net_amount(doc, item)
 
-        for tax_row in list(_field_value(template, "taxes", []) or []):
+        selected = declared_vat_row(template, runtime=frappe, translate=_zt,
+                                    company=getattr(doc, "company", None))
+        rows = [selected] if selected is not None else list(_field_value(template, "taxes", []) or [])
+        for tax_row in rows:
             account = _tax_reconciliation_account(tax_row, item_template=True)
             if not account or not _is_tax_account(account, account_cache):
                 continue
