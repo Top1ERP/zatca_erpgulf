@@ -17,6 +17,23 @@ pilot/rollout. API sending needs separate explicit authority changing the ban.
 See [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md); it supersedes any older
 operational request or less restrictive deployment wording in historical records.
 
+## Original-output compatibility priority — 2026-11-14
+
+The user requires stable results for existing inputs, including multiple taxes
+per item and invoice-template sources, and wants differences reported because
+some are acceptable and others are not. The user preferred simulation. Maintain
+an oracle from the original pre-development source2e97708 with its own native
+financial dependencies, not only a comparison with a recent DEV parent.
+
+Increment213 adds240 exact financial-fragment comparisons:176 identical and64
+characterized differences from earlier changes. Record unchanged totals separately
+from XML-subtotal changes and distinguish generic tax rows from proven VAT roles.
+A passing test that expects a difference is not equivalence, user approval or
+permission to deploy. Keep these differences visible for review before adopting
+or further changing the affected financial policy. No automatic rollback,
+legacy-behavior toggle or VAT-account filter is introduced in this increment.
+See [BASELINE_TAX_COMPATIBILITY.md](BASELINE_TAX_COMPATIBILITY.md).
+
 ## Target design
 
 Increment212 shares non-template native-read/rounding/fallback mechanics behind

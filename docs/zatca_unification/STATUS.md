@@ -1,5 +1,27 @@
 # Implementation status — 2026-11-14
 
+## Latest original-baseline compatibility review — increment213
+
+Tests/documentation only. The user's current priority is original-output
+compatibility and explicit review of changes; simulation was preferred over
+customer-invoice selection. Complete original financial function closures from
+2e97708, with original native dependencies, compare240 synthetic financial XML
+fragments against DEV. All six baseline financial sources match live source.
+
+176 fragments are byte-identical;64 expose previous development differences,
+not newly approved behavior. All80 POS cases match. Ordinary/nominal zero
+fallback and mixed-rate subtotal differences are explicitly recorded, including
+30-to15 and30-to0 tax examples. Multi-tax row/template behavior matches the
+original; v15/v16 source distinctions are preserved, not guessed VAT ownership.
+
+Validation:9,893 distinct local cases passed across49 reviewed suites, including
+240 characterization cases. Passing assertions do not mean all240 outputs match.
+All80 original functions/constants match their pinned ASTs; input/master snapshots
+and no-write boundaries pass. Manifest:183 local/57 private; no SQL/tenant run.
+No additional runtime algorithm, setting, live change or authority request. User
+review of documented differences and full fiscal/runtime/rehearsal gates remain.
+See [BASELINE_TAX_COMPATIBILITY.md](BASELINE_TAX_COMPATIBILITY.md).
+
 ## Latest shared non-template rate mechanics — increment212
 
 Ordinary and nominal subtotal wrappers delegate their duplicate native-read/

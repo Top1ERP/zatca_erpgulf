@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "baseline_tax_compatibility",
     "non_template_tax_rate",
     "tax_account_policy",
     "tax_phase_policy",

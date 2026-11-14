@@ -1,0 +1,158 @@
+{
+  "baseline": "2e97708e115e31c675182647d10829d6175e7449",
+  "live_reference": "ba51f2587763a4e9db045f57e1b8ee2bc29ea77c",
+  "live_financial_sources_identical": true,
+  "modules": {
+    "tax_details.py": {
+      "source": "zatca_erpgulf/ksa_compliance/tax_details.py",
+      "source_sha256": "5ea1772542a54e7da75afb4cf9d385ad2d3fc29c845050bb4fa802ce849d31ac",
+      "fixture_sha256": "a3d338138ff998eda513b0005d8c1bf4d537271a6f677326cf0cebaa14fad233",
+      "roots": [
+        "get_item_tax_detail"
+      ],
+      "functions": [
+        "_item_row_name",
+        "_item_tax_rate_map",
+        "_legacy_item_key",
+        "_line_net_value",
+        "_line_tax_amount",
+        "_normalise_v15_value",
+        "_number",
+        "_v15_details",
+        "_v15_item_tax_rate",
+        "_value",
+        "get_item_tax_detail"
+      ]
+    },
+    "xml_tax_data.py": {
+      "source": "zatca_erpgulf/zatca_erpgulf/xml_tax_data.py",
+      "source_sha256": "3b92ce294d95a62d780b16fe567a12fc7e4d605ae175cab3bacf7072d4d2a800",
+      "fixture_sha256": "6c307b75996860568b568ff20b83e071794b51a6e5ee5dab151080fc21182cff",
+      "roots": [
+        "tax_data",
+        "tax_data_with_template"
+      ],
+      "functions": [
+        "_add_tax_category",
+        "_append_tax_totals",
+        "_build_legal_monetary_total",
+        "_get_invoice_level_zatca_tax_source",
+        "_get_item_net_amount",
+        "_get_item_tax_rate_without_template",
+        "_get_payable_rounding_amount",
+        "_get_prepaid_amount",
+        "_get_prepaid_amount_from_direct_allocations",
+        "_get_tax_breakdown_with_template",
+        "_get_tax_breakdown_without_template",
+        "_get_zatca_category_code",
+        "_sum_line_net_amounts",
+        "_validate_tax_equations",
+        "get_exemption_reason_map",
+        "q2",
+        "resolve_exemption_reason_text",
+        "tax_data",
+        "tax_data_with_template"
+      ]
+    },
+    "create_xml_final_part.py": {
+      "source": "zatca_erpgulf/zatca_erpgulf/create_xml_final_part.py",
+      "source_sha256": "8a1779e16c2fa9188957d0b608dad2d79ac5c1157648c2d09fa3cfae239f3d1e",
+      "fixture_sha256": "fcb683f4acee0b8e1cef437e13e2a4dde35f66650ab0d3495b2fac4dd9846b7d",
+      "roots": [
+        "item_data",
+        "item_data_with_template",
+        "tax_data_nominal",
+        "tax_data_with_template_nominal"
+      ],
+      "functions": [
+        "_append_direct_advance_reference_lines",
+        "_append_nominal_tax_totals",
+        "_build_nominal_legal_monetary_total",
+        "_child_local",
+        "_clean_text_value",
+        "_direct_advance_rows",
+        "_format_price_amount",
+        "_invoice_line_nodes",
+        "_is_company_currency_document",
+        "_line_name",
+        "_line_net_amount",
+        "_line_net_rate",
+        "_line_quantity",
+        "_line_tax_amount_from_net",
+        "_nested_child_text",
+        "_nominal_abs_q2",
+        "_nominal_add_tax_category",
+        "_nominal_breakdown_with_template",
+        "_nominal_breakdown_without_template",
+        "_nominal_item_base_net_amount",
+        "_nominal_item_net_amount",
+        "_nominal_q2",
+        "_nominal_tax_category_code",
+        "_nominal_tax_rate_without_template",
+        "_quantize_2",
+        "_quantize_price_amount",
+        "_xml_local_name",
+        "get_tax_code",
+        "get_tax_wise_detail",
+        "get_time_string",
+        "item_data",
+        "item_data_with_template",
+        "tax_data_nominal",
+        "tax_data_with_template_nominal"
+      ]
+    },
+    "posxml.py": {
+      "source": "zatca_erpgulf/zatca_erpgulf/posxml.py",
+      "source_sha256": "065d0d13c03bc7b837c4a6044ece5f1263ca8b35cbd627e8a6ce64300f1f2586",
+      "fixture_sha256": "e6e820c02b5946045d48391826dd1c62591ccaf8a09d127c0f6194d365fb481c",
+      "roots": [
+        "tax_data",
+        "add_line_item_discount",
+        "add_document_level_discount_with_tax",
+        "add_document_level_discount_with_tax_template"
+      ],
+      "functions": [
+        "add_document_level_discount_with_tax",
+        "add_document_level_discount_with_tax_template",
+        "add_line_item_discount",
+        "get_exemption_reason_map",
+        "get_tax_total_from_items",
+        "tax_data"
+      ]
+    },
+    "pos_final.py": {
+      "source": "zatca_erpgulf/zatca_erpgulf/pos_final.py",
+      "source_sha256": "7b06a5d8324f37ed0a0011ee64e6f50d954799d4ed8f0ef9a2c14568da501d22",
+      "fixture_sha256": "27f347f50ae3a65a621c7956b9b8f9ad8f2ff9c0ba4114b0b749fa860a8398de",
+      "roots": [
+        "tax_data_with_template",
+        "item_data",
+        "item_data_with_template"
+      ],
+      "functions": [
+        "item_data",
+        "item_data_with_template",
+        "tax_data_with_template"
+      ]
+    },
+    "createxml.py": {
+      "source": "zatca_erpgulf/zatca_erpgulf/createxml.py",
+      "source_sha256": "7819783429020b210a68b540540e4bc12eb4a14f56177183ef6c5c585a283fea",
+      "fixture_sha256": "c00146417fb1395da8ebc19629c4064cd1b0394a3783487d42197d7f5d0b74d0",
+      "roots": [
+        "add_document_level_discount_with_tax",
+        "add_document_level_discount_with_tax_template",
+        "add_nominal_discount_tax"
+      ],
+      "functions": [
+        "_abs_rounded",
+        "_has_document_discount",
+        "_use_line_net_amounts_discount_model",
+        "add_document_level_discount_with_tax",
+        "add_document_level_discount_with_tax_template",
+        "add_nominal_discount_tax",
+        "get_zatca_discount_reason_code"
+      ]
+    }
+  }
+}

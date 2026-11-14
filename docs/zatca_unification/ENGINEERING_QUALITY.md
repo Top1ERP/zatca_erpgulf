@@ -16,6 +16,7 @@ and no-authority-request restrictions as [PLAN.md](PLAN.md).
 | Messages and translation | One comprehensive user-facing result per operation; Arabic display for Arabic users and English display for English users; English structured internal diagnostics | Success, warning and failure checks in both UI languages; stable machine codes and original authority payloads remain intact; no nested popup cascade |
 | Settings and aliases | One explicit precedence policy for Company, device/POS and linked-company sources; distinguish absent, NULL, zero and false; detect conflicts | A field/alias and settings matrix covering Phase 1/2 and each purpose; no implicit credential or company substitution |
 | Background work and retries | Clear operation state, useful progress, bounded polling and deterministic retry identity; prevent duplicate scheduling | Offline duplicate/concurrency and recovery cases; measure polling/query load instead of choosing an arbitrary delay |
+| Original financial results | Compare identical invoice/master/settings inputs with the original pre-development financial code and native dependencies; include multiple tax rows and invoice templates | Exact XML and amounts, explicit original/DEV deltas and user review; characterization success must not be represented as equivalence |
 | Compatibility | Preserve supported public entry points and data while consolidating internals; support the reviewed ERPNext/Frappe 15/16 matrices | Pinned-source comparisons plus fresh-install, upgrade and installed-runtime evidence on separately approved isolated benches |
 | Diagnostics and recovery | Actionable aggregated messages, useful English logs and explicit ownership of artifacts/transactions | No key/token leakage, unchanged accepted artifacts, tested cleanup/recovery, and a documented rollback procedure |
 | Documentation and delivery | Keep architecture, settings, test scope and remaining limitations aligned with the implementation | Reviewable DEV commits, accurate test counts, current acceptance checklist and no unsupported readiness or performance claim |
@@ -38,6 +39,17 @@ Keep reference fixtures and test evidence distinct from dead runtime code.
 5. Before the fictional-client rehearsal, review every row and the functional
    acceptance matrix in [PLAN.md](PLAN.md). Essential quality work must not be
    silently excluded from the release decision.
+
+## Current original-output review
+
+Increment213 adds240 simulated original-baseline financial comparisons without
+changing runtime code.176 match byte for byte and64 characterize earlier changes;
+all80 POS cases match. The six financial source files equal installed live source,
+and80 frozen original functions/constants retain exact ASTs with the original
+native reader. Independent literal amounts, full input/master snapshots and write
+boundaries pass. The9,893 selected passing cases do not constitute full parity or
+acceptance of the64 changes. See
+[BASELINE_TAX_COMPATIBILITY.md](BASELINE_TAX_COMPATIBILITY.md).
 
 ## Current runtime consolidation
 
