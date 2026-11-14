@@ -1,5 +1,25 @@
 # Implementation status — 2026-11-14
 
+## Latest ERP-distributed invoice-discount review — increment216
+
+Pinned15/16 allocation methods confirm final net_amount/base_net_amount are the
+XML monetary inputs for both Net Total and Grand Total discounts. A strong native
+allocation-evidence predicate now relaxes two ordinary Sales mixed-category
+rejections while retaining nominal/cash/unknown-source restrictions and messages.
+No money is redistributed or changed by the application. Actual Sales XML uses
+final nets without another allowance and derives precise price from net/quantity.
+
+Validation:10,388 distinct local cases passed across52 suites, including283 new
+native-allocation/XML and limitation cases. Four primary methods execute under
+explicit framework/precision boundaries; full tax/GL recalculation is mocked.
+Original/current guard statements, complete sources, metadata and no-write checks
+pass. AST restoration confines runtime changes to one helper/import and two
+predicates. Manifest:186 local/57 private; no SQL/site run. POS observations expose
+Grand Total/inclusive mismatches; its complete financial migration is still open.
+ERP reconciliation, full fiscal/SDK/runtime/rehearsal gates remain. No live change
+or authority request. See
+[DISTRIBUTED_INVOICE_DISCOUNT.md](DISTRIBUTED_INVOICE_DISCOUNT.md).
+
 ## Latest final Sales group rounding — increment215
 
 Four ordinary/nominal, plain/template calculators share pure Decimal group VAT

@@ -36,6 +36,15 @@ See [BASELINE_TAX_COMPATIBILITY.md](BASELINE_TAX_COMPATIBILITY.md).
 
 ## Target design
 
+Increment216 verifies real15/16 discount allocation methods and final net-field
+consumption without reproducing allocation inside the app. A stronger native
+marker/net predicate permits ordinary mixed-category Sales discounts only after
+allocation, preserving other restrictions. Complete POS line/price/allowance/tax/
+monetary migration is required; replacing one field would leave its old header
+allowance. Close that and accounting reconciliation before rehearsal. Review
+cash/non-trade, native marker differences and manual overrides separately. See
+[DISTRIBUTED_INVOICE_DISCOUNT.md](DISTRIBUTED_INVOICE_DISCOUNT.md).
+
 Increment215 fixes final group rounding in four Sales ordinary/nominal calculators
 using shared pure Decimal arithmetic. Keep rate/category/source and per-line math
 unchanged; expose tiny DOC/SAR changes with complete original-output evidence.

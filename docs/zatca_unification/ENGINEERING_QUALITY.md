@@ -63,6 +63,15 @@ acceptance of the64 changes. See
 
 ## Current runtime consolidation
 
+Increment216 adds explicit ERP allocation evidence to two ordinary mixed-category
+Sales discount gates. Monetary builders remain unchanged;256 native-allocation/
+Sales XML combinations demonstrate net-field use without double subtraction.
+283 new cases join10,388 selected cases, with original/current guards and source
+preservation. Native source methods are hash-verified, not vendored as runtime
+code; full recalculation remains a boundary.16 POS observations justify a whole
+financial migration, not a one-field patch. No performance/compliance claim.
+See [DISTRIBUTED_INVOICE_DISCOUNT.md](DISTRIBUTED_INVOICE_DISCOUNT.md).
+
 Increment215 shares final group VAT arithmetic at four active Sales calculators,
 retaining source/category/rate and per-line behavior.176 new cases and10,105
 selected cases verify explicit financial changes, exact originals and source

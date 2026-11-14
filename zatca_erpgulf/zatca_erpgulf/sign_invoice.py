@@ -77,6 +77,7 @@ from zatca_erpgulf.zatca_erpgulf.createxml import (
     xml_tags,
     salesinvoice_data,
     _use_line_net_amounts_discount_model,
+    _has_erp_distributed_discount,
     add_document_level_discount_with_tax_template,
     add_document_level_discount_with_tax,
     company_data,
@@ -1349,7 +1350,14 @@ def zatca_background(invoice_number, source_doc, bypass_background_check=False):
                 )
             )
 
-        if len(tax_categories) > 1 and base_discount_amount > 0:
+        if (
+            len(tax_categories) > 1
+            and base_discount_amount > 0
+            and (
+                sales_invoice_doc.custom_zatca_nominal_invoice == 1
+                or not _has_erp_distributed_discount(sales_invoice_doc)
+            )
+        ):
             frappe.throw(
                 _(
                     "As per ZATCA regulations, ZATCA does not respond for multiple items with multiple tax categories"
@@ -1789,7 +1797,14 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
                     " by unchecking 'Submit Line Item Discount to ZATCA'."
                 )
             )
-        if len(tax_categories) > 1 and base_discount_amount > 0:
+        if (
+            len(tax_categories) > 1
+            and base_discount_amount > 0
+            and (
+                sales_invoice_doc.custom_zatca_nominal_invoice == 1
+                or not _has_erp_distributed_discount(sales_invoice_doc)
+            )
+        ):
             frappe.throw(
                 _(
                     "As per ZATCA regulations, ZATCA does not respond for multiple items with multiple tax categories "

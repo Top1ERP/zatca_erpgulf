@@ -111,6 +111,29 @@ def _use_line_net_amounts_discount_model(sales_invoice_doc):
     return has_line_level_discount_effect and abs(total_gross - total_net) > 0.000001
 
 
+def _has_erp_distributed_discount(sales_invoice_doc):
+    """Require ERP allocation evidence before relaxing mixed-category checks.
+
+    Use final line nets as amounts. The distribution marker proves presence
+    only: v15/v16 rounding adjustments can produce different marker values.
+    Neither a custom flag nor tax-inclusive prices alone prove allocation.
+    Cash/non-trade Grand Total discounts have a separate native workflow.
+    """
+    if not _has_document_discount(sales_invoice_doc):
+        return False
+    if (getattr(sales_invoice_doc, "apply_discount_on", None) == "Grand Total"
+            and getattr(sales_invoice_doc, "is_cash_or_non_trade_discount", False)):
+        return False
+    items = list(getattr(sales_invoice_doc, "items", []) or [])
+    net_field = "base_net_amount" if sales_invoice_doc.currency == "SAR" else "net_amount"
+    if not items or any(getattr(item, net_field, None) is None for item in items):
+        return False
+    return (
+        any(_abs_rounded(getattr(item, "distributed_discount_amount", 0), 6) > 0 for item in items)
+        and _use_line_net_amounts_discount_model(sales_invoice_doc)
+    )
+
+
 
 def _get_or_create_sales_invoice_uuid(sales_invoice_doc):
     """

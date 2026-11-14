@@ -1,0 +1,22 @@
+{
+  "15": {
+    "commit": "572d8530b6258231e31f294474cc1818f693d10b",
+    "file_sha256": "9ee39618ab4407de8b6222dfd531f7ab29ca6a14f7ce159dd12c6a12eb2da4f8",
+    "methods": {
+      "_set_in_company_currency": "27d3957da6264fa6b53e6fed5812091f1ee0858cde2ddf110f6af5f6fc67489d",
+      "calculate_net_total": "c2a420a034ce626fbc4888c5039a5840414628a4339c0884e6b1301c60775ed8",
+      "apply_discount_amount": "3c32ff18294c46a6167cdc846a2f5981b653a26dae95593286174223940829bf",
+      "get_total_for_discount_amount": "97c22fa8e49cbd4623451d99e30db7f17ee21e81c601b5f6f86083bceb8be060"
+    }
+  },
+  "16": {
+    "commit": "ade850bbd6a7412e9994a9637d2c5c713771632a",
+    "file_sha256": "b50607b8b7891a5e82542fe36bd61a3342d2995a1faf103a21cae8554056f5aa",
+    "methods": {
+      "_set_in_company_currency": "27d3957da6264fa6b53e6fed5812091f1ee0858cde2ddf110f6af5f6fc67489d",
+      "calculate_net_total": "c2a420a034ce626fbc4888c5039a5840414628a4339c0884e6b1301c60775ed8",
+      "apply_discount_amount": "50baf3d13a3afaa4a32774ca7c139541b978b20d4041bd8477da4acde8d7008e",
+      "get_total_for_discount_amount": "97c22fa8e49cbd4623451d99e30db7f17ee21e81c601b5f6f86083bceb8be060"
+    }
+  }
+}
