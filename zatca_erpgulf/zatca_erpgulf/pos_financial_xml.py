@@ -1,4 +1,4 @@
-"""POS XML from recorded ERP nets, with one explicit VAT account.
+"""POS XML from recorded ERP nets and explicitly scoped VAT accounts.
 
 This adapter never recalculates an ERP invoice or distributes its discount.
 Only optional gross-unit-price presentation removes included VAT. The recorded
@@ -15,6 +15,9 @@ import xml.etree.ElementTree as ET
 import frappe
 
 from zatca_erpgulf.ksa_compliance.vat_math import vat_from_group
+from zatca_erpgulf.ksa_compliance.account_tax_rates import (
+    AccountTaxRateError, index_item_account_rates,
+)
 from zatca_erpgulf.zatca_erpgulf import create_xml_final_part as lines
 from zatca_erpgulf.zatca_erpgulf import xml_tax_data as totals
 
@@ -25,7 +28,9 @@ CATEGORIES = {
     "Services outside scope of tax / Not subject to VAT",
 }
 REVIEW = "POS XML requires review before generation: {0}"
-UNSUPPORTED = "Use one explicit VAT account charged on net total; other tax roles require a separate review."
+UNSUPPORTED = "The POS VAT account sources are ambiguous or use unsupported tax roles. Review the tax rows and item templates."
+ACCOUNT_SOURCE = "The POS item tax sources do not match their declared VAT accounts. Review item templates and native tax details."
+ACCOUNT_AMOUNTS = "Recorded POS VAT amounts do not match their declared accounts. Review the tax rows after discount."
 RECALCULATE = "Recorded POS totals do not match the final line nets and VAT groups. Review the invoice calculation and rounding settings."
 MISSING = "Final POS amounts, quantities or VAT classification are missing or invalid. Recalculate and review the invoice."
 SPECIAL = "This POS discount or nominal transaction needs a separate fiscal calculation review."
@@ -109,6 +114,7 @@ class PosLine:
     category: str
     reason: str | None
     template: object | None
+    account: str
     gross_price: Decimal | None
 
 
@@ -127,8 +133,9 @@ class PosFinancials:
 def prepare_pos_financials(doc, *, has_template, get_doc, read_rate):
     """Read source metadata once per call and validate a complete ordinary POS.
 
-    Different VAT percentages on items are supported on the same VAT account.
-    Multiple tax accounts are deliberately not interpreted as multiple VAT rates.
+    Item templates may declare one VAT account per item across several invoice
+    accounts. Native per-account rates and after-discount amounts must agree.
+    Other multi-account sources remain ambiguous and are not summed as VAT.
     Native v15/v16 detail readers select rates; neither JSON nor child-table
     amounts override recorded net fields. Copies/views never mutate ERP rows.
     """
@@ -143,12 +150,17 @@ def prepare_pos_financials(doc, *, has_template, get_doc, read_rate):
             and not any(_number(item.get("distributed_discount_amount") or 0) != 0
                         for item in doc.items)):
         raise PosFinancialError("undistributed_discount", SPECIAL)
-    if len(doc.taxes or []) != 1:
+    taxes = doc.taxes or []
+    if not taxes or (len(taxes) > 1 and not has_template):
         raise PosFinancialError("tax_roles", UNSUPPORTED)
-    tax = doc.taxes[0]
-    if (tax.get("charge_type") != "On Net Total" or not tax.get("account_head")
-            or tax.get("add_deduct_tax") not in (None, "", "Add")):
-        raise PosFinancialError("tax_roles", UNSUPPORTED)
+    tax_by_account = {}
+    for tax in taxes:
+        account = tax.get("account_head")
+        if (tax.get("charge_type") != "On Net Total" or not isinstance(account, str)
+                or not account or account in tax_by_account
+                or tax.get("add_deduct_tax") not in (None, "", "Add")):
+            raise PosFinancialError("tax_roles", UNSUPPORTED)
+        tax_by_account[account] = tax
     company = get_doc("Company", doc.company)
     company_currency = doc.get("company_currency") or company.get("default_currency")
     if company_currency and company_currency != "SAR":
@@ -177,12 +189,15 @@ def prepare_pos_financials(doc, *, has_template, get_doc, read_rate):
                 templates[name] = get_doc("Item Tax Template", name)
             template = templates[name]
             if (len(template.taxes or []) != 1
-                    or template.taxes[0].get("tax_type") != tax.account_head):
+                    or not isinstance(template.taxes[0].get("tax_type"), str)
+                    or template.taxes[0].get("tax_type") not in tax_by_account):
                 raise PosFinancialError("tax_roles", UNSUPPORTED)
+            tax = tax_by_account[template.taxes[0].tax_type]
             rate = _quantized(template.taxes[0].tax_rate)
             source = template
         else:
             template = None
+            tax = taxes[0]
             selected = read_rate(doc, item, default=None)
             rate = _quantized(tax.rate if selected is None else selected)
             source = category_source
@@ -198,8 +213,8 @@ def prepare_pos_financials(doc, *, has_template, get_doc, read_rate):
             raise PosFinancialError("unit_price_precision", MISSING)
         gross = None
         if show_discount:
-            # Single On Net Total VAT is the only accepted inclusive-price
-            # fraction here. This affects presentation, never line net/VAT.
+            # One applicable On Net Total VAT account per item is enforced
+            # before emission. This affects presentation, never line net/VAT.
             raw = next((item.get(field) for field in
                 ("rate_with_margin", "price_list_rate", "rate")
                 if item.get(field) is not None and _number(item.get(field)) != 0), 0)
@@ -207,7 +222,8 @@ def prepare_pos_financials(doc, *, has_template, get_doc, read_rate):
             if _flag(tax, "included_in_print_rate"):
                 gross /= 1 + rate / 100
             gross = _quantized(gross, price=True)
-        rows.append(PosLine(item, net, price, rate, category, reason, template, gross))
+        rows.append(PosLine(item, net, price, rate, category, reason, template,
+                            tax.account_head, gross))
         key = category, rate, reason
         if any(previous[:2] == key[:2] and previous[2] != reason for previous in groups):
             raise PosFinancialError("conflicting_exemptions", MISSING)
@@ -217,6 +233,8 @@ def prepare_pos_financials(doc, *, has_template, get_doc, read_rate):
     for bucket in groups.values():
         bucket["taxable_amount"] = totals.q2(bucket["taxable_amount"])
         bucket["tax_amount"] = vat_from_group(bucket["taxable_amount"], bucket["tax_rate"])
+    if len(taxes) > 1:
+        _reconcile_vat_accounts(doc, rows, tax_by_account, sign)
     net = sum((row.net for row in rows), ZERO)
     vat = sum((row["tax_amount"] for row in groups.values()), ZERO)
     rounding_disabled = _rounding_disabled(doc)
@@ -235,6 +253,59 @@ def prepare_pos_financials(doc, *, has_template, get_doc, read_rate):
         raise PosFinancialError("reconciliation", RECALCULATE, "; ".join(mismatches))
     return PosFinancials(doc, tuple(rows), tuple(groups.values()), net, vat, accounting_vat,
                          rounding, show_discount)
+
+
+def _reconcile_vat_accounts(doc, prepared_lines, tax_by_account, sign):
+    """Validate the new multi-account scope before any financial XML output.
+
+    Each template declares one VAT role. Every invoice tax account must be used;
+    no unclassified freight/retention row is dropped, including zero rows.
+    Other accounts must have native zero rates for that physical item. Ledger
+    accounts are reconciled separately; XML still groups by category/rate only.
+    Existing single-account behavior and legacy native readers stay unchanged.
+    """
+    if {line.account for line in prepared_lines} != set(tax_by_account):
+        raise PosFinancialError("tax_roles", UNSUPPORTED)
+    try:
+        native = index_item_account_rates(doc)
+    except AccountTaxRateError as error:
+        raise PosFinancialError("account_source", ACCOUNT_SOURCE, str(error)) from None
+    issues, groups = [], {}
+    for line in prepared_lines:
+        for account in tax_by_account:
+            actual = _quantized(native.rate(line.source, account))
+            expected = line.rate if line.account == account else ZERO
+            if actual != expected:
+                issues.append(f"item {line.source.idx}, account {account}: native rate={actual}, template rate={expected}")
+        key = line.account, line.category, line.rate, line.reason
+        groups[key] = groups.get(key, ZERO) + line.net
+    if issues:
+        raise PosFinancialError("account_rate_mismatch", ACCOUNT_SOURCE, "; ".join(issues))
+
+    expected_tax = dict.fromkeys(tax_by_account, ZERO)
+    for (account, _category, rate, _reason), net in groups.items():
+        expected_tax[account] += vat_from_group(net, rate)
+    observed_doc, observed_base = ZERO, ZERO
+    for account, tax in tax_by_account.items():
+        document_tax = _amount(tax, "tax_amount_after_discount_amount") * sign
+        base_tax = _amount(tax, "base_tax_amount_after_discount_amount") * sign
+        if document_tax != expected_tax[account]:
+            issues.append(f"account {account}: ERP tax={document_tax}, XML tax={expected_tax[account]}")
+        if base_tax < 0 or (doc.currency == "SAR" and base_tax != expected_tax[account]):
+            issues.append(f"account {account}: ERP base tax={base_tax}, document tax={expected_tax[account]}")
+        observed_doc += document_tax
+        observed_base += base_tax
+    if observed_doc != _amount(doc, "total_taxes_and_charges") * sign:
+        issues.append("sum of after-discount account taxes differs from recorded document VAT")
+    # Native calculate_totals converts the whole VAT total independently.
+    # In foreign currency its rounded base header can differ from the sum of
+    # individually converted account rows. Do not replace or reject that
+    # recorded header through a second rounding policy here.
+    if (doc.currency == "SAR"
+            and observed_base != _amount(doc, "base_total_taxes_and_charges") * sign):
+        issues.append("sum of after-discount base account taxes differs from recorded accounting VAT")
+    if issues:
+        raise PosFinancialError("account_amount_mismatch", ACCOUNT_AMOUNTS, "; ".join(issues))
 
 
 def append_pos_totals(invoice, financials):

@@ -1,6 +1,28 @@
 # Implementation status — 2026-11-14
 
 
+## Latest declared POS VAT-account scope — increment218
+
+Several POS VAT accounts are now supported when each item template explicitly
+owns one account and all invoice tax accounts are covered. A pure native rate
+index uses v15 account maps/invoice rates or exact v16 physical item/tax pairs;
+zero observations are retained, and unknown/partial/duplicate sources fail.
+Per-account after-discount DOC amounts and their document sum reconcile before
+financial XML emission. XML groups remain category/rate groups across accounts.
+Mixed inclusion flags use each item's own VAT row. Generic legacy rate readers
+and all Sales/advance financial builders are unchanged.
+
+Native total-conversion probes preserve the recorded foreign SAR VAT header:
+101.25 remains101.25 even when separately rounded account rows sum101.26 or101.24.
+No second FX conversion, rounding tolerance or financial repair is added.
+Validation:11,669 distinct offline cases across55 suites,842 new. All80 prior
+POS examples retain emitted bytes or rejection codes; original240 results remain
+91 identical/117 changed/32 blocked. A new split-account example changes original
+210 to ERP220;217 previously rejected it. Debug UI:88 cases; four other UI suites
+pass. Manifest189 local/57 private; no tenant SQL/live/authority API action.
+Full native lifecycle, installed16, SDK, trusted provenance and rehearsal gates
+remain. See [POS_VAT_ACCOUNTS.md](POS_VAT_ACCOUNTS.md).
+
 ## Latest POS final-net financial migration — increment217
 
 Ordinary POS Invoice tax/line/monetary builders now share a complete final-net

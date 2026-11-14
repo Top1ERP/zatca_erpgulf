@@ -17,6 +17,24 @@ pilot/rollout. API sending needs separate explicit authority changing the ban.
 See [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md); it supersedes any older
 operational request or less restrictive deployment wording in historical records.
 
+## Declared POS VAT-account adoption — increment218
+
+Extend the financial adapter to several VAT accounts only when single-row item
+templates declare one account per item and native account-specific rates plus
+recorded after-discount account amounts corroborate scope. Bind v16 references
+to actual tax-child names; do not sum generic rates or infer VAT from Tax account
+eligibility. Keep the original single-account outputs and rejection codes frozen.
+Preserve native independent foreign-header conversion and reject cross-account
+rounding inconsistencies without silently modifying invoice or XML amounts.
+
+This covers separate declared VAT accounts across items. Multi-row item
+templates, invoice-level multi-account roles, non-VAT charge/deduction tax bases
+and omitted/not-applicable v16 pairs still need explicit policy. Continue broader
+Sales/advance reconciliation and trusted source/settings/transaction integration
+before installed lifecycle, SDK and fictional-client rehearsal. No working-site
+or authority API action is authorized. See
+[POS_VAT_ACCOUNTS.md](POS_VAT_ACCOUNTS.md).
+
 ## POS final-net adoption scope — increment217
 
 Ordinary POS Invoice financial builders now delegate coherently to final ERP

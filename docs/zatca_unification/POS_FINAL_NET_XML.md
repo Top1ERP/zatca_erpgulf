@@ -6,6 +6,11 @@ ordinary **POS Invoice** financial builders. Sales Invoice with `is_pos`,
 advance-payment tails, Phase-1 QR, signing algorithms, credentials and supplied
 external XML retain their existing implementations.
 
+This is the historical217 scope. [Increment218](POS_VAT_ACCOUNTS.md) now also
+supports separate accounts explicitly owned by single-row item templates, with
+account-scoped native and monetary checks. Its restrictions and FX notes
+supersede the single-invoice-account restriction below;217 counts stay historical.
+
 ## Result and ownership
 
 `pos_financial_xml.py` prepares a complete financial view before appending tax,

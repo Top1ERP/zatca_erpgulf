@@ -447,6 +447,9 @@ function zatca_debug_summary(value, context) {
     messages.set('Recorded POS totals do not match the final line nets and VAT groups. Review the invoice calculation and rounding settings.', __('Recorded POS totals do not match the final line nets and VAT groups. Review the invoice calculation and rounding settings.'));
     messages.set('Final POS amounts, quantities or VAT classification are missing or invalid. Recalculate and review the invoice.', __('Final POS amounts, quantities or VAT classification are missing or invalid. Recalculate and review the invoice.'));
     messages.set('This POS discount or nominal transaction needs a separate fiscal calculation review.', __('This POS discount or nominal transaction needs a separate fiscal calculation review.'));
+    messages.set('The POS VAT account sources are ambiguous or use unsupported tax roles. Review the tax rows and item templates.', __('The POS VAT account sources are ambiguous or use unsupported tax roles. Review the tax rows and item templates.'));
+    messages.set('The POS item tax sources do not match their declared VAT accounts. Review item templates and native tax details.', __('The POS item tax sources do not match their declared VAT accounts. Review item templates and native tax details.'));
+    messages.set('Recorded POS VAT amounts do not match their declared accounts. Review the tax rows after discount.', __('Recorded POS VAT amounts do not match their declared accounts. Review the tax rows after discount.'));
     const success = zatca_debug_succeeded(response);
     const skipped = response.status === "skipped" && [
         "Debug XML was skipped for an intra-company transfer. The invoice was not changed.",

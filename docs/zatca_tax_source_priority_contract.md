@@ -1,6 +1,6 @@
 # ZATCA tax-source priority contract
 
-Current development contract, reviewed at increment212 on 2026-11-14. It replaces
+Current development contract, reviewed through increment218 on 2026-11-14. It replaces
 older prose that incorrectly placed Sales Taxes and Charges Template values above
 explicit invoice values. The original five tests already required invoice-first
 behavior; their bodies are preserved. See the scope map and remaining work in
@@ -63,10 +63,14 @@ read/fallback mechanics to `tax_details.resolve_non_template_tax_rate`:
 Ordinary Sales subtotals use the invoice/template fallback above. Plain Sales
 item-category nodes currently read the invoice category directly. Nominal plain
 subtotals use the invoice category or Standard and the invoice reason; they do
-not perform that template fallback. POS plain item/summary paths also have their
-own direct invoice-field policies. Sharing the rate helper does not change those
-category sources, nominal OOS-offset behavior, POS totals or advance references.
-Do not assume this ordinary-subtotal contract applies to every XML node.
+not perform that template fallback. POS ordinary financial XML now uses the
+217 adapter's consistent invoice/template fallback and final ERP nets. Its218
+multiple-account branch requires one explicit template VAT account per item,
+complete account coverage and native per-account rate observations before
+account/total reconciliation. This does not change the older generic rate API
+or make every XML node/source policy universal. Nominal OOS-offset behavior and
+advance references retain their separate rules. See
+[POS_VAT_ACCOUNTS.md](zatca_unification/POS_VAT_ACCOUNTS.md).
 
 Non-standard-category reason and category/rate validators retain their existing
 settings, rules and localized display behavior. The shared helper adds no rule,

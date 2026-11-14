@@ -5,6 +5,23 @@ development. They are part of the release scope, not optional work deferred
 until after the fictional-client rehearsal. Apply the same development-only
 and no-authority-request restrictions as [PLAN.md](PLAN.md).
 
+## Account-specific native source evidence — increment218
+
+The new pure index reads native physical item/account rates once per preparation,
+without framework calls, role heuristics, unused amount reads or cross-request
+cache. One200-detail probe observes600 item/tax/rate field gets and no subsequent
+rescan. This is an access invariant, not a SQL/CPU/latency benchmark. The index
+is adopted only by the new declared multiple-account POS branch.
+
+11,669 distinct offline cases across55 suites include842 new.80 frozen217 POS
+comparisons preserve XML or error codes; the original240-case oracle is separate
+and unchanged. Per-account reconciliation catches offsetting errors; native15/16
+primary-method probes protect foreign header-vs-row conversion boundaries under
+Commercial and Banker's Rounding.88 Debug message cases verify translated view
+keys and unchanged diagnostics. Native16 is pinned-source evidence; installed
+lifecycle, complete fiscal/XML/GL and rehearsal acceptance remain required. See
+[POS_VAT_ACCOUNTS.md](POS_VAT_ACCOUNTS.md).
+
 ## POS consolidation evidence — increment217
 
 The ordinary POS legacy calculation bodies are replaced by compatibility

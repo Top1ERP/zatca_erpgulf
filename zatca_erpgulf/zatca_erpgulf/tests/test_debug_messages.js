@@ -15,6 +15,10 @@ const existing = "Existing XML/QR was found. A separate debug XML will be genera
 const denied = "You do not have permission to create a debug XML attachment for this invoice.";
 const review = "Debug XML attachment could not be confirmed. Review the source and existing files before retrying.";
 const financial = [
+    'The POS VAT account sources are ambiguous or use unsupported tax roles. Review the tax rows and item templates.',
+    'The POS item tax sources do not match their declared VAT accounts. Review item templates and native tax details.',
+    'Recorded POS VAT amounts do not match their declared accounts. Review the tax rows after discount.',
+
     "Use one explicit VAT account charged on net total; other tax roles require a separate review.",
     "Recorded POS totals do not match the final line nets and VAT groups. Review the invoice calculation and rounding settings.",
     "Final POS amounts, quantities or VAT classification are missing or invalid. Recalculate and review the invoice.",
