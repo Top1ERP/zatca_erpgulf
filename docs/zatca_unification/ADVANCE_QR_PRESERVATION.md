@@ -1,5 +1,10 @@
 # Non-destructive advance QR print hook — increment 37
 
+Increment224 adds the third Arabic alias and a translated seller review, and
+blocks Phase1 generation for explicit Phase2 independently of enablement. A
+fresh phase check follows the earlier cached gate. Other preservation/eligibility
+and monetary behavior remains; see [PARTY_NAME_SOURCES.md](PARTY_NAME_SOURCES.md).
+
 Increment198 replaces this hook's local TLV assembly with the same pure
 five-tag serializer used by ordinary Phase-1 Sales/POS QR. Existing two-decimal
 amounts, name fallback, gates and preservation/transaction behavior remain.

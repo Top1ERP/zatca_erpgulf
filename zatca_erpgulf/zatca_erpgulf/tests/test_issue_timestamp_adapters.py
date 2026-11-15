@@ -130,6 +130,7 @@ def local_qr(monkeypatch):
     file = Document(file_url="/files/SYNTHETIC-QR.png", save=Mock())
     runtime = SimpleNamespace(get_all=Mock(return_value=[]), get_doc=Mock(return_value=file),
         get_cached_doc=Mock(return_value=company), log_error=Mock(), get_meta=Mock(return_value=SimpleNamespace(
+            get_field=lambda name: SimpleNamespace(fieldname=name),
             get_image_fields=lambda: [SimpleNamespace(fieldname="ksa_einv_qr")])), throw=fail,
         db=SimpleNamespace(exists=Mock(return_value=False), get_value=Mock(return_value=company.tax_id),
                            set_value=Mock(), commit=Mock()), delete_doc=Mock())
@@ -141,6 +142,7 @@ def local_qr(monkeypatch):
     monkeypatch.setattr(qr_timestamp, "_", lambda message: message)
     monkeypatch.setattr(create_qr, "frappe", runtime)
     monkeypatch.setattr(create_qr, "get_region", lambda name: "Saudi Arabia")
+    monkeypatch.setattr(create_qr, "resolve_zatca_phase", lambda doc: "Phase-1")
     monkeypatch.setattr(create_qr, "get_company_arabic_name", lambda name: company.company_name_in_arabic)
     monkeypatch.setattr(create_qr, "qr_create", image)
     monkeypatch.setattr(create_qr, "_", lambda text: text)

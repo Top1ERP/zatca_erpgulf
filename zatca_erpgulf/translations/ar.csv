@@ -879,3 +879,4 @@ The declared VAT source needs a confirmed company currency before foreign-curren
 The invoice currency context could not be confirmed with its Company. Review the Company currency and any invoice currency override.,تعذر تأكيد بيانات عملة الفاتورة مع شركتها. راجع عملة الشركة وأي تجاوز لعملة الشركة في الفاتورة.
 The invoice rounding controls could not be verified. Recalculate the invoice and review its rounding settings.,تعذر التحقق من إعدادات تقريب الفاتورة. أعد احتساب الفاتورة وراجع إعدادات التقريب.
 "The QR amounts could not be verified. Review the invoice totals, currency and tax amounts before generating the QR code.",تعذر التحقق من مبالغ رمز QR. راجع إجمالي الفاتورة وعملتها ومبالغ الضريبة قبل إنشاء الرمز.
+The Company seller details are incomplete. Review the Arabic name and Tax ID before generating the ZATCA QR code.,بيانات البائع في الشركة غير مكتملة. راجع الاسم العربي والرقم الضريبي قبل إنشاء رمز QR الخاص بفاتورة زاتكا.

@@ -1,5 +1,48 @@
 # Implementation status — 2026-11-16
 
+## Party display sources and Phase1 QR boundaries — increment224
+
+One registry now owns Company/Customer display alias order separately from the
+unchanged schema-first aliases. Shared pure name selection, normalization/script
+and ordered duplicate filtering retain Sales/POS/QR blank and comparison rules;
+existing wrappers and runtime comparison overrides remain. Ordinary Phase1 QR
+uses one loaded Company for name/VAT. Eligible initial advances now read the
+third Arabic alias before their existing English fallback. One translated seller
+review and one English missing-field diagnostic replace separate source errors.
+
+Explicit Phase2 blocks local Phase1 substitution independently of enablement,
+both in ordinary generation and the advance print hook. The advance's cached
+phase gate is followed by a fresh phase check, so cached Phase1 cannot override
+fresh Phase2. Blank/unknown phase and schema-first alias priority remain; no
+universal phase/enablement/ACL or immutable source snapshot is claimed. Existing
+owned QR, final-invoice print, advance/schema/amount gates and transactions remain.
+
+364 new cases include96 real reference/party/payment XML byte comparisons,
+36 old/new QR tag comparisons,48 canonical phase/enablement cases,4 cache/fresh
+disagreements, localized source failures and compatibility/Unicode/lazy reads.
+Focused440 (364 new +76 existing source-gap cases) pass. The final guarded broad
+run passes15,710 cases across65 reviewed suites in82.66s, including364 new.
+Six browser suites pass1,200 synthetic cases. Manifest196 local/57 private;
+no whole-manifest/private-SQL run. The first broad run found three stale223
+amount expectations in the added source-gap suite; they now assert saved11.50,
+while frozen money and original financial oracles remain independent. Earlier
+new-suite fixture faults (missing historical imports, prefixed ElementTree path,
+an inherited reader mock) were corrected without changing runtime policy.
+
+Structural audit preserves25 earlier Python reference fixtures,349 other tracked
+runtime files and the entire old schema registry (SHA unchanged). Company/customer
+XML builder bodies, every financial calculator, signing and API/counter functions
+are unchanged. Original240 remains91 identical/117 changed/32 blocked. No new
+monetary delta; the intentional new tag change is the advance's third-alias name.
+Only a blank-line formatting change followed the broad run; ASTs are unchanged.
+Logs: `/tmp/zatca-party-names-224-regression-final.log`,
+`/tmp/zatca-party-names-224-focused-final.log`; structural report:
+`/tmp/zatca-party-names-224-structure.json`. See
+[PARTY_NAME_SOURCES.md](PARTY_NAME_SOURCES.md). No live/configuration/schema,
+tenant SQL, restart or authority API operation. Full source/credential/transaction
+custody, fiscal/GL/precision/settlement, installed15/16, SDK/scanner and separately
+approved fictional-client rehearsal remain release gates.
+
 
 ## QR monetary source alignment — increment223
 

@@ -17,6 +17,21 @@ pilot/rollout. API sending needs separate explicit authority changing the ban.
 See [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md); it supersedes any older
 operational request or less restrictive deployment wording in historical records.
 
+## Party names and explicit Phase2 QR protection — increment224
+
+Share display alias metadata and pure name mechanics while retaining each
+caller's compatibility policy. Bind ordinary QR name/VAT to one loaded Company,
+support the third Arabic alias in initial advances, and consolidate seller
+review display/logging. Prevent explicit Phase2 from producing Phase1 QR even
+when disabled, checking fresh advance Company phase after cached eligibility.
+Record Tag1 changes separately from monetary parity and preserved artifacts.
+
+Next review remaining blank/unknown phase and strict-name/VAT identity policy,
+source/settings/credential/transaction custody, Phase1 final settlement/precision,
+VAT roles and full GL/fiscal behavior. Installed15/16 lifecycle, SDK/scanner and
+separately approved fictional-client rehearsal remain mandatory. Do not activate
+or send from working sites. See [PARTY_NAME_SOURCES.md](PARTY_NAME_SOURCES.md).
+
 ## QR monetary source adoption — increment223
 
 Keep Phase2 BT-115 based on SDK/developer clarification; bind Tag5 to unique

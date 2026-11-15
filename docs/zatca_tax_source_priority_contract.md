@@ -1,10 +1,15 @@
 # ZATCA tax-source priority contract
 
-Current development contract, reviewed through increment223 on 2026-11-16. It replaces
+Current development contract, reviewed through increment224 on 2026-11-16. It replaces
 older prose that incorrectly placed Sales Taxes and Charges Template values above
 explicit invoice values. The original five tests already required invoice-first
 behavior; their bodies are preserved. See the scope map and remaining work in
 [NON_TEMPLATE_TAX_RATE.md](zatca_unification/NON_TEMPLATE_TAX_RATE.md).
+
+Increment224 changes party display-source mechanics and explicit Phase2 QR
+eligibility, without changing this contract's tax/monetary sources or calculators.
+Display alias fallback remains separate from schema-first settings priority; see
+[PARTY_NAME_SOURCES.md](zatca_unification/PARTY_NAME_SOURCES.md).
 
 ## QR amounts are a separate projection — increment223
 

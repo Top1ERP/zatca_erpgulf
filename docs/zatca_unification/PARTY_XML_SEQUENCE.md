@@ -1,5 +1,11 @@
 # Shared invoice reference and party sequence — increment199
 
+Increment224 shares Company/Customer display alias metadata and name mechanics
+without changing this sequence or its actual company/customer XML builder bodies.
+96 real reference/party/payment compositions retain parent bytes. Existing
+Sales/POS blank and comparison policies remain distinct; see
+[PARTY_NAME_SOURCES.md](PARTY_NAME_SOURCES.md).
+
 Increment200 additionally shares the following allowance/tax composition while
 preserving nominal read timing, actual builder algorithms and caller-owned
 item/advance selection. See [DOCUMENT_TAX_SEQUENCE.md](DOCUMENT_TAX_SEQUENCE.md).

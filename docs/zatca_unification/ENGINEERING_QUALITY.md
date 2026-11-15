@@ -5,6 +5,24 @@ development. They are part of the release scope, not optional work deferred
 until after the fictional-client rehearsal. Apply the same development-only
 and no-authority-request restrictions as [PLAN.md](PLAN.md).
 
+## Shared name mechanics without hidden output changes — increment224
+
+Move rendering order into the existing alias registry without changing schema
+priority or captured observation fields. Shared pure mechanics remove duplicate
+selection/normalization/filtering loops; existing Sales/POS wrappers retain their
+different blank, vocabulary and similarity policies and comparison overrides.
+Ordinary QR uses one Company object for seller name/VAT; no per-alias SQL is
+needed for those values. This is a source-read bound, not a latency benchmark or
+atomic settings snapshot. Conservative cached/fresh phase guards prevent an
+explicit Phase2 from authorizing a Phase1 substitute.
+
+Frozen parent source and96 real party XML comparisons accompany the explicit
+initial-advance third-alias Tag1 change. Monetary builders, signing and earlier
+oracles stay unchanged; missing seller fields share a localized result and one
+English diagnostic. Blank/strict legal names, universal phase/source custody,
+installed lifecycle and regulatory acceptance remain open. See
+[PARTY_NAME_SOURCES.md](PARTY_NAME_SOURCES.md).
+
 ## Read-only QR monetary sources — increment223
 
 One framework-free scalar/XML projection serves Phase1 Sales/POS/initial advances

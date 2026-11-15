@@ -12,9 +12,10 @@ for ZATCA and provides support for multiple currencies (SAR and USD).
 
 import xml.etree.ElementTree as ET
 import uuid
-import re
-import unicodedata
 from difflib import SequenceMatcher
+from zatca_erpgulf.ksa_compliance.party_names import (
+    display_aliases, first_available_name, normalize_name, unique_names,
+)
 import json
 from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
 from zatca_erpgulf.zatca_erpgulf.nonproduction import preview_invoice_uuid
@@ -63,23 +64,15 @@ def get_icv_code(invoice_number):
 
 # ===== NAME HELPERS =====
 def _first_available_value(doc, fieldnames):
+    """Compatibility wrapper retaining POS' truthy-before-strip policy."""
     meta = frappe.get_meta(doc.doctype)
-    for fieldname in fieldnames:
-        if meta.get_field(fieldname):
-            value = getattr(doc, fieldname, None)
-            if value:
-                return str(value).strip()
-    return ""
-
-
-_NAME_NOISE_WORDS = {"company", "co", "ltd", "llc", "corp", "inc", "شركة", "مؤسسة"}
+    return first_available_name(fieldnames, has_field=meta.get_field,
+        read=lambda name: getattr(doc, name, None), mode="pos")
 
 
 def _normalize_name(val):
-    val = unicodedata.normalize("NFKD", str(val)).lower()
-    val = re.sub(r"[^\w\s؀-ۿ]", " ", val)
-    tokens = [t for t in val.split() if t not in _NAME_NOISE_WORDS]
-    return " ".join(tokens)
+    """Comparison-only normalization with the original POS noise vocabulary."""
+    return normalize_name(val, mode="pos")
 
 
 def _similar(a, b):
@@ -91,38 +84,18 @@ def _similar(a, b):
 
 
 def _unique(names):
-    out = []
-    for n in names:
-        if not n:
-            continue
-        if any(_similar(n, x) for x in out):
-            continue
-        out.append(n)
-    return out
+    """Retain POS' comparison hook, input text and ordering."""
+    return unique_names(names, similar=_similar, clean=False)
 
 
 def _company_names(doc):
-    ar = _first_available_value(
-        doc,
-        [
-            "company_name_in_arabic",
-            "custom_company_name_in_arabic",
-            "custom__company_name_in_arabic__",
-        ],
-    )
+    ar = _first_available_value(doc, display_aliases("company_arabic_name"))
     en = str(getattr(doc, "company_name", "")).strip()
     return _unique([ar, en])
 
 
 def _customer_names(doc):
-    ar = _first_available_value(
-        doc,
-        [
-            "customer_name_in_arabic",
-            "custom_customer_name_in_arabic",
-            "zatca_customer_name_in_arabic",
-        ],
-    )
+    ar = _first_available_value(doc, display_aliases("customer_arabic_name"))
     en = str(getattr(doc, "customer_name", "")).strip()
     return _unique([ar, en])
 

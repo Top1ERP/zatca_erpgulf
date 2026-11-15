@@ -1,5 +1,10 @@
 # QR monetary source alignment — increment223
 
+Increment224 retains this monetary policy and adds shared seller display sources
+and explicit Phase2 protection to the local Phase1 adapters. Its name/eligibility
+amendments supersede the corresponding historical statements below; see
+[PARTY_NAME_SOURCES.md](PARTY_NAME_SOURCES.md).
+
 Development only, 2026-11-16. Public static documentation/community discussions
 were read; no invoice, Compliance, CSID or other authority API was called. No
 working site, invoice/configuration/schema, Bench or worker was changed. Existing

@@ -5,9 +5,11 @@ Includes functions for XML parsing, API interactions, and custom handling.
 
 import re
 import uuid
-import unicodedata
 import xml.etree.ElementTree as ET
 from difflib import SequenceMatcher
+from zatca_erpgulf.ksa_compliance.party_names import (
+    display_aliases, first_available_name, normalize_name, script_type, unique_names,
+)
 from frappe import _
 import frappe
 from zatca_erpgulf.zatca_erpgulf.template_vat_source import DeclaredVatContext
@@ -391,50 +393,20 @@ def _is_export_invoice(sales_invoice_doc, customer_doc=None, address=None):
 
 
 def _first_available_value(doc, fieldnames):
-    """Return first non-empty value from the given field list when the field exists."""
+    """Compatibility wrapper retaining Sales' nonblank, stripped-name policy."""
     meta = frappe.get_meta(doc.doctype)
-    for fieldname in fieldnames:
-        if meta.get_field(fieldname):
-            value = getattr(doc, fieldname, None)
-            if value is not None:
-                value = str(value).strip()
-                if value:
-                    return value
-    return ""
-
-
-# Common corporate suffixes/noise to ignore in high-similarity comparison.
-_NAME_NOISE_WORDS = {
-    "company", "co", "co.", "corp", "corporation", "inc", "inc.", "ltd", "ltd.",
-    "llc", "llp", "est", "est.", "factory", "trading", "group", "holding", "holdings",
-    " المؤسسة", "شركة", "شركه", "مؤسسة", "مؤسسه", "محددودة", "محدودة", "ذ", "م", "م.",
-}
+    return first_available_name(fieldnames, has_field=meta.get_field,
+        read=lambda name: getattr(doc, name, None), mode="sales")
 
 
 def _normalize_name_for_similarity(value):
-    """Normalize text so cosmetic differences do not create duplicate PartyName entries."""
-    if not value:
-        return ""
-    value = unicodedata.normalize("NFKD", str(value)).lower().strip()
-    value = re.sub(r"[ـ]", "", value)
-    value = re.sub(r"[^\w\s؀-ۿ]", " ", value)
-    tokens = [token for token in value.split() if token and token not in _NAME_NOISE_WORDS]
-    return " ".join(tokens)
+    """Comparison-only normalization; displayed names keep their original text."""
+    return normalize_name(value, mode="sales")
 
 
 def _script_type(value):
-    """Return rough script bucket for text: arabic, latin, mixed, or other."""
-    if not value:
-        return "other"
-    has_arabic = bool(re.search(r"[؀-ۿ]", value))
-    has_latin = bool(re.search(r"[A-Za-z]", value))
-    if has_arabic and has_latin:
-        return "mixed"
-    if has_arabic:
-        return "arabic"
-    if has_latin:
-        return "latin"
-    return "other"
+    """Compatibility wrapper for the Sales cross-script comparison policy."""
+    return script_type(value)
 
 
 def _names_are_highly_similar(name1, name2, threshold=0.90):
@@ -464,42 +436,20 @@ def _names_are_highly_similar(name1, name2, threshold=0.90):
 
 
 def _deduplicate_names(names):
-    """Keep names in order, dropping blanks and near-duplicates."""
-    unique_names = []
-    for name in names:
-        clean_name = str(name or "").strip()
-        if not clean_name:
-            continue
-        if any(_names_are_highly_similar(clean_name, existing) for existing in unique_names):
-            continue
-        unique_names.append(clean_name)
-    return unique_names
+    """Retain Sales' comparison hook and cleaned ordered names."""
+    return unique_names(names, similar=_names_are_highly_similar, clean=True)
 
 
 def _get_company_display_names(company_doc, sales_invoice_doc=None):
-    """Return supplier names in preferred order: Arabic first, then English if distinct."""
-    arabic_name = _first_available_value(
-        company_doc,
-        [
-            "company_name_in_arabic",
-            "custom_company_name_in_arabic",
-            "custom__company_name_in_arabic__",
-        ],
-    )
+    """Return Arabic then distinct English, using the registered display order."""
+    arabic_name = _first_available_value(company_doc, display_aliases("company_arabic_name"))
     english_name = str(getattr(company_doc, "company_name", "") or getattr(sales_invoice_doc, "company", "") or "").strip()
     return _deduplicate_names([arabic_name, english_name])
 
 
 def _get_customer_display_names(customer_doc):
-    """Return customer names in preferred order: Arabic first, then English if distinct."""
-    arabic_name = _first_available_value(
-        customer_doc,
-        [
-            "customer_name_in_arabic",
-            "custom_customer_name_in_arabic",
-            "zatca_customer_name_in_arabic",
-        ],
-    )
+    """Return Arabic then distinct English, without changing buyer identity."""
+    arabic_name = _first_available_value(customer_doc, display_aliases("customer_arabic_name"))
     english_name = str(getattr(customer_doc, "customer_name", "") or "").strip()
     return _deduplicate_names([arabic_name, english_name])
 

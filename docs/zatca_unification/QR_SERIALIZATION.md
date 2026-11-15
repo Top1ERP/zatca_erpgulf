@@ -9,6 +9,11 @@ Increment223 adopts shared monetary source selection for new generation;
 [QR_MONETARY_SOURCES.md](QR_MONETARY_SOURCES.md) supersedes the historical amount
 policies below. The encoders themselves remain unchanged.
 
+Increment224 shares seller display sources and protects explicit Phase2 from
+local Phase1 substitution. It does not change the encoders or223 monetary policy.
+The eligible advance's third Arabic alias can change newly generated Tag1; see
+[PARTY_NAME_SOURCES.md](PARTY_NAME_SOURCES.md).
+
 ## Caller and policy map (historical198)
 
 | Caller | Values prepared by caller | Shared serializer | Existing final boundary |

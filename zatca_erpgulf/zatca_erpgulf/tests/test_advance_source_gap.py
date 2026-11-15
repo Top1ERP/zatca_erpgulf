@@ -148,7 +148,9 @@ def test_actual_mocked_phase1_builders_produce_no_invoice_identity_in_five_tags(
     generation_commit_count = runtime.db.commit.call_count
     found = gap.FiveTagQRObservation(payloads[0], SELLER)
     assert found.timestamp == "2026-09-27T06:05:42Z"
-    assert found.total_text == ("9.50" if route == "advance" else "11.5")
+    # Increment223 uses saved document gross in every Phase1 adapter. QR still
+    # contains no invoice ID/UUID/ICV and cannot supply a Phase2 advance source.
+    assert found.total_text == "11.50"
     assert gap.MissingAdvanceSourcePlan("PHASE1_QR_ONLY", "Phase-2", found).diagnostic_projection()["phase2_reference_ready"] is False
     # Increment 35 removes the ordinary builder's explicit commit. Neither the
     # generator nor the pure observation now owns the caller's transaction.

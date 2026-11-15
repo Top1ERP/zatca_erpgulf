@@ -20,6 +20,13 @@ FIELD_ALIAS_GROUPS = {
             "company_name_in_arabic",
             "custom__company_name_in_arabic__",
         ],
+        # Rendering historically prefers the native-style Arabic field.
+        # This is value fallback, unlike the schema-first `aliases` contract.
+        "display_aliases": [
+            "company_name_in_arabic",
+            "custom_company_name_in_arabic",
+            "custom__company_name_in_arabic__",
+        ],
     },
     "customer_arabic_name": {
         "doctype": "Customer",
@@ -27,6 +34,11 @@ FIELD_ALIAS_GROUPS = {
         "aliases": [
             "custom_customer_name_in_arabic",
             "customer_name_in_arabic",
+            "zatca_customer_name_in_arabic",
+        ],
+        "display_aliases": [
+            "customer_name_in_arabic",
+            "custom_customer_name_in_arabic",
             "zatca_customer_name_in_arabic",
         ],
     },

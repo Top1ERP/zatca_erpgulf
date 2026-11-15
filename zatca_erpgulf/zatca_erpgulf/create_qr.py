@@ -27,10 +27,12 @@ from pyqrcode import create as qr_create
 
 from erpnext import get_region
 from zatca_erpgulf.ksa_compliance.qr_amounts import QRAmountError, REVIEW, phase1_document_amounts
+from zatca_erpgulf.ksa_compliance.party_names import display_aliases, first_available_name
 from zatca_erpgulf.zatca_erpgulf.template_vat_source import fail_declared_vat
 
 from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country
 from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
+from zatca_erpgulf.zatca_erpgulf.zatca_runtime import PHASE_2_VALUE, resolve_zatca_phase
 from zatca_erpgulf.zatca_erpgulf.qr_encoding import (
     PHASE1_QR_VALUE_ERROR, Phase1QREncodingError, encode_phase1_qr,
 )
@@ -40,6 +42,7 @@ from zatca_erpgulf.zatca_erpgulf.qr_attachment_policy import (
 
 MISSING_QR_FIELD = "The KSA E-Invoicing QR field is missing. Complete the approved application setup before generating QR codes."
 QR_REVIEW_REQUIRED = "Stored QR attachments require review. No file was deleted, relinked or replaced by the QR generator."
+SELLER_REVIEW = "The Company seller details are incomplete. Review the Arabic name and Tax ID before generating the ZATCA QR code."
 
 
 def _persist_phase1_qr_metadata(doc, file_url):
@@ -60,26 +63,39 @@ def _persist_phase1_qr_metadata(doc, file_url):
 
 
 def get_company_arabic_name(company_name: str) -> str:
+    """Compatibility reader with the same display order and raw text policy.
+
+    Schema-first alias readers are deliberately different. This wrapper is not
+    used by the QR generator, which reads name and VAT from one loaded Company.
     """
-    Return company Arabic name using the required fallback order:
-    1. company_name_in_arabic
-    2. custom_company_name_in_arabic
-    3. custom__company_name_in_arabic__
-    """
+    company = frappe.get_doc("Company", company_name)
     meta = frappe.get_meta("Company")
-    fallback_fields = [
-        "company_name_in_arabic",
-        "custom_company_name_in_arabic",
-        "custom__company_name_in_arabic__",
-    ]
+    return first_available_name(display_aliases("company_arabic_name"),
+        has_field=meta.get_field, read=company.get, mode="qr")
 
-    for fieldname in fallback_fields:
-        if meta.get_field(fieldname):
-            value = frappe.db.get_value("Company", company_name, fieldname)
-            if value:
-                return value
 
-    return ""
+def phase1_seller_identity(company, *, runtime, translate, allow_english=False):
+    """Read one Company's display name/VAT without lookup, conversion or writes.
+
+    Ordinary QR requires Arabic. The initial-advance adapter retains its English
+    fallback, now only after all three registered Arabic aliases. These scalar
+    observations do not prove saved-record, certificate or taxpayer provenance.
+    """
+    meta = runtime.get_meta("Company")
+    seller = first_available_name(display_aliases("company_arabic_name"),
+        has_field=meta.get_field, read=company.get, mode="qr")
+    if not seller and allow_english:
+        seller = company.get("company_name")
+    vat = company.get("tax_id")
+    missing = []
+    if not seller:
+        missing.append("seller name")
+    if not vat:
+        missing.append("Tax ID")
+    if missing:
+        fail_declared_vat(runtime, translate, "qr_seller_details_missing", SELLER_REVIEW,
+            details="Missing: " + "; ".join(missing) + ".")
+    return seller, vat
 
 
 def _existing_qr_reference(doc):
@@ -135,25 +151,12 @@ def create_qr_code(doc, method=None):  # pylint: disable=unused-argument
     meta = frappe.get_meta(doc.doctype)
 
     if "ksa_einv_qr" in [d.fieldname for d in meta.get_image_fields()]:
-        # Seller's Name
-        seller_name = get_company_arabic_name(doc.company)
-
-        if not seller_name:
-            frappe.throw(
-                _(
-                    "Arabic name missing for {} in the company document. "
-                    "Checked fields: company_name_in_arabic, "
-                    "custom_company_name_in_arabic, "
-                    "custom__company_name_in_arabic__"
-                ).format(doc.company)
-            )
-
-        # VAT Number
-        tax_id = frappe.db.get_value("Company", doc.company, "tax_id")
-        if not tax_id:
-            frappe.throw(
-                _("Tax ID missing for {} in the company document").format(doc.company)
-            )
+        # One loaded Company supplies both values; no per-alias/VAT SQL reads.
+        company = frappe.get_doc("Company", doc.company)
+        if resolve_zatca_phase(company) == PHASE_2_VALUE:
+            # A disabled integration does not authorize a Phase-1 substitute.
+            return
+        seller_name, tax_id = phase1_seller_identity(company, runtime=frappe, translate=_)
 
         # Time Stamp
         time_stamp = format_zatca_qr_timestamp(doc.posting_date, doc.posting_time)

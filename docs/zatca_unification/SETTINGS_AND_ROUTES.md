@@ -1,4 +1,15 @@
-# Settings and route audit — updated through development increment 19
+# Settings and route audit — historical credential inventory with later amendments
+
+Increment224 centralizes Company/Customer display aliases in the same registry,
+separately from unchanged schema-first alias priority. Phase1 seller name/VAT
+share one loaded Company; the initial-advance QR additionally supports the third
+Arabic field. Explicit Phase2 prevents a local Phase1 substitute regardless of
+enablement, with conservative cached/fresh advance phase checks. Blank/unknown
+phase and all API/credential routes remain unchanged. This is not a complete
+settings/credential snapshot. See [PARTY_NAME_SOURCES.md](PARTY_NAME_SOURCES.md).
+
+The following increment19-and-earlier credential inventory is historical;
+follow linked later status/design records for current adoption and limits.
 
 Increment 19 adds private encrypted version staging with explicit owner/environment/
 purpose slots; no active pointer, new saved-settings resolver or legacy fallback.

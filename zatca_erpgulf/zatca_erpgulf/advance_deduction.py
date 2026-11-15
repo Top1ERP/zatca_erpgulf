@@ -10,7 +10,9 @@ from zatca_erpgulf.zatca_erpgulf.advance_lifecycle import (
     ACCEPTED_ZATCA_ADVANCE_STATUSES,
     is_accepted_advance_sales_invoice,
 )
-from zatca_erpgulf.zatca_erpgulf.create_qr import _existing_qr_reference, checked_phase1_amounts
+from zatca_erpgulf.zatca_erpgulf.create_qr import (
+    _existing_qr_reference, checked_phase1_amounts, phase1_seller_identity,
+)
 from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
 from zatca_erpgulf.zatca_erpgulf.qr_encoding import (
     PHASE1_QR_VALUE_ERROR, Phase1QREncodingError, encode_phase1_qr,
@@ -18,6 +20,7 @@ from zatca_erpgulf.zatca_erpgulf.qr_encoding import (
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
     PHASE_2_VALUE,
     is_advance_payment_invoice,
+    # Compatibility import for callers; artifact phase protection is independent.
     is_zatca_invoice_enabled,
     resolve_zatca_phase,
     supports_advance_deduction_schema,
@@ -1159,7 +1162,7 @@ def ensure_final_sales_invoice_qr_for_print(doc, event=None, force=False):
         return
 
     company_doc = frappe.get_cached_doc("Company", doc.company)
-    if is_zatca_invoice_enabled(company_doc) and resolve_zatca_phase(company_doc) == PHASE_2_VALUE:
+    if resolve_zatca_phase(company_doc) == PHASE_2_VALUE:
         # Phase-2 QR must come from the returned ZATCA XML artifact.
         return
 
@@ -1192,16 +1195,12 @@ def ensure_final_sales_invoice_qr_for_print(doc, event=None, force=False):
     from frappe.utils.file_manager import save_file
 
     company = frappe.get_doc("Company", doc.company)
+    if resolve_zatca_phase(company) == PHASE_2_VALUE:
+        # Cached eligibility is not enough if the freshly loaded phase changed.
+        return
 
-    seller_name = (
-        company.get("company_name_in_arabic")
-        or company.get("custom_company_name_in_arabic")
-        or company.company_name
-    )
-
-    vat_number = company.get("tax_id")
-    if not vat_number:
-        frappe.throw("Company Tax ID is required to generate ZATCA QR.")
+    seller_name, vat_number = phase1_seller_identity(
+        company, runtime=frappe, translate=_, allow_english=True)
 
     # Same explicit conversion as ordinary Phase-1 and XML-derived Phase-2.
     # Do not invent midnight for a missing field. The Phase-2 guard above still
