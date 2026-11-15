@@ -5,6 +5,22 @@ development. They are part of the release scope, not optional work deferred
 until after the fictional-client rehearsal. Apply the same development-only
 and no-authority-request restrictions as [PLAN.md](PLAN.md).
 
+## Read-only QR monetary sources — increment223
+
+One framework-free scalar/XML projection serves Phase1 Sales/POS/initial advances
+and Phase2 monetary extraction, without serializer or signature duplication.
+Remove partial base/advance calculations; choose BT-110 structurally rather than
+by first-node order. Dated SDK guidance retains the correct existing BT-115
+choice. Ambiguity/invalid values receive a translated review and English static
+code; source XML and stored artifacts remain untouched. Entity/network resolution
+and DTD input are refused in the QR parser.
+
+216 new cases separate frozen-parent financial changes from wire parity and
+actual current financial-builder/TLV source combinations. Mocked keys/images are
+not SDK/scan/GL or installed16 acceptance. Existing preservation/access and
+transaction gates remain; no performance or universal-completion claim. See
+[QR_MONETARY_SOURCES.md](QR_MONETARY_SOURCES.md).
+
 ## Shared native controls and explicit credit deltas — increment222
 
 Extract one framework-free rounded-total decision for Sales/POS. Reader-specific

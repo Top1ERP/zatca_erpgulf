@@ -17,6 +17,22 @@ pilot/rollout. API sending needs separate explicit authority changing the ban.
 See [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md); it supersedes any older
 operational request or less restrictive deployment wording in historical records.
 
+## QR monetary source adoption — increment223
+
+Keep Phase2 BT-115 based on SDK/developer clarification; bind Tag5 to unique
+BT-110 in document currency independently of TaxTotal ordering. Use one read-only
+source projection, reject ambiguous/invalid money and DTD sources, and preserve
+cryptographic owners/encoding and all existing artifacts. Phase1 ordinary and
+eligible initial advances now use native DOC gross/VAT rather than base/partial
+advance math; report old/new values and formatting differences explicitly.
+
+Next complete seller/settings alias and phase/access consistency, remaining
+Phase1 final-settlement/precision and VAT-account roles, full GL/fiscal/source/
+credential/transaction custody, installed15/16 lifecycle and SDK/scanner acceptance
+before separately approved fictional-client rehearsal. No working-site rollout
+or authority API request is authorized. See
+[QR_MONETARY_SOURCES.md](QR_MONETARY_SOURCES.md).
+
 ## Credit monetary direction and native controls — increment222
 
 Use one native decision for consolidated saved adjustments and local/global

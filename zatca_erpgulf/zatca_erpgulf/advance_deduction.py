@@ -10,7 +10,7 @@ from zatca_erpgulf.zatca_erpgulf.advance_lifecycle import (
     ACCEPTED_ZATCA_ADVANCE_STATUSES,
     is_accepted_advance_sales_invoice,
 )
-from zatca_erpgulf.zatca_erpgulf.create_qr import _existing_qr_reference
+from zatca_erpgulf.zatca_erpgulf.create_qr import _existing_qr_reference, checked_phase1_amounts
 from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
 from zatca_erpgulf.zatca_erpgulf.qr_encoding import (
     PHASE1_QR_VALUE_ERROR, Phase1QREncodingError, encode_phase1_qr,
@@ -1150,8 +1150,8 @@ def ensure_final_sales_invoice_qr_for_print(doc, event=None, force=False):
     - Sales Invoice has custom_zatca_advance_deducted_taxable_amount > 0.
     - ksa_einv_qr field exists.
 
-    The QR total is aligned with the final printed amount due after deducting
-    the advance taxable amount and adding the remaining VAT.
+    The initial advance uses its native saved gross and VAT in document
+    currency. This print hook does not calculate a later invoice's settlement.
     """
     from frappe.utils import flt
 
@@ -1208,28 +1208,13 @@ def ensure_final_sales_invoice_qr_for_print(doc, event=None, force=False):
     # preserves the authoritative stored QR and all amount calculations below.
     timestamp = format_zatca_qr_timestamp(doc.posting_date, doc.get("posting_time"))
 
-    conversion_rate = flt(doc.get("conversion_rate") or 1)
-
-    taxable_source = flt(doc.get("net_total") if doc.get("discount_amount") else doc.get("total"))
-    base_taxable_source = flt(doc.get("base_net_total") if doc.get("discount_amount") else doc.get("base_total"))
-
-    base_advance_taxable = advance_taxable * conversion_rate
-
-    final_amount_due = taxable_source - advance_taxable + flt(doc.get("total_taxes_and_charges") or 0)
-    base_final_amount_due = base_taxable_source - base_advance_taxable + flt(doc.get("base_total_taxes_and_charges") or 0)
-
-    if doc.currency == "SAR":
-        qr_invoice_total = final_amount_due
-        qr_vat_total = flt(doc.get("total_taxes_and_charges") or 0)
-    else:
-        qr_invoice_total = base_final_amount_due
-        qr_vat_total = flt(doc.get("base_total_taxes_and_charges") or 0)
+    amounts = checked_phase1_amounts(doc, runtime=frappe, translate=_)
 
     try:
         payload = encode_phase1_qr(
             seller_name=str(seller_name or ""), vat_number=str(vat_number or ""),
-            timestamp=timestamp, invoice_total=f"{qr_invoice_total:.2f}",
-            vat_total=f"{qr_vat_total:.2f}",
+            timestamp=timestamp, invoice_total=amounts.invoice_total,
+            vat_total=amounts.vat_total,
         )
     except Phase1QREncodingError as error:
         invalid_tag = error.tag

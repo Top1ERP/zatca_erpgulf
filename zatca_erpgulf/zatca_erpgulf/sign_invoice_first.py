@@ -22,6 +22,8 @@ from cryptography.hazmat.primitives.asymmetric import ec
 import requests
 
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
+from zatca_erpgulf.ksa_compliance.qr_amounts import QRAmountError, REVIEW as QR_AMOUNT_REVIEW, phase2_xml_amounts
+from zatca_erpgulf.zatca_erpgulf.template_vat_source import fail_declared_vat
 from zatca_erpgulf.zatca_erpgulf.api_settings import get_company_api_route
 from zatca_erpgulf.zatca_erpgulf.credential_settings import (
     get_api_authorization, get_certificate_public_key, get_signing_certificate, get_signing_key,
@@ -1111,7 +1113,10 @@ def generate_tlv_xml(final_xml_string,company_abbr,source_doc):
         # ) as file:
         #     xml_data = file.read()
         # root = etree.fromstring(xml_data)
-        root = etree.fromstring(final_xml_string.encode("utf-8"))
+        root = etree.fromstring(final_xml_string.encode("utf-8"),
+            parser=etree.XMLParser(resolve_entities=False, no_network=True))
+        if root.getroottree().docinfo.doctype:
+            raise QRAmountError("qr_xml_doctype")
         namespaces = {
             "ubl": "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2",
             "cac": "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2",
@@ -1138,6 +1143,7 @@ def generate_tlv_xml(final_xml_string,company_abbr,source_doc):
         )
         # ZATCA requires QR Tag 3 to be an ISO-8601 UTC timestamp.
         issue_date_time = format_zatca_qr_timestamp(issue_date, issue_time)
+        amounts = phase2_xml_amounts(root)
         tags_xpaths = [
             (
                 1,
@@ -1151,8 +1157,8 @@ def generate_tlv_xml(final_xml_string,company_abbr,source_doc):
             # QR Tag 4 follows BT-115 (PayableAmount). For ordinary invoices
             # it normally equals TaxInclusiveAmount; with prepayments or
             # rounding it is the final amount due.
-            (4, "/ubl:Invoice/cac:LegalMonetaryTotal/cbc:PayableAmount"),
-            (5, "/ubl:Invoice/cac:TaxTotal/cbc:TaxAmount"),
+            (4, None),
+            (5, None),
             (
                 6,
                 "/ubl:Invoice/ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent/sig:UBLDocumentSignatures/sac:SignatureInformation/ds:Signature/ds:SignedInfo/ds:Reference/ds:DigestValue",
@@ -1174,26 +1180,13 @@ def generate_tlv_xml(final_xml_string,company_abbr,source_doc):
                         if isinstance(elements[0], etree._Element)
                         else elements[0]
                     )
-                    if tag == 4 and not str(value or "").strip():
-                        frappe.throw(
-                            _(
-                                "Cannot generate QR Tag 4: "
-                                "cbc:PayableAmount is empty."
-                            )
-                        )
                     result_dict[tag] = value
                 else:
-                    if tag == 4:
-                        frappe.throw(
-                            _(
-                                "Cannot generate QR Tag 4: "
-                                "cbc:PayableAmount is missing from the XML."
-                            )
-                        )
                     result_dict[tag] = "Not found"
             else:
                 result_dict[tag] = xpath
         result_dict[3] = issue_date_time
+        result_dict[4], result_dict[5] = amounts.invoice_total, amounts.vat_total
         result_dict[8] = tag8_publickey(company_abbr, source_doc)
         # Tag 9 is defined only for Simplified Tax Invoices and their notes.
         invoice_typecode = root.xpath(
@@ -1213,6 +1206,10 @@ def generate_tlv_xml(final_xml_string,company_abbr,source_doc):
             "utf-8"
         )  # Handling Arabic company name in QR Code
         return result_dict
+    except QRAmountError as error:
+        fail_declared_vat(frappe, _, error.code, QR_AMOUNT_REVIEW)
+    except etree.XMLSyntaxError:
+        fail_declared_vat(frappe, _, "qr_xml_syntax", QR_AMOUNT_REVIEW)
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(_("Error in getting the entire TLV data: " + str(e)))
         return None

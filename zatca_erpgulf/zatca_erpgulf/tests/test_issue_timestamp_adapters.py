@@ -121,7 +121,7 @@ def tlv_values(encoded):
 @pytest.fixture
 def local_qr(monkeypatch):
     invoice = Document(doctype="Sales Invoice", name="SYNTHETIC-TIME", company="SYNTHETIC-COMPANY", docstatus=1,
-        posting_date="2026-09-27", posting_time="9:05:42", ksa_einv_qr=None, base_grand_total=11.5,
+        posting_date="2026-09-27", posting_time="9:05:42", ksa_einv_qr=None, base_grand_total=11.5, grand_total=11.5,
         total_taxes_and_charges=1.5, custom_zatca_advance_deducted_taxable_amount=2, discount_amount=0,
         total=10, net_total=10, base_total=10, base_net_total=10, conversion_rate=1, currency="SAR",
         base_total_taxes_and_charges=1.5, db_set=Mock(), save=Mock(), notify_update=Mock(),
@@ -129,7 +129,7 @@ def local_qr(monkeypatch):
     company = Document(company_name="SYNTHETIC-COMPANY", tax_id="300000000000003", company_name_in_arabic="شركة اختبار")
     file = Document(file_url="/files/SYNTHETIC-QR.png", save=Mock())
     runtime = SimpleNamespace(get_all=Mock(return_value=[]), get_doc=Mock(return_value=file),
-        get_cached_doc=Mock(return_value=company), get_meta=Mock(return_value=SimpleNamespace(
+        get_cached_doc=Mock(return_value=company), log_error=Mock(), get_meta=Mock(return_value=SimpleNamespace(
             get_image_fields=lambda: [SimpleNamespace(fieldname="ksa_einv_qr")])), throw=fail,
         db=SimpleNamespace(exists=Mock(return_value=False), get_value=Mock(return_value=company.tax_id),
                            set_value=Mock(), commit=Mock()), delete_doc=Mock())
@@ -160,7 +160,7 @@ def local_qr(monkeypatch):
 
 @pytest.mark.parametrize("route", ["sales", "pos", "advance"])
 @pytest.mark.parametrize("clock", ["9:05:42", timedelta(0), "23:59:59-02:00"])
-def test_phase1_and_advance_qr_share_time_without_changing_amount_formulas(local_qr, route, clock):
+def test_phase1_and_advance_qr_share_time_and_saved_document_amounts(local_qr, route, clock):
     invoice, _, payloads, _ = local_qr
     invoice.posting_time = clock
     if route == "advance":
@@ -172,9 +172,9 @@ def test_phase1_and_advance_qr_share_time_without_changing_amount_formulas(local
     assert len(payloads) == 1
     values = tlv_values(payloads[0])
     assert values[3] == resolve_issue_timestamp(invoice.posting_date, clock, timezone_name="Asia/Riyadh").qr_value
-    # Characterize existing arithmetic/formatting, NOT regulatory amount proof.
-    assert values[4] == ("9.50" if route == "advance" else "11.5")
-    assert values[5] == ("1.50" if route == "advance" else "1.5")
+    # Monetary source policy is tested separately against frozen222 adapters.
+    assert values[4] == "11.50"
+    assert values[5] == "1.50"
 
 
 @pytest.mark.parametrize("route", ["sales", "advance"])
@@ -206,7 +206,7 @@ def test_advance_phase2_guard_preserves_the_existing_authoritative_qr(local_qr, 
 
 @pytest.fixture
 def xml_qr(monkeypatch):
-    runtime = SimpleNamespace(throw=fail, ValidationError=ValidationError)
+    runtime = SimpleNamespace(throw=fail, ValidationError=ValidationError, log_error=Mock())
     monkeypatch.setattr(sign_invoice_first, "frappe", runtime)
     monkeypatch.setattr(sign_invoice_first, "_", lambda message: message)
     monkeypatch.setattr(sign_invoice_first, "tag8_publickey", Mock(return_value=b"synthetic public key"))
@@ -224,8 +224,11 @@ def xml_qr(monkeypatch):
     supplier = add(add(root, "cac", "AccountingSupplierParty"), "cac", "Party")
     add(add(supplier, "cac", "PartyLegalEntity"), "cbc", "RegistrationName", "شركة اختبار")
     add(add(supplier, "cac", "PartyTaxScheme"), "cbc", "CompanyID", "300000000000003")
-    add(add(root, "cac", "LegalMonetaryTotal"), "cbc", "PayableAmount", "11.50")
-    add(add(root, "cac", "TaxTotal"), "cbc", "TaxAmount", "1.50")
+    add(root, "cbc", "DocumentCurrencyCode", "SAR")
+    add(add(root, "cac", "LegalMonetaryTotal"), "cbc", "PayableAmount", "11.50", currencyID="SAR")
+    tax = add(root, "cac", "TaxTotal")
+    add(tax, "cbc", "TaxAmount", "1.50", currencyID="SAR")
+    add(tax, "cac", "TaxSubtotal")
     return root
 
 

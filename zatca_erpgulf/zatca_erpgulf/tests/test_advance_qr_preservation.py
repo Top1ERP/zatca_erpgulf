@@ -1,7 +1,7 @@
 """Advance print-hook preservation with synthetic documents and no file IO.
 
-Existing amount formulas are characterized, not certified as regulatory evidence.
-No advance search, allocation, eligibility or historical-data repair is performed.
+First generation reads saved DOC gross/VAT; preservation and eligibility gates
+remain. No advance search, allocation or historical-data repair is performed.
 """
 
 import ast
@@ -111,7 +111,7 @@ def test_ineligible_print_paths_skip_before_attachment_query(local_qr, monkeypat
 @pytest.mark.parametrize("force", [False, True])
 @pytest.mark.parametrize("old", [False, True])
 @pytest.mark.parametrize("foreign", [False, True])
-def test_first_generation_keeps_old_date_amount_fx_and_status_behavior(local_qr, force, old, foreign):
+def test_first_generation_keeps_old_date_status_and_uses_saved_document_money(local_qr, force, old, foreign):
     doc, runtime, payloads, saver = local_qr
     doc.custom_zatca_status = "Not Submitted"
     if old:
@@ -123,8 +123,8 @@ def test_first_generation_keeps_old_date_amount_fx_and_status_behavior(local_qr,
         doc.custom_zatca_advance_deducted_taxable_amount, doc.total_taxes_and_charges)
     advance_deduction.ensure_final_sales_invoice_qr_for_print(doc, force=force)
     tags = tlv_values(payloads[0])
-    assert tags[4] == ("35.62" if foreign else "9.50")
-    assert tags[5] == ("5.62" if foreign else "1.50")
+    assert tags[4] == "11.50"
+    assert tags[5] == "1.50"
     assert tags[3] == ("2020-01-01T06:05:42Z" if old else "2026-09-27T06:05:42Z")
     assert doc.ksa_einv_qr == "/files/SYNTHETIC-QR.png" and doc.custom_zatca_status == "Not Submitted"
     saver.assert_called_once()
@@ -154,16 +154,14 @@ def test_first_generation_propagates_failure_without_taking_transaction_ownershi
 
 @pytest.mark.parametrize("discount", [0, 2])
 @pytest.mark.parametrize("foreign", [False, True])
-def test_existing_discount_and_base_amount_selection_is_unchanged(local_qr, discount, foreign):
+def test_advance_uses_saved_gross_without_reapplying_discount_or_base_conversion(local_qr, discount, foreign):
     doc, _, payloads, _ = local_qr
     doc.discount_amount, doc.net_total = discount, 8
     if foreign:
         doc.currency, doc.conversion_rate = "USD", 3.75
         doc.base_total, doc.base_net_total, doc.base_total_taxes_and_charges = 37.5, 30, 5.625
     advance_deduction.ensure_final_sales_invoice_qr_for_print(doc)
-    expected = { (False, 0): "9.50", (False, 2): "7.50",
-        (True, 0): "35.62", (True, 2): "28.12" }
-    assert tlv_values(payloads[0])[4] == expected[foreign, discount]
+    assert tlv_values(payloads[0])[4] == "11.50"
     assert doc.net_total == 8 and doc.discount_amount == discount
 
 

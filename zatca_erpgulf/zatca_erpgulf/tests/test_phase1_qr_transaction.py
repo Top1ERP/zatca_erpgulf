@@ -24,7 +24,7 @@ def test_generation_stages_one_metadata_update_without_recursive_save_or_commit(
         {"ksa_einv_qr": "/files/SYNTHETIC-QR.png", "custom_zatca_status": "Phase-1 QR Generated"}, update_modified=False)
     assert doc.ksa_einv_qr == "/files/SYNTHETIC-QR.png" and doc.custom_zatca_status == "Phase-1 QR Generated"
     assert len(payloads) == 1
-    assert tlv_values(payloads[0])[4] == "11.5"
+    assert tlv_values(payloads[0])[4] == "11.50"
     doc.save.assert_not_called()
     doc.db_set.assert_not_called()
     runtime.db.commit.assert_not_called()

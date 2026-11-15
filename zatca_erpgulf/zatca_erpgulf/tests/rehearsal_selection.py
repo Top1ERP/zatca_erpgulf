@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "qr_monetary_sources",
     "sales_monetary_controls",
     "invoice_currency_binding",
     "item_vat_selection",

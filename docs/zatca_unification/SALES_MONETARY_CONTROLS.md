@@ -136,7 +136,8 @@ Evidence: `/tmp/zatca-money-222-regression-final.log`,
 private SQL run occurs. QR source mapping and signing code, endpoints,
 credentials and UUID/ICV/PIH policy are unchanged. Newly generated QR values and
 hashes follow the changed XML through the existing code; no stored artifact is
-rewritten. Current QR amount-field choice
+rewritten. Historical222 QR amount-field choice (reviewed/adopted in
+[increment223](QR_MONETARY_SOURCES.md))
 (especially BT-112 versus BT-115 with rounding/prepayment and foreign sources)
 remains a separate standards/SDK review; this bundle does not certify that
 inherited mapping. Phase-1 QR amount policies also retain their earlier scope.

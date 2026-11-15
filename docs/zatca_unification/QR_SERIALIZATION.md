@@ -5,7 +5,11 @@ continues [signing consolidation](SIGNING_PIPELINE.md) by sharing serialization
 between ordinary Phase-1 Sales/POS QR and the eligible initial-advance print hook.
 It does not unify their amount, seller-selection or eligibility policies.
 
-## Caller and policy map
+Increment223 adopts shared monetary source selection for new generation;
+[QR_MONETARY_SOURCES.md](QR_MONETARY_SOURCES.md) supersedes the historical amount
+policies below. The encoders themselves remain unchanged.
+
+## Caller and policy map (historical198)
 
 | Caller | Values prepared by caller | Shared serializer | Existing final boundary |
 | --- | --- | --- | --- |

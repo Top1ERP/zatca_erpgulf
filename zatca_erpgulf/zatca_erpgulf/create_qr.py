@@ -26,6 +26,8 @@ from frappe import _
 from pyqrcode import create as qr_create
 
 from erpnext import get_region
+from zatca_erpgulf.ksa_compliance.qr_amounts import QRAmountError, REVIEW, phase1_document_amounts
+from zatca_erpgulf.zatca_erpgulf.template_vat_source import fail_declared_vat
 
 from zatca_erpgulf.zatca_erpgulf.country import is_saudi_country
 from zatca_erpgulf.zatca_erpgulf.qr_timestamp import format_zatca_qr_timestamp
@@ -108,6 +110,14 @@ def _existing_qr_reference(doc):
 _cleanup_qr_attachments = _existing_qr_reference
 
 
+def checked_phase1_amounts(doc, *, runtime, translate):
+    """One localized source failure shared by ordinary and initial-advance QR."""
+    try:
+        return phase1_document_amounts(doc)
+    except QRAmountError as error:
+        fail_declared_vat(runtime, translate, error.code, REVIEW)
+
+
 def create_qr_code(doc, method=None):  # pylint: disable=unused-argument
     """Stage a Phase-1 QR without owning the caller's transaction or schema."""
     region = get_region(doc.company)
@@ -148,10 +158,8 @@ def create_qr_code(doc, method=None):  # pylint: disable=unused-argument
         # Time Stamp
         time_stamp = format_zatca_qr_timestamp(doc.posting_date, doc.posting_time)
 
-        # Invoice Amount
-        invoice_amount = str(doc.base_grand_total)
-        # VAT Amount
-        vat_amount = str(doc.total_taxes_and_charges)
+        amounts = checked_phase1_amounts(doc, runtime=frappe, translate=_)
+        invoice_amount, vat_amount = amounts.invoice_total, amounts.vat_total
         try:
             base64_string = encode_phase1_qr(
                 seller_name=seller_name, vat_number=tax_id, timestamp=time_stamp,

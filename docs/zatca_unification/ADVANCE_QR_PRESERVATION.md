@@ -6,6 +6,11 @@ amounts, name fallback, gates and preservation/transaction behavior remain.
 Encoding errors gain one English/Arabic display message before image/File
 writes. See [QR_SERIALIZATION.md](QR_SERIALIZATION.md).
 
+Increment223 replaces first-generation partial amount calculations with saved
+DOC gross/VAT. All preservation/eligibility policies below remain; the historical
+amount description is superseded by
+[QR_MONETARY_SOURCES.md](QR_MONETARY_SOURCES.md).
+
 ## Bounded development change
 
 `advance_deduction.ensure_final_sales_invoice_qr_for_print` is registered on

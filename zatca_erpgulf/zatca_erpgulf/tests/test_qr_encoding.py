@@ -1,7 +1,8 @@
 """Pure wire boundaries and real mocked adapters, never tenant or authority I/O.
 
-Amount checks characterize the existing ordinary/advance formulas and formatting;
-they are not tax/accounting acceptance or a change to those formulas.
+Adapter checks use the new saved-document monetary policy. Frozen prior
+financial formulas are compared independently in test_qr_monetary_sources;
+wire serialization alone is not tax/accounting acceptance.
 """
 
 import base64
@@ -120,7 +121,7 @@ def previous_phase1_payload(seller, vat, timestamp, invoice_total, vat_total):
 @pytest.mark.parametrize("foreign", [False, True])
 @pytest.mark.parametrize("discount", [False, True])
 @pytest.mark.parametrize("negative", [False, True])
-def test_adapter_wire_parity_preserves_existing_fx_discount_sign_and_formatting(
+def test_adapters_use_saved_document_currency_magnitudes_with_shared_wire_encoder(
     local_qr, route, foreign, discount, negative,
 ):
     doc, runtime, payloads, saver = local_qr
@@ -135,24 +136,15 @@ def test_adapter_wire_parity_preserves_existing_fx_discount_sign_and_formatting(
     else:
         doc.base_total, doc.base_net_total, doc.base_total_taxes_and_charges = doc.total, doc.net_total, doc.total_taxes_and_charges
     doc.base_grand_total = ((34.5 if discount else 43.125) if foreign else (9.2 if discount else 11.5)) * sign
+    doc.grand_total = (9.2 if discount else 11.5) * sign
     before = (doc.total, doc.net_total, doc.base_total, doc.base_net_total, doc.base_grand_total,
               doc.total_taxes_and_charges, doc.base_total_taxes_and_charges, doc.conversion_rate,
               doc.custom_zatca_advance_deducted_taxable_amount)
     run_route(doc, route)
     assert len(payloads) == 1
-    if route == "advance":
-        totals = {
-            (False, False, False): "9.50", (False, True, False): "7.50",
-            (False, False, True): "-13.50", (False, True, True): "-11.50",
-            (True, False, False): "35.62", (True, True, False): "28.12",
-            (True, False, True): "-50.62", (True, True, True): "-43.12",
-        }
-        total = totals[foreign, discount, negative]
-        tax = ("-5.62" if negative else "5.62") if foreign else ("-1.50" if negative else "1.50")
-        saver.assert_called_once()
-    else:
-        total, tax = str(doc.base_grand_total), str(doc.total_taxes_and_charges)
-        saver.assert_not_called()
+    total, tax = ("9.20" if discount else "11.50"), "1.50"
+    if route == "advance": saver.assert_called_once()
+    else: saver.assert_not_called()
     expected = previous_phase1_payload("شركة اختبار", "300000000000003", "2026-09-27T06:05:42Z", total, tax)
     assert payloads == [expected]
     assert before == (doc.total, doc.net_total, doc.base_total, doc.base_net_total, doc.base_grand_total,

@@ -1,5 +1,42 @@
-# Implementation status — 2026-11-15
+# Implementation status — 2026-11-16
 
+
+## QR monetary source alignment — increment223
+
+Reviewed published security/FAQ and dated SDK/developer clarifications. Phase2
+Tag4 correctly remains BT-115; Tag5 now selects unique detailed BT-110 in DOC
+currency instead of the first TaxTotal. Duplicate/missing/wrong-currency money
+fails before QR-specific Tag8/9 access; parsing rejects DOCTYPE and entity/network
+resolution. Earlier signing/identity work is not made transactional by this.
+Phase1 Sales/POS and eligible initial advances share saved DOC grand_total/VAT,
+with positive credit magnitudes and two-decimal formatting. No base conversion,
+partial deducted-taxable calculation or stored QR replacement. Existing gates,
+reference preservation, signer owners and encoding/signature algorithms remain.
+
+Intended differences: USD115/VAT15 with base431.25 now QR115/15 rather than mixed
+431.25/15. An initial advance formerly356.25 from partial base math now115 DOC.
+Phase2 summary-first56.25/DOC-VAT1.50 now Tag5=1.50; payable80.25 is unchanged.
+216 new cases include48 actual financial-builder/QR/TLV source compositions,
+localized failures, DTD/ambiguity checks and existing-artifact preservation.
+Focused437 pass. The guarded broad run passes14,217 cases across61 reviewed
+suites (68.63s), including216 new. Six browser suites pass1,196 synthetic cases.
+Manifest195 local/57 private; no whole-manifest/private-SQL run. All24 existing
+Python reference fixtures and350 other tracked runtime files are byte-identical
+to222. AST comparison confines existing-function changes to the three documented
+QR adapters, plus their new shared Phase1 wrapper. All certificate/signature,
+advance settlement, financial calculators and routing functions remain unchanged.
+The original240 financial matrix remains91 identical/117 changed/32 blocked;
+those earlier financial differences still await review. Existing translation
+rows are unchanged; one quoted English/Arabic review key was appended.
+Logs: `/tmp/zatca-qr-money-223-regression-final.log`,
+`/tmp/zatca-qr-money-223-focused-final.log`; structural report:
+`/tmp/zatca-qr-money-223-structure.json`. The later test-name/docstring cleanup
+does not change runtime or assertions. Live HEAD/address-source hash and existing
+tooltip-only dirty status match the opening inventory. See
+[QR_MONETARY_SOURCES.md](QR_MONETARY_SOURCES.md). Only public static references
+were read; no live/schema/tenant SQL/restart/authority API action. Full fiscal/
+GL/precision/settlement, trusted source/transaction, installed lifecycle,
+SDK/scanner and fictional rehearsal gates remain.
 
 ## Native monetary controls and credit notes — increment222
 

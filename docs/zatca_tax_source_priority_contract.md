@@ -1,10 +1,25 @@
 # ZATCA tax-source priority contract
 
-Current development contract, reviewed through increment222 on 2026-11-15. It replaces
+Current development contract, reviewed through increment223 on 2026-11-16. It replaces
 older prose that incorrectly placed Sales Taxes and Charges Template values above
 explicit invoice values. The original five tests already required invoice-first
 behavior; their bodies are preserved. See the scope map and remaining work in
 [NON_TEMPLATE_TAX_RATE.md](zatca_unification/NON_TEMPLATE_TAX_RATE.md).
+
+## QR amounts are a separate projection — increment223
+
+Phase1 reads native saved document-currency grand_total and
+total_taxes_and_charges; it never mixes base gross with document VAT or repeats
+advance/discount calculations. Existing-QR preservation and eligible initial-
+advance print gates remain. Native return amounts become positive magnitudes.
+Phase2 reads unique XML PayableAmount/BT-115 and detailed document-currency
+TaxTotal/BT-110, independently of accounting-summary order. Prepayments do not
+reduce BT-110. This does not change VAT-account selection, native amounts,
+signatures or settlement arithmetic. Phase1 gross is not a fabricated BT-115.
+Missing/ambiguous money and nonzero precision beyond two decimals fail for
+review; this is not universal currency-precision or GL acceptance. See the
+dated primary references, explicit previous/current values and release limits in
+[QR_MONETARY_SOURCES.md](zatca_unification/QR_MONETARY_SOURCES.md).
 
 ## Separate the questions
 
