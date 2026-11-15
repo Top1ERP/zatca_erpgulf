@@ -6,7 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 import xml.etree.ElementTree as ET
 
 import pytest
@@ -132,7 +132,8 @@ def test_complete_groups_match_literal_amounts_preserve_sources_and_reconcile_su
     queries = runtime.get_doc.call_args_list[:]
     runtime.get_doc.reset_mock()
     current = getattr(module, name)(doc)
-    assert runtime.get_doc.call_args_list == queries
+    expected_reads = ([call("Company", doc.company)] if nominal and currency == "USD" else []) + queries
+    assert runtime.get_doc.call_args_list == expected_reads
     nets, bases, rate, old, new, old_sar, new_sar = case
     assert len(previous) == len(current) == 1
     assert previous[0]["tax_amount"] == Decimal(old)

@@ -454,6 +454,7 @@ function zatca_debug_summary(value, context) {
     messages.set('The declared VAT source does not match the saved invoice tax data. Recalculate and save the invoice before generating XML.', __('The declared VAT source does not match the saved invoice tax data. Recalculate and save the invoice before generating XML.'));
     messages.set('The declared VAT source needs a confirmed company currency before foreign-currency Sales XML can be generated.', __('The declared VAT source needs a confirmed company currency before foreign-currency Sales XML can be generated.'));
     messages.set('The invoice currency context could not be confirmed with its Company. Review the Company currency and any invoice currency override.', __('The invoice currency context could not be confirmed with its Company. Review the Company currency and any invoice currency override.'));
+    messages.set('The invoice rounding controls could not be verified. Recalculate the invoice and review its rounding settings.', __('The invoice rounding controls could not be verified. Recalculate the invoice and review its rounding settings.'));
     const success = zatca_debug_succeeded(response);
     const skipped = response.status === "skipped" && [
         "Debug XML was skipped for an intra-company transfer. The invoice was not changed.",

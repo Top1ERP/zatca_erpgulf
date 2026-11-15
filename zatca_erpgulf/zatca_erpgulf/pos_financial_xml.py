@@ -16,6 +16,7 @@ import xml.etree.ElementTree as ET
 import frappe
 
 from zatca_erpgulf.ksa_compliance.vat_math import vat_from_group
+from zatca_erpgulf.ksa_compliance.native_rounding import RoundingSourceError, rounding_disabled
 from zatca_erpgulf.ksa_compliance.invoice_currency import InvoiceCurrencyError, bind_invoice_currency
 from zatca_erpgulf.zatca_erpgulf.template_vat_source import CURRENCY_REVIEW
 from zatca_erpgulf.ksa_compliance.declared_vat_scope import VatScopeError, reconcile_vat_accounts
@@ -89,14 +90,10 @@ def _rounding_disabled(doc):
     Global Defaults. A consolidated invoice's existing nonzero adjustment
     bypasses that disabled branch in both inspected controller versions.
     """
-    if _flag(doc, "is_consolidated") and _number(doc.get("rounding_adjustment") or 0) != 0:
-        return False
-    native = getattr(doc, "is_rounded_total_disabled", None)
-    if callable(native):
-        return _number(native() or 0) != 0
-    if doc.get("disable_rounded_total") is None:
-        raise PosFinancialError("rounding_source", MISSING)
-    return _flag(doc, "disable_rounded_total")
+    try:
+        return rounding_disabled(doc, flag=_number, amount=_number)
+    except RoundingSourceError:
+        raise PosFinancialError("rounding_source", MISSING) from None
 
 
 def _classification(source, rate):

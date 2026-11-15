@@ -53,7 +53,7 @@ def isolated(monkeypatch, tmp_path):
         db_set=Mock(), save=Mock(),
     )
     company = Document(
-        doctype="Company", name=invoice.company, abbr="TC", tax_id="SELLER",
+        doctype="Company", name=invoice.company, abbr="TC", tax_id="SELLER", default_currency="SAR",
         modified="2026-10-23 08:00:00",
         custom_validation_type="Standard Invoice", custom_send_invoice_to_zatca="Live",
         db_set=Mock(),

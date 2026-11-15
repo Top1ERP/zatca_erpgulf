@@ -176,7 +176,7 @@ def test_actual_sales_pos_nominal_and_totals_keep_parent_outputs_and_reads(
     s.records.update({
         ("POS Profile", "POS"): s.document("profile", taxes_and_charges="VAT"),
         ("Sales Taxes and Charges Template", "VAT"): s.document("invoice-template", taxes=[s.document("invoice-tax", included_in_print_rate=0)]),
-        ("Company", "SYNTHETIC"): s.document("company", custom_submit_line_item_discount_to_zatca=0),
+        ("Company", "SYNTHETIC"): s.document("company", default_currency="SAR", custom_submit_line_item_discount_to_zatca=0),
     })
     for module in (pos_final, posxml, xml_tax_data):
         monkeypatch.setattr(module, "frappe", s.runtime)

@@ -179,7 +179,7 @@ def test_real_consumer_results_and_errors_match_full_parent_rate(
     s.records.update({
         ("POS Profile", "POS"): s.document("profile", taxes_and_charges="VAT"),
         ("Sales Taxes and Charges Template", "VAT"): s.document("invoice-template", taxes=[s.document("invoice-tax", included_in_print_rate=0)]),
-        ("Company", "SYNTHETIC"): s.document("company", custom_submit_line_item_discount_to_zatca=0),
+        ("Company", "SYNTHETIC"): s.document("company", default_currency="SAR", custom_submit_line_item_discount_to_zatca=0),
     })
     if mode == "pos-items":
         from zatca_erpgulf.zatca_erpgulf.tests.test_pos_financial_xml import rate_consumer_invoice

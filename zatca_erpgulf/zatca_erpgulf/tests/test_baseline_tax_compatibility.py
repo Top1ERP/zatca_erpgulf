@@ -136,7 +136,7 @@ def fixture_data(case, major, currency, distributed_discount):
         name=doc.taxes_and_charges, custom_zatca_tax_category=category,
         custom_exemption_reason_code=reason, taxes=copy.deepcopy(taxes))
     templates["POS Profile", doc.pos_profile] = Document(taxes_and_charges=doc.taxes_and_charges)
-    templates["Company", doc.company] = Document(name=doc.company,
+    templates["Company", doc.company] = Document(name=doc.company, default_currency="SAR",
         custom_submit_line_item_discount_to_zatca=0)
     return doc, templates, has_template
 

@@ -17,6 +17,22 @@ pilot/rollout. API sending needs separate explicit authority changing the ban.
 See [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md); it supersedes any older
 operational request or less restrictive deployment wording in historical records.
 
+## Credit monetary direction and native controls — increment222
+
+Use one native decision for consolidated saved adjustments and local/global
+rounding controls. Preserve ERP money while orienting credit BT-114 consistently
+with positive XML totals; normalize only the foreign credit accounting VAT
+magnitude. Check legacy foreign explicit currency conflicts, not just missing
+helper metadata. Keep original owner, rates, discount allocation and native FX.
+
+Next audit QR amount-field selection across Phase1/2, prepayments/rounding and
+foreign documents against the current standard, while preserving accepted
+artifacts. Complete legacy SAR Company/source conflicts, saved rounding/GL,
+nominal/charge variants, trusted settings/credential/transaction custody,
+installed15/16 and SDK before separately approved fictional rehearsal. No live
+or authority API work is authorized. See
+[SALES_MONETARY_CONTROLS.md](SALES_MONETARY_CONTROLS.md).
+
 ## Native Company currency adoption — increment221
 
 Use Company.default_currency to bind native foreign Sales without a helper

@@ -1,6 +1,37 @@
 # Implementation status — 2026-11-15
 
 
+## Native monetary controls and credit notes — increment222
+
+Shared native rounded-total decision across Sales/POS, preserving consolidated
+saved adjustments before later disable controls and using native schema/global
+resolution. Sales credit BT-114 reverses ERP's signed adjustment; foreign credit
+SAR TaxAmount uses its positive magnitude without a new conversion. Foreign
+legacy explicit helper and explicit conflicting SAR helper declarations now
+validate against Company. One Arabic rounding-review display and one English
+source diagnostic; plain tax errors retain typed identity. No source mutation.
+
+Literal deltas: credit grand-230/adjustment-.25 now payable230.25 rather than
+229.75; adjustment+.25 yields229.75 rather than230.25. Foreign credit SAR tax
+-112.50 becomes112.50. Native consolidated saved+.25 is retained despite a later
+disable flag.600 new cases include512 native15/pinned16 source/XML combinations,
+old/new snapshots, currency refusals, valid byte parity and credit prepayments.
+Focused600, group176 and reader662 pass. The guarded broad run passes14,001
+cases across60 suites (65.79s), including600 new. Six browser suites pass1,192
+synthetic cases (Debug108). Final focused600 also pass after refining the mocked
+credit-prepayment source signs; no runtime change followed the broad run.
+Manifest194 local/57 private; no whole-manifest/private-SQL run. Original240
+remains91 identical/117 changed/32 blocked. All24 previous reference fixtures
+and shared VAT/rate/discount/FX algorithms are unchanged. Structural restoration
+confirms only the documented monetary/error and currency control scopes.
+Logs: `/tmp/zatca-money-222-regression-final.log`,
+`/tmp/zatca-money-222-focused-final.log`; source audit:
+`/tmp/zatca-money-222-structure.json`. See
+[SALES_MONETARY_CONTROLS.md](SALES_MONETARY_CONTROLS.md). Only public static
+technical documentation was retrieved; no live/tenant SQL/authority API action.
+QR amount mapping, complete fiscal/GL/source/transaction custody, installed
+lifecycle, SDK and separately approved fictional rehearsal remain release gates.
+
 ## Native Sales currency binding — increment221
 
 Resolved native foreign Sales without the nonstandard company_currency helper

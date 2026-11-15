@@ -90,8 +90,8 @@ class CurrencyRenderDocument:
 class DeclaredVatContext:
     """One XML builder's checked source; not a tenant/credential snapshot.
 
-    Legacy template reads keep their existing cache policy. Native foreign
-    Sales without its helper attribute additionally binds Company currency.
+    Legacy template reads keep their existing cache policy. Foreign Sales and
+    explicit conflicting SAR helper declarations bind Company currency.
     Once an explicit selection is encountered, verify the complete invoice
     account scope. Unselected companions must have a single unambiguous row.
     """
@@ -120,18 +120,20 @@ class DeclaredVatContext:
         return self._currency_document
 
     def document_for_amounts(self):
-        """Bind native foreign Sales lacking its nonstandard helper attribute.
+        """Bind foreign Sales and conflicting explicit SAR helper declarations.
 
         Partial public-helper inputs without Company retain their old fallback.
         Normal native invoices have Company. Resolve it once per builder before
         any line, so an unselected companion before a selected item is correct.
-        Explicit existing bindings retain legacy behavior unless VAT selection
-        separately requires full Company/source verification.
+        A foreign invoice's explicit helper must agree with Company too.
+        Ordinary SAR with an absent/valid helper retains its legacy path; VAT
+        selection separately requires full Company/source verification.
         """
         if self._currency_document is not None:
             return self._currency_document
         if (self.require_sales_currency and getattr(self.doc, "company", None)
-                and self.doc.currency != "SAR" and self.doc.get("company_currency") in (None, "")):
+                and (self.doc.currency != "SAR"
+                     or self.doc.get("company_currency") not in (None, "", "SAR"))):
             return self._bind_currency()
         return self.doc
 

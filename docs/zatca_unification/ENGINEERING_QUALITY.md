@@ -5,6 +5,20 @@ development. They are part of the release scope, not optional work deferred
 until after the fictional-client rehearsal. Apply the same development-only
 and no-authority-request restrictions as [PLAN.md](PLAN.md).
 
+## Shared native controls and explicit credit deltas — increment222
+
+Extract one framework-free rounded-total decision for Sales/POS. Reader-specific
+coercion/error and missing-source policies remain explicit. Consolidated/native
+branches retain lazy dependencies; present POS disable flags use one observation
+instead of two, without a SQL/performance claim or source-atomicity assertion.
+Typed rounding failures preserve one translated outcome and English diagnostic.
+
+Reference arithmetic, new credit rounding/accounting-tax signs and inherited
+legacy/QR gaps remain separately documented.600 new source/XML cases include
+actual pinned native controller decisions under mocked defaults, not full tax/GL
+or installed16 lifecycle. Original and recent snapshots remain distinct. See
+[SALES_MONETARY_CONTROLS.md](SALES_MONETARY_CONTROLS.md).
+
 ## Native Company currency ownership — increment221
 
 A pure policy and local rendering adapter replace implicit native foreign

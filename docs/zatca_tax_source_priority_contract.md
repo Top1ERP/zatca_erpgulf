@@ -1,6 +1,6 @@
 # ZATCA tax-source priority contract
 
-Current development contract, reviewed through increment221 on 2026-11-15. It replaces
+Current development contract, reviewed through increment222 on 2026-11-15. It replaces
 older prose that incorrectly placed Sales Taxes and Charges Template values above
 explicit invoice values. The original five tests already required invoice-first
 behavior; their bodies are preserved. See the scope map and remaining work in
@@ -129,7 +129,20 @@ invoice field. Native foreign Sales missing that helper now uses a local Company
 bound view for ordinary/nominal/primary advance nets. The invoice remains the
 reference/signing owner and is never assigned a new helper value. Selected VAT
 verification also rejects Company/helper conflicts, and selected POS reuses the
-pure policy. Native FX and discount/group math remain. Legacy explicit helper
-without selection remains a separate review scope. See
+pure policy. Native FX and discount/group math remain. Increment222 extends
+this binding to foreign explicit helpers without selection and explicit SAR
+conflicts; the legacy valid-SAR Company path remains separately scoped. See
 [SALES_CURRENCY_BINDING.md](zatca_unification/SALES_CURRENCY_BINDING.md) for exact
 new money deltas, native metadata and limits.
+
+## Currency and rounded-credit sources — increment222
+
+Foreign native Sales now checks Company even when a legacy helper is explicit;
+explicit conflicting SAR helpers also fail. No fallback through another Company,
+Profile or display currency is allowed in this checked scope. Valid ordinary
+legacy SAR stays scoped as documented; complete Company-source checks remain.
+One native rounding decision consumes saved consolidation before later controls.
+Credit XML reverses the saved ERP rounding direction and uses the positive
+foreign accounting VAT magnitude, without recomputing FX or document VAT.
+See [SALES_MONETARY_CONTROLS.md](zatca_unification/SALES_MONETARY_CONTROLS.md) for
+literal deltas, standard criteria and QR/GL/lifecycle limitations.

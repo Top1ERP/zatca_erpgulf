@@ -85,7 +85,8 @@ requirements.
 - Generic native rate readers, Decimal/rounding expressions, discount allocation,
   VAT subtotals, FX conversion, QR, signing, ICV/PIH/UUID, routing and accepted
   artifacts remain unchanged.
-- Existing explicit helper bindings without VAT selection retain their old
+- Historical221 behavior (extended in [increment222](SALES_MONETARY_CONTROLS.md)):
+  existing explicit helper bindings without VAT selection retain their old
   policy. A contradictory explicit helper in that legacy scope still needs
   broader migration/reconciliation review; this is not universal currency repair.
 - Partial public-helper inputs with no Company keep their old fallback/read and

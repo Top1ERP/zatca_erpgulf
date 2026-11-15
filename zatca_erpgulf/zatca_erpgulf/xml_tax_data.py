@@ -12,9 +12,10 @@ import xml.etree.ElementTree as ET
 from decimal import Decimal, ROUND_HALF_UP
 
 import frappe
-from zatca_erpgulf.zatca_erpgulf.template_vat_source import DeclaredVatContext, DeclaredVatError
+from zatca_erpgulf.zatca_erpgulf.template_vat_source import DeclaredVatContext, DeclaredVatError, fail_declared_vat
 from frappe import _
 from zatca_erpgulf.ksa_compliance.vat_math import vat_from_group
+from zatca_erpgulf.ksa_compliance.native_rounding import RoundingSourceError, rounding_disabled
 # Keep the full-detail import available as an integration compatibility alias.
 from zatca_erpgulf.ksa_compliance.tax_details import (
     get_item_tax_detail,
@@ -365,6 +366,8 @@ def _append_tax_totals(invoice, currency, tax_breakdown, sales_invoice_doc):
         accounting_tax_total = total_tax
     else:
         accounting_tax_total = q2(sales_invoice_doc.base_total_taxes_and_charges or 0)
+        if int(getattr(sales_invoice_doc, "is_return", 0) or 0) == 1:
+            accounting_tax_total = abs(accounting_tax_total)
 
     cac_taxtotal_summary = ET.SubElement(invoice, CAC_TAX_TOTAL)
     cbc_taxamount_summary = ET.SubElement(cac_taxtotal_summary, "cbc:TaxAmount")
@@ -395,11 +398,31 @@ def _get_prepaid_amount(sales_invoice_doc):
     return _get_prepaid_amount_from_direct_allocations(sales_invoice_doc)
 
 
+ROUNDING_REVIEW = "The invoice rounding controls could not be verified. Recalculate the invoice and review its rounding settings."
+
+
 def _get_payable_rounding_amount(sales_invoice_doc):
-    """Return BT-114 in document currency when ERPNext rounding is enabled."""
-    if int(getattr(sales_invoice_doc, "disable_rounded_total", 0) or 0):
-        return Decimal("0.00")
-    return q2(getattr(sales_invoice_doc, "rounding_adjustment", 0) or 0)
+    """Render native saved BT-114 in the same direction as credit-note totals.
+
+    Native controllers own schema/Global Defaults. Consolidated saved nonzero
+    adjustments precede later disable settings. Old partial Sales helper inputs
+    without either controller or disable field retain their enabled fallback.
+    No total, fraction, FX conversion or ERP rounding is recalculated here.
+    """
+    try:
+        disabled = rounding_disabled(sales_invoice_doc, flag=int, amount=q2,
+                                      missing_disabled=False)
+        if disabled:
+            return Decimal("0.00")
+        adjustment = q2(getattr(sales_invoice_doc, "rounding_adjustment", 0) or 0)
+        if not adjustment.is_finite():
+            raise ValueError("rounding_adjustment_nonfinite")
+        if int(getattr(sales_invoice_doc, "is_return", 0) or 0) == 1:
+            adjustment = -adjustment
+        return adjustment
+    except (RoundingSourceError, ValueError, TypeError, ArithmeticError) as error:
+        fail_declared_vat(frappe, _, "invoice_rounding_source", ROUNDING_REVIEW,
+                         type(error).__name__)
 
 
 def _validate_tax_equations(
@@ -588,6 +611,8 @@ def tax_data(invoice, sales_invoice_doc):
 
         return invoice
 
+    except DeclaredVatError:
+        raise
     except Exception as e:
         frappe.throw(_(f"Data processing error in tax data: {str(e)}"))
         return None
