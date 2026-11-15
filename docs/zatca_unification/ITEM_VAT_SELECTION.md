@@ -100,7 +100,8 @@ returns, quantities and currencies are compared against equivalent single-row
 sources. Pinned ERP15/16 allocation methods execute under explicit framework
 boundaries; subsequent tax observations are simulated, not a full recalculation.
 
-**Foreign Sales limitation:** the existing Sales line helper uses a document's
+**Historical220 foreign Sales limitation** (addressed for native missing-helper
+inputs in [increment221](SALES_CURRENCY_BINDING.md)): the existing Sales line helper uses a document's
 `company_currency` binding. The new selected scope requires that binding to be
 SAR for foreign currency. If absent/other, refuse with a translated actionable
 message; do not guess or mutate the document. POS has its own currency policy and

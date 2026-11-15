@@ -17,6 +17,21 @@ pilot/rollout. API sending needs separate explicit authority changing the ban.
 See [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md); it supersedes any older
 operational request or less restrictive deployment wording in historical records.
 
+## Native Company currency adoption — increment221
+
+Use Company.default_currency to bind native foreign Sales without a helper
+attribute, through a local rendering view rather than invoice mutation. Apply
+that binding to ordinary/nominal and primary advance nets, and check selected
+Sales/POS/preflight override conflicts through the same pure policy. Keep
+reference/signing owners, native FX/header rounding and allocated discount
+amounts unchanged. Record750→200 line and nominal money deltas explicitly.
+
+Next complete legacy explicit-helper conflict policy, broader currency/GL and
+nominal/charge variants, trusted source/settings/credential/transaction custody,
+installed15/16 lifecycle and SDK checks before separately approved fictional
+rehearsal. No live migration or tax-authority request is authorized. See
+[SALES_CURRENCY_BINDING.md](SALES_CURRENCY_BINDING.md).
+
 ## Opt-in multi-row VAT role adoption — increment220
 
 Use the optional Item Tax Template VAT Account only as an explicit role

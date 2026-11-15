@@ -1,6 +1,6 @@
 # ZATCA tax-source priority contract
 
-Current development contract, reviewed through increment220 on 2026-11-15. It replaces
+Current development contract, reviewed through increment221 on 2026-11-15. It replaces
 older prose that incorrectly placed Sales Taxes and Charges Template values above
 explicit invoice values. The original five tests already required invoice-first
 behavior; their bodies are preserved. See the scope map and remaining work in
@@ -120,3 +120,16 @@ XML. Preflight/advance signatures use the same selector; category/reason remain
 on the parent. Foreign Sales needs an explicit SAR company-currency binding.
 This does not add VAT roles for positive non-VAT charges or invoice-level mixed
 accounts. See [ITEM_VAT_SELECTION.md](zatca_unification/ITEM_VAT_SELECTION.md).
+
+## Native foreign Sales currency — increment221
+
+Document currency and accounting currency are separate sources. Standard15/16
+base fields bind to Company.default_currency; company_currency is not an original
+invoice field. Native foreign Sales missing that helper now uses a local Company-
+bound view for ordinary/nominal/primary advance nets. The invoice remains the
+reference/signing owner and is never assigned a new helper value. Selected VAT
+verification also rejects Company/helper conflicts, and selected POS reuses the
+pure policy. Native FX and discount/group math remain. Legacy explicit helper
+without selection remains a separate review scope. See
+[SALES_CURRENCY_BINDING.md](zatca_unification/SALES_CURRENCY_BINDING.md) for exact
+new money deltas, native metadata and limits.

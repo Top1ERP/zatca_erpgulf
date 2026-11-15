@@ -1,6 +1,38 @@
 # Implementation status — 2026-11-15
 
 
+## Native Sales currency binding — increment221
+
+Resolved native foreign Sales without the nonstandard company_currency helper
+through the actual Company's default currency. A local frozen-attribute view
+feeds ordinary/nominal and primary advance net/unit-net selection, without
+mutating the invoice or replacing its signing/reference owner. Company is read
+once per affected context. Explicit VAT selection in Sales/preflight/POS now
+checks Company against any helper override; no guessed FX or source repair.
+Partial public inputs and unselected explicit helper policies remain scoped.
+Arabic review display and one English diagnostic are retained.
+
+Intended money delta: missing-helper foreign line sum750 becomes200 for native
+DOC200/base750; ordinary payable stays220 in the5/15 example. Nominal DOC payable
+112.50→30 (plain15) or75→20 (item5/15); existing base summary policy remains.
+Prior selected-source refusal becomes generation after real Company verification.
+Pinned15/16 schema evidence confirms base fields use Company.default_currency.
+365 new cases include18 real compositions with mocked signing/transport,12
+frozen-parent monetary comparisons and288 native-shape variants. Focused901
+and document-tax428 pass. The guarded broad run passes13,401 distinct cases in
+59 suites (65.42s), including365 new. Six browser suites pass1,188 synthetic
+cases; Debug messages104. Manifest193 local/57 private; no whole-manifest run.
+The separate original240 matrix remains91 identical/117 changed/32 blocked.
+AST restoration confines five Sales builders to currency-source binding and POS
+to the new selected currency check; native VAT/rate/discount/FX math and all22
+existing reference fixture files remain unchanged. Logs:
+`/tmp/zatca-currency-221-regression-final.log`, `/tmp/zatca-currency-221-focused.log`,
+`/tmp/zatca-currency-221-document-review.log`; structural evidence:
+`/tmp/zatca-currency-221-structure.json`. See
+[SALES_CURRENCY_BINDING.md](SALES_CURRENCY_BINDING.md). No live/site/SQL/authority
+API operation; installed16, complete fiscal/GL/source custody, SDK and fictional
+rehearsal gates remain.
+
 ## Explicit multi-row item-template VAT source — increment220
 
 Added optional fixture-only ZATCA VAT Account selection without default/backfill.

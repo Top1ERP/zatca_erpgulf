@@ -31,6 +31,7 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_pos_vat_accounts import wire_account
 
 def declare(doc, records, *, position="last"):
     """Add native zero overrides without changing saved rates or money."""
+    records["Company", doc.company].default_currency = "SAR"
     for item in doc.items:
         template = records["Item Tax Template", item.item_tax_template]
         template.company, template.doctype = doc.company, "Item Tax Template"
@@ -160,16 +161,17 @@ def test_invalid_selected_scope_does_not_repair_money_or_fall_back(monkeypatch, 
 
 
 @pytest.mark.parametrize("major", [15, 16])
-def test_missing_sales_foreign_currency_binding_is_explicit_not_guessed(monkeypatch, major):
+def test_missing_sales_helper_attribute_resolves_company_without_writing_invoice(monkeypatch, major):
     doc, records = model(major, "USD")
     declare(doc, records)
     del doc.company_currency
     runtime, _ = setup(monkeypatch, records)
-    with pytest.raises(source.DeclaredVatError) as caught:
-        emit(doc, "sales")
-    assert caught.value.code == "declared_vat_currency_context"
-    runtime.log_error.assert_called_once()
+    before = input_snapshot((doc, records))
+    assert money(emit(doc, "sales"), "PayableAmount") == Decimal(str(doc.grand_total))
     assert money(emit(doc, "pos"), "PayableAmount") == Decimal(str(doc.grand_total))
+    assert input_snapshot((doc, records)) == before
+    assert not hasattr(doc, "company_currency")
+    runtime.log_error.assert_not_called()
 
 
 @pytest.mark.parametrize("major", [15, 16])

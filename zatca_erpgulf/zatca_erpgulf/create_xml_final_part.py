@@ -293,12 +293,14 @@ def _nominal_breakdown_without_template(sales_invoice_doc):
     tax_category = sales_invoice_doc.get("custom_zatca_tax_category") or "Standard"
     exemption_reason_code = sales_invoice_doc.get("custom_exemption_reason_code")
     groups = {}
+    currency_context = DeclaredVatContext(sales_invoice_doc, frappe, _)
+    amount_document = currency_context.document_for_amounts()
     sar_bases = {}
 
     for item in sales_invoice_doc.items:
         item_tax_rate = _nominal_tax_rate_without_template(sales_invoice_doc, item)
         # Keep line net/base reads and their existing currency quantization.
-        line_net = _nominal_item_net_amount(item, sales_invoice_doc)
+        line_net = _nominal_item_net_amount(item, amount_document)
         line_base_net = _nominal_item_base_net_amount(item)
         # NaN does not equal itself; use a stable diagnostic key.
         rate_key = item_tax_rate if item_tax_rate.is_finite() else None
@@ -328,6 +330,7 @@ def _nominal_breakdown_with_template(sales_invoice_doc):
     sar_bases = {}
 
     vat_context = DeclaredVatContext(sales_invoice_doc, frappe, _)
+    amount_document = vat_context.document_for_amounts()
     for item in sales_invoice_doc.items:
         item_tax_template = vat_context.get_template(item.item_tax_template)
         zatca_tax_category = item_tax_template.custom_zatca_tax_category
@@ -341,7 +344,7 @@ def _nominal_breakdown_with_template(sales_invoice_doc):
             )
         exemption_reason_code = item_tax_template.custom_exemption_reason_code
 
-        line_net = _nominal_item_net_amount(item, sales_invoice_doc)
+        line_net = _nominal_item_net_amount(item, amount_document)
         line_base_net = _nominal_item_base_net_amount(item)
 
         key = (zatca_tax_category, _nominal_q2(tax_rate), exemption_reason_code)
@@ -776,6 +779,7 @@ def _append_sales_invoice_item_lines(invoice, sales_invoice_doc, *, has_template
     Advance wrappers retain their own rate acquisition and reference tails.
     """
     vat_context = DeclaredVatContext(sales_invoice_doc, frappe, _)
+    amount_document = vat_context.document_for_amounts()
     for single_item in sales_invoice_doc.items:
         if has_template:
             item_tax_template = vat_context.get_template(single_item.item_tax_template)
@@ -788,8 +792,8 @@ def _append_sales_invoice_item_lines(invoice, sales_invoice_doc, *, has_template
             item_tax_percentage = get_item_tax_rate(
                 sales_invoice_doc, single_item
             )
-        line_net_amount = _line_net_amount(single_item, sales_invoice_doc)
-        line_net_rate = _line_net_rate(single_item, sales_invoice_doc)
+        line_net_amount = _line_net_amount(single_item, amount_document)
+        line_net_rate = _line_net_rate(single_item, amount_document)
         line_tax_amount = _line_tax_amount_from_net(line_net_amount, item_tax_percentage)
         _append_sales_invoice_line(
             invoice, sales_invoice_doc, single_item, line_net_amount, line_net_rate,
@@ -914,12 +918,14 @@ def item_data_advance_invoice(invoice, sales_invoice_doc):
     Uses line net values as the source of truth for the regular invoice lines.
     """
     try:
+        currency_context = DeclaredVatContext(sales_invoice_doc, frappe, _)
+        amount_document = currency_context.document_for_amounts()
         # Add regular item lines
         for single_item in sales_invoice_doc.items:
             item_tax_percentage = get_item_tax_rate(sales_invoice_doc, single_item)
 
-            line_net_amount = _line_net_amount(single_item, sales_invoice_doc)
-            line_net_rate = _line_net_rate(single_item, sales_invoice_doc)
+            line_net_amount = _line_net_amount(single_item, amount_document)
+            line_net_rate = _line_net_rate(single_item, amount_document)
             line_tax_amount = _line_tax_amount_from_net(
                 line_net_amount, item_tax_percentage
             )
@@ -1049,6 +1055,7 @@ def item_data_with_template_advance_invoice(invoice, sales_invoice_doc):
     """Create item XML with Item Tax Template for advance invoices using line net values."""
     try:
         vat_context = DeclaredVatContext(sales_invoice_doc, frappe, _)
+        amount_document = vat_context.document_for_amounts()
         for single_item in sales_invoice_doc.items:
             item_tax_template = vat_context.get_template(single_item.item_tax_template)
             selected_vat_row = vat_context.row(item_tax_template)
@@ -1057,8 +1064,8 @@ def item_data_with_template_advance_invoice(invoice, sales_invoice_doc):
                 item_tax_template.taxes[0].tax_rate if item_tax_template.taxes else 15
             )
 
-            line_net_amount = _line_net_amount(single_item, sales_invoice_doc)
-            line_net_rate = _line_net_rate(single_item, sales_invoice_doc)
+            line_net_amount = _line_net_amount(single_item, amount_document)
+            line_net_rate = _line_net_rate(single_item, amount_document)
             line_tax_amount = _line_tax_amount_from_net(
                 line_net_amount, item_tax_percentage
             )

@@ -5,6 +5,22 @@ development. They are part of the release scope, not optional work deferred
 until after the fictional-client rehearsal. Apply the same development-only
 and no-authority-request restrictions as [PLAN.md](PLAN.md).
 
+## Native Company currency ownership — increment221
+
+A pure policy and local rendering adapter replace implicit native foreign
+currency assumptions. Company lookup is bounded to one observation per affected
+builder context; existing POS reuses its Company. No new custom field, global
+cache, FX arithmetic or source mutation. Read-only public-helper compatibility
+and original signing/reference ownership accompany exact monetary comparisons.
+Arabic display and one English diagnostic remain separated. The view freezes
+its currency attribute, not the underlying invoice or provenance.
+
+Frozen220 fixtures, original baseline and native15/16 metadata checks are separate
+oracles. Eighteen real route compositions mock signing/transport; they are not
+fiscal/SDK or installed16 acceptance. Extra Company reads in the newly checked
+scope are deliberate; no performance/SQL saving is claimed. See
+[SALES_CURRENCY_BINDING.md](SALES_CURRENCY_BINDING.md).
+
 ## One explicit item-template VAT role — increment220
 
 Pure role selection and account reconciliation are shared across preflight and

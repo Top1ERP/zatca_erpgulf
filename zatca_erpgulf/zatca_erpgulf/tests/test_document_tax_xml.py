@@ -58,6 +58,7 @@ def run_shared(root, doc, namespace, has_template, mode):
 @pytest.fixture
 def tax_source(monkeypatch):
     templates = {
+        ("Company", "SYNTHETIC"): Document(default_currency="SAR"),
         ("Item Tax Template", "ITEM-VAT"): Document(custom_zatca_tax_category="Standard",
             custom_exemption_reason_code=None, taxes=[Document(tax_rate=15)]),
         ("POS Profile", "POS"): Document(taxes_and_charges="INVOICE-VAT"),

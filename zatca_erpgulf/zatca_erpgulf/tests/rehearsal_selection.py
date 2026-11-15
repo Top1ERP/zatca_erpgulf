@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "invoice_currency_binding",
     "item_vat_selection",
     "declared_vat_xml",
     "pos_financial_composition",

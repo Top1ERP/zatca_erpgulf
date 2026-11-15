@@ -16,6 +16,8 @@ import xml.etree.ElementTree as ET
 import frappe
 
 from zatca_erpgulf.ksa_compliance.vat_math import vat_from_group
+from zatca_erpgulf.ksa_compliance.invoice_currency import InvoiceCurrencyError, bind_invoice_currency
+from zatca_erpgulf.zatca_erpgulf.template_vat_source import CURRENCY_REVIEW
 from zatca_erpgulf.ksa_compliance.declared_vat_scope import VatScopeError, reconcile_vat_accounts
 from zatca_erpgulf.ksa_compliance.item_vat_selection import (
     MESSAGE as VAT_SELECTION_MESSAGE, VatSelectionError, select_declared_vat,
@@ -291,6 +293,12 @@ def prepare_pos_financials(doc, *, has_template, get_doc, read_rate):
     for bucket in groups.values():
         bucket["taxable_amount"] = totals.q2(bucket["taxable_amount"])
         bucket["tax_amount"] = vat_from_group(bucket["taxable_amount"], bucket["tax_rate"])
+    if declared_scope:
+        try:
+            bind_invoice_currency(currency, company.get("default_currency"),
+                invoice_override=doc.get("company_currency"))
+        except InvoiceCurrencyError as error:
+            raise PosFinancialError(str(error), CURRENCY_REVIEW) from None
     if len(taxes) > 1 or declared_scope:
         _reconcile_vat_accounts(doc, rows, tax_by_account, sign)
     net = sum((row.net for row in rows), ZERO)

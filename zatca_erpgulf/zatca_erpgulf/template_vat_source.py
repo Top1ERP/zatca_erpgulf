@@ -5,6 +5,7 @@ preflight uses row selection; XML builders additionally verify saved native
 account/rate/amount observations. No data repair, persistence or HTTP occurs.
 """
 
+from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from types import SimpleNamespace
 import frappe
@@ -14,9 +15,12 @@ from zatca_erpgulf.ksa_compliance.item_vat_selection import (
 )
 from zatca_erpgulf.ksa_compliance.declared_vat_scope import VatScopeError, reconcile_vat_accounts
 from zatca_erpgulf.ksa_compliance.vat_math import vat_from_group
+from zatca_erpgulf.ksa_compliance.invoice_currency import InvoiceCurrencyError, bind_invoice_currency
 
 SOURCE = "The declared VAT source does not match the saved invoice tax data. Recalculate and save the invoice before generating XML."
+# Retained for integrations translating the earlier failure key.
 CURRENCY = "The declared VAT source needs a confirmed company currency before foreign-currency Sales XML can be generated."
+CURRENCY_REVIEW = "The invoice currency context could not be confirmed with its Company. Review the Company currency and any invoice currency override."
 
 
 class DeclaredVatError(frappe.ValidationError):
@@ -62,10 +66,32 @@ def q2(value):
     raise VatSelectionError("declared_vat_invalid_amount")
 
 
+@dataclass(frozen=True, repr=False)
+class CurrencyRenderDocument:
+    """Local rendering adapter, never an invoice or a signing/source owner.
+
+    Only company_currency is supplied from a checked Company observation. All
+    other reads delegate to the original document. This is not an immutable
+    source snapshot; the original invoice and child rows are never modified.
+    Settlement, ACL, signing and persistence continue to receive the original.
+    """
+    _source: object = field(repr=False)
+    company_currency: str
+
+    def get(self, key, default=None):
+        if key == "company_currency":
+            return self.company_currency
+        return self._source.get(key, default)
+
+    def __getattr__(self, key):
+        return getattr(self._source, key)
+
+
 class DeclaredVatContext:
     """One XML builder's checked source; not a tenant/credential snapshot.
 
-    No additional document read or cache changes for unselected templates.
+    Legacy template reads keep their existing cache policy. Native foreign
+    Sales without its helper attribute additionally binds Company currency.
     Once an explicit selection is encountered, verify the complete invoice
     account scope. Unselected companions must have a single unambiguous row.
     """
@@ -74,6 +100,40 @@ class DeclaredVatContext:
         self.doc, self.runtime, self.translate = doc, runtime, translate
         self.templates, self.checked = {}, False
         self.require_sales_currency = require_sales_currency
+        self.currency_binding, self._currency_document = None, None
+
+    def _bind_currency(self):
+        if self.currency_binding is None:
+            missing_company = getattr(self.runtime, "DoesNotExistError", KeyError)
+            try:
+                company = self.runtime.get_doc("Company", self.doc.company)
+            except (KeyError, missing_company):
+                fail_declared_vat(self.runtime, self.translate,
+                    "invoice_currency_company_missing", CURRENCY_REVIEW)
+            try:
+                binding = bind_invoice_currency(self.doc.currency, company.get("default_currency"),
+                    invoice_override=self.doc.get("company_currency"))
+            except InvoiceCurrencyError as error:
+                fail_declared_vat(self.runtime, self.translate, str(error), CURRENCY_REVIEW)
+            self.currency_binding = binding
+            self._currency_document = CurrencyRenderDocument(self.doc, binding.accounting)
+        return self._currency_document
+
+    def document_for_amounts(self):
+        """Bind native foreign Sales lacking its nonstandard helper attribute.
+
+        Partial public-helper inputs without Company retain their old fallback.
+        Normal native invoices have Company. Resolve it once per builder before
+        any line, so an unselected companion before a selected item is correct.
+        Explicit existing bindings retain legacy behavior unless VAT selection
+        separately requires full Company/source verification.
+        """
+        if self._currency_document is not None:
+            return self._currency_document
+        if (self.require_sales_currency and getattr(self.doc, "company", None)
+                and self.doc.currency != "SAR" and self.doc.get("company_currency") in (None, "")):
+            return self._bind_currency()
+        return self.doc
 
     def get_template(self, name):
         if self.checked and name in self.templates:
@@ -96,12 +156,9 @@ class DeclaredVatContext:
 
     def _verify(self):
         doc = self.doc
-        # Older Sales currency helpers need an explicit company-currency
-        # binding for foreign amounts. Refuse that unresolved new scope rather
-        # than mixing base-currency line values with document-currency totals.
-        if (self.require_sales_currency and doc.currency != "SAR"
-                and getattr(doc, "company_currency", None) != "SAR"):
-            fail_declared_vat(self.runtime, self.translate, "declared_vat_currency_context", CURRENCY)
+        # Explicit VAT selection checks Company ownership of base amounts,
+        # including conflicts hidden by an invoice-only helper attribute.
+        self._bind_currency()
         if (not doc.get("custom_zatca_nominal_invoice") and q2(doc.get("discount_amount") or 0) != 0
                 and not any(q2(item.get("distributed_discount_amount") or 0) != 0 for item in doc.items)):
             raise VatSelectionError("declared_vat_discount_not_allocated")
