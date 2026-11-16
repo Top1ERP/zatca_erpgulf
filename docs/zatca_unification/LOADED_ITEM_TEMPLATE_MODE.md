@@ -1,5 +1,12 @@
 # Loaded invoice rows own the XML template choice — increment226
 
+Increment227 moves canonical production/Debug template validation before UUID
+creation and rechecks after identity callbacks. Eight generation consumers share
+that checked result; imported metadata replacements retain their original API and
+post-return check. Compliance keeps its Company-first boundary. The historical
+after-metadata description below is superseded for the new canonical path only;
+see [METADATA_TEMPLATE_GATE.md](METADATA_TEMPLATE_GATE.md).
+
 Development only, 2026-11-16. No installed source, site/schema/configuration,
 invoice, Bench or worker was changed. No tenant SQL or authority API was used.
 The ordinary generators execute only against synthetic records and mocked

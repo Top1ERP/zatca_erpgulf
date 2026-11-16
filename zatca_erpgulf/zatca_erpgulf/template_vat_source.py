@@ -52,9 +52,24 @@ def resolve_invoice_template_mode(doc, *, runtime, translate):
     not a new UUID/ICV transaction or source-revision/permission guarantee.
     """
     try:
-        return item_template_mode(doc.get("items"))
+        getter = getattr(doc, "get", None)
+        rows = getter("items") if callable(getter) else getattr(doc, "items", None)
+        return item_template_mode(rows)
     except ItemTemplateModeError as error:
         fail_declared_vat(runtime, translate, error.code, ITEM_TEMPLATE_REVIEW)
+
+
+def confirm_invoice_template_mode(doc, expected, *, runtime, translate, read_mode):
+    """Detect observed mode drift across identity callbacks, without rollback.
+
+    The original reader is passed explicitly so metadata integrations retain
+    their current binding. Same-mode template/value changes are outside this
+    scalar observation; no row revision or transaction snapshot is attested.
+    """
+    current = read_mode(doc, runtime=runtime, translate=translate)
+    if current != expected:
+        fail_declared_vat(runtime, translate, "metadata_item_template_changed", ITEM_TEMPLATE_REVIEW)
+    return current
 
 
 def declared_vat_row(template, *, runtime, translate, company=None):

@@ -17,6 +17,22 @@ pilot/rollout. API sending needs separate explicit authority changing the ban.
 See [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md); it supersedes any older
 operational request or less restrictive deployment wording in historical records.
 
+## Early canonical metadata template gate — increment227
+
+Check template mode before the production/Debug UUID provider and again after
+identity callbacks. Share checked metadata/mode composition in eight generators
+while retaining three-value public API, imported callback bindings, valid UUID
+reuse/write behavior and the Compliance Company-first boundary. Retain any UUID
+already written by a later-failing callback; do not invent rollback or rewind.
+
+Next complete saved-source/settings/phase/credential and identity-transaction
+custody, broader early fiscal/party validation and remaining precision/settlement/
+GL cases. Same-mode source changes and arbitrary metadata replacements are not
+authenticated by the scalar gate. Installed15/16, SDK/scanner and separately
+approved isolated fictional-client rehearsal remain mandatory. No working-site
+deployment or authority API request is authorized. See
+[METADATA_TEMPLATE_GATE.md](METADATA_TEMPLATE_GATE.md).
+
 ## Loaded-row template selection — increment226
 
 Derive the financial-builder family from the loaded invoice in ten generators,

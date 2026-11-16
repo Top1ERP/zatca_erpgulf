@@ -1,5 +1,6 @@
 """This file contains the function to call the ZATCA API for POS Invoices"""
 
+from .invoice_generation_data import prepare_invoice_generation
 from .template_vat_source import resolve_invoice_template_mode
 import base64
 from frappe import _  # pylint: disable=unused-import
@@ -97,9 +98,9 @@ def zatca_call_pos_without_xml(
             frappe.throw("Invoice Number is NOT Valid: " + str(invoice_number))
 
         invoice = xml_tags()
-        invoice, uuid1, pos_invoice_doc = salesinvoice_data(invoice, invoice_number)
-        any_item_has_tax_template = resolve_invoice_template_mode(
-            pos_invoice_doc, runtime=frappe, translate=_)
+        invoice, uuid1, pos_invoice_doc, any_item_has_tax_template = prepare_invoice_generation(
+            invoice, invoice_number, namespace=globals(), doctype='POS Invoice',
+        )
         # Signing and HTTP must follow the same saved invoice issuer.
         source_doc = pos_invoice_doc
 

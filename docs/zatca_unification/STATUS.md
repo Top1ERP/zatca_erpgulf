@@ -1,5 +1,48 @@
 # Implementation status — 2026-11-16
 
+## Template validation before canonical identity — increment227
+
+Production/Debug Sales/POS metadata now validates item-template mode after its
+existing timestamp check and before the UUID provider. The same mode reader
+checks again after identity callbacks and before XML append. Initially mixed
+rows stop before canonical UUID generation/write; observed callback drift gets
+one existing localized source review. Already written UUID is retained on a
+later drift failure. Inspected Frappe15 db_set confirms before_change/on_change;
+this is not a new transaction/rollback, full-source freeze or installed16 claim.
+
+One generation entry serves six ordinary and two Debug consumers. Public metadata
+keeps its three-value result; a code/runtime/translator/reader identity check
+permits the internal four-value mode return without another caller scan. Imported
+metadata replacements keep original arguments, returned root/document and caller
+mode reader, with no promise about their earlier side effects. Compliance metadata
+and Company-first template boundary remain unchanged. Partial attribute-only
+metadata sources keep their prior empty/absent-table compatibility.
+
+269 new cases cover real metadata/UUID-provider functions under write spies,
+old/new deterministic metadata bytes, initial failures, callback drift, three-
+value API, native eight-route early stops and complete-parent generator parity
+through imported metadata. Focused269 pass. An initial1110-case existing selection
+passed before the final callback recheck; the final broad run covers the full
+current scope and passes17,109 cases across68 reviewed suites in100.87s.
+Six browser suites pass1,208 cases; no catalogue/UI change was needed. Initial
+new-test preview byte differences were random UUID4 values; fixing the test-only
+factory resolved them without changing production UUID behavior.
+
+Manifest199 local/57 private; no whole-manifest/private-SQL run. Structural
+restoration recreates both metadata functions and all eight generator bodies
+after restoring only the documented gate/composition spans.349 other tracked
+runtime files and28 earlier Python reference fixtures are byte-identical.
+Financial calculators, actual UUID-provider persistence, ICV, signing, QR,
+credentials/API/artifact/permission algorithms are unchanged. Original240 remains
+91 identical/117 changed/32 blocked; previous differences still require review.
+Logs: `/tmp/zatca-metadata-gate-227-focused-final.log`,
+`/tmp/zatca-metadata-gate-227-regression-final.log`; structural report:
+`/tmp/zatca-metadata-gate-227-structure.json`. See
+[METADATA_TEMPLATE_GATE.md](METADATA_TEMPLATE_GATE.md). No live/schema/configuration,
+tenant SQL, restart or authority API action. Saved-source/credential/transaction,
+fiscal/GL/precision/settlement, installed15/16, SDK/scanner and separately approved
+fictional-client rehearsal remain release gates.
+
 ## Loaded item-template mode across ten generators — increment226
 
 One pure list/row policy and typed framework adapter now select plain/template

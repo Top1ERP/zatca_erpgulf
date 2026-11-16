@@ -5,6 +5,23 @@ development. They are part of the release scope, not optional work deferred
 until after the fictional-client rehearsal. Apply the same development-only
 and no-authority-request restrictions as [PLAN.md](PLAN.md).
 
+## Canonical metadata gate with preserved integration contracts — increment227
+
+Share checked metadata/mode handoff in eight generators instead of maintaining
+separate tuple unpacking and mode-selection sequences. Default metadata retains
+three values; only code/runtime/translation/reader-matched composition requests
+the fourth. Imported replacements keep their old call shape and current returned
+objects. No document/site namespace cache, public endpoint or custom field is
+introduced. Two intentional scalar observations around identity callbacks avoid
+silently using a changed mode; they do not attest immutable source/DB custody.
+
+269 cases distinguish early canonical failure from post-provider retention and
+arbitrary integration side effects. Deterministic test UUID factories support
+byte/write-contract comparison; actual provider algorithms remain unchanged.
+Frappe15 hook source evidence is separate from simulated callbacks and installed16
+acceptance. Complete-parent AST restoration bounds the implementation. See
+[METADATA_TEMPLATE_GATE.md](METADATA_TEMPLATE_GATE.md).
+
 ## Source-owned template choice without duplicate math — increment226
 
 One import-free row policy replaces request-hint selection in seven consumers

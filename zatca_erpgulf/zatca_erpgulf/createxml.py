@@ -12,7 +12,9 @@ from zatca_erpgulf.ksa_compliance.party_names import (
 )
 from frappe import _
 import frappe
-from zatca_erpgulf.zatca_erpgulf.template_vat_source import DeclaredVatContext
+from zatca_erpgulf.zatca_erpgulf.template_vat_source import (
+    DeclaredVatContext, DeclaredVatError, confirm_invoice_template_mode, resolve_invoice_template_mode,
+)
 from frappe.utils import cint
 from zatca_erpgulf.zatca_erpgulf.country import normalize_country_code
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
@@ -631,9 +633,11 @@ def xml_tags():
         return None
 
 
-def salesinvoice_data(invoice, invoice_number, *, purpose="production"):
+def salesinvoice_data(invoice, invoice_number, *, purpose="production", _include_template_mode=False):
     """
     Populate metadata, persisting issuance identity only for the live workflow.
+    Existing callers receive three values. Internal production/Debug composition
+    can request the mode checked before and after identity callbacks as well.
     """
     try:
         sales_invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
@@ -641,16 +645,32 @@ def salesinvoice_data(invoice, invoice_number, *, purpose="production"):
         # Freeze time from the SAME loaded record, and validate BEFORE any UUID
         # persistence. A second get_doc could observe a different revision.
         issue_timestamp = format_zatca_qr_timestamp(sales_invoice_doc.posting_date, sales_invoice_doc.posting_time)
+        if _include_template_mode and purpose not in ("production", "debug"):
+            raise ValueError("metadata_template_purpose")
+        mode = (
+            resolve_invoice_template_mode(sales_invoice_doc, runtime=frappe, translate=_)
+            if purpose in ("production", "debug") else None
+        )
         uuid1 = (
             _get_or_create_sales_invoice_uuid(sales_invoice_doc)
             if purpose == "production"
             else preview_invoice_uuid(getattr(sales_invoice_doc, "custom_uuid", None), purpose)
         )
+        if purpose in ("production", "debug"):
+            mode = confirm_invoice_template_mode(sales_invoice_doc, mode,
+                runtime=frappe, translate=_, read_mode=resolve_invoice_template_mode)
         append_invoice_metadata(invoice, sales_invoice_doc.name, uuid1, issue_timestamp)
-        return invoice, uuid1, sales_invoice_doc
+        result = (invoice, uuid1, sales_invoice_doc)
+        return (*result, mode) if _include_template_mode else result
+    except DeclaredVatError:
+        raise
     except (AttributeError, ValueError, frappe.ValidationError) as e:
         frappe.throw(_(("Error occurred in SalesInvoice data: " f"{str(e)}")))
         return None
+
+
+# Code identity only, never a cached document or permission/source capability.
+_CANONICAL_INVOICE_METADATA = salesinvoice_data
 
 
 def invoice_typecode_compliance(invoice, compliance_type):

@@ -1,3 +1,4 @@
+from .invoice_generation_data import prepare_invoice_generation
 from .template_vat_source import resolve_invoice_template_mode
 import frappe
 from .invoice_type_xml import InvoiceTypeSelectionError, checked_debug_type, populate_invoice_type
@@ -161,11 +162,9 @@ def _debug_call(
         def generate_and_attach_xml(invoice_doc):
             # Step 1: XML creation
             invoice = xml_tags()
-            invoice, uuid1, invoice_doc = salesinvoice_data(
-                invoice, invoice_doc.name, purpose="debug"
+            invoice, uuid1, invoice_doc, any_item_has_tax_template = prepare_invoice_generation(
+                invoice, invoice_doc.name, namespace=globals(), doctype='Sales Invoice', purpose="debug",
             )
-            any_item_has_tax_template = resolve_invoice_template_mode(
-                invoice_doc, runtime=frappe, translate=_)
             customer_doc = frappe.get_doc("Customer", invoice_doc.customer)
 
             # Step 2: Classify from the invoice/customer or explicit sample.

@@ -1,5 +1,10 @@
 # Debug classification and Sales item selection — increment225
 
+Increment227 shares canonical metadata and checked template-mode handoff in both
+Debug implementations without changing classification or item/financial builders.
+Imported metadata callbacks retain their original purpose argument and result
+contract. See [METADATA_TEMPLATE_GATE.md](METADATA_TEMPLATE_GATE.md).
+
 Increment226 additionally selects plain/template mode from metadata's returned
 invoice rows in both Debug adapters and eight ordinary/Compliance consumers.
 Request hints cannot override that mode; mixed rows receive one localized review.

@@ -7,6 +7,7 @@ including the creation of UBL XML
 invoices, signing, and submission to ZATCA servers for clearance and reporting.
 """
 
+from .invoice_generation_data import prepare_invoice_generation
 from .template_vat_source import resolve_invoice_template_mode
 import os
 import io
@@ -857,9 +858,9 @@ def zatca_call(
         if not frappe.db.exists("Sales Invoice", invoice_number):
             frappe.throw(_("Invoice Number is NOT Valid: " + str(invoice_number)))
         invoice = xml_tags()
-        invoice, uuid1, sales_invoice_doc = salesinvoice_data(invoice, invoice_number)
-        any_item_has_tax_template = resolve_invoice_template_mode(
-            sales_invoice_doc, runtime=frappe, translate=_)
+        invoice, uuid1, sales_invoice_doc, any_item_has_tax_template = prepare_invoice_generation(
+            invoice, invoice_number, namespace=globals(), doctype='Sales Invoice',
+        )
         # Signing and HTTP must follow the same saved invoice issuer.
         source_doc = sales_invoice_doc
         # Get the company abbreviation

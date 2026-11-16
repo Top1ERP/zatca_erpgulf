@@ -1,6 +1,7 @@
 
 """ZATCA E-Invoicing Integration for ERPNext debug xml for pos inv"""
 
+from .invoice_generation_data import prepare_invoice_generation
 from .template_vat_source import resolve_invoice_template_mode
 import json
 import requests
@@ -179,11 +180,9 @@ def _debug_call(
         # --- Function to generate and attach XML ---
         def generate_and_attach_xml(invoice_doc):
             invoice = xml_tags()
-            invoice, uuid1, invoice_doc = salesinvoice_data(
-                invoice, invoice_number, purpose="debug"
+            invoice, uuid1, invoice_doc, any_item_has_tax_template = prepare_invoice_generation(
+                invoice, invoice_number, namespace=globals(), doctype='POS Invoice', purpose="debug",
             )
-            any_item_has_tax_template = resolve_invoice_template_mode(
-                invoice_doc, runtime=frappe, translate=_)
 
             company_abbr = frappe.db.get_value("Company", {"name": invoice_doc.company}, "abbr")
             customer_doc_inner = frappe.get_doc("Customer", invoice_doc.customer)
