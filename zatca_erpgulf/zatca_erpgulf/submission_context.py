@@ -10,9 +10,13 @@ import frappe
 from frappe import _
 
 from zatca_erpgulf.zatca_erpgulf.api_routing import ApiRoute
-from zatca_erpgulf.zatca_erpgulf.api_settings import get_company_api_route
+from zatca_erpgulf.zatca_erpgulf.api_settings import _throw_configuration_error as throw_route_error
 from zatca_erpgulf.zatca_erpgulf.credential_material import ApiAuthorization
-from zatca_erpgulf.zatca_erpgulf.credential_settings import get_api_authorization
+from zatca_erpgulf.zatca_erpgulf.credential_settings import (
+    _resolve_owner_record_from_saved_company,
+    _throw_configuration_error as throw_credential_error,
+)
+from .request_selection import capture_request_selection
 from zatca_erpgulf.zatca_erpgulf.pih import update_pih_after_phase2_success
 
 
@@ -40,15 +44,17 @@ def get_submission_context(
         or not invoice_number or source_doc.name != invoice_number
     ):
         frappe.throw(_("The ZATCA submission target must match the source invoice."))
-    if require_issuing_unit:
-        # Machine-specific legacy entry points must not silently fall back to
-        # Company credentials. Check the saved link, not a caller-supplied DTO.
-        saved_source = frappe.get_doc(source_doc.doctype, source_doc.name)
-        if not saved_source.get("custom_zatca_pos_name"):
-            frappe.throw(_("A saved ZATCA issuing unit is required for this XML submission path."))
-    route = get_company_api_route(company_abbr, endpoint)
-    authorization = get_api_authorization(
-        company_abbr, source_doc, purpose=route.required_credential
+    from .issuing_attempt import active_attempt
+    attempt = active_attempt(company_abbr, source_doc, runtime=frappe)
+    if attempt is not None:
+        route, authorization = attempt.selection(endpoint, source_doc=source_doc,
+            runtime=frappe, require_issuing_unit=require_issuing_unit)
+        return SubmissionContext(route, authorization)
+    route, authorization = capture_request_selection(
+        company_abbr, source_doc, endpoint, runtime=frappe,
+        resolve_owner_record=_resolve_owner_record_from_saved_company,
+        credential_error=throw_credential_error, route_error=throw_route_error,
+        require_issuing_unit=require_issuing_unit, translate=_,
     )
     return SubmissionContext(route, authorization)
 

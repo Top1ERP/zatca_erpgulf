@@ -12,6 +12,18 @@ def get_company_api_route(
     company_abbr, endpoint, *, environment=None, onboarding_only=False
 ) -> ApiRoute:
     """Resolve routing fields without using credentials or repairing settings."""
+    from .issuing_attempt import ACTIVE, active_attempt
+    current = ACTIVE.get()
+    if current is not None:
+        source = dict(zip(('doctype', 'name'), current.source_identity))
+        current = active_attempt(company_abbr, source, runtime=frappe)
+        if environment is not None and environment != current.company.get('custom_select'):
+            current.review('issuing_environment_override')
+        route = resolve_api_route(current.company.values, endpoint,
+                                  environment=environment, onboarding_only=onboarding_only)
+        if route.required_credential != current.purpose:
+            current.review('issuing_context_purpose')
+        return route
     company = frappe.get_doc("Company", {"abbr": company_abbr})
     settings = {
         name: company.get(name)
@@ -22,11 +34,16 @@ def get_company_api_route(
             settings, endpoint, environment=environment, onboarding_only=onboarding_only
         )
     except ApiConfigurationError as error:
-        messages = {
-            "environment": _("Select a valid ZATCA environment: Sandbox, Simulation, or Production."),
-            "operation": _("Unsupported ZATCA API operation."),
-            "onboarding_operation": _("This operation is not part of ZATCA onboarding."),
-            "base_url": _("Configure a valid HTTPS base URL for the selected ZATCA environment."),
-            "environment_url": _("The ZATCA URL does not match the selected environment."),
-        }
-        frappe.throw(messages[error.code])
+        _throw_configuration_error(error)
+
+
+def _throw_configuration_error(error):
+    """Share the existing localized route failures with captured selection."""
+    messages = {
+        "environment": _("Select a valid ZATCA environment: Sandbox, Simulation, or Production."),
+        "operation": _("Unsupported ZATCA API operation."),
+        "onboarding_operation": _("This operation is not part of ZATCA onboarding."),
+        "base_url": _("Configure a valid HTTPS base URL for the selected ZATCA environment."),
+        "environment_url": _("The ZATCA URL does not match the selected environment."),
+    }
+    frappe.throw(messages[error.code])

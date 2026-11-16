@@ -1,5 +1,32 @@
 # Implementation status — 2026-11-16
 
+## Workstream1 foundation — active, not a transition
+
+The user requested continuous work through each complete release workstream.
+[WORKSTREAM_1.md](WORKSTREAM_1.md) now records its explicit closure checklist.
+The common Production-purpose selector copies saved Company/source/device rows
+before composing route and auth, eliminating a demonstrated split-Company-read
+rotation race while preserving native owner/purpose policy and stable results.
+
+An execution-local issuing scope pins native credential/PIH readers, compares
+consumed source/issuer observations before scoped request selection, validates
+native signing material through the existing CredentialSnapshot constructor,
+and invalidates retained child contexts on exit. It has no global document/site
+cache, pickle, schema, active credential pointer or HTTP operation. Definitions
+and explicit scope callers are tested; actual generator/Debug/Compliance/sample
+entry adoption and complete consumed-master observation are still in progress.
+The current source profile is partial and not a trusted source snapshot/epoch.
+
+The guarded foundation baseline passes19,422 across74 local suites in114.80s.
+After expanding the same-parent reference and adding the Arabic review key,
+128 final focused cases pass. Original financial builders/reference fixtures and
+issued identity/ICV algorithms remain untouched. No live/site/schema/invoice/
+tenant SQL/restart or authority API action. Workstream1 remains active; no
+transition to workstream2 and no release/installed/SDK acceptance is claimed.
+Logs: `/tmp/zatca-axis1-foundation-regression.log`,
+`/tmp/zatca-axis1-foundation-reference-final.log`; structural record:
+`/tmp/zatca-axis1-foundation-structure.json`.
+
 ## Existing XML metadata binding and release closure — increment229
 
 Four existing-XML Sales/POS APIs now compare the captured Base64 XML's embedded

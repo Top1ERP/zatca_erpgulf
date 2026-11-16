@@ -1,6 +1,8 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "issuing_attempt",
+    "request_selection",
     "existing_xml_binding",
     "invoice_payload",
     "metadata_template_gate",

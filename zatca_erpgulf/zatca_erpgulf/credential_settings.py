@@ -51,6 +51,10 @@ def _get_value(doc, fieldname):
 
 def resolve_credential_owner(company_abbr, source_doc=None) -> CredentialOwner:
     """Resolve Company, own-device, or explicitly linked-company credentials."""
+    from .issuing_attempt import active_attempt
+    attempt = active_attempt(company_abbr, source_doc, runtime=frappe)
+    if attempt is not None:
+        return attempt.owner
     try:
         company = frappe.get_doc("Company", {"abbr": company_abbr})
         return _resolve_owner_from_saved_company(company, source_doc)
@@ -129,6 +133,14 @@ def get_previous_invoice_hash(company_abbr, source_doc):
         MISSING_PREVIOUS_HASH, previous_hash_value,
     )
 
+    from .issuing_attempt import active_attempt
+    attempt = active_attempt(company_abbr, source_doc, runtime=frappe)
+    if attempt is not None:
+        try:
+            return previous_hash_value(attempt.owner.values.get('custom_pih'))
+        except ValueError:
+            pass
+        frappe.throw(_(MISSING_PREVIOUS_HASH))
     company = frappe.get_doc("Company", {"abbr": company_abbr})
     try:
         owner, _kind = _resolve_owner_record_from_saved_company(company, source_doc)
@@ -251,6 +263,12 @@ def _parse_certificate(content):
 
 def get_signing_key(company_abbr, source_doc=None):
     """Load one owner snapshot and reject a key/certificate mismatch before signing."""
+    from .issuing_attempt import active_attempt
+    attempt = active_attempt(company_abbr, source_doc, runtime=frappe)
+    if attempt is not None:
+        captured = attempt.signing_material()
+        if captured is not None:
+            return captured.private_key
     try:
         owner = resolve_credential_owner(company_abbr, source_doc)
         certificate = _parse_certificate(_certificate_for_owner(owner))
@@ -282,6 +300,11 @@ def get_certificate_public_key(company_abbr, source_doc=None) -> bytes:
 
 def get_api_authorization(company_abbr, source_doc=None, *, purpose):
     """Resolve the same owner policy as signing, then select a purpose-specific field."""
+    from .issuing_attempt import active_attempt
+    attempt = active_attempt(company_abbr, source_doc, runtime=frappe, purpose=purpose)
+    if attempt is not None:
+        endpoint = 'compliance/invoices' if purpose == 'compliance' else 'invoices/reporting/single'
+        return attempt.selection(endpoint, source_doc=source_doc, runtime=frappe)[1]
     try:
         return authorization_for_owner(resolve_credential_owner(company_abbr, source_doc), purpose)
     except CredentialConfigurationError as error:
