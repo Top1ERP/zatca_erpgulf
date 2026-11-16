@@ -17,6 +17,23 @@ pilot/rollout. API sending needs separate explicit authority changing the ban.
 See [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md); it supersedes any older
 operational request or less restrictive deployment wording in historical records.
 
+## Debug classification and shared Sales item selection — increment225
+
+Classify Debug from the actual customer/original invoice or an explicit sample,
+independent of scheduling and GPOS identifiers. Share existing type-builder
+composition with ordinary Sales/POS while retaining the POS Debug ordinary B2C
+restriction. Normalize malformed selectors before preview identity/builders and
+translate the single app-owned review only at display time. Share the primary
+Sales direct/legacy item-builder decision with Debug; preserve native XML/money
+and existing builder overrides rather than implementing financial math again.
+
+Next complete trusted source/settings/phase/credential custody and remaining
+strict-name/VAT/precision/settlement/GL/fiscal checks. Audit other legacy generation
+choices and Debug source-revision ownership before claiming all paths equivalent.
+Installed15/16 lifecycle, SDK/scanner and separately approved isolated fictional
+rehearsal remain required. No working-site rollout or authority API is authorized.
+See [DEBUG_GENERATION_ALIGNMENT.md](DEBUG_GENERATION_ALIGNMENT.md).
+
 ## Party names and explicit Phase2 QR protection — increment224
 
 Share display alias metadata and pure name mechanics while retaining each

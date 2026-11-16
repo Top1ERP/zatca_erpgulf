@@ -1,5 +1,10 @@
 # Shared invoice reference and party sequence — increment199
 
+Increment225 shares the preceding type-builder decision for primary ordinary and
+Debug Sales/POS. References/parties/payment keep this same sequence; Debug still
+uses its local preview purpose, never Compliance or live persistence. See
+[DEBUG_GENERATION_ALIGNMENT.md](DEBUG_GENERATION_ALIGNMENT.md).
+
 Increment224 shares Company/Customer display alias metadata and name mechanics
 without changing this sequence or its actual company/customer XML builder bodies.
 96 real reference/party/payment compositions retain parent bytes. Existing

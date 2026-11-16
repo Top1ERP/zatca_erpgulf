@@ -1,4 +1,6 @@
 import frappe
+from .invoice_type_xml import InvoiceTypeSelectionError, checked_debug_type, populate_invoice_type
+from .sales_item_xml import populate_sales_items
 from zatca_erpgulf.zatca_erpgulf.template_vat_source import DeclaredVatError
 from zatca_erpgulf.zatca_erpgulf.document_tax_xml import (
     DocumentTaxTools, populate_document_tax,
@@ -38,7 +40,7 @@ from zatca_erpgulf.zatca_erpgulf.createxml import (
     invoice_typecode_standard,
     invoice_typecode_advance_payment,
 )
-from zatca_erpgulf.zatca_erpgulf.zatca_runtime import PHASE_1_VALUE, PHASE_2_VALUE, is_advance_payment_invoice, resolve_zatca_phase, is_zatca_invoice_enabled
+from zatca_erpgulf.zatca_erpgulf.zatca_runtime import PHASE_1_VALUE, PHASE_2_VALUE, supports_advance_deduction_schema, is_advance_payment_invoice, resolve_zatca_phase, is_zatca_invoice_enabled
 from zatca_erpgulf.zatca_erpgulf.xml_tax_data import tax_data, tax_data_with_template
 from zatca_erpgulf.zatca_erpgulf.create_xml_final_part import (
     tax_data_nominal,
@@ -132,6 +134,7 @@ def _debug_call(
     notices = []
     try:
         sales_invoice_doc, settings, debug_source = prepare_debug_source(frappe, SALES_INVOICE, invoice_number)
+        compliance_type = checked_debug_type(compliance_type)
         source_doc = sales_invoice_doc
         company_abbr = settings.abbr
         company_doc = settings
@@ -159,7 +162,7 @@ def _debug_call(
             frappe.throw(_("Please provide the 'qr_code' field data when XML exists for invoice: ") + str(invoice_number))
         
         # --- Helper function: generate & attach XML ---
-        def generate_and_attach_xml(invoice_doc, handle_b2c_simplified=True):
+        def generate_and_attach_xml(invoice_doc):
             # Step 1: XML creation
             invoice = xml_tags()
             invoice, uuid1, invoice_doc = salesinvoice_data(
@@ -167,22 +170,11 @@ def _debug_call(
             )
             customer_doc = frappe.get_doc("Customer", invoice_doc.customer)
 
-            # Step 2: Invoice type logic
-            if compliance_type == "0" and is_advance_payment_invoice(invoice_doc) and not invoice_doc.is_return and not getattr(invoice_doc, "is_debit_note", 0):
-                invoice = invoice_typecode_advance_payment(invoice, invoice_doc)
-            elif handle_b2c_simplified:
-                invoice = invoice_typecode_simplified(invoice, invoice_doc)
-            else:
-                if compliance_type == "0":
-
-                    if get_alias_value("customer_b2c", customer_doc, 0) == 1:
-
-                        invoice = invoice_typecode_simplified(invoice, invoice_doc)
-                    else:
-                        invoice = invoice_typecode_standard(invoice, invoice_doc)
-                else:
-                    invoice = invoice_typecode_compliance(invoice, compliance_type)
-
+            # Step 2: Classify from the invoice/customer or explicit sample.
+            invoice = populate_invoice_type(
+                invoice, invoice_doc, customer_doc, namespace=globals(),
+                doctype="Sales Invoice", compliance_type=compliance_type,
+            )
 
             # Step 3: Populate XML
             invoice = populate_invoice_parties(
@@ -202,20 +194,11 @@ def _debug_call(
                 is_nominal=lambda: debug_nominal,
             )
 
-            # Step 5: Item data
-            is_claudion_installed = "claudion4saudi" in frappe.get_installed_apps()
-            has_advance_copy = getattr(invoice_doc, "custom_advances_copy", False)
-
-            if is_claudion_installed and has_advance_copy:
-                if not any_item_has_tax_template:
-                    invoice = item_data_advance_invoice(invoice, invoice_doc)
-                else:
-                    invoice = item_data_with_template_advance_invoice(invoice, invoice_doc)
-            else:
-                if not any_item_has_tax_template:
-                    invoice = item_data(invoice, invoice_doc)
-                else:
-                    invoice = item_data_with_template(invoice, invoice_doc)
+            # Step 5: Use the same direct/legacy item selection as ordinary Sales.
+            invoice = populate_sales_items(
+                invoice, invoice_doc, namespace=globals(),
+                has_template=any_item_has_tax_template,
+            )
 
             # Step 6: XML Structuring & reading
             file_content = xml_structuring(invoice)
@@ -232,34 +215,19 @@ def _debug_call(
             return {"status": "success", "message": DEBUG_CREATED,
                     **attachment, "notices": notices}
 
-        # --- Determine handle_b2c_simplified flag ---
-        handle_b2c_simplified = False  # default
-
+        # Existing issued artifacts only add a notice. Scheduling and GPOS
+        # identifiers must not change the customer's invoice classification.
         if resolve_zatca_phase(settings) == PHASE_2_VALUE:
             if field_exists and getattr(sales_invoice_doc, "custom_unique_id", None):
                 if is_gpos_installed and getattr(sales_invoice_doc, "custom_xml", None):
-                    
-                    # Preserve this branch, then generate a separate Debug copy.
                     notices.append(DEBUG_EXISTING)
-                    pass
-                else:
-                    # Phase-2 + custom_unique_id + no XML yet => B2C simplified
-                    handle_b2c_simplified = True
-            else:
-                if is_qr_and_xml_attached(sales_invoice_doc):
-                    # Existing issued artifacts do not replace the Debug copy.
-                    notices.append(DEBUG_EXISTING)
-                    pass
-                elif settings.custom_send_invoice_to_zatca == "Background" and not bypass_background_check:
-                    # Background sending => B2C simplified
-                    handle_b2c_simplified = True
-                else:
-                    # Default / fallback => not simplified
-                    handle_b2c_simplified = False
+            elif is_qr_and_xml_attached(sales_invoice_doc):
+                notices.append(DEBUG_EXISTING)
 
-        # --- Generate and attach XML ---
-        return generate_and_attach_xml(sales_invoice_doc, handle_b2c_simplified=handle_b2c_simplified)
+        return generate_and_attach_xml(sales_invoice_doc)
     except Exception as e:
+        if isinstance(e, InvoiceTypeSelectionError):
+            notices.append(e.template)
         if isinstance(e, DeclaredVatError):
             notices.append(e.template)
         if isinstance(e, DebugArtifactError):

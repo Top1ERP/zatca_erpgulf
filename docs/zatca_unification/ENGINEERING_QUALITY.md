@@ -5,6 +5,23 @@ development. They are part of the release scope, not optional work deferred
 until after the fictional-client rehearsal. Apply the same development-only
 and no-authority-request restrictions as [PLAN.md](PLAN.md).
 
+## Shared generation decisions, explicit Debug changes — increment225
+
+Extract common type-builder composition and the primary Sales item-selection
+decision into framework-free modules. Bind existing imports at invocation time,
+retain replacement-root and short-circuit semantics, and introduce no tax/FX/
+settlement/signature implementation. Complete-parent AST restoration proves the
+ordinary generation remainder is unchanged. Debug scheduling no longer changes
+classification; normalized selector failures stop before identity/builders and
+produce one app-owned display notice without retaining rejected inputs.
+
+642 new cases distinguish intentional Debug header/hash changes from16 ordinary
+parity cases and64 actual financial-item byte comparisons. All four frozen parent
+generator bodies are exercised; existing test fixtures and original monetary
+oracles remain separate. This is source-level evidence, not installed16/SDK/
+scanner or full financial/source/transaction acceptance. See
+[DEBUG_GENERATION_ALIGNMENT.md](DEBUG_GENERATION_ALIGNMENT.md).
+
 ## Shared name mechanics without hidden output changes — increment224
 
 Move rendering order into the existing alias registry without changing schema

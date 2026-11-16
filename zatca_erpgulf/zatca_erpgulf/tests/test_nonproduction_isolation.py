@@ -187,6 +187,8 @@ def test_debug_without_icv_only_reads_the_next_value(isolated):
 
 def stub_pipeline(monkeypatch, module, invoice):
     """Leave routing/file lifetime real; replace cryptography and tax work."""
+    if hasattr(module, "supports_advance_deduction_schema"):
+        monkeypatch.setattr(module, "supports_advance_deduction_schema", lambda doc: False)
     metadata = Mock(return_value=(ET.Element("Invoice"), "test-uuid", invoice))
     monkeypatch.setattr(module, "salesinvoice_data", metadata)
     monkeypatch.setattr(module, "xml_tags", lambda: ET.Element("Invoice"))

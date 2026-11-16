@@ -457,6 +457,7 @@ function zatca_debug_summary(value, context) {
     messages.set('The invoice rounding controls could not be verified. Recalculate the invoice and review its rounding settings.', __('The invoice rounding controls could not be verified. Recalculate the invoice and review its rounding settings.'));
     messages.set('The QR amounts could not be verified. Review the invoice totals, currency and tax amounts before generating the QR code.', __('The QR amounts could not be verified. Review the invoice totals, currency and tax amounts before generating the QR code.'));
     messages.set('The Company seller details are incomplete. Review the Arabic name and Tax ID before generating the ZATCA QR code.', __('The Company seller details are incomplete. Review the Arabic name and Tax ID before generating the ZATCA QR code.'));
+    messages.set('Select a valid invoice type for Debug XML: the original invoice or one of the six compliance sample types.', __('Select a valid invoice type for Debug XML: the original invoice or one of the six compliance sample types.'));
     const success = zatca_debug_succeeded(response);
     const skipped = response.status === "skipped" && [
         "Debug XML was skipped for an intra-company transfer. The invoice was not changed.",

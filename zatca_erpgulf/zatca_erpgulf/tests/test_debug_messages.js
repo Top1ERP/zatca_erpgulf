@@ -17,6 +17,7 @@ const review = "Debug XML attachment could not be confirmed. Review the source a
 const financial = [
     'The QR amounts could not be verified. Review the invoice totals, currency and tax amounts before generating the QR code.',
     'The Company seller details are incomplete. Review the Arabic name and Tax ID before generating the ZATCA QR code.',
+    'Select a valid invoice type for Debug XML: the original invoice or one of the six compliance sample types.',
     'The invoice rounding controls could not be verified. Recalculate the invoice and review its rounding settings.',
     'The invoice currency context could not be confirmed with its Company. Review the Company currency and any invoice currency override.',
     'Review the VAT account selected on the Item Tax Template. Select exactly one matching row and keep other tax rows at zero.',

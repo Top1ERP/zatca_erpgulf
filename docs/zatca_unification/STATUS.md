@@ -1,5 +1,57 @@
 # Implementation status — 2026-11-16
 
+## Debug classification and Sales item selection — increment225
+
+Removed Sales Debug's forced-simplified branch based on scheduling/GPOS hints.
+One type compositor now calls the existing Sales/POS type builders: explicit
+sample first, then eligible original Sales advance, then actual customer B2C/
+standard. Ordinary generators retain their exact prior selection. POS Debug
+keeps its B2C-only ordinary rejection. Debug validates original/sample selectors
+after source permission preparation and before preview identity/XML/signing/File;
+one English result/diagnostic and an Arabic review display preserve the summary UI.
+
+Shared Sales item selection adopts the primary ordinary schema/direct/legacy
+choice in Debug without new math. The former ordinary Debug item builder already
+added direct386 references; this is not a missing-reference repair.64 actual
+item XML combinations retain bytes/money across15/16-shaped rows, SAR/USD,
+template/plain, return signs and none/direct/legacy/both sources.
+
+642 new cases include336 frozen-parent Sales Debug type combinations,112 complete
+POS Debug comparisons,16 ordinary type/transport parity cases,64 primary item
+selection comparisons,64 real item XML comparisons,36 malformed-selector cases,
+8 valid normalized selectors,4 replacement-root/short-circuit cases and2 display/
+scheduling checks. Focused642 and529 existing nonproduction/generator cases pass.
+Six browser suites pass1,204 synthetic cases. The final guarded broad run passes
+16,352 cases across66 reviewed suites in89.65s, including all642 new cases. An
+earlier66-suite run passed16,240 before adding the112 POS parent comparisons.
+Do not sum the repeated focused/broad runs as independent regulatory evidence.
+
+Structural restoration recreates both exact parent ordinary generator ASTs by
+restoring only the documented type and Sales item-selection spans. All other
+ordinary persistence/transport/exception statements are unchanged.351 other
+tracked runtime files and26 previous Python reference fixtures remain byte-identical.
+Type-code builders, financial calculators, credential/API/counter logic and shared
+signing/QR/artifact/permission engines are unchanged. Original240 remains91
+identical/117 changed/32 blocked; earlier differences still require review.
+
+Intentional Debug deltas include B2B Background388 now standard, and explicit
+standard-credit sample4 now381 instead of being shadowed by original simplified388.
+Such header changes alter Debug XML/hash/signature, without saved-invoice or amount
+changes. Early test fixture issues (calling a real Frappe request wrapper and
+reusing one Mock XML root across old/current invocations) were corrected; they
+did not require runtime policy changes. Staging review removed trailing spaces
+from two blank lines in the new frozen source; parent AST equality is unchanged
+and focused642 were rerun successfully. No runtime change followed the broad run.
+Manifest197 local/57 private; no full
+manifest/private-SQL run. Logs: `/tmp/zatca-debug-alignment-225-focused-final.log`,
+`/tmp/zatca-debug-alignment-225-regression-complete.log`; final reference-format
+check: `/tmp/zatca-debug-alignment-225-focused-clean.log`; structural report:
+`/tmp/zatca-debug-alignment-225-structure.json`. See
+[DEBUG_GENERATION_ALIGNMENT.md](DEBUG_GENERATION_ALIGNMENT.md). No live/schema/
+configuration/tenant SQL/restart or authority API action. Source/credential/
+transaction custody, fiscal/GL, installed15/16, SDK/scanner and separately approved
+fictional-client rehearsal remain release gates.
+
 ## Party display sources and Phase1 QR boundaries — increment224
 
 One registry now owns Company/Customer display alias order separately from the

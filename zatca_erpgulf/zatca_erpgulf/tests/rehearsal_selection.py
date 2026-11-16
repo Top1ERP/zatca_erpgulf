@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "debug_generation_alignment",
     "party_name_sources",
     "qr_monetary_sources",
     "sales_monetary_controls",

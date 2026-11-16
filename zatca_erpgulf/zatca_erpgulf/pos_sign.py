@@ -11,6 +11,7 @@ from functools import partial
 import requests
 from frappe import _
 import frappe
+from .invoice_type_xml import populate_invoice_type
 from zatca_erpgulf.zatca_erpgulf.template_vat_source import item_vat_rows, DeclaredVatError, verified_declared_templates
 from zatca_erpgulf.zatca_erpgulf.pos_financial_xml import PosFinancialError
 from zatca_erpgulf.zatca_erpgulf.createxml import _has_erp_distributed_discount
@@ -631,10 +632,10 @@ def zatca_call(
 
         customer_doc = frappe.get_doc("Customer", pos_invoice_doc.customer)
 
-        if get_alias_value("customer_b2c", customer_doc, 0) == 1:
-            invoice = invoice_typecode_simplified(invoice, pos_invoice_doc)
-        else:
-            invoice = invoice_typecode_standard(invoice, pos_invoice_doc)
+        invoice = populate_invoice_type(
+            invoice, pos_invoice_doc, customer_doc,
+            namespace=globals(), doctype="POS Invoice",
+        )
         invoice = populate_invoice_parties(
             invoice, pos_invoice_doc, invoice_number, company_abbr,
             tools=PartyXmlTools.from_namespace(

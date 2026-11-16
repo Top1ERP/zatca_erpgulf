@@ -19,6 +19,8 @@ from datetime import datetime, timezone
 from lxml import etree
 from frappe import _
 import frappe
+from .invoice_type_xml import populate_invoice_type
+from .sales_item_xml import populate_sales_items
 from zatca_erpgulf.zatca_erpgulf.template_vat_source import item_vat_rows, DeclaredVatError, verified_declared_templates
 from zatca_erpgulf.zatca_erpgulf.document_tax_xml import (
     DocumentTaxTools, populate_document_tax,
@@ -870,13 +872,10 @@ def zatca_call(
             if customer_country == "SA":
                 frappe.throw(_("Export Invoice cannot be enabled for a customer in Saudi Arabia."))
 
-        if is_advance_payment_invoice(sales_invoice_doc) and not sales_invoice_doc.is_return and not getattr(sales_invoice_doc, "is_debit_note", 0):
-            invoice = invoice_typecode_advance_payment(invoice, sales_invoice_doc)
-        else:
-            if get_alias_value("customer_b2c", customer_doc, 0) == 1:
-                invoice = invoice_typecode_simplified(invoice, sales_invoice_doc)
-            else:
-                invoice = invoice_typecode_standard(invoice, sales_invoice_doc)
+        invoice = populate_invoice_type(
+            invoice, sales_invoice_doc, customer_doc,
+            namespace=globals(), doctype="Sales Invoice",
+        )
         invoice = populate_invoice_parties(
             invoice, sales_invoice_doc, invoice_number, company_abbr,
             tools=PartyXmlTools.from_namespace(
@@ -891,35 +890,10 @@ def zatca_call(
             ),
             is_nominal=lambda: sales_invoice_doc.custom_zatca_nominal_invoice == 1,
         )
-        is_claudion_installed = "claudion4saudi" in frappe.get_installed_apps()
-        has_advance_copy = (
-            hasattr(sales_invoice_doc, "custom_advances_copy")
-            and sales_invoice_doc.custom_advances_copy
+        invoice = populate_sales_items(
+            invoice, sales_invoice_doc, namespace=globals(),
+            has_template=any_item_has_tax_template,
         )
-        has_direct_advance_allocation = (
-            supports_advance_deduction_schema(sales_invoice_doc)
-            and any(
-                row.get("advance_invoice") and row.get("allocated_total_amount")
-                for row in sales_invoice_doc.get(
-                    "custom_zatca_advance_deduction_details", []
-                ) or []
-            )
-        )
-
-        if has_direct_advance_allocation or (
-            is_claudion_installed and has_advance_copy
-        ):
-            if not any_item_has_tax_template:
-                invoice = item_data_advance_invoice(invoice, sales_invoice_doc)
-            else:
-                invoice = item_data_with_template_advance_invoice(
-                    invoice, sales_invoice_doc
-                )
-        else:
-            if not any_item_has_tax_template:
-                invoice = item_data(invoice, sales_invoice_doc)
-            else:
-                invoice = item_data_with_template(invoice, sales_invoice_doc)
 
         file_content=xml_structuring(invoice)
 

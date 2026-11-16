@@ -5,6 +5,7 @@ import json
 import requests
 from frappe import _
 import frappe
+from .invoice_type_xml import InvoiceTypeSelectionError, checked_debug_type, populate_invoice_type
 from zatca_erpgulf.zatca_erpgulf.template_vat_source import DeclaredVatError
 from zatca_erpgulf.zatca_erpgulf.pos_financial_xml import PosFinancialError
 from zatca_erpgulf.zatca_erpgulf.pos_financial_composition import populate_pos_financials
@@ -105,6 +106,11 @@ def is_qr_and_xml_attached(pos_invoice_doc):
     # Ensure both files exist before confirming attachment
     return is_file_attached(qr_code) and is_file_attached(xml_file)
 
+def _reject_standard_debug_type(invoice, doc):
+    """Retain the existing POS Debug B2C-only policy for ordinary documents."""
+    frappe.throw("Customer should be B2C POS without XML during create XML.")
+
+
 @frappe.whitelist(allow_guest=False)
 def debug_call(
     invoice_number,
@@ -135,6 +141,7 @@ def _debug_call(
     try:
         # --- Fetch POS Invoice ---
         pos_invoice_doc, settings, debug_source = prepare_debug_source(frappe, "POS Invoice", invoice_number)
+        compliance_type = checked_debug_type(compliance_type)
         source_doc = pos_invoice_doc
         company_abbr = settings.abbr
         company_doc = settings
@@ -178,13 +185,11 @@ def _debug_call(
             company_abbr = frappe.db.get_value("Company", {"name": invoice_doc.company}, "abbr")
             customer_doc_inner = frappe.get_doc("Customer", invoice_doc.customer)
 
-            if compliance_type == "0":
-                if get_alias_value("customer_b2c", customer_doc_inner, 0) == 1:
-                    invoice = invoice_typecode_simplified(invoice, invoice_doc)
-                else:
-                    frappe.throw("Customer should be B2C POS without XML during create XML.")
-            else:
-                invoice = invoice_typecode_compliance(invoice, compliance_type)
+            invoice = populate_invoice_type(
+                invoice, invoice_doc, customer_doc_inner, namespace=globals(),
+                doctype="POS Invoice", compliance_type=compliance_type,
+                standard_builder=_reject_standard_debug_type,
+            )
 
             invoice = populate_invoice_parties(
                 invoice, invoice_doc, invoice_number, company_abbr,
@@ -229,6 +234,8 @@ def _debug_call(
         return generate_and_attach_xml(pos_invoice_doc)
 
     except Exception as e:
+        if isinstance(e, InvoiceTypeSelectionError):
+            notices.append(e.template)
         if isinstance(e, (PosFinancialError, DeclaredVatError)):
             notices.append(e.template)
         if isinstance(e, DebugArtifactError):

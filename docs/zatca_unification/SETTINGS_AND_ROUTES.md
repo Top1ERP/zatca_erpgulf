@@ -1,5 +1,11 @@
 # Settings and route audit — historical credential inventory with later amendments
 
+Increment225 removes scheduling and GPOS hints from Sales Debug type selection.
+Only its actual customer/original advance or explicit sample decides the type;
+POS Debug retains its original ordinary B2C-only rule. API routes and credential
+selectors are unchanged. See
+[DEBUG_GENERATION_ALIGNMENT.md](DEBUG_GENERATION_ALIGNMENT.md).
+
 Increment224 centralizes Company/Customer display aliases in the same registry,
 separately from unchanged schema-first alias priority. Phase1 seller name/VAT
 share one loaded Company; the initial-advance QR additionally supports the third
