@@ -1,3 +1,4 @@
+from .template_vat_source import resolve_invoice_template_mode
 import frappe
 from .invoice_type_xml import InvoiceTypeSelectionError, checked_debug_type, populate_invoice_type
 from .sales_item_xml import populate_sales_items
@@ -144,11 +145,6 @@ def _debug_call(
         if not is_zatca_invoice_enabled(company_doc):
             notices.append(DEBUG_LOCAL_ONLY)
 
-        # Resolve the actual invoice rows instead of trusting the optional JS flag.
-        any_item_has_tax_template = any(
-            bool(getattr(item, "item_tax_template", None))
-            for item in (getattr(sales_invoice_doc, "items", None) or [])
-        )
         customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
         if company_doc.tax_id and customer_doc.tax_id:
             if company_doc.tax_id.strip() == customer_doc.tax_id.strip():
@@ -168,6 +164,8 @@ def _debug_call(
             invoice, uuid1, invoice_doc = salesinvoice_data(
                 invoice, invoice_doc.name, purpose="debug"
             )
+            any_item_has_tax_template = resolve_invoice_template_mode(
+                invoice_doc, runtime=frappe, translate=_)
             customer_doc = frappe.get_doc("Customer", invoice_doc.customer)
 
             # Step 2: Classify from the invoice/customer or explicit sample.

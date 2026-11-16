@@ -16,6 +16,9 @@ from zatca_erpgulf.ksa_compliance.item_vat_selection import (
 from zatca_erpgulf.ksa_compliance.declared_vat_scope import VatScopeError, reconcile_vat_accounts
 from zatca_erpgulf.ksa_compliance.vat_math import vat_from_group
 from zatca_erpgulf.ksa_compliance.invoice_currency import InvoiceCurrencyError, bind_invoice_currency
+from zatca_erpgulf.ksa_compliance.item_template_mode import (
+    ItemTemplateModeError, REVIEW as ITEM_TEMPLATE_REVIEW, item_template_mode,
+)
 
 SOURCE = "The declared VAT source does not match the saved invoice tax data. Recalculate and save the invoice before generating XML."
 # Retained for integrations translating the earlier failure key.
@@ -40,6 +43,18 @@ def fail_declared_vat(runtime, translate, code, message=MESSAGE, details=""):
     error.diagnostic_logged = True
     runtime.throw(translate(message), exc=error)
     raise error
+
+
+def resolve_invoice_template_mode(doc, *, runtime, translate):
+    """Use the loaded invoice's rows; no master lookup, hint, repair or write.
+
+    Metadata/preview creation may already have occurred at the caller. This is
+    not a new UUID/ICV transaction or source-revision/permission guarantee.
+    """
+    try:
+        return item_template_mode(doc.get("items"))
+    except ItemTemplateModeError as error:
+        fail_declared_vat(runtime, translate, error.code, ITEM_TEMPLATE_REVIEW)
 
 
 def declared_vat_row(template, *, runtime, translate, company=None):

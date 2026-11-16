@@ -5,6 +5,22 @@ development. They are part of the release scope, not optional work deferred
 until after the fictional-client rehearsal. Apply the same development-only
 and no-authority-request restrictions as [PLAN.md](PLAN.md).
 
+## Source-owned template choice without duplicate math — increment226
+
+One import-free row policy replaces request-hint selection in seven consumers
+and shares the existing source selection in three others. It reads native
+presence once and stops on mixed rows; one injected framework adapter owns the
+localized review/English diagnostic. Existing namespaces/callbacks and every
+financial builder remain, with no master lookup, FX, discount allocation or tax
+recalculation in the selector. Complete-parent AST restoration narrows the scope.
+
+320 route marker comparisons are separate from72 actual financial XML/input
+comparisons and literal wrong-mode examples. Existing tests now declare native
+row template state instead of relying on inconsistent hints; old reference
+fixtures and the original financial oracle are untouched. This is not a source
+snapshot, early UUID transaction gate or installed16/SDK/GL certification. See
+[LOADED_ITEM_TEMPLATE_MODE.md](LOADED_ITEM_TEMPLATE_MODE.md).
+
 ## Shared generation decisions, explicit Debug changes — increment225
 
 Extract common type-builder composition and the primary Sales item-selection

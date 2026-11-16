@@ -1,5 +1,6 @@
 """this file is used to call the zatca api in the background and based on the response"""
 
+from .template_vat_source import resolve_invoice_template_mode
 import base64
 import os
 import io
@@ -155,6 +156,8 @@ def zatca_call_scheduler_background(
             frappe.throw(_("Invoice Number is NOT Valid: " + str(invoice_number)))
         invoice = xml_tags()
         invoice, uuid1, sales_invoice_doc = salesinvoice_data(invoice, invoice_number)
+        any_item_has_tax_template = resolve_invoice_template_mode(
+            sales_invoice_doc, runtime=frappe, translate=_)
         # Signing and HTTP must follow the same saved invoice issuer.
         source_doc = sales_invoice_doc
         # Get the company abbreviation

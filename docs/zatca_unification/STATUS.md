@@ -1,5 +1,47 @@
 # Implementation status — 2026-11-16
 
+## Loaded item-template mode across ten generators — increment226
+
+One pure list/row policy and typed framework adapter now select plain/template
+builders from the invoice returned by metadata in six ordinary, two Compliance
+and two Debug contexts. Request hints remain accepted but cannot override rows.
+Dedicated Compliance replaces duplicate any/all loops; Sales Debug no longer
+uses its earlier prepared object's flag. Raw truthiness and empty-table plain
+mode remain, without trimming template names or inventing VAT roles/rates.
+Mixed presence stops before type/reference/financial/signing/transport with one
+translated review and English diagnostic. Metadata may already have occurred:
+ordinary Sales can have persisted UUID; no counter rewind or rollback is claimed.
+
+488 new cases include320 complete-parent route choices and72 actual financial
+XML byte/input comparisons. Literal SAR examples: a wrong template hint formerly
+refused plain15% Sales/POS; current payable230.00 matches saved VAT30. Wrong plain
+hint for15%/5% item templates retains Sales payable220.00; POS previously refused
+and now yields native VAT20/payable220.00. No saved money or calculation changes.
+Existing8 POS Debug selection cases and32 primary item-choice cases now supply
+native rows consistent with their intended template scenario; old frozen source
+and original financial expectations remain unchanged.
+
+Focused488 pass. The final guarded run passes16,840 cases across67 reviewed
+suites in97.40s, including488 new. Six browser suites pass1,208 synthetic cases.
+Manifest198 local/57 private; no whole-manifest/private-SQL run. Fixture issues
+(test DocType changed after its snapshot, absent optional hook assertions and an
+expected POS refusal exception) were corrected without changing runtime policy.
+The new English review was simplified before the final broad/UI runs.
+
+AST restoration recreates all ten exact parent generator bodies after restoring
+only selection spans.348 other tracked runtime files and27 earlier Python
+reference fixtures are byte-identical. Every existing VAT-source adapter function,
+financial/type/reference/UUID/ICV/signing/QR/API/artifact/permission algorithm is
+unchanged. Original240 remains91 identical/117 changed/32 blocked; these earlier
+differences still require review. Logs:
+`/tmp/zatca-template-mode-226-focused-final.log`,
+`/tmp/zatca-template-mode-226-regression-final.log`; structural report:
+`/tmp/zatca-template-mode-226-structure.json`. See
+[LOADED_ITEM_TEMPLATE_MODE.md](LOADED_ITEM_TEMPLATE_MODE.md). No live/schema/
+configuration/tenant SQL/restart or authority API action. Source/credential/
+transaction custody, fiscal/GL/precision/settlement, installed15/16, SDK/scanner
+and separately approved fictional-client rehearsal remain release gates.
+
 ## Debug classification and Sales item selection — increment225
 
 Removed Sales Debug's forced-simplified branch based on scheduling/GPOS hints.

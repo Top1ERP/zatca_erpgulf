@@ -458,6 +458,7 @@ function zatca_debug_summary(value, context) {
     messages.set('The QR amounts could not be verified. Review the invoice totals, currency and tax amounts before generating the QR code.', __('The QR amounts could not be verified. Review the invoice totals, currency and tax amounts before generating the QR code.'));
     messages.set('The Company seller details are incomplete. Review the Arabic name and Tax ID before generating the ZATCA QR code.', __('The Company seller details are incomplete. Review the Arabic name and Tax ID before generating the ZATCA QR code.'));
     messages.set('Select a valid invoice type for Debug XML: the original invoice or one of the six compliance sample types.', __('Select a valid invoice type for Debug XML: the original invoice or one of the six compliance sample types.'));
+    messages.set('The item tax template selection could not be verified. Use an Item Tax Template on every item or leave it blank on every item, then save and retry.', __('The item tax template selection could not be verified. Use an Item Tax Template on every item or leave it blank on every item, then save and retry.'));
     const success = zatca_debug_succeeded(response);
     const skipped = response.status === "skipped" && [
         "Debug XML was skipped for an intra-company transfer. The invoice was not changed.",

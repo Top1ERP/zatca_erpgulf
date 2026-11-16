@@ -5,6 +5,7 @@ using ERPNext. It supports compliance with the ZATCA requirements for Phase 2,
 including the creation of UBL XML
 invoices, signing, and submission to ZATCA servers for clearance and reporting."""
 
+from .template_vat_source import resolve_invoice_template_mode
 import base64
 import json
 from functools import partial
@@ -622,6 +623,8 @@ def zatca_call(
 
         invoice = xml_tags()
         invoice, uuid1, pos_invoice_doc = salesinvoice_data(invoice, invoice_number)
+        any_item_has_tax_template = resolve_invoice_template_mode(
+            pos_invoice_doc, runtime=frappe, translate=_)
         # Signing and HTTP must follow the same saved invoice issuer.
         source_doc = pos_invoice_doc
 
@@ -733,14 +736,8 @@ def zatca_call_compliance(
                 )
             )
         # Check if any item has a tax template and validate it
-        any_item_has_tax_template = any(
-            item.item_tax_template for item in pos_invoice_doc.items
-        )
-        if any_item_has_tax_template and not all(
-            item.item_tax_template for item in pos_invoice_doc.items
-        ):
-            frappe.throw(ITEM_TAX_TEMPLATE_WARNING)
-
+        any_item_has_tax_template = resolve_invoice_template_mode(
+            pos_invoice_doc, runtime=frappe, translate=_)
         invoice = invoice_typecode_compliance(invoice, compliance_type)
         invoice = populate_invoice_parties(
             invoice, pos_invoice_doc, invoice_number, company_abbr,

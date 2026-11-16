@@ -615,10 +615,11 @@ def test_pos_debug_preserves_phase_schema_pos_gpos_and_existing_artifact_checks(
 @pytest.mark.parametrize("phase", ["Phase-1", "Phase-2"])
 @pytest.mark.parametrize("method", ["Background", "Live"])
 @pytest.mark.parametrize("template", [False, True])
-def test_pos_debug_keeps_existing_explicit_tax_adapter_choice(isolated, monkeypatch, phase, method, template):
+def test_pos_debug_selects_tax_adapter_from_invoice_rows(isolated, monkeypatch, phase, method, template):
     invoice, company, _, _, files = isolated
     prepare_debug_messages(isolated, monkeypatch, pos_debug_xml)
     company.custom_send_invoice_to_zatca = method
+    invoice.items = [Document(item_tax_template="ITEM-VAT" if template else "")]
     monkeypatch.setattr(pos_debug_xml, "resolve_zatca_phase", lambda *args: phase)
     monkeypatch.setattr(pos_debug_xml, "is_qr_and_xml_attached", lambda *args: False)
     for name in ("add_document_level_discount_with_tax_template", "tax_data_with_template", "item_data_with_template"):

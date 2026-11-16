@@ -17,6 +17,21 @@ pilot/rollout. API sending needs separate explicit authority changing the ban.
 See [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md); it supersedes any older
 operational request or less restrictive deployment wording in historical records.
 
+## Loaded-row template selection — increment226
+
+Derive the financial-builder family from the loaded invoice in ten generators,
+ignoring request hints while retaining their signatures. Share mixed/shape
+review and Arabic display/English logging without new financial arithmetic.
+Preserve valid-mode bytes and document old-refusal/new-success or XML changes
+for wrong hints. Metadata/UUID persistence remains a separate lifecycle boundary.
+
+Next audit trusted source/settings/phase/credential custody and early identity
+validation, remaining source-revision/signer observations in Debug, VAT roles,
+precision/settlement/GL/fiscal checks and other legacy generation choices.
+Installed15/16, SDK/scanner and separately approved isolated fictional-client
+rehearsal remain mandatory; no deployment or authority request is authorized.
+See [LOADED_ITEM_TEMPLATE_MODE.md](LOADED_ITEM_TEMPLATE_MODE.md).
+
 ## Debug classification and shared Sales item selection — increment225
 
 Classify Debug from the actual customer/original invoice or an explicit sample,

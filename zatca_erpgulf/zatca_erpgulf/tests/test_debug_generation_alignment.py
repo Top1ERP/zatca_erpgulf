@@ -192,6 +192,7 @@ def test_primary_item_selection_matches_frozen_parent_including_direct_legacy_pr
 ):
     doc, _, _, app, _ = isolated
     stub_pipeline(monkeypatch, sign_invoice, doc)
+    doc.items = [Document(item_tax_template="ITEM-VAT" if has_template else "")]
     monkeypatch.setattr(sign_invoice, "get_alias_value", lambda *args: 1)
     monkeypatch.setattr(sign_invoice, "is_advance_payment_invoice", lambda doc: False)
     monkeypatch.setattr(sign_invoice, "supports_advance_deduction_schema", lambda doc: schema)

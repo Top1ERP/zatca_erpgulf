@@ -1,5 +1,6 @@
 """This file contains the function to call the ZATCA API for POS Invoices"""
 
+from .template_vat_source import resolve_invoice_template_mode
 import base64
 from frappe import _
 import frappe
@@ -97,6 +98,8 @@ def zatca_call_pos_without_xml_background(
 
         invoice = xml_tags()
         invoice, uuid1, pos_invoice_doc = salesinvoice_data(invoice, invoice_number)
+        any_item_has_tax_template = resolve_invoice_template_mode(
+            pos_invoice_doc, runtime=frappe, translate=_)
         # Signing and HTTP must follow the same saved invoice issuer.
         source_doc = pos_invoice_doc
 

@@ -1,10 +1,16 @@
 # ZATCA tax-source priority contract
 
-Current development contract, reviewed through increment225 on 2026-11-16. It replaces
+Current development contract, reviewed through increment226 on 2026-11-16. It replaces
 older prose that incorrectly placed Sales Taxes and Charges Template values above
 explicit invoice values. The original five tests already required invoice-first
 behavior; their bodies are preserved. See the scope map and remaining work in
 [NON_TEMPLATE_TAX_RATE.md](zatca_unification/NON_TEMPLATE_TAX_RATE.md).
+
+Increment226 makes loaded item rows authoritative for plain/template builder
+selection in ten generators. Request hints cannot override those rows; mixed
+presence is refused. It does not modify tax account/rate/category or monetary
+algorithms, and is not proof of template validity or source/UUID transaction
+custody. See [LOADED_ITEM_TEMPLATE_MODE.md](zatca_unification/LOADED_ITEM_TEMPLATE_MODE.md).
 
 Increment225 shares existing type and Sales item-builder selection between
 ordinary and Debug generation. Debug scheduling no longer shadows a B2B or

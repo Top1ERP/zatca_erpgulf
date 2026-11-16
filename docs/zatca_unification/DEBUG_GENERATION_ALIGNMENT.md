@@ -1,5 +1,12 @@
 # Debug classification and Sales item selection — increment225
 
+Increment226 additionally selects plain/template mode from metadata's returned
+invoice rows in both Debug adapters and eight ordinary/Compliance consumers.
+Request hints cannot override that mode; mixed rows receive one localized review.
+This supersedes the historical caller-flag details below, without changing225
+classification, item-builder selection rules or financial math. See
+[LOADED_ITEM_TEMPLATE_MODE.md](LOADED_ITEM_TEMPLATE_MODE.md).
+
 Development only, 2026-11-16. No deployed source, site/schema/configuration,
 invoice, Bench or worker was changed. No tenant SQL or authority API was used.
 Mocked execution of ordinary generator functions is not a live submission.
