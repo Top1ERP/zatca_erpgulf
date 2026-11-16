@@ -1,8 +1,8 @@
 """One observed invoice value for a request and its local XML consumers.
 
 The reader retains its existing path, decoding and whitespace contract. This
-module performs no discovery, credential/identity/hash/UBL validation, signing,
-persistence or HTTP. A captured value is not proof of authentic submission.
+module performs no discovery, signing, persistence or HTTP. When a native
+issuing scope exists, it observes the captured value for its final content fence. A captured value is not proof of authentic submission.
 """
 
 import base64
@@ -39,5 +39,12 @@ class InvoicePayload:
 
 
 def read_invoice_payload(uuid, invoice_hash, path, *, read_xml):
-    """Call the current imported reader once, without retaining its path/callable."""
-    return InvoicePayload(invoice_hash, uuid, read_xml(path))
+    """Call the current reader once; keep the optional scope content observation."""
+    from .issuing_attempt import ACTIVE
+    current = ACTIVE.get()
+    if current is not None:
+        current.require_runtime(current.runtime)
+    payload = InvoicePayload(invoice_hash, uuid, read_xml(path))
+    if current is not None:
+        current.observe_payload(payload, path)
+    return payload

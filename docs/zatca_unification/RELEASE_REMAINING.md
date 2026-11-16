@@ -1,9 +1,13 @@
-# Remaining release work — 2026-11-16, increment229
+# Release closure work — 2026-11-16, workstream1 locally closed
 
 This is the current closure list. Earlier increment reports describe historical
 steps; a helper's isolated tests do not mean that it has been adopted by every
 runtime path. Development is still isolated. The installed working baseline is
 not replaced, and no authority API request is authorized.
+
+Workstream1 local source/settings/material contracts are closed against their
+fixed81-suite profile; see [WORKSTREAM_1.md](WORKSTREAM_1.md). Workstream2 is next.
+The separate earlier default-manifest run is not a final green-release claim.
 
 The current code has shared financial/type/party/signing/QR composition, selected
 source gates, centralized request ownership and route selection, Compliance
@@ -15,7 +19,7 @@ supply a defensible project completion percentage or evidence of remote acceptan
 
 | Priority | Remaining engineering work | Evidence needed to close |
 | --- | --- | --- |
-| 1. Source, settings and credentials | Finish binding the saved invoice revision, phase, Company/issuing unit, environment and credential purpose/version through preparation, signer and request. Extend source consistency beyond the four existing-XML adapters where justified. Integrate or explicitly defer internal snapshot/staging components; do not activate them implicitly. | Every adopted route has an owner/settings/source contract and a conflict test; no mixed environment, wrong taxpayer, stale key or unexpected cross-company fallback. |
+| 1. Source, settings and credentials | Local adopted scope complete; purpose material and final content fences are active in DEV only. Versioned credential activation explicitly deferred; existing preservation guards remain. See WORKSTREAM_1_CONTRACTS.md for extension and origin/trust limits. | Fixed81-suite profile20,747 passed; six browser suites1,208. Local observations are not a trusted DB epoch, installed acceptance or remote authorization. |
 | 2. Issuance, response and retry lifecycle | Complete transaction ownership and remove unsafe hook commits through services. Serialize ICV/PIH changes per issuing unit/environment, including first issuance, duplicate workers, rejected/unknown results, partial commits and cancellation eligibility. Resolve legacy 409 interpretation through receipt evidence. | Concurrent/restart/lost-response tests; unchanged identity on uncertain retries; no inferred acceptance from UUID or generic HTTP status; accepted artifacts preserved and recovery explicit. |
 | 3. Financial compatibility and advances | Review the 117 observed differences and 32 ambiguous cases in the original 240-case simulation. Finish native ERP reconciliation for item/invoice tax sources, multiple VAT accounts, genuine zero/exempt categories, inclusive prices, Net/Grand Total discounts, FX and rounding. Complete type386/partial/multiple/legacy advances, deductions, returns and cancellation. | Document each approved amount/XML difference and rejection rule; match native row sums, group VAT, GL, VAT reporting and outstanding amounts. Case counts are simulated comparisons, not customer invoice counts or production failures. |
 | 4. Runtime cleanup and user contracts | Complete the entry-point/dependency map and remove remaining duplicated extractors, legacy branches and obsolete helpers only after tracing consumers and customization compatibility. Keep active diagnostics/test references separate from runtime. Finish consistent Arabic display/English logging across remaining generic catches. | A reviewed runtime file/entry-point inventory, explicit compatibility/deprecation decisions and whole-flow tests for manual/POS/background/Debug/single/all/automatic Compliance; no unreferenced production module. |
@@ -25,9 +29,9 @@ supply a defensible project completion percentage or evidence of remote acceptan
 
 ## Practical next sequence
 
-1. Complete source/settings/credential binding and the issuance/response lifecycle
-   together; they define which immutable data an attempt may use and how its
-   uncertain result is retained. Keep new metadata guards separate from authentic
+1. With the local source/settings/material contract closed, complete the
+   issuance/response lifecycle; it defines durable identity/chain ownership
+   and how an uncertain result is retained. Keep new metadata guards separate from authentic
    cryptographic/receipt evidence.
 2. Close the financial and advance matrix against native accounting, documenting
    each accepted change before treating compatibility as complete. No account

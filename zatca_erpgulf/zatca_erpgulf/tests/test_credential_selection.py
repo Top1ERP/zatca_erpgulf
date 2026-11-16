@@ -57,6 +57,9 @@ def materials():
             x509.CertificateBuilder().subject_name(name).issuer_name(name)
             .public_key(key.public_key()).serial_number(number)
             .not_valid_before(datetime(2026, 1, 1)).not_valid_after(datetime(2030, 1, 1))
+            .add_extension(x509.SubjectAlternativeName([x509.DirectoryName(x509.Name([
+                x509.NameAttribute(NameOID.USER_ID, 'TEST-VAT'),
+            ]))]), critical=False)
             .sign(key, hashes.SHA256())
         )
         result.append(Document(
@@ -319,6 +322,12 @@ def test_ubl_certificate_population_preserves_selected_content(boundary):
 
 @pytest.mark.parametrize("validation_type", COMPLIANCE_TYPES)
 def test_six_synthetic_documents_prepare_locally_without_saving_keys(boundary, monkeypatch, validation_type):
+    # This native scoped signing path requires actual purpose-token material;
+    # unrelated selector tests retain their deliberately literal fake tokens.
+    token = base64.b64encode(boundary.company.custom_certificate.encode())
+    boundary.company.custom_basic_auth_from_csid = base64.b64encode(token+b':TEST-ONLY-SECRET').decode()
+    boundary.company.custom_production_url = 'https://example.invalid/core/'
+    boundary.frappe.log_error = Mock()
     address = Document(address_line1="Test Street", address_line2="Test District", city="Riyadh",
                        custom_building_number="1234", pincode="12345", state="")
     monkeypatch.setattr(invoices, "_onboarding_address", lambda *args: address)

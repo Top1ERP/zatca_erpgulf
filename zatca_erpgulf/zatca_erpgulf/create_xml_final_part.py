@@ -3,6 +3,7 @@ This module contains utilities for ZATCA 2024 e-invoicing.
 Includes functions for XML parsing, API interactions, and custom handling.
 """
 
+from .issuing_reads import read_issuing_doc
 from decimal import Decimal, ROUND_DOWN, ROUND_HALF_UP
 import re
 from html import unescape
@@ -106,7 +107,7 @@ def _append_direct_advance_reference_lines(invoice, sales_invoice_doc):
         line_id = str(next_line_id)
         existing_ids.add(line_id)
         next_line_id += 1
-        advance = frappe.get_doc("Sales Invoice", row.advance_invoice)
+        advance = read_issuing_doc(frappe, "Sales Invoice", row.advance_invoice)
         # ZATCA requires document/prepayment amounts to be positive.  The
         # return child row is intentionally stored as a negative reversal;
         # only the XML representation uses its absolute amount.
@@ -948,7 +949,7 @@ def item_data_advance_invoice(invoice, sales_invoice_doc):
             and sales_invoice_doc.custom_advances_copy[0].reference_name
         ):
             reference_name = sales_invoice_doc.custom_advances_copy[0].reference_name
-            advance_invoice = frappe.get_doc("Advance Sales Invoice", reference_name)
+            advance_invoice = read_issuing_doc(frappe, "Advance Sales Invoice", reference_name)
 
             for i, single_item in enumerate(advance_invoice.custom_item):
                 line = ET.SubElement(invoice, "cac:InvoiceLine")
@@ -1091,7 +1092,7 @@ def item_data_with_template_advance_invoice(invoice, sales_invoice_doc):
                 reference_name = sales_invoice_doc.custom_advances_copy[
                     0
                 ].reference_name
-                advance_invoice = frappe.get_doc(
+                advance_invoice = read_issuing_doc(frappe,
                     "Advance Sales Invoice", reference_name
                 )
                 for i, single_item in enumerate(advance_invoice.custom_item):

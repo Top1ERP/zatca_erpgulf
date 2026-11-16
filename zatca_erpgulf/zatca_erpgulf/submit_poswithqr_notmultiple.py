@@ -1,5 +1,8 @@
 """This module is used to submit the POS invoice to ZATCA using the API through xml and qr."""
 
+from .issuing_attempt import (
+    IssuingAttemptError, confirm_issuing_transport, issuing_attempt, seal_current_xml,
+)
 from .existing_xml_submission import (
     ExistingXmlSubmissionError, read_bound_invoice_payload,
 )
@@ -90,6 +93,7 @@ def extract_uuid_and_invoicehash_simplifeid(file_path):
     try:
         with open(frappe.local.site + file_path, "rb") as file:
             custom_xml = file.read()
+        seal_current_xml(frappe.local.site + file_path, custom_xml, runtime=frappe)
 
         # Parse the XML string as bytes
         tree = etree.fromstring(custom_xml)
@@ -115,6 +119,8 @@ def extract_uuid_and_invoicehash_simplifeid(file_path):
 
         return uuid, digest_value
 
+    except IssuingAttemptError:
+        raise
     except Exception as e:
         return {"error": f"Error extracting data in simplifed: {e}"}
 
@@ -150,6 +156,7 @@ def reporting_api_xml_sales_invoice_simplified(
                 {"gif_url": "/assets/zatca_erpgulf/js/loading.gif"},
                 user=frappe.session.user,
             )
+            confirm_issuing_transport(company_abbr, pos_invoice_doc, runtime=frappe)
             response = requests.post(
                 url=submission.route.url,
                 headers=headers,
@@ -342,17 +349,20 @@ def get_headers(production_csid):
 def submit_pos_invoice_simplifeid(pos_invoice_doc, file_path, invoice_number):
     """submit sales invoice with xml qr"""
     try:
-        uuid1, encoded_hash = extract_uuid_and_invoicehash_simplifeid(file_path)
+        company_abbr = frappe.db.get_value("Company", {"name": pos_invoice_doc.company}, "abbr")
+        with issuing_attempt(company_abbr, pos_invoice_doc, purpose='production',
+                             runtime=frappe, translate=_, invoice_doc=pos_invoice_doc):
+            uuid1, encoded_hash = extract_uuid_and_invoicehash_simplifeid(file_path)
 
-        reporting_api_xml_sales_invoice_simplified(
-            uuid1,
-            encoded_hash,
-            frappe.local.site + file_path,
-            invoice_number,
-            pos_invoice_doc,
-        )
+            reporting_api_xml_sales_invoice_simplified(
+                uuid1,
+                encoded_hash,
+                frappe.local.site + file_path,
+                invoice_number,
+                pos_invoice_doc,
+            )
 
-    except (LocalResponseProcessingError, ExistingXmlSubmissionError):
+    except (LocalResponseProcessingError, ExistingXmlSubmissionError, IssuingAttemptError):
         # Preserve local review across this legacy broad exception boundary.
         raise
     except Exception as e:

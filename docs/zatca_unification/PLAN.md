@@ -17,6 +17,18 @@ pilot/rollout. API sending needs separate explicit authority changing the ban.
 See [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md); it supersedes any older
 operational request or less restrictive deployment wording in historical records.
 
+## Workstream1 local closure and transition to issuance lifecycle
+
+One adopted source/settings/material scope now reaches native preparation,
+signing and request fences, with explicit legacy extension/storage limits.
+The fixed local closure profile passes20,747 cases across81 suites, retaining
+the offline guard. See [WORKSTREAM_1.md](WORKSTREAM_1.md). The earlier default
+205-suite qualification remains separate and is not claimed as final green.
+Next complete transaction ownership, durable exact artifacts, ICV/PIH continuity,
+retry/receipt/unknown-outcome and worker coordination in workstream2. No live
+activation, staged-credential migration, authority request or installed acceptance
+is inferred from local closure.
+
 ## Existing XML request identity and release closure — increment229
 
 Bind the four existing-XML request observations to their embedded UUID/digest

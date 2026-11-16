@@ -1,6 +1,8 @@
 
 """ZATCA E-Invoicing Integration for ERPNext debug xml for pos inv"""
 
+from .issuing_reads import read_issuing_doc
+from .issuing_attempt import issuing_attempt, IssuingAttemptError
 from .invoice_generation_data import prepare_invoice_generation
 from .template_vat_source import resolve_invoice_template_mode
 import json
@@ -152,7 +154,7 @@ def _debug_call(
             return {"status": "skipped", "message": DEBUG_POS_DISABLED, "notices": notices}
 
         # --- Fetch Customer ---
-        customer_doc = frappe.get_doc("Customer", pos_invoice_doc.customer)
+        customer_doc = read_issuing_doc(frappe, "Customer", pos_invoice_doc.customer)
 
         # Intra-company transfer
         if company_doc.tax_id and customer_doc.tax_id:
@@ -185,39 +187,43 @@ def _debug_call(
             )
 
             company_abbr = frappe.db.get_value("Company", {"name": invoice_doc.company}, "abbr")
-            customer_doc_inner = frappe.get_doc("Customer", invoice_doc.customer)
+            with issuing_attempt(company_abbr, source_doc, purpose='debug',
+                                 runtime=frappe, translate=_, invoice_doc=invoice_doc) as issuing_context:
+                customer_doc_inner = read_issuing_doc(frappe, "Customer", invoice_doc.customer)
 
-            invoice = populate_invoice_type(
-                invoice, invoice_doc, customer_doc_inner, namespace=globals(),
-                doctype="POS Invoice", compliance_type=compliance_type,
-                standard_builder=_reject_standard_debug_type,
-            )
+                invoice = populate_invoice_type(
+                    invoice, invoice_doc, customer_doc_inner, namespace=globals(),
+                    doctype="POS Invoice", compliance_type=compliance_type,
+                    standard_builder=_reject_standard_debug_type,
+                )
 
-            invoice = populate_invoice_parties(
-                invoice, invoice_doc, invoice_number, company_abbr,
-                tools=PartyXmlTools.from_namespace(
-                    globals(), doctype="POS Invoice", purpose="debug",
-                ),
-            )
+                invoice = populate_invoice_parties(
+                    invoice, invoice_doc, invoice_number, company_abbr,
+                    tools=PartyXmlTools.from_namespace(
+                        globals(), doctype="POS Invoice", purpose="debug",
+                    ),
+                )
 
-            invoice = populate_pos_financials(
-                invoice, invoice_doc, namespace=globals(),
-                has_template=any_item_has_tax_template,
-            )
+                invoice = populate_pos_financials(
+                    invoice, invoice_doc, namespace=globals(),
+                    has_template=any_item_has_tax_template,
+                )
 
-            file_content = xml_structuring(invoice)
+                file_content = xml_structuring(invoice)
 
-            signed_xml = sign_invoice_xml(
-                file_content, company_abbr, source_doc,
-                tools=SigningTools.from_namespace(globals()),
-            )
-            updated_xml_string = signed_xml.xml
+                issuing_context.confirm_current()
+                signed_xml = sign_invoice_xml(
+                    file_content, company_abbr, source_doc,
+                    tools=SigningTools.from_namespace(globals()),
+                )
+                updated_xml_string = signed_xml.xml
 
-            # Never share the live submission artifact's filename with Debug.
-            xml_data = format_zatca_signed_xml(updated_xml_string)
-            attachment = save_debug_attachment(frappe, debug_source, xml_data)
-            return {"status": "success", "message": DEBUG_CREATED,
-                    **attachment, "notices": notices}
+                # Never share the live submission artifact's filename with Debug.
+                xml_data = format_zatca_signed_xml(updated_xml_string)
+                issuing_context.confirm_current()
+                attachment = save_debug_attachment(frappe, debug_source, xml_data)
+                return {"status": "success", "message": DEBUG_CREATED,
+                        **attachment, "notices": notices}
 
         # Keep Phase-2 POS/GPOS checks and existing-artifact notices. Debug is
         # local: live submission scheduling does not select its document type.

@@ -1,5 +1,9 @@
 """this file is used to call the zatca api in the background and based on the response"""
 
+from .issuing_reads import read_issuing_doc, read_issuing_cached_doc
+from .issuing_attempt import (
+    confirm_issuing_transport, invoice_issuing_attempt,
+)
 from .invoice_payload import read_invoice_payload
 from .invoice_generation_data import prepare_invoice_generation
 from .template_vat_source import resolve_invoice_template_mode
@@ -86,7 +90,7 @@ SALES_INVOICE = "Sales Invoice"
 def attach_qr_image(qrcodeb64, sales_invoice_doc):
     """Persist a Phase-1 QR only; Phase-2 artifacts are saved from ZATCA response XML."""
     try:
-        company_doc = frappe.get_cached_doc("Company", sales_invoice_doc.company)
+        company_doc = read_issuing_cached_doc(frappe, "Company", sales_invoice_doc.company)
         if (
             is_zatca_invoice_enabled(company_doc)
             and resolve_zatca_phase(company_doc) == PHASE_2_VALUE
@@ -115,7 +119,7 @@ def attach_qr_image(qrcodeb64, sales_invoice_doc):
         qr = qr_create(qrcodeb64, error="L")
         qr.png(qr_image, scale=4, quiet_zone=4)
 
-        file_doc = frappe.get_doc(
+        file_doc = read_issuing_doc(frappe,
             {
                 "doctype": "File",
                 "file_name": (
@@ -155,71 +159,77 @@ def zatca_call_scheduler_background(
     try:
         if not frappe.db.exists(SALES_INVOICE, invoice_number):
             frappe.throw(_("Invoice Number is NOT Valid: " + str(invoice_number)))
-        invoice = xml_tags()
-        invoice, uuid1, sales_invoice_doc, any_item_has_tax_template = prepare_invoice_generation(
-            invoice, invoice_number, namespace=globals(), doctype='Sales Invoice',
-        )
-        # Signing and HTTP must follow the same saved invoice issuer.
-        source_doc = sales_invoice_doc
-        # Get the company abbreviation
-        company_abbr = frappe.db.get_value(
-            "Company", {"name": sales_invoice_doc.company}, "abbr"
-        )
+        with invoice_issuing_attempt('Sales Invoice', invoice_number, runtime=frappe,
+                                     translate=_, namespace=globals()) as issuing_context:
+            invoice = xml_tags()
+            invoice, uuid1, sales_invoice_doc, any_item_has_tax_template = prepare_invoice_generation(
+                invoice, invoice_number, namespace=globals(), doctype='Sales Invoice',
+            )
+            # Signing and HTTP must follow the same saved invoice issuer.
+            source_doc = sales_invoice_doc
+            issuing_context.bind_prepared_invoice(source_doc)
+            issuing_context.confirm_current()
+            # Get the company abbreviation
+            company_abbr = issuing_context.company_abbr
 
-        customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
+            customer_doc = read_issuing_doc(frappe, "Customer", sales_invoice_doc.customer)
 
-        if is_advance_payment_invoice(sales_invoice_doc) and not sales_invoice_doc.is_return and not getattr(sales_invoice_doc, "is_debit_note", 0):
-            invoice = invoice_typecode_advance_payment(invoice, sales_invoice_doc)
-        else:
+            if is_advance_payment_invoice(sales_invoice_doc) and not sales_invoice_doc.is_return and not getattr(sales_invoice_doc, "is_debit_note", 0):
+                invoice = invoice_typecode_advance_payment(invoice, sales_invoice_doc)
+            else:
+                if get_alias_value("customer_b2c", customer_doc, 0) == 1:
+                    invoice = invoice_typecode_simplified(invoice, sales_invoice_doc)
+                else:
+                    frappe.throw(
+                        _("customer should be B2C sales invoice with xml during create xml")
+                    )
+            invoice = populate_invoice_parties(
+                invoice, sales_invoice_doc, invoice_number, company_abbr,
+                tools=PartyXmlTools.from_namespace(
+                    globals(), doctype="Sales Invoice", purpose="invoice",
+                ),
+            )
+
+            invoice = populate_document_tax(
+                invoice, sales_invoice_doc,
+                tools=DocumentTaxTools.from_namespace(
+                    globals(), has_template=any_item_has_tax_template, include_nominal=True,
+                ),
+                is_nominal=lambda: sales_invoice_doc.custom_zatca_nominal_invoice == 1,
+            )
+
+            if not any_item_has_tax_template:
+                invoice = item_data(invoice, sales_invoice_doc)
+            else:
+                invoice = item_data_with_template(invoice, sales_invoice_doc)
+            file_content= xml_structuring(invoice)
+
+            issuing_context.confirm_current()
+            signed_xml = sign_invoice_xml(
+                file_content, company_abbr, source_doc,
+                tools=SigningTools.from_namespace(globals()),
+            )
+            encoded_hash = signed_xml.encoded_hash
+            qrcodeb64 = signed_xml.qr_payload
+            updated_xml_string = signed_xml.xml
+            issuing_context.confirm_current()
+            issuing_context.expect_prepared_payload(uuid1, encoded_hash)
+            signed_xmlfile_name = structuring_signedxml(invoice_number,updated_xml_string)
+
             if get_alias_value("customer_b2c", customer_doc, 0) == 1:
-                invoice = invoice_typecode_simplified(invoice, sales_invoice_doc)
+                attach_qr_image(qrcodeb64, sales_invoice_doc)
+                reporting_api_sales_withoutxml(
+                    uuid1,
+                    encoded_hash,
+                    signed_xmlfile_name,
+                    invoice_number,
+                    sales_invoice_doc,
+                )
             else:
                 frappe.throw(
-                    _("customer should be B2C sales invoice with xml during create xml")
+                    _("customer should be B2C type required for simplified invoice")
                 )
-        invoice = populate_invoice_parties(
-            invoice, sales_invoice_doc, invoice_number, company_abbr,
-            tools=PartyXmlTools.from_namespace(
-                globals(), doctype="Sales Invoice", purpose="invoice",
-            ),
-        )
 
-        invoice = populate_document_tax(
-            invoice, sales_invoice_doc,
-            tools=DocumentTaxTools.from_namespace(
-                globals(), has_template=any_item_has_tax_template, include_nominal=True,
-            ),
-            is_nominal=lambda: sales_invoice_doc.custom_zatca_nominal_invoice == 1,
-        )
-
-        if not any_item_has_tax_template:
-            invoice = item_data(invoice, sales_invoice_doc)
-        else:
-            invoice = item_data_with_template(invoice, sales_invoice_doc)
-        file_content= xml_structuring(invoice)
-
-        signed_xml = sign_invoice_xml(
-            file_content, company_abbr, source_doc,
-            tools=SigningTools.from_namespace(globals()),
-        )
-        encoded_hash = signed_xml.encoded_hash
-        qrcodeb64 = signed_xml.qr_payload
-        updated_xml_string = signed_xml.xml
-        signed_xmlfile_name = structuring_signedxml(invoice_number,updated_xml_string)
-
-        if get_alias_value("customer_b2c", customer_doc, 0) == 1:
-            attach_qr_image(qrcodeb64, sales_invoice_doc)
-            reporting_api_sales_withoutxml(
-                uuid1,
-                encoded_hash,
-                signed_xmlfile_name,
-                invoice_number,
-                sales_invoice_doc,
-            )
-        else:
-            frappe.throw(
-                _("customer should be B2C type required for simplified invoice")
-            )
     except DeclaredVatError:
         raise
     except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
@@ -242,7 +252,7 @@ def reporting_api_sales_withoutxml(
             frappe.throw(
                 _(f"Company with abbreviation {sales_invoice_doc.company} not found.")
             )
-        company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
+        company_doc = read_issuing_doc(frappe, "Company", {"abbr": company_abbr})
         submission = get_submission_context(
             company_abbr, sales_invoice_doc, invoice_number, "invoices/reporting/single",
             expected_doctype="Sales Invoice",
@@ -253,7 +263,7 @@ def reporting_api_sales_withoutxml(
         payload = submitted_invoice.as_payload()
 
         xml_cleared_data = submitted_invoice.xml_text()
-        file = frappe.get_doc(
+        file = read_issuing_doc(frappe,
             {
                 "doctype": "File",
                 "file_name": "Reported xml file " + sales_invoice_doc.name + ".xml",
@@ -285,6 +295,7 @@ def reporting_api_sales_withoutxml(
                     user=frappe.session.user,
                 )
                 
+                confirm_issuing_transport(company_abbr, sales_invoice_doc, runtime=frappe)
                 response = requests.post(
                     url=submission.route.url,
                     headers=headers,
@@ -336,7 +347,7 @@ def reporting_api_sales_withoutxml(
                 frappe.publish_realtime("hide_gif", user=frappe.session.user)
                 
                 if response.status_code in (400, 405, 406):
-                    invoice_doc = frappe.get_doc(SALES_INVOICE, invoice_number)
+                    invoice_doc = read_issuing_doc(frappe, SALES_INVOICE, invoice_number)
                     # invoice_doc.db_set(
                     #     "custom_uuid",
                     #     "Not Submitted",
@@ -373,7 +384,7 @@ def reporting_api_sales_withoutxml(
                     )
 
                 if response.status_code in (401, 403, 407, 451):
-                    invoice_doc = frappe.get_doc(SALES_INVOICE, invoice_number)
+                    invoice_doc = read_issuing_doc(frappe, SALES_INVOICE, invoice_number)
                     # invoice_doc.db_set(
                     #     "custom_uuid",
                     #     "Not Submitted",
@@ -421,7 +432,7 @@ def reporting_api_sales_withoutxml(
                         submission, encoded_hash, sales_invoice_doc, msg
                     )
 
-                    invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
+                    invoice_doc = read_issuing_doc(frappe, "Sales Invoice", invoice_number)
                     invoice_doc.custom_zatca_full_response = response.text
                     invoice_doc.custom_uuid = uuid1
                     invoice_doc.custom_zatca_status = "REPORTED"
@@ -435,7 +446,7 @@ def reporting_api_sales_withoutxml(
                 #     error_log()
 
                 if response.status_code not in (200, 202, 409):
-                    invoice_doc = frappe.get_doc(SALES_INVOICE, invoice_number)
+                    invoice_doc = read_issuing_doc(frappe, SALES_INVOICE, invoice_number)
                     invoice_doc.custom_uuid = "Not Submitted"
                     invoice_doc.custom_zatca_status = "Not Submitted"
                     invoice_doc.custom_zatca_full_response = response.text
@@ -489,7 +500,7 @@ def reporting_api_sales_withoutxml(
                         submission, encoded_hash, sales_invoice_doc, msg
                     )
 
-                    invoice_doc = frappe.get_doc(SALES_INVOICE, invoice_number)
+                    invoice_doc = read_issuing_doc(frappe, SALES_INVOICE, invoice_number)
                     # invoice_doc.db_set(
                     #     "custom_zatca_full_response",
                     #     msg,
@@ -523,7 +534,7 @@ def reporting_api_sales_withoutxml(
                 )
 
     except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
-        invoice_doc = frappe.get_doc(SALES_INVOICE, invoice_number)
+        invoice_doc = read_issuing_doc(frappe, SALES_INVOICE, invoice_number)
         # invoice_doc.db_set(
         #     "custom_zatca_full_response",
         #     f"Error: {str(e)}",

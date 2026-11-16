@@ -245,6 +245,10 @@ def _certificate_for_owner(owner: CredentialOwner) -> str:
 
 def get_signing_certificate(company_abbr, source_doc=None) -> str:
     """Preserve selected certificate text; digest/serialization policy is unchanged."""
+    from .issuing_attempt import active_attempt
+    attempt = active_attempt(company_abbr, source_doc, runtime=frappe)
+    if attempt is not None and attempt.purpose != 'debug':
+        return attempt.signing_material().certificate_text
     try:
         return _certificate_for_owner(resolve_credential_owner(company_abbr, source_doc))
     except CredentialConfigurationError as error:

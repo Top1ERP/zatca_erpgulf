@@ -1,3 +1,5 @@
+from .issuing_reads import read_issuing_doc
+from .issuing_attempt import issuing_attempt, IssuingAttemptError
 from .invoice_generation_data import prepare_invoice_generation
 from .template_vat_source import resolve_invoice_template_mode
 import frappe
@@ -146,7 +148,7 @@ def _debug_call(
         if not is_zatca_invoice_enabled(company_doc):
             notices.append(DEBUG_LOCAL_ONLY)
 
-        customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
+        customer_doc = read_issuing_doc(frappe, "Customer", sales_invoice_doc.customer)
         if company_doc.tax_id and customer_doc.tax_id:
             if company_doc.tax_id.strip() == customer_doc.tax_id.strip():
                 return {"status": "skipped", "message": DEBUG_SKIPPED, "notices": notices}
@@ -165,52 +167,56 @@ def _debug_call(
             invoice, uuid1, invoice_doc, any_item_has_tax_template = prepare_invoice_generation(
                 invoice, invoice_doc.name, namespace=globals(), doctype='Sales Invoice', purpose="debug",
             )
-            customer_doc = frappe.get_doc("Customer", invoice_doc.customer)
+            with issuing_attempt(company_abbr, source_doc, purpose='debug',
+                                 runtime=frappe, translate=_, invoice_doc=invoice_doc) as issuing_context:
+                customer_doc = read_issuing_doc(frappe, "Customer", invoice_doc.customer)
 
-            # Step 2: Classify from the invoice/customer or explicit sample.
-            invoice = populate_invoice_type(
-                invoice, invoice_doc, customer_doc, namespace=globals(),
-                doctype="Sales Invoice", compliance_type=compliance_type,
-            )
+                # Step 2: Classify from the invoice/customer or explicit sample.
+                invoice = populate_invoice_type(
+                    invoice, invoice_doc, customer_doc, namespace=globals(),
+                    doctype="Sales Invoice", compliance_type=compliance_type,
+                )
 
-            # Step 3: Populate XML
-            invoice = populate_invoice_parties(
-                invoice, invoice_doc, invoice_doc.name, company_abbr,
-                tools=PartyXmlTools.from_namespace(
-                    globals(), doctype="Sales Invoice", purpose="debug",
-                ),
-            )
+                # Step 3: Populate XML
+                invoice = populate_invoice_parties(
+                    invoice, invoice_doc, invoice_doc.name, company_abbr,
+                    tools=PartyXmlTools.from_namespace(
+                        globals(), doctype="Sales Invoice", purpose="debug",
+                    ),
+                )
 
-            # Step 4: Discounts & Taxes
-            debug_nominal = getattr(invoice_doc, "custom_zatca_nominal_invoice", 0) == 1
-            invoice = populate_document_tax(
-                invoice, invoice_doc,
-                tools=DocumentTaxTools.from_namespace(
-                    globals(), has_template=any_item_has_tax_template, include_nominal=True,
-                ),
-                is_nominal=lambda: debug_nominal,
-            )
+                # Step 4: Discounts & Taxes
+                debug_nominal = getattr(invoice_doc, "custom_zatca_nominal_invoice", 0) == 1
+                invoice = populate_document_tax(
+                    invoice, invoice_doc,
+                    tools=DocumentTaxTools.from_namespace(
+                        globals(), has_template=any_item_has_tax_template, include_nominal=True,
+                    ),
+                    is_nominal=lambda: debug_nominal,
+                )
 
-            # Step 5: Use the same direct/legacy item selection as ordinary Sales.
-            invoice = populate_sales_items(
-                invoice, invoice_doc, namespace=globals(),
-                has_template=any_item_has_tax_template,
-            )
+                # Step 5: Use the same direct/legacy item selection as ordinary Sales.
+                invoice = populate_sales_items(
+                    invoice, invoice_doc, namespace=globals(),
+                    has_template=any_item_has_tax_template,
+                )
 
-            # Step 6: XML Structuring & reading
-            file_content = xml_structuring(invoice)
+                # Step 6: XML Structuring & reading
+                file_content = xml_structuring(invoice)
 
-            signed_xml = sign_invoice_xml(
-                file_content, company_abbr, source_doc,
-                tools=SigningTools.from_namespace(globals()),
-            )
-            updated_xml_string = signed_xml.xml
-            # Attach the same formatted bytes without writing, replacing, or
-            # unlinking an intermediate file that a live worker may be using.
-            xml_data = format_zatca_signed_xml(updated_xml_string)
-            attachment = save_debug_attachment(frappe, debug_source, xml_data)
-            return {"status": "success", "message": DEBUG_CREATED,
-                    **attachment, "notices": notices}
+                issuing_context.confirm_current()
+                signed_xml = sign_invoice_xml(
+                    file_content, company_abbr, source_doc,
+                    tools=SigningTools.from_namespace(globals()),
+                )
+                updated_xml_string = signed_xml.xml
+                # Attach the same formatted bytes without writing, replacing, or
+                # unlinking an intermediate file that a live worker may be using.
+                xml_data = format_zatca_signed_xml(updated_xml_string)
+                issuing_context.confirm_current()
+                attachment = save_debug_attachment(frappe, debug_source, xml_data)
+                return {"status": "success", "message": DEBUG_CREATED,
+                        **attachment, "notices": notices}
 
         # Existing issued artifacts only add a notice. Scheduling and GPOS
         # identifiers must not change the customer's invoice classification.
@@ -225,12 +231,12 @@ def _debug_call(
     except Exception as e:
         if isinstance(e, InvoiceTypeSelectionError):
             notices.append(e.template)
-        if isinstance(e, DeclaredVatError):
+        if isinstance(e, (DeclaredVatError, IssuingAttemptError)):
             notices.append(e.template)
         if isinstance(e, DebugArtifactError):
             notices.append(str(e))
         # Keep the original traceback; only the app-owned label is English.
-        if not isinstance(e, DeclaredVatError) or not e.diagnostic_logged:
+        if not isinstance(e, (DeclaredVatError, IssuingAttemptError)) or not e.diagnostic_logged:
             frappe.log_error(traceback.format_exc(), f"Debug XML Error for invoice {invoice_number}")
         return {"status": "error", "message": DEBUG_FAILED,
                 "technical_details": str(e), "notices": notices}

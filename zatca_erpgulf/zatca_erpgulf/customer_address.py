@@ -8,6 +8,7 @@ the invoice or the Customer record.
 """
 
 from __future__ import annotations
+from .issuing_reads import read_issuing_all, read_issuing_cached_doc, read_issuing_doc
 
 from typing import Any
 
@@ -42,7 +43,7 @@ def _load_address(name: Any, *, require_active: bool = False, require_customer: 
         return None
 
     try:
-        address = frappe.get_doc("Address", name)
+        address = read_issuing_doc(frappe, "Address", name)
     except (frappe.DoesNotExistError, frappe.ValidationError):
         return None
 
@@ -71,7 +72,7 @@ def _linked_address_names(customer_name: str) -> list[str]:
         return []
 
     try:
-        rows = frappe.get_all(
+        rows = read_issuing_all(frappe,
             "Address",
             filters=[
                 ["Dynamic Link", "link_doctype", "=", "Customer"],
@@ -91,7 +92,7 @@ def _linked_address_names(customer_name: str) -> list[str]:
         # fallback still preserves the same primary/creation ordering in
         # Python when an older database adapter rejects the compound order.
         try:
-            rows = frappe.get_all(
+            rows = read_issuing_all(frappe,
                 "Address",
                 filters=[
                     ["Dynamic Link", "link_doctype", "=", "Customer"],
@@ -188,7 +189,7 @@ def validate_customer_address_for_zatca(invoice: Any, event: str | None = None):
         return None
 
     try:
-        company = frappe.get_cached_doc("Company", _value(invoice, "company"))
+        company = read_issuing_cached_doc(frappe, "Company", _value(invoice, "company"))
     except Exception:
         return None
 
@@ -198,7 +199,7 @@ def validate_customer_address_for_zatca(invoice: Any, event: str | None = None):
     if resolve_zatca_phase(company) == PHASE_1_VALUE:
         return None
 
-    customer = frappe.get_doc("Customer", _value(invoice, "customer"))
+    customer = read_issuing_doc(frappe, "Customer", _value(invoice, "customer"))
     if cint(get_alias_value("customer_b2c", customer, 0) or 0) == 1:
         return None
 

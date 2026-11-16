@@ -1,5 +1,32 @@
 # Implementation status — 2026-11-16
 
+## Workstream1 local contract closed; workstream2 next
+
+The complete adopted source/settings/credential scope now covers ordinary and
+scheduled/generated Sales/POS, Debug, dedicated/automatic/collection Compliance,
+existing XML and all13 request fences. Native source permissions, enabled Phase2
+and native key/certificate preflight precede identity preparation. Returned
+metadata is rebound before party/counter builders. Purpose-token certificate,
+key/time/taxpayer consistency and exact formatted/request content are bound to
+one scoped issuer; retained/cross-source/cross-site contexts are rejected.
+
+The fixed reproducible `--profile issuer-binding` closes81 reviewed local suites:
+**20,747 passed in126.97s**. Six browser suites pass1,208. Nine read-adapter modules
+restore to parent2d96f2c AST exactly;34 preexisting reference files are unchanged.
+Logs and precise extension/storage/acceptance limits are in
+[WORKSTREAM_1.md](WORKSTREAM_1.md) and
+[WORKSTREAM_1_CONTRACTS.md](WORKSTREAM_1_CONTRACTS.md). The separate earlier-started
+205-suite qualification is still running; it is not a claimed final green run.
+
+Versioned secret storage/activation remains explicitly unactivated; legacy
+preservation prevents destructive renewal. Business observations/original modified
+provenance are not a database snapshot/epoch or remote trust proof. Money/hash/
+SignedProperties algorithms and original240 comparison91/117/32 are unchanged.
+Workstream2 owns actual transaction/ICV/PIH/response/retry coordination, not another
+source-observation helper. Installed15/16, SDK and approved fictional rehearsal
+remain their later acceptance gates. No live/site/schema/tenant-SQL/restart or
+authority API action; installed source/dirty tooltip hashes remain unchanged.
+
 ## Workstream1 foundation — active, not a transition
 
 The user requested continuous work through each complete release workstream.

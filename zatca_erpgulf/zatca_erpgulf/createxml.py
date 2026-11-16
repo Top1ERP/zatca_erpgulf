@@ -3,6 +3,7 @@ This module contains utilities for ZATCA 2024 e-invoicing.
 Includes functions for XML parsing, API interactions, and custom handling.
 """
 
+from .issuing_reads import read_issuing_all, read_issuing_doc
 import re
 import uuid
 import xml.etree.ElementTree as ET
@@ -171,7 +172,7 @@ def _get_or_create_sales_invoice_uuid(sales_invoice_doc):
 def get_icv_code(invoice_number):
     """Backward-compatible wrapper; ICV is no longer derived from invoice names."""
     from zatca_erpgulf.zatca_erpgulf.icv import get_icv
-    doc = frappe.get_doc("Sales Invoice", invoice_number)
+    doc = read_issuing_doc(frappe, "Sales Invoice", invoice_number)
     return get_icv(doc)
 
 
@@ -179,13 +180,13 @@ def get_issue_time(invoice_number):
     """
     Extracts and formats the posting time of a Sales Invoice as HH:MM:SS.
     """
-    doc = frappe.get_doc("Sales Invoice", invoice_number)
+    doc = read_issuing_doc(frappe, "Sales Invoice", invoice_number)
     return format_zatca_qr_timestamp(doc.posting_date, doc.posting_time).split("T", 1)[1]
 
 
 def get_issue_timestamp(invoice_number):
     """Return the same UTC timestamp used for XML IssueDate/IssueTime and QR Tag 3."""
-    doc = frappe.get_doc("Sales Invoice", invoice_number)
+    doc = read_issuing_doc(frappe, "Sales Invoice", invoice_number)
     return format_zatca_qr_timestamp(doc.posting_date, doc.posting_time)
 
 
@@ -378,7 +379,7 @@ def _is_export_invoice(sales_invoice_doc, customer_doc=None, address=None):
         return False
 
     if customer_doc is None:
-        customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
+        customer_doc = read_issuing_doc(frappe, "Customer", sales_invoice_doc.customer)
 
     country_code = _get_customer_country_code(sales_invoice_doc, customer_doc, address)
     country_code = (country_code or "SA").upper()
@@ -640,7 +641,7 @@ def salesinvoice_data(invoice, invoice_number, *, purpose="production", _include
     can request the mode checked before and after identity callbacks as well.
     """
     try:
-        sales_invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
+        sales_invoice_doc = read_issuing_doc(frappe, "Sales Invoice", invoice_number)
 
         # Freeze time from the SAME loaded record, and validate BEFORE any UUID
         # persistence. A second get_doc could observe a different revision.
@@ -690,7 +691,7 @@ def invoice_typecode_simplified(invoice, sales_invoice_doc):
     try:
         cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
         base_code = "02"
-        customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
+        customer_doc = read_issuing_doc(frappe, "Customer", sales_invoice_doc.customer)
         export_flag = _is_export_invoice(sales_invoice_doc, customer_doc)
         checkbox_map = [
             bool(getattr(sales_invoice_doc, "custom_zatca_third_party_invoice", 0)),
@@ -721,7 +722,7 @@ def invoice_typecode_advance_payment(invoice, sales_invoice_doc):
     """Set the ZATCA code for an original advance-payment invoice."""
     try:
         cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
-        customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
+        customer_doc = read_issuing_doc(frappe, "Customer", sales_invoice_doc.customer)
         base_code = "02" if get_alias_value("customer_b2c", customer_doc, 0) == 1 else "01"
         checkbox_map = [
             bool(getattr(sales_invoice_doc, "custom_zatca_third_party_invoice", 0)),
@@ -748,7 +749,7 @@ def invoice_typecode_standard(invoice, sales_invoice_doc):
     try:
         cbc_invoicetypecode = ET.SubElement(invoice, "cbc:InvoiceTypeCode")
         base_code = "01"
-        customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
+        customer_doc = read_issuing_doc(frappe, "Customer", sales_invoice_doc.customer)
         export_flag = _is_export_invoice(sales_invoice_doc, customer_doc)
         checkbox_map = [
             bool(getattr(sales_invoice_doc, "custom_zatca_third_party_invoice", 0)),
@@ -874,7 +875,7 @@ def get_address(sales_invoice_doc, company_doc):
     - Otherwise, use the first available company address.
     """
     if company_doc.custom_costcenter == 1 and sales_invoice_doc.cost_center:
-        cost_center_doc = frappe.get_doc("Cost Center", sales_invoice_doc.cost_center)
+        cost_center_doc = read_issuing_doc(frappe, "Cost Center", sales_invoice_doc.cost_center)
 
         # Ensure the Cost Center has a linked address
         if not cost_center_doc.custom_zatca_branch_address:
@@ -884,7 +885,7 @@ def get_address(sales_invoice_doc, company_doc):
                 )
             )
 
-        address_list = frappe.get_all(
+        address_list = read_issuing_all(frappe,
             "Address",
             fields=[
                 "address_line1",
@@ -906,7 +907,7 @@ def get_address(sales_invoice_doc, company_doc):
         return address_list[0]  # Return the Cost Center's address
 
     # Fetch Company address only if no cost center is used
-    address_list = frappe.get_all(
+    address_list = read_issuing_all(frappe,
         "Address",
         fields=[
             "address_line1",
@@ -937,13 +938,13 @@ def company_data(invoice, sales_invoice_doc):
     tax information, and multilingual supplier names when available.
     """
     try:
-        company_doc = frappe.get_doc("Company", sales_invoice_doc.company)
+        company_doc = read_issuing_doc(frappe, "Company", sales_invoice_doc.company)
         if company_doc.custom_costcenter == 1 and not sales_invoice_doc.cost_center:
             frappe.throw(_("no Cost Center is set in the invoice.Give the feild"))
 
         # Determine whether to fetch data from Cost Center or Company
         if company_doc.custom_costcenter == 1 and sales_invoice_doc.cost_center:
-            cost_center_doc = frappe.get_doc("Cost Center", sales_invoice_doc.cost_center)
+            cost_center_doc = read_issuing_doc(frappe, "Cost Center", sales_invoice_doc.cost_center)
             custom_registration_type = cost_center_doc.custom_zatca__registration_type
             custom_company_registration = cost_center_doc.custom_zatca__registration_number
         else:
@@ -1014,7 +1015,7 @@ def customer_data(invoice, sales_invoice_doc):
     Arabic and English buyer names are both included when available and materially different.
     """
     try:
-        customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
+        customer_doc = read_issuing_doc(frappe, "Customer", sales_invoice_doc.customer)
         cac_accountingcustomerparty = ET.SubElement(invoice, "cac:AccountingCustomerParty")
         cac_party_2 = ET.SubElement(cac_accountingcustomerparty, "cac:Party")
 
@@ -1322,7 +1323,7 @@ def add_document_level_discount_with_tax_template(invoice, sales_invoice_doc):
         tax_percentage = 0.0
 
         for item in sales_invoice_doc.items:
-            item_tax_template_doc = frappe.get_doc(
+            item_tax_template_doc = read_issuing_doc(frappe,
                 "Item Tax Template", item.item_tax_template
             )
             selected_vat_row = DeclaredVatContext(sales_invoice_doc, frappe, _).row(item_tax_template_doc)

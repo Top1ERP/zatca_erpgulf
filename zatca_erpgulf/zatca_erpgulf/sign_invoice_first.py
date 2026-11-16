@@ -4,6 +4,8 @@ This module facilitates the generation, validation, and submission of
 using ERPNext
 """
 
+from .issuing_attempt import confirm_issuing_transport
+from .issuing_reads import read_issuing_doc, read_issuing_cached_doc
 from .invoice_payload import read_invoice_payload
 import hashlib
 import base64
@@ -110,7 +112,7 @@ def get_csr_data(company_abbr):
         if not company_name:
             frappe.throw(_(f"Company with abbreviation {company_abbr} not found."))
 
-        company_doc = frappe.get_doc("Company", company_name)
+        company_doc = read_issuing_doc(frappe, "Company", company_name)
         csr_config_string = company_doc.custom_csr_config
 
         if not csr_config_string:
@@ -466,7 +468,7 @@ def _create_csid(progress, zatca_doc, company_abbr, portal_type):
 
 def _csid_material_diagnostics(company_name):
     """Return non-secret diagnostics for the saved OTP/CSR material."""
-    company_doc = frappe.get_doc("Company", company_name)
+    company_doc = read_issuing_doc(frappe, "Company", company_name)
     route = get_company_api_route(company_doc.abbr, "compliance", onboarding_only=True)
     csr_contents = str(company_doc.get("custom_csr_data") or "").strip()
     otp = str(company_doc.get("custom_otp") or "").strip()
@@ -568,7 +570,7 @@ def create_public_key(company_abbr, source_doc):
             frappe.throw(_(f"Company with abbreviation {company_abbr} not found."))
 
         # Fetch the company document
-        company_doc = frappe.get_doc("Company", company_name)
+        company_doc = read_issuing_doc(frappe, "Company", company_name)
 
         # Initialize certificate_data_str based on the document type
         certificate_data_str = ""
@@ -578,7 +580,7 @@ def create_public_key(company_abbr, source_doc):
                 if source_doc.custom_zatca_pos_name:
                     # Fetch Zatca settings and use its certificate
 
-                    zatca_settings = frappe.get_doc(
+                    zatca_settings = read_issuing_doc(frappe,
                         "ZATCA Multiple Setting", source_doc.custom_zatca_pos_name
                     )
                     certificate_data_str = zatca_settings.get("custom_certficate", "")
@@ -610,7 +612,7 @@ def create_public_key(company_abbr, source_doc):
         ).decode()
         if source_doc.doctype in SUPPORTED_INVOICES:
             if source_doc.custom_zatca_pos_name:
-                zatca_settings = frappe.get_doc(
+                zatca_settings = read_issuing_doc(frappe,
                     "ZATCA Multiple Setting", source_doc.custom_zatca_pos_name
                 )
 
@@ -726,6 +728,10 @@ def digital_signature(hash1, company_abbr, source_doc):
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(_("Error in digital signature: ") + str(e))
         return None
+
+
+# Function identity only; no retained key/document or permission capability.
+_CANONICAL_DIGITAL_SIGNATURE = digital_signature
 
 
 def extract_certificate_details(company_abbr, source_doc):
@@ -1059,7 +1065,7 @@ def _is_simplified_document(source_doc):
         return False
 
     try:
-        customer_doc = frappe.get_cached_doc("Customer", customer)
+        customer_doc = read_issuing_cached_doc(frappe, "Customer", customer)
         return bool(get_alias_value("customer_b2c", customer_doc, 0))
     except Exception:
         return False
@@ -1273,6 +1279,8 @@ def structuring_signedxml(invoice_number,updated_xml_string):
         signed_xmlfile_name = (
             f"{frappe.local.site}/private/files/final_xml_after_indent_{invoice_number}.xml"
         )
+        from .issuing_attempt import seal_current_xml
+        seal_current_xml(signed_xmlfile_name, adjusted_xml_content, runtime=frappe)
         return signed_xmlfile_name
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(_(" error in structuring signed xml: " + str(e)))
@@ -1293,7 +1301,7 @@ def compliance_api_call(
         if not company_name:
             frappe.throw(_(f"Company with abbreviation {company_abbr} not found."))
 
-        company_doc = frappe.get_doc("Company", company_name)
+        company_doc = read_issuing_doc(frappe, "Company", company_name)
         submitted_invoice = read_invoice_payload(
             uuid1, encoded_hash, signed_xmlfile_name, read_xml=xml_base64_decode
         )
@@ -1312,6 +1320,7 @@ def compliance_api_call(
             "Authorization": authorization,
             "Content-Type": "application/json",
         }
+        confirm_issuing_transport(company_abbr, source_doc, runtime=frappe)
         response = requests.request(
             "POST",
             url=api_url,

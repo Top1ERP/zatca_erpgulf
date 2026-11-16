@@ -64,6 +64,7 @@ def capture_request_selection(company_abbr, source_doc, endpoint, *, runtime,
         saved = load_saved(source_doc.doctype, source_doc.name)
         if not saved.get('custom_zatca_pos_name'):
             runtime.throw(translate('A saved ZATCA issuing unit is required for this XML submission path.'))
+            raise CredentialConfigurationError('source')
     company = project(runtime.get_doc('Company', {'abbr': company_abbr}), COMPANY_FIELDS)
     projections[('Company', company.name)] = company
     try:

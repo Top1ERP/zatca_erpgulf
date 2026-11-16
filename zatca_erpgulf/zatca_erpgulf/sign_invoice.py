@@ -7,6 +7,10 @@ including the creation of UBL XML
 invoices, signing, and submission to ZATCA servers for clearance and reporting.
 """
 
+from .issuing_reads import read_issuing_doc, read_issuing_cached_doc
+from .issuing_attempt import (
+    collect_issuing_compliance, confirm_issuing_transport, issuing_attempt, invoice_issuing_attempt,
+)
 from .existing_xml_submission import ExistingXmlSubmissionError
 from .invoice_payload import read_invoice_payload
 from .invoice_generation_data import prepare_invoice_generation
@@ -188,7 +192,7 @@ def success_log(response, uuid1, invoice_number):
     """defining the success log"""
     try:
         current_time = frappe.utils.now()
-        frappe.get_doc(
+        read_issuing_doc(frappe,
             {
                 "doctype": "ZATCA ERPGulf Success Log",
                 "title": "ZATCA invoice call done successfully",
@@ -239,7 +243,7 @@ def attach_qr_image(
     Scoped link preservation is not source validation; caller commits remain
     separate work. Ambiguous references are never silently replaced.
     """
-    company_doc = frappe.get_cached_doc("Company", sales_invoice_doc.company)
+    company_doc = read_issuing_cached_doc(frappe, "Company", sales_invoice_doc.company)
     if (
         is_zatca_invoice_enabled(company_doc)
         and resolve_zatca_phase(company_doc) == PHASE_2_VALUE
@@ -254,7 +258,7 @@ def attach_qr_image(
         qr = qr_create(qrcodeb64, error="L")
         qr.png(qr_image, scale=4, quiet_zone=4)
 
-        file_doc = frappe.get_doc(
+        file_doc = read_issuing_doc(frappe,
             {
                 "doctype": "File",
                 "file_name": f"QR-Phase2-{phase2_status.upper()}-{sales_invoice_doc.name}.png".replace(
@@ -279,7 +283,7 @@ def _attach_reported_xml(signed_xmlfile_name, sales_invoice_doc, *, _xml_content
     if _xml_content is None:
         xml_base64 = xml_base64_decode(signed_xmlfile_name)
         _xml_content = base64.b64decode(xml_base64).decode("utf-8")
-    file = frappe.get_doc(
+    file = read_issuing_doc(frappe,
         {
             "doctype": "File",
             "file_name": "Reported xml file " + sales_invoice_doc.name + ".xml",
@@ -337,7 +341,7 @@ def _persist_reporting_rejection(invoice_number, response):
     writes, not those prior effects. Do not put the deliberate rejection throw
     here: a normal remote rejection must retain its existing exception family.
     """
-    invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
+    invoice_doc = read_issuing_doc(frappe, "Sales Invoice", invoice_number)
     if not _is_valid_zatca_uuid_value(getattr(invoice_doc, "custom_uuid", None)):
         invoice_doc.custom_uuid = "Not Submitted"
     invoice_doc.custom_zatca_status = "Not Submitted"
@@ -352,7 +356,7 @@ def _persist_clearance_rejection(invoice_number, response):
     Existing per-field commits remain; neither rollback nor durable custody is
     promised. The response text read is part of the guarded persistence step.
     """
-    invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
+    invoice_doc = read_issuing_doc(frappe, "Sales Invoice", invoice_number)
     if not _is_valid_zatca_uuid_value(getattr(invoice_doc, "custom_uuid", None)):
         invoice_doc.db_set(
             "custom_uuid", "Not Submitted", commit=True, update_modified=True
@@ -379,7 +383,7 @@ def reporting_api(
             frappe.throw(
                 _(f"Company with abbreviation {sales_invoice_doc.company} not found.")
             )
-        company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
+        company_doc = read_issuing_doc(frappe, "Company", {"abbr": company_abbr})
         submission = get_submission_context(
             company_abbr, sales_invoice_doc, invoice_number, "invoices/reporting/single",
             expected_doctype="Sales Invoice",
@@ -404,6 +408,7 @@ def reporting_api(
                     {"gif_url": "/assets/zatca_erpgulf/js/loading.gif"},
                     user=frappe.session.user,
                 )
+                confirm_issuing_transport(company_abbr, sales_invoice_doc, runtime=frappe)
                 response = requests.post(
                     url=submission.route.url,
                     headers=headers,
@@ -508,7 +513,7 @@ def reporting_api(
                     qr_payload = _submitted_qr_payload(submitted_invoice, signed_xmlfile_name)
                     if qr_payload:
                         attach_qr_image(qr_payload, sales_invoice_doc, allow_phase2=True)
-                    invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
+                    invoice_doc = read_issuing_doc(frappe, "Sales Invoice", invoice_number)
                     invoice_doc.custom_zatca_full_response = response.text
                     invoice_doc.custom_uuid = uuid1
                     invoice_doc.custom_zatca_status = "REPORTED"
@@ -556,7 +561,7 @@ def reporting_api(
                     qr_payload = _submitted_qr_payload(submitted_invoice, signed_xmlfile_name)
                     if qr_payload:
                         attach_qr_image(qr_payload, sales_invoice_doc, allow_phase2=True)
-                    invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
+                    invoice_doc = read_issuing_doc(frappe, "Sales Invoice", invoice_number)
                     # invoice_doc.db_set(
                     #     "custom_zatca_full_response",
                     #     msg,
@@ -591,7 +596,7 @@ def reporting_api(
         if processing_response:
             local_response_failure = True
         else:
-            invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
+            invoice_doc = read_issuing_doc(frappe, "Sales Invoice", invoice_number)
             invoice_doc.custom_zatca_full_response = f"Error: {str(e)}"
             invoice_doc.save(ignore_permissions=True)  # or with permissions if needed
             frappe.db.commit()
@@ -639,6 +644,7 @@ def clearance_api(
             user=frappe.session.user,
         )
 
+        confirm_issuing_transport(company_abbr, sales_invoice_doc, runtime=frappe)
         response = requests.post(
             url=submission.route.url,
             headers=headers,
@@ -698,7 +704,7 @@ def clearance_api(
             )
         response_step(frappe.publish_realtime, "hide_gif", user=frappe.session.user)
         if response.status_code == 303:
-            invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
+            invoice_doc = read_issuing_doc(frappe, "Sales Invoice", invoice_number)
             invoice_doc.db_set(
                 "custom_zatca_status", "Not Submitted", commit=True, update_modified=True
             )
@@ -744,7 +750,7 @@ def clearance_api(
                 submission, encoded_hash, sales_invoice_doc, msg
             )
 
-            invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
+            invoice_doc = read_issuing_doc(frappe, "Sales Invoice", invoice_number)
             invoice_doc.custom_zatca_full_response = response.text
             invoice_doc.custom_uuid = uuid1
             invoice_doc.custom_zatca_status = "CLEARED"
@@ -779,7 +785,7 @@ def clearance_api(
                 submission, encoded_hash, sales_invoice_doc, msg
             )
 
-            invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
+            invoice_doc = read_issuing_doc(frappe, "Sales Invoice", invoice_number)
             set_zatca_full_response(
                 invoice_doc, response.text, commit=True, update_modified=True
             )
@@ -791,7 +797,7 @@ def clearance_api(
             data = response.json()
             base64_xml = data.get("clearedInvoice")
             xml_cleared = base64.b64decode(base64_xml).decode("utf-8")
-            file = frappe.get_doc(
+            file = read_issuing_doc(frappe,
                 {
                     "doctype": "File",
                     "file_name": "Cleared xml file " + sales_invoice_doc.name + ".xml",
@@ -826,7 +832,7 @@ def clearance_api(
         if processing_response:
             local_response_failure = True
         else:
-            invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
+            invoice_doc = read_issuing_doc(frappe, "Sales Invoice", invoice_number)
             invoice_doc.db_set(
                 "custom_zatca_full_response",
                 f"Error: {str(e)}",
@@ -888,79 +894,65 @@ def zatca_call(
     try:
         if not frappe.db.exists("Sales Invoice", invoice_number):
             frappe.throw(_("Invoice Number is NOT Valid: " + str(invoice_number)))
-        invoice = xml_tags()
-        invoice, uuid1, sales_invoice_doc, any_item_has_tax_template = prepare_invoice_generation(
-            invoice, invoice_number, namespace=globals(), doctype='Sales Invoice',
-        )
-        # Signing and HTTP must follow the same saved invoice issuer.
-        source_doc = sales_invoice_doc
-        # Get the company abbreviation
-        company_abbr = frappe.db.get_value(
-            "Company", {"name": sales_invoice_doc.company}, "abbr"
-        )
+        with invoice_issuing_attempt('Sales Invoice', invoice_number, runtime=frappe,
+                                     translate=_, namespace=globals()) as issuing_context:
+            invoice = xml_tags()
+            invoice, uuid1, sales_invoice_doc, any_item_has_tax_template = prepare_invoice_generation(
+                invoice, invoice_number, namespace=globals(), doctype='Sales Invoice',
+            )
+            # Signing and HTTP must follow the same saved invoice issuer.
+            source_doc = sales_invoice_doc
+            issuing_context.bind_prepared_invoice(source_doc)
+            issuing_context.confirm_current()
+            # Get the company abbreviation
+            company_abbr = issuing_context.company_abbr
 
-        customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
+            customer_doc = read_issuing_doc(frappe, "Customer", sales_invoice_doc.customer)
 
-        # Export validation
-        if getattr(sales_invoice_doc, "custom_zatca_export_invoice", 0) == 1:
-            customer_country = _get_customer_country_code(sales_invoice_doc, customer_doc)
-            if customer_country == "SA":
-                frappe.throw(_("Export Invoice cannot be enabled for a customer in Saudi Arabia."))
+            # Export validation
+            if getattr(sales_invoice_doc, "custom_zatca_export_invoice", 0) == 1:
+                customer_country = _get_customer_country_code(sales_invoice_doc, customer_doc)
+                if customer_country == "SA":
+                    frappe.throw(_("Export Invoice cannot be enabled for a customer in Saudi Arabia."))
 
-        invoice = populate_invoice_type(
-            invoice, sales_invoice_doc, customer_doc,
-            namespace=globals(), doctype="Sales Invoice",
-        )
-        invoice = populate_invoice_parties(
-            invoice, sales_invoice_doc, invoice_number, company_abbr,
-            tools=PartyXmlTools.from_namespace(
-                globals(), doctype="Sales Invoice", purpose="invoice",
-            ),
-        )
-
-        invoice = populate_document_tax(
-            invoice, sales_invoice_doc,
-            tools=DocumentTaxTools.from_namespace(
-                globals(), has_template=any_item_has_tax_template, include_nominal=True,
-            ),
-            is_nominal=lambda: sales_invoice_doc.custom_zatca_nominal_invoice == 1,
-        )
-        invoice = populate_sales_items(
-            invoice, sales_invoice_doc, namespace=globals(),
-            has_template=any_item_has_tax_template,
-        )
-
-        file_content=xml_structuring(invoice)
-
-        signed_xml = sign_invoice_xml(
-            file_content, company_abbr, source_doc,
-            tools=SigningTools.from_namespace(globals()),
-        )
-        encoded_hash = signed_xml.encoded_hash
-        qrcodeb64 = signed_xml.qr_payload
-        updated_xml_string = signed_xml.xml
-        signed_xmlfile_name = structuring_signedxml(invoice_number,updated_xml_string)
-        if get_alias_value("customer_b2c", customer_doc, 0) == 1:
-            attach_qr_image(qrcodeb64, sales_invoice_doc)
-            reporting_api(
-                uuid1,
-                encoded_hash,
-                signed_xmlfile_name,
-                invoice_number,
-                sales_invoice_doc,
+            invoice = populate_invoice_type(
+                invoice, sales_invoice_doc, customer_doc,
+                namespace=globals(), doctype="Sales Invoice",
+            )
+            invoice = populate_invoice_parties(
+                invoice, sales_invoice_doc, invoice_number, company_abbr,
+                tools=PartyXmlTools.from_namespace(
+                    globals(), doctype="Sales Invoice", purpose="invoice",
+                ),
             )
 
-        else:
-            company_doc = frappe.get_doc("Company", sales_invoice_doc.company)
-            if is_clearance_enabled(company_doc):
-                clearance_api(
-                    uuid1,
-                    encoded_hash,
-                    signed_xmlfile_name,
-                    invoice_number,
-                    sales_invoice_doc,
-                )
-            else:
+            invoice = populate_document_tax(
+                invoice, sales_invoice_doc,
+                tools=DocumentTaxTools.from_namespace(
+                    globals(), has_template=any_item_has_tax_template, include_nominal=True,
+                ),
+                is_nominal=lambda: sales_invoice_doc.custom_zatca_nominal_invoice == 1,
+            )
+            invoice = populate_sales_items(
+                invoice, sales_invoice_doc, namespace=globals(),
+                has_template=any_item_has_tax_template,
+            )
+
+            file_content=xml_structuring(invoice)
+
+            issuing_context.confirm_current()
+            signed_xml = sign_invoice_xml(
+                file_content, company_abbr, source_doc,
+                tools=SigningTools.from_namespace(globals()),
+            )
+            encoded_hash = signed_xml.encoded_hash
+            qrcodeb64 = signed_xml.qr_payload
+            updated_xml_string = signed_xml.xml
+            issuing_context.confirm_current()
+            issuing_context.expect_prepared_payload(uuid1, encoded_hash)
+            signed_xmlfile_name = structuring_signedxml(invoice_number,updated_xml_string)
+            if get_alias_value("customer_b2c", customer_doc, 0) == 1:
+                attach_qr_image(qrcodeb64, sales_invoice_doc)
                 reporting_api(
                     uuid1,
                     encoded_hash,
@@ -968,7 +960,27 @@ def zatca_call(
                     invoice_number,
                     sales_invoice_doc,
                 )
-            attach_qr_image(qrcodeb64, sales_invoice_doc)
+
+            else:
+                company_doc = read_issuing_doc(frappe, "Company", sales_invoice_doc.company)
+                if is_clearance_enabled(company_doc):
+                    clearance_api(
+                        uuid1,
+                        encoded_hash,
+                        signed_xmlfile_name,
+                        invoice_number,
+                        sales_invoice_doc,
+                    )
+                else:
+                    reporting_api(
+                        uuid1,
+                        encoded_hash,
+                        signed_xmlfile_name,
+                        invoice_number,
+                        sales_invoice_doc,
+                    )
+                attach_qr_image(qrcodeb64, sales_invoice_doc)
+
     except DeclaredVatError:
         raise
     except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
@@ -992,7 +1004,7 @@ def zatca_call_compliance(
 
     try:
         if source_doc:
-            source_doc = frappe.get_doc(json.loads(source_doc))
+            source_doc = read_issuing_doc(frappe, json.loads(source_doc))
 
         if company_name:
             if not frappe.db.exists("Company", company_name):
@@ -1004,7 +1016,7 @@ def zatca_call_compliance(
         else:
             frappe.throw(_("Company is required for ZATCA compliance check."))
 
-        company_doc = frappe.get_doc("Company", company_name)
+        company_doc = read_issuing_doc(frappe, "Company", company_name)
 
         try:
             # Existing single-check callers select the Company label (some UI
@@ -1032,46 +1044,52 @@ def zatca_call_compliance(
                 ).format(invoice_number, sales_invoice_doc.company, company_doc.name)
             )
 
-        any_item_has_tax_template = resolve_invoice_template_mode(
-            sales_invoice_doc, runtime=frappe, translate=_)
-        invoice = invoice_typecode_compliance(invoice, compliance_type)
-        invoice = populate_invoice_parties(
-            invoice, sales_invoice_doc, invoice_number, company_abbr,
-            tools=PartyXmlTools.from_namespace(
-                globals(), doctype="Sales Invoice", purpose="compliance",
-            ),
-            compliance_type=compliance_type,
-        )
-
-        invoice = populate_document_tax(
-            invoice, sales_invoice_doc,
-            tools=DocumentTaxTools.from_namespace(
-                globals(), has_template=any_item_has_tax_template, include_nominal=True,
-            ),
-            is_nominal=lambda: sales_invoice_doc.custom_zatca_nominal_invoice == 1,
-        )
-
-        if not any_item_has_tax_template:
-            invoice = item_data(invoice, sales_invoice_doc)
-
-        else:
-            item_data_with_template(invoice, sales_invoice_doc)
-        # Generate and process the XML data
-        file_content=xml_structuring(invoice)
-
-        signed_xml = sign_invoice_xml(
-            file_content, company_abbr, source_doc,
-            tools=SigningTools.from_namespace(globals()),
-        )
-        encoded_hash = signed_xml.encoded_hash
-        qrcodeb64 = signed_xml.qr_payload
-        updated_xml_string = signed_xml.xml
-        # Use the established formatter, but never write the live invoice's
-        # submission filename. The sample disappears even when the API raises.
-        with temporary_compliance_xml(format_zatca_signed_xml(updated_xml_string)) as sample_path:
-            return compliance_api_call(
-                uuid1, encoded_hash, sample_path, company_abbr, source_doc
+        with issuing_attempt(company_abbr, source_doc, purpose='compliance',
+                             runtime=frappe, translate=_, invoice_doc=sales_invoice_doc) as issuing_context:
+            any_item_has_tax_template = resolve_invoice_template_mode(
+                sales_invoice_doc, runtime=frappe, translate=_)
+            invoice = invoice_typecode_compliance(invoice, compliance_type)
+            invoice = populate_invoice_parties(
+                invoice, sales_invoice_doc, invoice_number, company_abbr,
+                tools=PartyXmlTools.from_namespace(
+                    globals(), doctype="Sales Invoice", purpose="compliance",
+                ),
+                compliance_type=compliance_type,
             )
+
+            invoice = populate_document_tax(
+                invoice, sales_invoice_doc,
+                tools=DocumentTaxTools.from_namespace(
+                    globals(), has_template=any_item_has_tax_template, include_nominal=True,
+                ),
+                is_nominal=lambda: sales_invoice_doc.custom_zatca_nominal_invoice == 1,
+            )
+
+            if not any_item_has_tax_template:
+                invoice = item_data(invoice, sales_invoice_doc)
+
+            else:
+                item_data_with_template(invoice, sales_invoice_doc)
+            # Generate and process the XML data
+            file_content=xml_structuring(invoice)
+
+            issuing_context.confirm_current()
+            signed_xml = sign_invoice_xml(
+                file_content, company_abbr, source_doc,
+                tools=SigningTools.from_namespace(globals()),
+            )
+            encoded_hash = signed_xml.encoded_hash
+            qrcodeb64 = signed_xml.qr_payload
+            updated_xml_string = signed_xml.xml
+            # Use the established formatter, but never write the live invoice's
+            # submission filename. The sample disappears even when the API raises.
+            issuing_context.confirm_current()
+            formatted_xml = format_zatca_signed_xml(updated_xml_string)
+            with temporary_compliance_xml(formatted_xml) as sample_path:
+                issuing_context.seal_xml(sample_path, formatted_xml, identity=(uuid1, encoded_hash))
+                return compliance_api_call(
+                    uuid1, encoded_hash, sample_path, company_abbr, source_doc
+                )
 
     except DeclaredVatError:
         raise
@@ -1089,19 +1107,19 @@ def zatca_background(invoice_number, source_doc, bypass_background_check=False):
     try:
         # frappe.throw("DEBUG: Country found in address: ")
         if source_doc:
-            source_doc = frappe.get_doc(json.loads(source_doc))
-        sales_invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
+            source_doc = read_issuing_doc(frappe, json.loads(source_doc))
+        sales_invoice_doc = read_issuing_doc(frappe, "Sales Invoice", invoice_number)
         company_name = sales_invoice_doc.company
-        settings = frappe.get_doc("Company", company_name)
+        settings = read_issuing_doc(frappe, "Company", company_name)
         company_abbr = settings.abbr
-        company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
+        company_doc = read_issuing_doc(frappe, "Company", {"abbr": company_abbr})
         # if company_doc.custom_zatca_invoice_enabled != 1 or (
         #     company_doc.custom_zatca_invoice_enabled == 1
         #     and company_doc.custom_phase_1_or_2 == "Phase-1"
         # ):
         #     # frappe.msgprint("Zatca Invoice is not enabled or Phase is not Phase-1. Submitting the document.")
         #     return
-        # customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
+        # customer_doc = read_issuing_doc(frappe, "Customer", sales_invoice_doc.customer)
         # if company_doc.tax_id and customer_doc.tax_id:
         #     if company_doc.tax_id.strip() == customer_doc.tax_id.strip():
         #         sales_invoice_doc.custom_zatca_status = "Intra-company transfer"
@@ -1137,7 +1155,7 @@ def zatca_background(invoice_number, source_doc, bypass_background_check=False):
         tax_categories = set()
         for item in sales_invoice_doc.items:
             if item.item_tax_template:
-                item_tax_template = frappe.get_doc(
+                item_tax_template = read_issuing_doc(frappe,
                     "Item Tax Template", item.item_tax_template
                 )
                 zatca_tax_category = item_tax_template.custom_zatca_tax_category
@@ -1238,7 +1256,7 @@ def zatca_background(invoice_number, source_doc, bypass_background_check=False):
                     )
                 )
             )
-        customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
+        customer_doc = read_issuing_doc(frappe, "Customer", sales_invoice_doc.customer)
         if get_alias_value("customer_b2c", customer_doc, 0) == 0:
             if not get_alias_value("customer_buyer_id", customer_doc, ""):
                 frappe.throw(
@@ -1501,7 +1519,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
         source_doc = doc
         sales_invoice_doc = doc
         invoice_number = sales_invoice_doc.name
-        sales_invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
+        sales_invoice_doc = read_issuing_doc(frappe, "Sales Invoice", invoice_number)
         company_abbr = frappe.db.get_value(
             "Company", {"name": sales_invoice_doc.company}, "abbr"
         )
@@ -1509,8 +1527,8 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
             frappe.throw(
                 _(f"Company abbreviation for {sales_invoice_doc.company} not found.")
             )
-        company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
-        customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
+        company_doc = read_issuing_doc(frappe, "Company", {"abbr": company_abbr})
+        customer_doc = read_issuing_doc(frappe, "Customer", sales_invoice_doc.customer)
         if not is_zatca_invoice_enabled(company_doc):
             # frappe.msgprint("Zatca Invoice is not enabled. Submitting the document.")
             return  # Exit the function without further checks
@@ -1594,7 +1612,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
         tax_categories = set()
         for item in sales_invoice_doc.items:
             if item.item_tax_template:
-                item_tax_template = frappe.get_doc(
+                item_tax_template = read_issuing_doc(frappe,
                     "Item Tax Template", item.item_tax_template
                 )
                 zatca_tax_category = item_tax_template.custom_zatca_tax_category
@@ -1693,7 +1711,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
                 )
             )
 
-        customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
+        customer_doc = read_issuing_doc(frappe, "Customer", sales_invoice_doc.customer)
         if get_alias_value("customer_b2c", customer_doc, 0) == 0:
             if not get_alias_value("customer_buyer_id", customer_doc, ""):
                 frappe.throw(
@@ -1853,7 +1871,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
                 _("This invoice has already been submitted to Zakat and Tax Authority.")
             )
         company_name = sales_invoice_doc.company
-        settings = frappe.get_doc("Company", company_name)
+        settings = read_issuing_doc(frappe, "Company", company_name)
         # if settings.custom_phase_1_or_2 == "Phase-2":
         is_gpos_installed = "gpos" in frappe.get_installed_apps()
         field_exists = frappe.get_meta("Sales Invoice").has_field("custom_unique_id")
@@ -1943,22 +1961,18 @@ single-button numeric fallback, never accept a client-supplied credential or
 validation selector, and do not mutate the saved Company or invoice settings.
 The legacy API remains available unchanged for existing non-UI callers.
 """
-    company_doc = frappe.get_doc("Company", company_name)
+    company_doc = read_issuing_doc(frappe, "Company", company_name)
     company_doc.check_permission("read")
-    invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
+    invoice_doc = read_issuing_doc(frappe, "Sales Invoice", invoice_number)
     invoice_doc.check_permission("read")
     code = resolve_compliance_type(company_doc.custom_validation_type, fallback="1")
     selected_type = next(label for label, value in COMPLIANCE_TYPES.items() if value == code)
-    results = collect_compliance_results(
-        frappe, (selected_type,),
-        lambda validation_type: zatca_call_compliance(
-            invoice_number=invoice_number,
-            company_name=company_doc.name,
-            company_abbr=company_doc.abbr,
-            source_doc=json.dumps({"doctype": company_doc.doctype, "name": company_doc.name}),
-            validation_type=validation_type,
-            compliance_type="1",
-        ),
+    def submit(validation_type):
+        return zatca_call_compliance(invoice_number=invoice_number, company_name=company_doc.name, company_abbr=company_doc.abbr, source_doc=json.dumps({'doctype': company_doc.doctype, 'name': company_doc.name}), validation_type=validation_type, compliance_type='1')
+
+    results = collect_issuing_compliance(
+        frappe, (selected_type,), submit, company_abbr=company_doc.abbr,
+        source_doc=company_doc, translate=_,
     )
     return {"results": results, "single_check": True}
 
@@ -1966,15 +1980,13 @@ The legacy API remains available unchanged for existing non-UI callers.
 @frappe.whitelist()
 def run_all_compliance_summary(company_name: str, invoice_number: str):
     """Return one English summary, without child popups or Company mutations."""
-    company_doc = frappe.get_doc("Company", company_name)
-    results = collect_compliance_results(
-        frappe, COMPLIANCE_TYPES,
-        lambda validation_type: zatca_call_compliance(
-            invoice_number=invoice_number,
-            company_abbr=company_doc.abbr,
-            source_doc=json.dumps({"doctype": company_doc.doctype, "name": company_doc.name}),
-            validation_type=validation_type,
-        ),
+    company_doc = read_issuing_doc(frappe, "Company", company_name)
+    def submit(validation_type):
+        return zatca_call_compliance(invoice_number=invoice_number, company_abbr=company_doc.abbr, source_doc=json.dumps({'doctype': company_doc.doctype, 'name': company_doc.name}), validation_type=validation_type)
+
+    results = collect_issuing_compliance(
+        frappe, COMPLIANCE_TYPES, submit, company_abbr=company_doc.abbr,
+        source_doc=company_doc, translate=_,
     )
     return {"results": results}
 
@@ -2015,7 +2027,7 @@ def _onboarding_address(company_name):
                 "A company address is required before running the automatic ZATCA onboarding test."
             )
         )
-    return frappe.get_cached_doc("Address", address_names[0])
+    return read_issuing_cached_doc(frappe, "Address", address_names[0])
 
 
 def _onboarding_party_address(parent, address):
@@ -2043,7 +2055,7 @@ def _onboarding_party_tax_scheme(parent, vat_number=None):
 def _build_onboarding_invoice_xml(company_doc, validation_type, *, issue_instant=None):
     """Build one signed-input UBL document without creating ERPNext documents."""
     if isinstance(company_doc, (dict, str)):
-        company_doc = frappe.get_doc("Company", company_doc.get("name") if isinstance(company_doc, dict) else company_doc)
+        company_doc = read_issuing_doc(frappe, "Company", company_doc.get("name") if isinstance(company_doc, dict) else company_doc)
     spec = compliance_document_type(resolve_compliance_type(validation_type))
     type_name, document_code = spec.type_name, spec.document_code
     simplified, is_note = spec.simplified, spec.is_note
@@ -2220,40 +2232,24 @@ def _onboarding_signed_properties_hash(
 
 
 def _prepare_signed_onboarding_document(company_doc, validation_type):
-    uuid1, file_content = _build_onboarding_invoice_xml(company_doc, validation_type)
-    source_doc = company_doc
-    hash1, encoded_hash = _onboarding_invoice_hash(file_content)
-    encoded_signature = digital_signature(hash1, company_doc.abbr, source_doc)
-    issuer_name, serial_number = extract_certificate_details(company_doc.abbr, source_doc)
-    encoded_certificate_hash = certificate_hash(company_doc.abbr, source_doc)
-    modified_xml_string, namespaces, signing_time = signxml_modify(
-        company_doc.abbr, file_content, source_doc
-    )
-    signed_properties_base64 = _onboarding_signed_properties_hash(
-        modified_xml_string,
-        signing_time,
-        issuer_name,
-        serial_number,
-        encoded_certificate_hash,
-    )
-    final_xml_string = populate_the_ubl_extensions_output(
-        modified_xml_string,
-        encoded_signature,
-        namespaces,
-        signed_properties_base64,
-        encoded_hash,
-        company_doc.abbr,
-        source_doc,
-    )
-
-    # The hash must be calculated from the same final XML that is submitted.
-    # Namespace declarations can change when the signature extension is
-    # populated, so recalculate once and regenerate the invoice signature if
-    # needed before creating the QR payload.
-    final_hash1, final_encoded_hash = _onboarding_invoice_hash(final_xml_string)
-    if final_encoded_hash != encoded_hash:
-        encoded_hash = final_encoded_hash
-        encoded_signature = digital_signature(final_hash1, company_doc.abbr, source_doc)
+    with issuing_attempt(company_doc.abbr, company_doc, purpose='compliance',
+                         runtime=frappe, translate=_) as issuing_context:
+        uuid1, file_content = _build_onboarding_invoice_xml(company_doc, validation_type)
+        source_doc = company_doc
+        hash1, encoded_hash = _onboarding_invoice_hash(file_content)
+        encoded_signature = digital_signature(hash1, company_doc.abbr, source_doc)
+        issuer_name, serial_number = extract_certificate_details(company_doc.abbr, source_doc)
+        encoded_certificate_hash = certificate_hash(company_doc.abbr, source_doc)
+        modified_xml_string, namespaces, signing_time = signxml_modify(
+            company_doc.abbr, file_content, source_doc
+        )
+        signed_properties_base64 = _onboarding_signed_properties_hash(
+            modified_xml_string,
+            signing_time,
+            issuer_name,
+            serial_number,
+            encoded_certificate_hash,
+        )
         final_xml_string = populate_the_ubl_extensions_output(
             modified_xml_string,
             encoded_signature,
@@ -2263,35 +2259,58 @@ def _prepare_signed_onboarding_document(company_doc, validation_type):
             company_doc.abbr,
             source_doc,
         )
-        verified_hash1, verified_encoded_hash = _onboarding_invoice_hash(final_xml_string)
-        if verified_encoded_hash != encoded_hash:
-            frappe.throw(_("Unable to stabilize the ZATCA invoice hash for the onboarding document."))
-    tlv_data = generate_tlv_xml(final_xml_string, company_doc.abbr, source_doc)
-    qr_payload = encode_qr_payload(tlv_data, get_tlv_for_value)
-    final_xml_string = update_qr_toxml(final_xml_string, qr_payload, company_doc.abbr)
-    # Keep the onboarding output identical to the formatting used by the
-    # production submission path; SignedProperties hashing includes it.
-    final_xml_string = format_zatca_signed_xml(final_xml_string)
-    return uuid1, encoded_hash, final_xml_string
+
+        # The hash must be calculated from the same final XML that is submitted.
+        # Namespace declarations can change when the signature extension is
+        # populated, so recalculate once and regenerate the invoice signature if
+        # needed before creating the QR payload.
+        final_hash1, final_encoded_hash = _onboarding_invoice_hash(final_xml_string)
+        if final_encoded_hash != encoded_hash:
+            encoded_hash = final_encoded_hash
+            encoded_signature = digital_signature(final_hash1, company_doc.abbr, source_doc)
+            final_xml_string = populate_the_ubl_extensions_output(
+                modified_xml_string,
+                encoded_signature,
+                namespaces,
+                signed_properties_base64,
+                encoded_hash,
+                company_doc.abbr,
+                source_doc,
+            )
+            verified_hash1, verified_encoded_hash = _onboarding_invoice_hash(final_xml_string)
+            if verified_encoded_hash != encoded_hash:
+                frappe.throw(_("Unable to stabilize the ZATCA invoice hash for the onboarding document."))
+        tlv_data = generate_tlv_xml(final_xml_string, company_doc.abbr, source_doc)
+        qr_payload = encode_qr_payload(tlv_data, get_tlv_for_value)
+        final_xml_string = update_qr_toxml(final_xml_string, qr_payload, company_doc.abbr)
+        # Keep the onboarding output identical to the formatting used by the
+        # production submission path; SignedProperties hashing includes it.
+        final_xml_string = format_zatca_signed_xml(final_xml_string)
+        issuing_context.confirm_current()
+        return uuid1, encoded_hash, final_xml_string
 
 
 def _submit_onboarding_document(company_doc, validation_type):
-    uuid1, encoded_hash, final_xml_string = _prepare_signed_onboarding_document(
-        company_doc, validation_type
-    )
-    with temporary_compliance_xml(final_xml_string) as temporary_file:
-        return compliance_api_call(
-            # Synthetic onboarding documents have no POS or Multiple Setting
-            # context; always authenticate with this Company's Compliance CSID.
-            uuid1, encoded_hash, temporary_file, company_doc.abbr, None
+    with issuing_attempt(company_doc.abbr, company_doc, purpose='compliance',
+                         runtime=frappe, translate=_) as issuing_context:
+        uuid1, encoded_hash, final_xml_string = _prepare_signed_onboarding_document(
+            company_doc, validation_type
         )
+        issuing_context.confirm_current()
+        with temporary_compliance_xml(final_xml_string) as temporary_file:
+            issuing_context.seal_xml(temporary_file, final_xml_string, identity=(uuid1, encoded_hash))
+            return compliance_api_call(
+                # Synthetic onboarding documents have no POS or Multiple Setting
+                # context; always authenticate with this Company's Compliance CSID.
+                uuid1, encoded_hash, temporary_file, company_doc.abbr, None
+            )
 
 
 @frappe.whitelist()
 def validate_automatic_zatca_onboarding_documents(company_name: str):
     """Validate all synthetic onboarding documents locally without calling ZATCA."""
     validation_types = COMPLIANCE_TYPES
-    company_doc = frappe.get_doc("Company", company_name)
+    company_doc = read_issuing_doc(frappe, "Company", company_name)
     results = []
     for validation_type in validation_types:
         try:
@@ -2330,10 +2349,13 @@ def validate_automatic_zatca_onboarding_documents(company_name: str):
 def run_automatic_zatca_onboarding_checks(company_name: str):
     """Run all six ZATCA compliance checks using temporary synthetic documents."""
     validation_types = COMPLIANCE_TYPES
-    company_doc = frappe.get_doc("Company", company_name)
-    results = collect_compliance_results(
-        frappe, validation_types,
-        lambda validation_type: _submit_onboarding_document(company_doc, validation_type),
+    company_doc = read_issuing_doc(frappe, "Company", company_name)
+    def submit(validation_type):
+        return _submit_onboarding_document(company_doc, validation_type)
+
+    results = collect_issuing_compliance(
+        frappe, validation_types, submit, company_abbr=company_doc.abbr,
+        source_doc=company_doc, translate=_,
     )
 
     passed = sum(result["status"] == "PASS" for result in results)
@@ -2360,9 +2382,9 @@ def resubmit_invoices(invoice_numbers, bypass_background_check=False):
     for invoice_number in invoice_numbers:
         try:
             # Fetch the Sales Invoice document
-            sales_invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
-            company_doc = frappe.get_doc("Company", sales_invoice_doc.company)
-            customer_doc = frappe.get_doc("Customer", sales_invoice_doc.customer)
+            sales_invoice_doc = read_issuing_doc(frappe, "Sales Invoice", invoice_number)
+            company_doc = read_issuing_doc(frappe, "Company", sales_invoice_doc.company)
+            customer_doc = read_issuing_doc(frappe, "Customer", sales_invoice_doc.customer)
             if (
                 sales_invoice_doc.docstatus == 1
             ):  # Check if the invoice is already submitted

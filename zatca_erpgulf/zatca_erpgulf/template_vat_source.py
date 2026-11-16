@@ -5,6 +5,7 @@ preflight uses row selection; XML builders additionally verify saved native
 account/rate/amount observations. No data repair, persistence or HTTP occurs.
 """
 
+from .issuing_reads import read_issuing_doc
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from types import SimpleNamespace
@@ -136,7 +137,7 @@ class DeclaredVatContext:
         if self.currency_binding is None:
             missing_company = getattr(self.runtime, "DoesNotExistError", KeyError)
             try:
-                company = self.runtime.get_doc("Company", self.doc.company)
+                company = read_issuing_doc(self.runtime, "Company", self.doc.company)
             except (KeyError, missing_company):
                 fail_declared_vat(self.runtime, self.translate,
                     "invoice_currency_company_missing", CURRENCY_REVIEW)
@@ -170,7 +171,7 @@ class DeclaredVatContext:
     def get_template(self, name):
         if self.checked and name in self.templates:
             return self.templates[name]
-        template = self.runtime.get_doc("Item Tax Template", name)
+        template = read_issuing_doc(self.runtime, "Item Tax Template", name)
         self.templates[name] = template
         return template
 
@@ -210,7 +211,7 @@ class DeclaredVatContext:
                 raise VatSelectionError("declared_vat_mixed_item_sources")
             template = self.templates.get(name)
             if template is None:
-                template = self.runtime.get_doc("Item Tax Template", name)
+                template = read_issuing_doc(self.runtime, "Item Tax Template", name)
                 self.templates[name] = template
             if template.get("company") != doc.company:
                 raise VatSelectionError("declared_vat_company_mismatch")

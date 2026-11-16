@@ -7,6 +7,7 @@ so distributed invoice discounts are reflected in item net values and are not
 sent again as document-level allowance amounts.
 """
 
+from .issuing_reads import read_issuing_doc
 import json
 import xml.etree.ElementTree as ET
 from decimal import Decimal, ROUND_HALF_UP
@@ -215,7 +216,7 @@ def _get_invoice_level_zatca_tax_source(sales_invoice_doc):
     taxes_and_charges = sales_invoice_doc.get("taxes_and_charges")
     if taxes_and_charges:
         try:
-            template_doc = frappe.get_doc("Sales Taxes and Charges Template", taxes_and_charges)
+            template_doc = read_issuing_doc(frappe, "Sales Taxes and Charges Template", taxes_and_charges)
             template_category = template_doc.get("custom_zatca_tax_category")
             template_exemption_reason = template_doc.get("custom_exemption_reason_code")
         except Exception:

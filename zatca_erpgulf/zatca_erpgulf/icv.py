@@ -4,6 +4,7 @@ import re
 import xml.etree.ElementTree as ET
 
 import frappe
+from .issuing_reads import read_issuing_doc
 from frappe import _
 from frappe.utils import now_datetime, cint
 
@@ -11,7 +12,7 @@ from frappe.utils import now_datetime, cint
 def _setting_for(doc):
 	name = getattr(doc, "custom_zatca_pos_name", None)
 	if name:
-		return frappe.get_doc("ZATCA Multiple Setting", name)
+		return read_issuing_doc(frappe, "ZATCA Multiple Setting", name)
 	return None
 
 
@@ -20,7 +21,7 @@ def _issuing_unit(doc, environment):
 	if setting:
 		credential = setting.get("custom_final_auth_csid") or setting.get("custom_basic_auth_from_csid") or setting.name
 		return "setting:" + hashlib.sha256(str(credential).encode()).hexdigest()[:24]
-	company = frappe.get_doc("Company", doc.company)
+	company = read_issuing_doc(frappe, "Company", doc.company)
 	credential = company.get("custom_basic_auth_from_production") if environment == "Production" else company.get("custom_basic_auth_from_csid")
 	return "company:" + hashlib.sha256(str(credential or doc.company).encode()).hexdigest()[:24]
 

@@ -1,49 +1,81 @@
 # Workstream 1 — source, settings and credential binding
 
-Active development, 2026-11-16. This workstream is not complete merely because
-one selection helper or a larger local matrix passes. No live update, authority
-request or separately gated installed/dummy-company rehearsal is authorized.
+Local development closure, 2026-11-16. This is the source/settings/material
+contract milestone, not deployment, installed ERP15/16 acceptance, CA trust,
+transaction/ICV safety, SDK acceptance or authority authorization. The precise
+adopted routes, deliberately retained extensions and storage decision are in
+[WORKSTREAM_1_CONTRACTS.md](WORKSTREAM_1_CONTRACTS.md).
 
 ## Closure checklist
 
-- [ ] One saved Company/issuing-unit selection for each adopted request; route
-  and purpose authorization must come from the same observed row values.
-- [ ] Bind saved source identity/revision and effective phase/environment to
-  preparation, canonical signing and the eventual request; detect observed drift.
-- [ ] Use one captured certificate/key/purpose material throughout canonical
-  signing, QR and request authorization, with no silent owner/purpose fallback.
-- [ ] Preserve and explicitly test Debug, Compliance, automatic samples, existing
-  XML, ordinary Sales/POS, generated/scheduler and clearance-fallback contracts.
-- [ ] Decide current-release versus explicitly deferred versioned credential
-  staging/storage activation; no hidden schema migration or activation.
-- [ ] Publish source/field/owner/purpose mapping, conflict evidence and adoption
-  limits. Installed lifecycle acceptance remains workstream5; transaction/ICV/
-  response ownership remains workstream2, not a claim of this scalar capture.
+- [x] One frozen saved Company/source/device selection supplies each adopted
+  route and purpose authorization; no split Company-read credential selection.
+- [x] Bind source identity, original modified provenance, business observations,
+  phase and environment through the native preparation/signer/request lifetime.
+  Detect observed drift; do not claim a database snapshot, trusted epoch or lock.
+- [x] Native signing/QR use one purpose-token certificate and matching key/time/
+  taxpayer context. Alias conflicts fail; no secret-field repair, owner fallback,
+  key overwrite or purpose-token copying is performed.
+- [x] Adopt ordinary Sales/POS, generated/scheduled, Debug, dedicated/synthetic
+  Compliance, collection and existing-XML wrappers. Preserve explicit imported
+  callback contracts without claiming native proof for replacement callbacks.
+- [x] Explicitly keep versioned credential staging/activation outside this
+  release. Existing CSR/key and Final-CSID preservation remain; initial onboarding
+  is supported, destructive automatic renewal is not silently enabled.
+- [x] Publish field/owner/purpose mapping, conflicts, evidence and limits.
 
-Do not announce transition to workstream2 until the development checklist is
-closed with evidence and the release scope is explicit. Cross-row observations,
-material fingerprints or a local key/certificate match are not authentic remote
-authorization, a trusted database epoch or authority acceptance.
+Native production source READ/WRITE and Company READ, enabled Phase-2 and native
+signing preflight precede UUID preparation. The metadata return is rebound before
+party/counter builders. Debug uses no API auth and consumes no scheduling window.
+One Company selection covers all six Compliance types. All thirteen invoice HTTP
+invocation sites have a final observation fence. Final writer/temp/extractor
+bytes are bound to the captured request, catching same-UUID/hash file replacement.
 
-## Active foundation checkpoint (not closure)
+Before transport, review asserts no request was sent. After an invocation marker,
+review explicitly treats delivery/acceptance as unknown. Display translates;
+error strings and explicit diagnostics remain English. The marker is not a receipt.
 
-The common Production-purpose request selector now resolves its route and auth
-from one frozen saved Company projection and invocation-local saved source/device
-projections. The explicit issuing scope additionally pins native credential/PIH
-reads, rejects observed issuer/source changes before selection, binds native
-signing material through CredentialSnapshot, and invalidates copied child contexts
-after exit. Tests use real ephemeral key/certificate pairs and fake records/HTTP.
+## Reproducible closure verification
 
-Generator/Debug/Compliance/onboarding entry adoption and complete consumed-master
-observation are still in progress. The scope currently honors explicit callers;
-its definition and helper integration alone do not close this workstream. The
-source field observation is still partial; do not label it a trusted/full source
-snapshot or durable credential epoch. Native installed15/16 and SDK remain their
-later acceptance workstreams. No transition to workstream2 has been announced.
+From this development worktree only:
 
-The first guarded foundation run passes19,422 cases across74 reviewed local
-suites in114.80s. After expanding the same-parent source reference and adding
-English/Arabic review cases, the final focused reference selection passes128.
-The earlier1947-case request/API/legacy selection and264-case scope/request/API
-selection passed before those final catalogue-only additions. These counts are
-local development evidence; none announces completion of workstream1.
+```sh
+PYTHONDONTWRITEBYTECODE=1 ../../env/bin/python tools/run_unification_rehearsal.py --profile issuer-binding
+```
+
+This fixed **81-suite local** profile retains the existing offline guard and
+reviewed global allowlist. It cannot enable private SQL or accept an arbitrary
+suite/host/site/command. The full default manifest remains205 local/57 private.
+
+Final profile result: **20,747 passed in126.97 seconds**.
+Six standalone browser suites pass1,208 synthetic cases. Nine read-adapter module
+AST restorations match parent2d96f2c exactly, demonstrating that these wrappers
+preserve their earlier financial/counter algorithms;13 HTTP sites are fenced.
+No existing financial reference fixture or expected amount was rebaselined.
+The original240-case comparison is still91 identical/117 differences requiring
+review/32 ambiguous blocked. It is not a count of customer failures.
+
+The final profile includes the earlier19,539-case76-suite integration selection,
+new source-provenance/profile checks and1,202 credential-preservation cases.
+Additional focused boundary checks passed691; the final scoped source/request/
+material selection passed246. These are overlapping evidence, not additive totals.
+Logs: `/tmp/zatca-axis1-profile-final.log`,
+`/tmp/zatca-axis1-release-regression-final.log`,
+`/tmp/zatca-axis1-scope-final-provenance.log`,
+`/tmp/zatca-axis1-credential-preservation.log`,
+`/tmp/zatca-axis1-browser.log`, `/tmp/zatca-axis1-read-audit.json`.
+
+A separate default-manifest qualification was started earlier and spans unrelated
+later-workstream primitives as well. It is not the final profile result and must
+not be reported as a completed green full-manifest run. Any failure relevant to
+this contract must be reviewed; later-workstream findings retain their own scope.
+
+## Explicit remaining ownership
+
+Workstream2 owns transaction/ICV/PIH/identity/response and retry coordination,
+including uncertain results and legacy409 handling. Workstream3 owns native
+financial/advance/GL acceptance and original baseline differences. Workstream4
+owns file ownership/path validation, remaining duplicate extractors and runtime
+cleanup. Installed15/16 and authentic signed XML/QR/local SDK remain5/6. A separately
+approved isolated fictional-company rehearsal and adoption decision remain7.
+No live/site/schema/invoice/tenant-SQL/restart or authority API action occurred.

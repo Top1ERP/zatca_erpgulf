@@ -311,3 +311,30 @@ def test_runner_and_plugin_reject_non_worktree_installation_before_child_or_guar
         plugin.pytest_configure(SimpleNamespace(args=[selected_paths()[0]]))
     child.assert_not_called()
     constructed.assert_not_called()
+
+
+def test_named_issuer_binding_profile_keeps_only_fixed_reviewed_local_tests(monkeypatch):
+    from zatca_erpgulf.zatca_erpgulf.tests.rehearsal_selection import WORKSTREAM_ONE_SUITES, TEST_DIRECTORY
+    monkeypatch.setattr(runner.sys, 'argv', ['rehearsal', '--profile', 'issuer-binding'])
+    observed = []
+    monkeypatch.setattr(runner.subprocess, 'run', lambda command, **kwargs:(observed.append((command,kwargs)) or SimpleNamespace(returncode=0)))
+    assert runner.main() == 0
+    command, options = observed[0]
+    paths = [value for value in command if value.endswith('.py')]
+    assert paths == [TEST_DIRECTORY+'/test_'+name+'.py' for name in WORKSTREAM_ONE_SUITES]
+    assert set(WORKSTREAM_ONE_SUITES) <= set(LOCAL_SUITES)
+    assert not set(WORKSTREAM_ONE_SUITES) & set(PRIVATE_SUITES)
+    assert options['env']['PYTEST_DISABLE_PLUGIN_AUTOLOAD'] == '1'
+    assert 'ZATCA_RUN_ISOLATED_MARIADB' not in options['env']
+    assert 'zatca_erpgulf.zatca_erpgulf.tests.offline_rehearsal_plugin' in command
+
+
+@pytest.mark.parametrize('arguments', [
+    ['--profile','issuer-binding','--private-sql'], ['--profile','UNREVIEWED'],
+])
+def test_named_profiles_cannot_expand_to_private_sql_or_arbitrary_selection(monkeypatch, arguments):
+    monkeypatch.setattr(runner.sys, 'argv', ['rehearsal',*arguments])
+    child = Mock()
+    monkeypatch.setattr(runner.subprocess, 'run', child)
+    with pytest.raises(SystemExit): runner.main()
+    child.assert_not_called()

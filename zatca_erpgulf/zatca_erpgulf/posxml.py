@@ -10,6 +10,7 @@ The file also handles compliance with e-invoicing and clearance rules
 for ZATCA and provides support for multiple currencies (SAR and USD).
 """
 
+from .issuing_reads import read_issuing_all, read_issuing_doc
 import xml.etree.ElementTree as ET
 import uuid
 from difflib import SequenceMatcher
@@ -61,7 +62,7 @@ def get_tax_for_item(full_string, item):
 def get_icv_code(invoice_number):
     """Backward-compatible wrapper; ICV is no longer derived from invoice names."""
     from zatca_erpgulf.zatca_erpgulf.icv import get_icv
-    return get_icv(frappe.get_doc("Sales Invoice", invoice_number))
+    return get_icv(read_issuing_doc(frappe, "Sales Invoice", invoice_number))
 
 
 
@@ -113,13 +114,13 @@ def _append_names(party, names):
 
 def get_issue_time(invoice_number):
     """Function for Issue time"""
-    doc = frappe.get_doc("POS Invoice", invoice_number)
+    doc = read_issuing_doc(frappe, "POS Invoice", invoice_number)
     return format_zatca_qr_timestamp(doc.posting_date, doc.posting_time).split("T", 1)[1]
 
 
 def get_issue_timestamp(invoice_number):
     """Return the same UTC timestamp used for XML IssueDate/IssueTime and QR Tag 3."""
-    doc = frappe.get_doc("POS Invoice", invoice_number)
+    doc = read_issuing_doc(frappe, "POS Invoice", invoice_number)
     return format_zatca_qr_timestamp(doc.posting_date, doc.posting_time)
 
 def xml_tags():
@@ -256,7 +257,7 @@ def xml_tags():
 def salesinvoice_data(invoice, invoice_number, *, purpose="production", _include_template_mode=False):
     """Populate POS metadata; non-production UUIDs never mutate the source."""
     try:
-        pos_invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
+        pos_invoice_doc = read_issuing_doc(frappe, "POS Invoice", invoice_number)
         # Use this loaded revision for time as well as identity/returned data.
         issue_timestamp = format_zatca_qr_timestamp(pos_invoice_doc.posting_date, pos_invoice_doc.posting_time)
         if _include_template_mode and purpose not in ("production", "debug"):
@@ -413,9 +414,9 @@ def get_address(pos_invoice_doc, company_doc):
         if not pos_invoice_doc.cost_center:
             frappe.throw(_("No Cost Center is set in the POS invoice."))
 
-        cost_center_doc = frappe.get_doc("Cost Center", pos_invoice_doc.cost_center)
+        cost_center_doc = read_issuing_doc(frappe, "Cost Center", pos_invoice_doc.cost_center)
         if cost_center_doc.custom_zatca_branch_address:
-            address_list = frappe.get_all(
+            address_list = read_issuing_all(frappe,
                 "Address",
                 fields=[
                     "address_line1",
@@ -433,7 +434,7 @@ def get_address(pos_invoice_doc, company_doc):
                 return address_list[0]
 
     # Fallback to company address if cost center is not used
-    address_list = frappe.get_all(
+    address_list = read_issuing_all(frappe,
         "Address",
         fields=[
             "address_line1",
@@ -460,7 +461,7 @@ def get_address(pos_invoice_doc, company_doc):
 def company_data(invoice, pos_invoice_doc):
     """Function for adding company data to the POS invoice"""
     try:
-        company_doc = frappe.get_doc("Company", pos_invoice_doc.company)
+        company_doc = read_issuing_doc(frappe, "Company", pos_invoice_doc.company)
 
         # If Company requires Cost Center but it's missing, throw an error
         if company_doc.custom_costcenter == 1 and not pos_invoice_doc.cost_center:
@@ -468,7 +469,7 @@ def company_data(invoice, pos_invoice_doc):
 
         # Determine whether to fetch data from Cost Center or Company
         if company_doc.custom_costcenter == 1:
-            cost_center_doc = frappe.get_doc("Cost Center", pos_invoice_doc.cost_center)
+            cost_center_doc = read_issuing_doc(frappe, "Cost Center", pos_invoice_doc.cost_center)
             custom_registration_type = cost_center_doc.custom_zatca__registration_type
             custom_company_registration = (
                 cost_center_doc.custom_zatca__registration_number
@@ -541,7 +542,7 @@ def company_data(invoice, pos_invoice_doc):
 def customer_data(invoice, pos_invoice_doc):
     """function for customer data"""
     try:
-        customer_doc = frappe.get_doc("Customer", pos_invoice_doc.customer)
+        customer_doc = read_issuing_doc(frappe, "Customer", pos_invoice_doc.customer)
         # frappe.throw(str(customer_doc))
         cac_accountingcustomerparty = ET.SubElement(
             invoice, "cac:AccountingCustomerParty"

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from .issuing_reads import read_issuing_all, read_issuing_cached_doc, read_issuing_doc
 
 from collections import defaultdict
 from decimal import Decimal, ROUND_HALF_UP
@@ -144,7 +145,7 @@ def _advance_total_amount(advance) -> Decimal:
 
 
 def _submitted_credit_note_total(advance_invoice: str) -> Decimal:
-    rows = frappe.get_all(
+    rows = read_issuing_all(frappe,
         "Sales Invoice",
         filters={
             "docstatus": 1,
@@ -281,7 +282,7 @@ def populate_zatca_advance_deductions(sales_invoice_doc) -> list:
         if not advance_invoice or advance_invoice == current_invoice:
             continue
 
-        advance = frappe.get_doc("Sales Invoice", advance_invoice)
+        advance = read_issuing_doc(frappe, "Sales Invoice", advance_invoice)
         if not is_accepted_advance_sales_invoice(advance):
             continue
 
@@ -472,7 +473,7 @@ def _validate_and_enrich_row(
     if not frappe.db.exists("Sales Invoice", advance_invoice):
         frappe.throw(_("Sales Invoice not found: {0}").format(advance_invoice))
 
-    advance = frappe.get_doc("Sales Invoice", advance_invoice)
+    advance = read_issuing_doc(frappe, "Sales Invoice", advance_invoice)
     if not is_accepted_advance_sales_invoice(advance):
         frappe.throw(
             _(
@@ -591,7 +592,7 @@ def _validate_return_advance_reversals(doc, rows) -> list[dict]:
 
     if not frappe.db.exists("Sales Invoice", reference):
         frappe.throw(_("Sales Invoice not found: {0}").format(reference))
-    source = frappe.get_doc("Sales Invoice", reference)
+    source = read_issuing_doc(frappe, "Sales Invoice", reference)
     source_rows = {
         str(_row_value(row, "advance_invoice", "") or "").strip(): row
         for row in _detail_rows(source)
@@ -649,7 +650,7 @@ def _validate_return_advance_reversals(doc, rows) -> list[dict]:
             "available_advance_remaining_amount",
             float(
                 get_advance_available_amount(
-                    frappe.get_doc("Sales Invoice", advance_invoice),
+                    read_issuing_doc(frappe, "Sales Invoice", advance_invoice),
                     exclude_sales_invoice=getattr(doc, "name", None),
                 )
             ),
@@ -664,7 +665,7 @@ def _validate_return_advance_reversals(doc, rows) -> list[dict]:
             if value is not None:
                 _set_row_value(row, fieldname, value)
         active_rows.append({
-            "advance": frappe.get_doc("Sales Invoice", advance_invoice),
+            "advance": read_issuing_doc(frappe, "Sales Invoice", advance_invoice),
             "advance_invoice": advance_invoice,
             "allocated_total_amount": amount,
             "allocated_taxable_amount": -q2(source_taxable * ratio),
@@ -1043,7 +1044,7 @@ def get_advance_allocation_details(advance_invoice: str, final_invoice: str | No
     if not advance_invoice or not frappe.db.exists("Sales Invoice", advance_invoice):
         frappe.throw(_("Sales Invoice not found: {0}").format(advance_invoice))
 
-    advance = frappe.get_doc("Sales Invoice", advance_invoice)
+    advance = read_issuing_doc(frappe, "Sales Invoice", advance_invoice)
     if not frappe.has_permission("Sales Invoice", "read", doc=advance):
         frappe.throw(_("Not permitted to read Sales Invoice {0}.").format(advance_invoice), frappe.PermissionError)
     if not is_accepted_advance_sales_invoice(advance):
@@ -1119,7 +1120,7 @@ def get_available_advance_invoice_query(
 
     result = []
     for candidate in candidates:
-        advance = frappe.get_doc("Sales Invoice", candidate.name)
+        advance = read_issuing_doc(frappe, "Sales Invoice", candidate.name)
         available = get_advance_available_amount(
             advance,
             exclude_sales_invoice=filters.get("final_invoice") or None,
@@ -1161,7 +1162,7 @@ def ensure_final_sales_invoice_qr_for_print(doc, event=None, force=False):
     if getattr(doc, "doctype", None) != "Sales Invoice":
         return
 
-    company_doc = frappe.get_cached_doc("Company", doc.company)
+    company_doc = read_issuing_cached_doc(frappe, "Company", doc.company)
     if resolve_zatca_phase(company_doc) == PHASE_2_VALUE:
         # Phase-2 QR must come from the returned ZATCA XML artifact.
         return
@@ -1194,7 +1195,7 @@ def ensure_final_sales_invoice_qr_for_print(doc, event=None, force=False):
     import pyqrcode
     from frappe.utils.file_manager import save_file
 
-    company = frappe.get_doc("Company", doc.company)
+    company = read_issuing_doc(frappe, "Company", doc.company)
     if resolve_zatca_phase(company) == PHASE_2_VALUE:
         # Cached eligibility is not enough if the freshly loaded phase changed.
         return

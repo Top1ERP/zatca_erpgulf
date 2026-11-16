@@ -1,5 +1,8 @@
 """This module is used to submit the POS invoice to ZATCA using the API through xml and qr."""
 
+from .issuing_attempt import (
+    IssuingAttemptError, confirm_issuing_transport, issuing_attempt, seal_current_xml,
+)
 from .existing_xml_submission import (
     ExistingXmlSubmissionError, read_bound_invoice_payload,
 )
@@ -43,6 +46,7 @@ def extract_invoice_data_from_field(file_path):
         # Read the file content as bytes
         with open(frappe.local.site + file_path, "rb") as file:
             custom_xml = file.read()
+        seal_current_xml(frappe.local.site + file_path, custom_xml, runtime=frappe)
 
         # Parse the XML string as bytes
         tree = etree.fromstring(custom_xml)
@@ -68,6 +72,8 @@ def extract_invoice_data_from_field(file_path):
 
         return uuid, digest_value
 
+    except IssuingAttemptError:
+        raise
     except Exception as e:
         return {"error": f"Error parsing or extracting data POS with xml : {e}"}
 
@@ -115,6 +121,7 @@ def reporting_api_machine(
                 {"gif_url": "/assets/zatca_erpgulf/js/loading.gif"},
                 user=frappe.session.user,
             )
+            confirm_issuing_transport(company_abbr, pos_invoice_doc, runtime=frappe)
             response = requests.post(
                 url=submission.route.url,
                 headers=headers,
@@ -287,19 +294,22 @@ def submit_pos_withxmlqr(pos_invoice_doc, file_path, invoice_number):
     """Function to submit POS invoice to ZATCA using the API through XML and QR."""
     try:
         # Extract the UUID and DigestValue from the XML file
-        uuid1, encoded_hash = extract_invoice_data_from_field(file_path)
-        # frappe.throw(f"uuid1: {uuid1} encoded_hash: {encoded_hash}")
+        company_abbr = frappe.db.get_value("Company", {"name": pos_invoice_doc.company}, "abbr")
+        with issuing_attempt(company_abbr, pos_invoice_doc, purpose='production',
+                             runtime=frappe, translate=_, invoice_doc=pos_invoice_doc):
+            uuid1, encoded_hash = extract_invoice_data_from_field(file_path)
+            # frappe.throw(f"uuid1: {uuid1} encoded_hash: {encoded_hash}")
 
-        # Call the reporting API
-        reporting_api_machine(
-            uuid1,
-            encoded_hash,
-            frappe.local.site + file_path,
-            invoice_number,
-            pos_invoice_doc,
-        )
+            # Call the reporting API
+            reporting_api_machine(
+                uuid1,
+                encoded_hash,
+                frappe.local.site + file_path,
+                invoice_number,
+                pos_invoice_doc,
+            )
 
-    except (LocalResponseProcessingError, ExistingXmlSubmissionError):
+    except (LocalResponseProcessingError, ExistingXmlSubmissionError, IssuingAttemptError):
         # Preserve local review without reclassifying the received response.
         raise
     except Exception as e:

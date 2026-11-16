@@ -5,6 +5,10 @@ using ERPNext. It supports compliance with the ZATCA requirements for Phase 2,
 including the creation of UBL XML
 invoices, signing, and submission to ZATCA servers for clearance and reporting."""
 
+from .issuing_reads import read_issuing_doc
+from .issuing_attempt import (
+    confirm_issuing_transport, issuing_attempt, invoice_issuing_attempt,
+)
 from .existing_xml_submission import ExistingXmlSubmissionError
 from .invoice_payload import read_invoice_payload
 from .invoice_generation_data import prepare_invoice_generation
@@ -132,7 +136,7 @@ def _persist_pos_rejection(invoice_number):
     partial state and can commit parent work. This is not durable receipt custody
     or rollback protection. Deliberate remote rejection throws stay at the caller.
     """
-    invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
+    invoice_doc = read_issuing_doc(frappe, "POS Invoice", invoice_number)
     for field in ("custom_uuid", "custom_zatca_status", "custom_zatca_full_response"):
         invoice_doc.db_set(field, "Not Submitted", commit=True, update_modified=True)
 
@@ -156,7 +160,7 @@ def reporting_api(
             )
 
         # Retrieve the company document using the abbreviation
-        company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
+        company_doc = read_issuing_doc(frappe, "Company", {"abbr": company_abbr})
         submission = get_submission_context(
             company_abbr, pos_invoice_doc, invoice_number, "invoices/reporting/single",
             expected_doctype="POS Invoice",
@@ -168,7 +172,7 @@ def reporting_api(
         )
 
         xml_cleared_data = submitted_invoice.xml_text()
-        file = frappe.get_doc(
+        file = read_issuing_doc(frappe,
             {
                 "doctype": "File",
                 "file_name": "Reported xml file " + pos_invoice_doc.name + ".xml",
@@ -207,6 +211,7 @@ def reporting_api(
                     {"gif_url": "/assets/zatca_erpgulf/js/loading.gif"},
                     user=frappe.session.user,
                 )
+                confirm_issuing_transport(company_abbr, pos_invoice_doc, runtime=frappe)
                 response = requests.post(
                     url=submission.route.url,
                     headers=headers,
@@ -301,7 +306,7 @@ def reporting_api(
                         submission, encoded_hash, pos_invoice_doc, msg
                     )
 
-                    invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
+                    invoice_doc = read_issuing_doc(frappe, "POS Invoice", invoice_number)
                     invoice_doc.custom_zatca_full_response = response.text
                     invoice_doc.custom_uuid = uuid1
                     invoice_doc.custom_zatca_status = "REPORTED"
@@ -343,7 +348,7 @@ def reporting_api(
                         submission, encoded_hash, pos_invoice_doc, msg
                     )
 
-                    invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
+                    invoice_doc = read_issuing_doc(frappe, "POS Invoice", invoice_number)
                     invoice_doc.db_set(
                         "custom_zatca_full_response",
                         msg,
@@ -372,7 +377,7 @@ def reporting_api(
         if processing_response:
             local_response_failure = True
         else:
-            invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
+            invoice_doc = read_issuing_doc(frappe, "POS Invoice", invoice_number)
             invoice_doc.db_set(
                 "custom_zatca_full_response",
                 f"Error: {str(e)}",
@@ -431,6 +436,7 @@ def clearance_api(
             {"gif_url": "/assets/zatca_erpgulf/js/loading.gif"},
             user=frappe.session.user,
         )
+        confirm_issuing_transport(company_abbr, pos_invoice_doc, runtime=frappe)
         response = requests.post(
             url=submission.route.url,
             headers=headers,
@@ -533,7 +539,7 @@ def clearance_api(
                 submission, encoded_hash, pos_invoice_doc, msg
             )
 
-            invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
+            invoice_doc = read_issuing_doc(frappe, "POS Invoice", invoice_number)
             set_zatca_full_response(
                 invoice_doc, response.text, commit=True, update_modified=True
             )
@@ -545,7 +551,7 @@ def clearance_api(
             data = response.json()
             base64_xml = data.get("clearedInvoice")
             xml_cleared = base64.b64decode(base64_xml).decode("utf-8")
-            file = frappe.get_doc(
+            file = read_issuing_doc(frappe,
                 {
                     "doctype": "File",
                     "file_name": "Cleared xml file " + pos_invoice_doc.name + ".xml",
@@ -583,7 +589,7 @@ def clearance_api(
         if processing_response:
             local_response_failure = True
         else:
-            invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
+            invoice_doc = read_issuing_doc(frappe, "POS Invoice", invoice_number)
             invoice_doc.db_set(
                 "custom_zatca_full_response",
                 f"Error: {str(e)}",
@@ -621,65 +627,71 @@ def zatca_call(
         if not frappe.db.exists("POS Invoice", invoice_number):
             frappe.throw("Invoice Number is NOT Valid: " + str(invoice_number))
 
-        invoice = xml_tags()
-        invoice, uuid1, pos_invoice_doc, any_item_has_tax_template = prepare_invoice_generation(
-            invoice, invoice_number, namespace=globals(), doctype='POS Invoice',
-        )
-        # Signing and HTTP must follow the same saved invoice issuer.
-        source_doc = pos_invoice_doc
+        with invoice_issuing_attempt('POS Invoice', invoice_number, runtime=frappe,
+                                     translate=_, namespace=globals()) as issuing_context:
+            invoice = xml_tags()
+            invoice, uuid1, pos_invoice_doc, any_item_has_tax_template = prepare_invoice_generation(
+                invoice, invoice_number, namespace=globals(), doctype='POS Invoice',
+            )
+            # Signing and HTTP must follow the same saved invoice issuer.
+            source_doc = pos_invoice_doc
+            issuing_context.bind_prepared_invoice(source_doc)
+            issuing_context.confirm_current()
 
-        # Get the company abbreviation
-        company_abbr = frappe.db.get_value(
-            "Company", {"name": pos_invoice_doc.company}, "abbr"
-        )
+            # Get the company abbreviation
+            company_abbr = issuing_context.company_abbr
 
-        customer_doc = frappe.get_doc("Customer", pos_invoice_doc.customer)
+            customer_doc = read_issuing_doc(frappe, "Customer", pos_invoice_doc.customer)
 
-        invoice = populate_invoice_type(
-            invoice, pos_invoice_doc, customer_doc,
-            namespace=globals(), doctype="POS Invoice",
-        )
-        invoice = populate_invoice_parties(
-            invoice, pos_invoice_doc, invoice_number, company_abbr,
-            tools=PartyXmlTools.from_namespace(
-                globals(), doctype="POS Invoice", purpose="invoice",
-            ),
-        )
-        invoice = populate_pos_financials(
-            invoice, pos_invoice_doc, namespace=globals(),
-            has_template=any_item_has_tax_template,
-        )
-
-        file_content = xml_structuring(invoice)
-
-        signed_xml = sign_invoice_xml(
-            file_content, company_abbr, source_doc,
-            tools=SigningTools.from_namespace(globals()),
-        )
-        encoded_hash = signed_xml.encoded_hash
-        qrcodeb64 = signed_xml.qr_payload
-        updated_xml_string = signed_xml.xml
-        signed_xmlfile_name = structuring_signedxml(invoice_number,updated_xml_string)
-
-        if get_alias_value("customer_b2c", customer_doc, 0) == 1:
-            attach_qr_image(qrcodeb64, pos_invoice_doc)
-            reporting_api(
-                uuid1,
-                encoded_hash,
-                signed_xmlfile_name,
-                invoice_number,
-                pos_invoice_doc,
+            invoice = populate_invoice_type(
+                invoice, pos_invoice_doc, customer_doc,
+                namespace=globals(), doctype="POS Invoice",
+            )
+            invoice = populate_invoice_parties(
+                invoice, pos_invoice_doc, invoice_number, company_abbr,
+                tools=PartyXmlTools.from_namespace(
+                    globals(), doctype="POS Invoice", purpose="invoice",
+                ),
+            )
+            invoice = populate_pos_financials(
+                invoice, pos_invoice_doc, namespace=globals(),
+                has_template=any_item_has_tax_template,
             )
 
-        else:
-            clearance_api(
-                uuid1,
-                encoded_hash,
-                signed_xmlfile_name,
-                invoice_number,
-                pos_invoice_doc,
+            file_content = xml_structuring(invoice)
+
+            issuing_context.confirm_current()
+            signed_xml = sign_invoice_xml(
+                file_content, company_abbr, source_doc,
+                tools=SigningTools.from_namespace(globals()),
             )
-            attach_qr_image(qrcodeb64, pos_invoice_doc)
+            encoded_hash = signed_xml.encoded_hash
+            qrcodeb64 = signed_xml.qr_payload
+            updated_xml_string = signed_xml.xml
+            issuing_context.confirm_current()
+            issuing_context.expect_prepared_payload(uuid1, encoded_hash)
+            signed_xmlfile_name = structuring_signedxml(invoice_number,updated_xml_string)
+
+            if get_alias_value("customer_b2c", customer_doc, 0) == 1:
+                attach_qr_image(qrcodeb64, pos_invoice_doc)
+                reporting_api(
+                    uuid1,
+                    encoded_hash,
+                    signed_xmlfile_name,
+                    invoice_number,
+                    pos_invoice_doc,
+                )
+
+            else:
+                clearance_api(
+                    uuid1,
+                    encoded_hash,
+                    signed_xmlfile_name,
+                    invoice_number,
+                    pos_invoice_doc,
+                )
+                attach_qr_image(qrcodeb64, pos_invoice_doc)
+
     except PosFinancialError:
         raise
     except DeclaredVatError:
@@ -709,7 +721,7 @@ def zatca_call_compliance(
         if not company_name:
             frappe.throw(f"Company with abbreviation {company_abbr} not found.")
 
-        company_doc = frappe.get_doc("Company", company_name)
+        company_doc = read_issuing_doc(frappe, "Company", company_name)
 
         try:
             compliance_type = resolve_compliance_type(
@@ -736,36 +748,42 @@ def zatca_call_compliance(
                 )
             )
         # Check if any item has a tax template and validate it
-        any_item_has_tax_template = resolve_invoice_template_mode(
-            pos_invoice_doc, runtime=frappe, translate=_)
-        invoice = invoice_typecode_compliance(invoice, compliance_type)
-        invoice = populate_invoice_parties(
-            invoice, pos_invoice_doc, invoice_number, company_abbr,
-            tools=PartyXmlTools.from_namespace(
-                globals(), doctype="POS Invoice", purpose="compliance",
-            ),
-            compliance_type=compliance_type,
-        )
-        invoice = populate_pos_financials(
-            invoice, pos_invoice_doc, namespace=globals(),
-            has_template=any_item_has_tax_template,
-            use_item_result=not bool(any_item_has_tax_template),
-        )
-
-        # Generate and process the XML data
-        file_content = xml_structuring(invoice)
-
-        signed_xml = sign_invoice_xml(
-            file_content, company_abbr, source_doc,
-            tools=SigningTools.from_namespace(globals()),
-        )
-        encoded_hash = signed_xml.encoded_hash
-        qrcodeb64 = signed_xml.qr_payload
-        updated_xml_string = signed_xml.xml
-        with temporary_compliance_xml(format_zatca_signed_xml(updated_xml_string)) as sample_path:
-            return compliance_api_call(
-                uuid1, encoded_hash, sample_path, company_abbr, source_doc
+        with issuing_attempt(company_abbr, source_doc, purpose='compliance',
+                             runtime=frappe, translate=_, invoice_doc=pos_invoice_doc) as issuing_context:
+            any_item_has_tax_template = resolve_invoice_template_mode(
+                pos_invoice_doc, runtime=frappe, translate=_)
+            invoice = invoice_typecode_compliance(invoice, compliance_type)
+            invoice = populate_invoice_parties(
+                invoice, pos_invoice_doc, invoice_number, company_abbr,
+                tools=PartyXmlTools.from_namespace(
+                    globals(), doctype="POS Invoice", purpose="compliance",
+                ),
+                compliance_type=compliance_type,
             )
+            invoice = populate_pos_financials(
+                invoice, pos_invoice_doc, namespace=globals(),
+                has_template=any_item_has_tax_template,
+                use_item_result=not bool(any_item_has_tax_template),
+            )
+
+            # Generate and process the XML data
+            file_content = xml_structuring(invoice)
+
+            issuing_context.confirm_current()
+            signed_xml = sign_invoice_xml(
+                file_content, company_abbr, source_doc,
+                tools=SigningTools.from_namespace(globals()),
+            )
+            encoded_hash = signed_xml.encoded_hash
+            qrcodeb64 = signed_xml.qr_payload
+            updated_xml_string = signed_xml.xml
+            issuing_context.confirm_current()
+            formatted_xml = format_zatca_signed_xml(updated_xml_string)
+            with temporary_compliance_xml(formatted_xml) as sample_path:
+                issuing_context.seal_xml(sample_path, formatted_xml, identity=(uuid1, encoded_hash))
+                return compliance_api_call(
+                    uuid1, encoded_hash, sample_path, company_abbr, source_doc
+                )
 
     except PosFinancialError:
         raise
@@ -784,14 +802,14 @@ def zatca_background_(invoice_number, source_doc, bypass_background_check=False)
     """Function for zatca background"""
     try:
         if source_doc:
-            source_doc = frappe.get_doc(
+            source_doc = read_issuing_doc(frappe,
                 json.loads(source_doc)
             )  # Deserialize if sent as JSON
 
-        pos_invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
+        pos_invoice_doc = read_issuing_doc(frappe, "POS Invoice", invoice_number)
         company_name = pos_invoice_doc.company
 
-        settings = frappe.get_doc("Company", company_name)
+        settings = read_issuing_doc(frappe, "Company", company_name)
         company_abbr = settings.abbr
 
         any_item_has_tax_template = any(
@@ -805,9 +823,9 @@ def zatca_background_(invoice_number, source_doc, bypass_background_check=False)
         pos_profile = pos_invoice_doc.pos_profile
         if not pos_profile:
             frappe.throw(_("POS Profile is not set in the POS Invoice."))
-        pos_profile_doc = frappe.get_doc("POS Profile", pos_profile)
+        pos_profile_doc = read_issuing_doc(frappe, "POS Profile", pos_profile)
         taxes_and_charges = pos_profile_doc.taxes_and_charges
-        taxes_template_doc = frappe.get_doc(
+        taxes_template_doc = read_issuing_doc(frappe,
             "Sales Taxes and Charges Template", taxes_and_charges
         )
 
@@ -824,7 +842,7 @@ def zatca_background_(invoice_number, source_doc, bypass_background_check=False)
         tax_categories = set()
         for item in pos_invoice_doc.items:
             if item.item_tax_template:
-                item_tax_template = frappe.get_doc(
+                item_tax_template = read_issuing_doc(frappe,
                     "Item Tax Template", item.item_tax_template
                 )
                 zatca_tax_category = item_tax_template.custom_zatca_tax_category
@@ -857,7 +875,7 @@ def zatca_background_(invoice_number, source_doc, bypass_background_check=False)
                                 "As per ZATCA regulation, Check the ZATCA category code and enable it as standard."
                             )
                         )
-        customer_doc = frappe.get_doc("Customer", pos_invoice_doc.customer)
+        customer_doc = read_issuing_doc(frappe, "Customer", pos_invoice_doc.customer)
         if get_alias_value("customer_b2c", customer_doc, 0) == 0:
             if not get_alias_value("customer_buyer_id", customer_doc, ""):
                 frappe.throw(
@@ -922,7 +940,7 @@ def zatca_background_(invoice_number, source_doc, bypass_background_check=False)
                         )
                     )
 
-        company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
+        company_doc = read_issuing_doc(frappe, "Company", {"abbr": company_abbr})
         if not company_doc.tax_id:
             frappe.throw(_("As per ZATCA regulation, Company Tax ID is mandatory"))
         if company_doc.tax_id and not (
@@ -1117,13 +1135,13 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
         source_doc = doc
         pos_invoice_doc = doc
         invoice_number = pos_invoice_doc.name
-        pos_invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
+        pos_invoice_doc = read_issuing_doc(frappe, "POS Invoice", invoice_number)
         company_abbr = frappe.db.get_value(
             "Company", {"name": pos_invoice_doc.company}, "abbr"
         )
 
-        customer_doc = frappe.get_doc("Customer", pos_invoice_doc.customer)
-        company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
+        customer_doc = read_issuing_doc(frappe, "Customer", pos_invoice_doc.customer)
+        company_doc = read_issuing_doc(frappe, "Company", {"abbr": company_abbr})
         if not company_abbr:
             frappe.throw(
                 _(f"Company abbreviation for {pos_invoice_doc.company} not found.")
@@ -1157,9 +1175,9 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
         pos_profile = pos_invoice_doc.pos_profile
         if not pos_profile:
             frappe.throw(_("POS Profile is not set in the POS Invoice."))
-        pos_profile_doc = frappe.get_doc("POS Profile", pos_profile)
+        pos_profile_doc = read_issuing_doc(frappe, "POS Profile", pos_profile)
         taxes_and_charges = pos_profile_doc.taxes_and_charges
-        taxes_template_doc = frappe.get_doc(
+        taxes_template_doc = read_issuing_doc(frappe,
             "Sales Taxes and Charges Template", taxes_and_charges
         )
 
@@ -1176,7 +1194,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
         tax_categories = set()
         for item in pos_invoice_doc.items:
             if item.item_tax_template:
-                item_tax_template = frappe.get_doc(
+                item_tax_template = read_issuing_doc(frappe,
                     "Item Tax Template", item.item_tax_template
                 )
                 zatca_tax_category = item_tax_template.custom_zatca_tax_category
@@ -1210,7 +1228,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
                             )
                         )
 
-        customer_doc = frappe.get_doc("Customer", pos_invoice_doc.customer)
+        customer_doc = read_issuing_doc(frappe, "Customer", pos_invoice_doc.customer)
         if get_alias_value("customer_b2c", customer_doc, 0) == 0:
             if not get_alias_value("customer_buyer_id", customer_doc, ""):
                 frappe.throw(
@@ -1275,7 +1293,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
                         )
                     )
 
-        company_doc = frappe.get_doc("Company", {"abbr": company_abbr})
+        company_doc = read_issuing_doc(frappe, "Company", {"abbr": company_abbr})
         if not company_doc.tax_id:
             frappe.throw(_("As per ZATCA regulation, Company Tax ID is mandatory"))
         if company_doc.tax_id and not (
@@ -1367,14 +1385,14 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
         company_name = pos_invoice_doc.company
 
         # Retrieve the company document to access settings
-        settings = frappe.get_doc("Company", company_name)
+        settings = read_issuing_doc(frappe, "Company", company_name)
         # if resolve_zatca_phase(settings) == PHASE_2_VALUE:
         #     zatca_call(
         #         invoice_number, "0", any_item_has_tax_template, company_abbr, source_doc
         #     )
         # else:
         #     create_qr_code(pos_invoice_doc, method=None)
-        settings = frappe.get_doc("Company", company_name)
+        settings = read_issuing_doc(frappe, "Company", company_name)
 
         is_gpos_installed = "gpos" in frappe.get_installed_apps()
         field_exists = frappe.get_meta("POS Invoice").has_field("custom_unique_id")
@@ -1465,9 +1483,9 @@ def resubmit_invoices_pos(invoice_numbers, bypass_background_check=False):
     for invoice_number in invoice_numbers:
         try:
             # Fetch the Sales Invoice document
-            pos_invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
-            company_doc = frappe.get_doc("Company", pos_invoice_doc.company)
-            customer_doc = frappe.get_doc("Customer", pos_invoice_doc.customer)
+            pos_invoice_doc = read_issuing_doc(frappe, "POS Invoice", invoice_number)
+            company_doc = read_issuing_doc(frappe, "Company", pos_invoice_doc.company)
+            customer_doc = read_issuing_doc(frappe, "Customer", pos_invoice_doc.customer)
 
 
             if (

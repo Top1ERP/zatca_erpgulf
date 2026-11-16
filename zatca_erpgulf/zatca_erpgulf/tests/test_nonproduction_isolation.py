@@ -56,6 +56,7 @@ def isolated(monkeypatch, tmp_path):
         doctype="Company", name=invoice.company, abbr="TC", tax_id="SELLER", default_currency="SAR",
         modified="2026-10-23 08:00:00",
         custom_validation_type="Standard Invoice", custom_send_invoice_to_zatca="Live",
+        custom_phase_1_or_2="Phase-2", custom_zatca_invoice_enabled=1,
         db_set=Mock(),
     )
     customer = Document(tax_id="BUYER")
@@ -69,6 +70,9 @@ def isolated(monkeypatch, tmp_path):
                 attachment.save = Mock(side_effect=lambda: setattr(attachment, "name", f"MOCK-FILE-{len(files)}"))
                 return attachment
             return company
+        if doctype == 'ZATCA Multiple Setting':
+            return Document(doctype=doctype, name=name, custom_linked_doctype=company.name,
+                            custom__use_company_certificate__keys=0)
         return {"Sales Invoice": invoice, "POS Invoice": invoice,
                 "Company": company, "Customer": customer}[doctype]
 

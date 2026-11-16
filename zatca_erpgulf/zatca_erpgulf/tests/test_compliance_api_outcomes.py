@@ -53,12 +53,15 @@ def boundary(monkeypatch):
         custom_validation_type="ORIGINAL TYPE",
         custom_basic_auth_from_csid="mock-credential",
         custom_select="Production", db_set=Mock(),
+        custom_production_url="https://example.invalid/",
+        custom_simulation_url="https://example.invalid/",
+        custom_sandbox_url="https://example.invalid/",
     )
     frappe = SimpleNamespace(
         flags={"mute_messages": False},
         get_doc=Mock(return_value=company),
         db=SimpleNamespace(get_value=Mock(return_value=company.name)),
-        throw=raise_validation, ValidationError=LocalValidationError, msgprint=Mock(),
+        throw=raise_validation, ValidationError=LocalValidationError, msgprint=Mock(), log_error=Mock(),
     )
     for module in (client, buttons, credential_settings):
         monkeypatch.setattr(module, "frappe", frappe)

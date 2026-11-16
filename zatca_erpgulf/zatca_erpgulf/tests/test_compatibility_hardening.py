@@ -506,12 +506,24 @@ class TestXmlSignAndTaxCompatibility(unittest.TestCase):
             is_return=0,
         )
         customer = _Doc(custom_b2c=0)
+        company = _Doc(doctype='Company', name=sales_doc.company, abbr='Standard',
+                       tax_id='TEST-VAT', custom_zatca_invoice_enabled=1,
+                       custom_phase_1_or_2='Phase-2')
+        def saved_doc(doctype, name=None):
+            return {'Sales Invoice':sales_doc, 'Company':company, 'Customer':customer}[doctype]
+        def source_permission(doctype, operation, *, doc, user, raise_exception=True):
+            assert raise_exception is False
+            return True
         db = SimpleNamespace(
             exists=MagicMock(return_value=True),
             get_value=MagicMock(return_value="Standard"),
         )
 
         with ExitStack() as stack:
+            stack.enter_context(patch.object(sign_invoice.frappe, 'session', SimpleNamespace(user='TEST-OPERATOR')))
+            stack.enter_context(patch.object(sign_invoice.frappe, 'has_permission', source_permission))
+            # This branch test stops before signing; the replacement is explicit.
+            signer = stack.enter_context(patch.object(sign_invoice, 'digital_signature'))
             stack.enter_context(
                 patch.object(sign_invoice.frappe, "db", db)
             )
@@ -519,7 +531,7 @@ class TestXmlSignAndTaxCompatibility(unittest.TestCase):
                 patch.object(
                     sign_invoice.frappe,
                     "get_doc",
-                    return_value=customer,
+                    side_effect=saved_doc,
                 )
             )
             stack.enter_context(
@@ -580,6 +592,7 @@ class TestXmlSignAndTaxCompatibility(unittest.TestCase):
                     any_item_has_tax_template=False,
                 )
 
+        signer.assert_not_called()
         regular_items.assert_called_once()
         advance_items.assert_not_called()
 

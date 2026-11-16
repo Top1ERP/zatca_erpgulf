@@ -7,6 +7,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from zatca_erpgulf.zatca_erpgulf.issuing_reads import read_issuing_doc, read_issuing_cached_doc
 from zatca_erpgulf.zatca_erpgulf.zatca_runtime import (
     PHASE_1_VALUE, is_zatca_invoice_enabled, resolve_zatca_phase,
 )
@@ -27,7 +28,7 @@ def policy():
         raise ValidationFailure(message)
     runtime = SimpleNamespace(get_cached_doc=Mock(), get_doc=Mock(), throw=Mock(side_effect=throw))
     resolver = Mock(return_value=(None, None))
-    namespace = dict(frappe=runtime, PHASE_1_VALUE=PHASE_1_VALUE, is_zatca_invoice_enabled=is_zatca_invoice_enabled,
+    namespace = dict(read_issuing_doc=read_issuing_doc, read_issuing_cached_doc=read_issuing_cached_doc, frappe=runtime, PHASE_1_VALUE=PHASE_1_VALUE, is_zatca_invoice_enabled=is_zatca_invoice_enabled,
         resolve_zatca_phase=resolve_zatca_phase, resolve_customer_address=resolver,
         cint=lambda value: int(value or 0), get_alias_value=lambda key, doc, default: getattr(doc, "b2c", default),
         _=lambda text: text, Any=object)
