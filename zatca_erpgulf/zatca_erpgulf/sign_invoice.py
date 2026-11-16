@@ -7,6 +7,7 @@ including the creation of UBL XML
 invoices, signing, and submission to ZATCA servers for clearance and reporting.
 """
 
+from .existing_xml_submission import ExistingXmlSubmissionError
 from .invoice_payload import read_invoice_payload
 from .invoice_generation_data import prepare_invoice_generation
 from .template_vat_source import resolve_invoice_template_mode
@@ -1487,7 +1488,7 @@ def zatca_background(invoice_number, source_doc, bypass_background_check=False):
         else:
             create_qr_code(sales_invoice_doc, method=None)
         return "Success"
-    except DeclaredVatError:
+    except (DeclaredVatError, ExistingXmlSubmissionError):
         raise
     except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
         frappe.throw(_("Error in background call : " + str(e)))
@@ -1925,7 +1926,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
         else:
             create_qr_code(sales_invoice_doc, method=None)
         doc.reload()
-    except DeclaredVatError:
+    except (DeclaredVatError, ExistingXmlSubmissionError):
         raise
     except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
         frappe.throw(_(f"Error in background call on submit: {str(e)}"))
@@ -2382,7 +2383,7 @@ def resubmit_invoices(invoice_numbers, bypass_background_check=False):
                 #     sales_invoice_doc, bypass_background_check=True
                 # )
 
-        except DeclaredVatError:
+        except (DeclaredVatError, ExistingXmlSubmissionError):
             raise
         except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
             frappe.throw(_(f"Error in background call: {str(e)}"))

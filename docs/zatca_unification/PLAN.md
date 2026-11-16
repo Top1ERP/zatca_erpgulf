@@ -17,6 +17,20 @@ pilot/rollout. API sending needs separate explicit authority changing the ban.
 See [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md); it supersedes any older
 operational request or less restrictive deployment wording in historical records.
 
+## Existing XML request identity and release closure — increment229
+
+Bind the four existing-XML request observations to their embedded UUID/digest
+before HTTP, without repair or financial/signature recalculation. Preserve the
+single typed review across four API/wrapper pairs, six public parent boundaries
+and background continuation, with Arabic display and English diagnostics.
+
+The remaining release work is consolidated in
+[RELEASE_REMAINING.md](RELEASE_REMAINING.md): source/settings/credential adoption,
+issuance/response/transaction safety, reviewed financial/advance accounting,
+runtime cleanup, installed15/16, signed XML/SDK and separately approved isolated
+rehearsal/adoption. These are closure gates, not an assertion that staged internal
+helpers are already active. See [EXISTING_XML_BINDING.md](EXISTING_XML_BINDING.md).
+
 ## One XML observation in request consumers — increment228
 
 Capture XML once through the current imported reader in13 API adapters. Reuse

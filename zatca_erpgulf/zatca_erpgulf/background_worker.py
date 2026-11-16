@@ -6,6 +6,8 @@ No schedule restrictions are added to explicit manual or batch submissions.
 """
 
 import frappe
+
+from .existing_xml_submission import ExistingXmlSubmissionError
 from frappe.utils import add_to_date, cint, now_datetime
 
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
@@ -85,6 +87,10 @@ not provide a cross-worker lock or make remote submissions transactional.
                 submit_callback(invoice, bypass_background_check=True)
                 if commit_per_invoice:
                     frappe.db.commit()
+            except ExistingXmlSubmissionError as error:
+                # The canonical pre-request review already owns its diagnostic.
+                if not error.diagnostic_logged:
+                    frappe.log_error(title="ZATCA existing XML review", message=str(error))
             except Exception:
                 frappe.log_error(
                     title=f"ZATCA background: {doctype} {row['name']}",

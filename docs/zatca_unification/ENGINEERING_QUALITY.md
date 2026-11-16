@@ -5,6 +5,22 @@ development. They are part of the release scope, not optional work deferred
 until after the fictional-client rehearsal. Apply the same development-only
 and no-authority-request restrictions as [PLAN.md](PLAN.md).
 
+## Shared existing-XML binding and native review propagation — increment229
+
+A pure metadata policy and one injected Frappe bridge serve four existing-XML
+APIs. No financial math, signing, normalization, retry or credential selection is
+added. Typed review propagation avoids duplicate wrappers and generic failed-
+response writes. The worker preserves its next-invoice behavior without another
+diagnostic for an already logged review.
+
+515 new cases distinguish stable parent parity from deliberately blocked source
+changes, including pinned native Frappe15 display behavior. Frozen source, whole-
+module restoration and the untouched original financial fixtures delimit the
+change. A consolidated release closure list separates helper tests from runtime
+adoption and installed application/SDK acceptance. See
+[EXISTING_XML_BINDING.md](EXISTING_XML_BINDING.md) and
+[RELEASE_REMAINING.md](RELEASE_REMAINING.md).
+
 ## Shared request composition with bounded artifact reuse — increment228
 
 One framework-free value container replaces13 duplicate payload dictionaries

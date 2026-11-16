@@ -1,6 +1,8 @@
 """This module is used to submit the POS invoice to ZATCA using the API through xml and qr."""
 
-from .invoice_payload import read_invoice_payload
+from .existing_xml_submission import (
+    ExistingXmlSubmissionError, read_bound_invoice_payload,
+)
 from functools import partial
 from frappe import _
 import frappe
@@ -89,8 +91,9 @@ def reporting_api_machine(
             expected_doctype="POS Invoice", require_issuing_unit=True,
         )
 
-        submitted_invoice = read_invoice_payload(
-            uuid1, encoded_hash, signed_xmlfile_name, read_xml=xml_base64_decode
+        submitted_invoice = read_bound_invoice_payload(
+            uuid1, encoded_hash, signed_xmlfile_name, read_xml=xml_base64_decode,
+            runtime=frappe, translate=_,
         )
         payload = submitted_invoice.as_payload()
         headers = {
@@ -264,6 +267,8 @@ def reporting_api_machine(
                 _(("Error in reporting API-2 POS with xml " f"error: {str(e)}"))
             )
 
+    except ExistingXmlSubmissionError:
+        raise
     except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
         invoice_doc = frappe.get_doc("POS Invoice", invoice_number)
         # invoice_doc.db_set(
@@ -294,7 +299,7 @@ def submit_pos_withxmlqr(pos_invoice_doc, file_path, invoice_number):
             pos_invoice_doc,
         )
 
-    except LocalResponseProcessingError:
+    except (LocalResponseProcessingError, ExistingXmlSubmissionError):
         # Preserve local review without reclassifying the received response.
         raise
     except Exception as e:

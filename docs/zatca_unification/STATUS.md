@@ -1,5 +1,47 @@
 # Implementation status — 2026-11-16
 
+## Existing XML metadata binding and release closure — increment229
+
+Four existing-XML Sales/POS APIs now compare the captured Base64 XML's embedded
+UUID/invoiceSignedData DigestValue with their request arguments after existing
+authorization and before HTTP. Unreadable, DTD-bearing, missing/duplicate/empty
+or mismatching metadata stops with one typed review. Valid values/request bytes,
+routes/auth, response branches and financial/identity/chain algorithms remain.
+Four API/wrapper pairs and six manual/hook/batch parents preserve the same review;
+the worker continues other invoices without duplicating its diagnostic. There is
+no identity repair, new durable hold, artifact write or acceptance inference.
+
+The review has one Arabic display key and an English explicit diagnostic/canonical
+string. Pinned native Frappe15 throw/msgprint tests confirm args localization and
+one message (zero when muted), separate from English logs. No initialized site or
+installed16 lifecycle is exercised. Earlier wrapper extractors remain separate;
+this is metadata agreement, not digest recomputation, signature/QR proof, full
+source custody or authentic receipt evidence. Same-identity content changes can
+still pass. Nine other API capture contracts remain unchanged.
+
+515 new cases plus the earlier541 payload cases pass1,056 focused checks in8.28s.
+The final guarded broad run passes19,296 cases across72 reviewed suites in108.12s.
+Six browser suites pass1,208 synthetic cases. Manifest201 local/57 private; no
+whole-manifest/private-SQL run. The four pre-signed one-read test inputs now use
+matching metadata; no frozen source or original financial expectation changed.
+
+AST restoration reproduces all15 changed function bodies and all seven complete
+module trees after reversing only the documented calls/handlers/imports.354 other
+tracked runtime files and30 earlier Python source references are byte-identical.
+Original240 remains91 identical/117 prior differences awaiting review/32 blocked;
+those are simulated financial cases, not tenant invoice counts or new errors.
+
+[RELEASE_REMAINING.md](RELEASE_REMAINING.md) consolidates seven closure groups:
+source/settings/credential adoption; issuance/response/transaction safety;
+financial/advance accounting review; runtime cleanup; installed15/16; complete
+signed XML/SDK/scanner; separately approved isolated rehearsal and adoption.
+This list distinguishes tested helpers from integrated runtime acceptance.
+See [EXISTING_XML_BINDING.md](EXISTING_XML_BINDING.md). Local evidence:
+`/tmp/zatca-binding-229-focused-final.log`,
+`/tmp/zatca-binding-229-regression.log`, `/tmp/zatca-binding-229-structure.json`.
+No live/site/schema/configuration/invoice change, tenant SQL, restart or authority
+API action. Development-branch upload alone is authorized; deployment is not.
+
 ## One XML observation across request adapters — increment228
 
 Thirteen Sales/POS/legacy/Compliance API functions now compose their payload from

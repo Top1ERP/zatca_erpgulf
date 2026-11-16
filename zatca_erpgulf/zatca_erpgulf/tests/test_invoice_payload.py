@@ -141,10 +141,11 @@ def test_first_read_failure_retains_boundary_and_no_request(monkeypatch,tmp_path
 @pytest.mark.parametrize('adapter',ADAPTERS)
 def test_request_captures_reader_once(monkeypatch,tmp_path,adapter):
     b=fresh(monkeypatch,tmp_path,adapter);select_owner(b,getattr(b,adapter[2]),'linked')
-    reader=Mock(side_effect=[encoded(XML_A),encoded(XML_B)])
+    text = Path(b.path).read_text() if adapter[3]=='presigned' else XML_A
+    reader=Mock(side_effect=[encoded(text),encoded(XML_B)])
     monkeypatch.setattr(adapter[0],'xml_base64_decode',reader)
     invoke(b,adapter,getattr(adapter[0],adapter[1]))
-    reader.assert_called_once();assert b.post.call_args.kwargs['json']['invoice']==encoded(XML_A)
+    reader.assert_called_once();assert b.post.call_args.kwargs['json']['invoice']==encoded(text)
     if adapter[1].startswith('reporting') and adapter[3]!='presigned':
         assert b.files[0].content==XML_A
 

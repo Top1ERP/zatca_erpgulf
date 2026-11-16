@@ -1,5 +1,10 @@
 # One XML observation per request adapter — increment228
 
+Increment229 adds embedded metadata matching to four existing-XML APIs and typed
+review propagation. The other nine request-capture contracts remain unchanged.
+The evidence and limits below describe increment228; see
+[EXISTING_XML_BINDING.md](EXISTING_XML_BINDING.md) for current adoption.
+
 Development only, 2026-11-16. No installed application, tenant, invoice, schema,
 settings, Bench or worker was changed. No authority API was used. Every request
 in the tests is a mock under the offline network/site guard.

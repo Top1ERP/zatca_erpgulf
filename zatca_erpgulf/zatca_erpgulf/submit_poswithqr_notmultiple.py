@@ -1,6 +1,8 @@
 """This module is used to submit the POS invoice to ZATCA using the API through xml and qr."""
 
-from .invoice_payload import read_invoice_payload
+from .existing_xml_submission import (
+    ExistingXmlSubmissionError, read_bound_invoice_payload,
+)
 import base64
 import os
 from functools import partial
@@ -137,8 +139,9 @@ def reporting_api_xml_sales_invoice_simplified(
 
         # Keep the legacy header helper interface (raw Basic token).
         headers = get_headers(submission.authorization.header.removeprefix("Basic "))
-        submitted_invoice = read_invoice_payload(
-            uuid1, encoded_hash, signed_xmlfile_name, read_xml=xml_base64_decode
+        submitted_invoice = read_bound_invoice_payload(
+            uuid1, encoded_hash, signed_xmlfile_name, read_xml=xml_base64_decode,
+            runtime=frappe, translate=_,
         )
         payload = submitted_invoice.as_payload()
         try:
@@ -307,6 +310,8 @@ def reporting_api_xml_sales_invoice_simplified(
         except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
             frappe.throw(_(f"Error in reporting API-2 reporting simplified : {str(e)}"))
 
+    except ExistingXmlSubmissionError:
+        raise
     except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
         invoice_doc = frappe.get_doc(SALES_INVOICE, invoice_number)
       
@@ -347,7 +352,7 @@ def submit_pos_invoice_simplifeid(pos_invoice_doc, file_path, invoice_number):
             pos_invoice_doc,
         )
 
-    except LocalResponseProcessingError:
+    except (LocalResponseProcessingError, ExistingXmlSubmissionError):
         # Preserve local review across this legacy broad exception boundary.
         raise
     except Exception as e:

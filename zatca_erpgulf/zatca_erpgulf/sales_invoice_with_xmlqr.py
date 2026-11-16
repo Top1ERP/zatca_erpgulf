@@ -1,6 +1,8 @@
 """This module is used to submit the POS invoice to ZATCA using the API through xml and qr."""
 
-from .invoice_payload import read_invoice_payload
+from .existing_xml_submission import (
+    ExistingXmlSubmissionError, read_bound_invoice_payload,
+)
 import base64
 from functools import partial
 from frappe import _
@@ -133,8 +135,9 @@ def reporting_api_xml_sales_invoice(
             expected_doctype="Sales Invoice", require_issuing_unit=True,
         )
 
-        submitted_invoice = read_invoice_payload(
-            uuid1, encoded_hash, signed_xmlfile_name, read_xml=xml_base64_decode
+        submitted_invoice = read_bound_invoice_payload(
+            uuid1, encoded_hash, signed_xmlfile_name, read_xml=xml_base64_decode,
+            runtime=frappe, translate=_,
         )
         payload = submitted_invoice.as_payload()
         headers = {
@@ -303,6 +306,8 @@ def reporting_api_xml_sales_invoice(
         except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
             frappe.throw(_(f"Error in reporting API-2 xml with sales invoice data : {str(e)}"))
 
+    except ExistingXmlSubmissionError:
+        raise
     except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
         invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
         # invoice_doc.db_set(
@@ -333,7 +338,7 @@ def submit_sales_invoice_withxmlqr(sales_invoice_doc, file_path, invoice_number)
             sales_invoice_doc,
         )
 
-    except LocalResponseProcessingError:
+    except (LocalResponseProcessingError, ExistingXmlSubmissionError):
         # Do not turn received local review into a generic submission failure.
         raise
     except Exception as e:
