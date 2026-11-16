@@ -1,5 +1,11 @@
 # Settings and route audit — historical credential inventory with later amendments
 
+Increment228 shares one request XML observation across13 API adapters and reuses
+it for canonical Reporting File/QR consumers. Routes, credentials and existing
+response/status handling remain unchanged. This is separate from saved-artifact
+evidence, wrapper identity reads and authenticated receipt custody. See
+[INVOICE_PAYLOAD.md](INVOICE_PAYLOAD.md).
+
 Increment225 removes scheduling and GPOS hints from Sales Debug type selection.
 Only its actual customer/original advance or explicit sample decides the type;
 POS Debug retains its original ordinary B2C-only rule. API routes and credential

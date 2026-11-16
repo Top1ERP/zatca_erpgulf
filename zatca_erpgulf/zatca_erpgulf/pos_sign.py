@@ -5,6 +5,7 @@ using ERPNext. It supports compliance with the ZATCA requirements for Phase 2,
 including the creation of UBL XML
 invoices, signing, and submission to ZATCA servers for clearance and reporting."""
 
+from .invoice_payload import read_invoice_payload
 from .invoice_generation_data import prepare_invoice_generation
 from .template_vat_source import resolve_invoice_template_mode
 import base64
@@ -161,9 +162,11 @@ def reporting_api(
         )
 
         # Prepare the payload without JSON formatting
-        xml_base64 = xml_base64_decode(signed_xmlfile_name)
+        submitted_invoice = read_invoice_payload(
+            uuid1, encoded_hash, signed_xmlfile_name, read_xml=xml_base64_decode
+        )
 
-        xml_cleared_data = base64.b64decode(xml_base64).decode("utf-8")
+        xml_cleared_data = submitted_invoice.xml_text()
         file = frappe.get_doc(
             {
                 "doctype": "File",
@@ -182,11 +185,7 @@ def reporting_api(
             frappe.db.commit()
         # file.reload()
         # frappe.throw(file.is_private)
-        payload = {
-            "invoiceHash": encoded_hash,
-            "uuid": uuid1,
-            "invoice": xml_base64_decode(signed_xmlfile_name),
-        }
+        payload = submitted_invoice.as_payload()
 
         headers = {
             "accept": CONTENT_TYPE_JSON,
@@ -409,11 +408,10 @@ def clearance_api(
             company_abbr, pos_invoice_doc, invoice_number, "invoices/clearance/single",
             expected_doctype="POS Invoice",
         )
-        payload = {
-            "invoiceHash": encoded_hash,
-            "uuid": uuid1,
-            "invoice": xml_base64_decode(signed_xmlfile_name),
-        }
+        submitted_invoice = read_invoice_payload(
+            uuid1, encoded_hash, signed_xmlfile_name, read_xml=xml_base64_decode
+        )
+        payload = submitted_invoice.as_payload()
 
         headers = {
             "accept": CONTENT_TYPE_JSON,

@@ -17,6 +17,20 @@ pilot/rollout. API sending needs separate explicit authority changing the ban.
 See [SAFETY_AND_REHEARSAL.md](SAFETY_AND_REHEARSAL.md); it supersedes any older
 operational request or less restrictive deployment wording in historical records.
 
+## One XML observation in request consumers — increment228
+
+Capture XML once through the current imported reader in13 API adapters. Reuse
+that observation for existing local Reporting XML/QR consumers, preserving stable
+request bytes, credentials/routes, modes and response/persistence choreography.
+Keep standalone/replaced private helper contracts and lazy decode behavior.
+
+Frozen-parent comparisons and explicit file-change/delete simulations distinguish
+the artifact race correction from normal financial XML. Do not infer authority
+acceptance, source custody or installed16 readiness from these tests. Next audit
+wrapper UUID/hash/content binding and trusted settings/credential observations;
+transaction/fiscal/GL/precision/settlement, installed15/16, SDK/scanner and approved
+fictional-client trials remain gates. See [INVOICE_PAYLOAD.md](INVOICE_PAYLOAD.md).
+
 ## Early canonical metadata template gate — increment227
 
 Check template mode before the production/Debug UUID provider and again after

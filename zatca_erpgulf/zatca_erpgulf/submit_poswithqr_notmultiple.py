@@ -1,5 +1,6 @@
 """This module is used to submit the POS invoice to ZATCA using the API through xml and qr."""
 
+from .invoice_payload import read_invoice_payload
 import base64
 import os
 from functools import partial
@@ -136,11 +137,10 @@ def reporting_api_xml_sales_invoice_simplified(
 
         # Keep the legacy header helper interface (raw Basic token).
         headers = get_headers(submission.authorization.header.removeprefix("Basic "))
-        payload = {
-            "invoiceHash": encoded_hash,
-            "uuid": uuid1,
-            "invoice": xml_base64_decode(signed_xmlfile_name),
-        }
+        submitted_invoice = read_invoice_payload(
+            uuid1, encoded_hash, signed_xmlfile_name, read_xml=xml_base64_decode
+        )
+        payload = submitted_invoice.as_payload()
         try:
             frappe.publish_realtime(
                 "show_gif",

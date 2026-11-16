@@ -4,6 +4,7 @@ This module facilitates the generation, validation, and submission of
 using ERPNext
 """
 
+from .invoice_payload import read_invoice_payload
 import hashlib
 import base64
 import json
@@ -1293,13 +1294,10 @@ def compliance_api_call(
             frappe.throw(_(f"Company with abbreviation {company_abbr} not found."))
 
         company_doc = frappe.get_doc("Company", company_name)
-        payload = json.dumps(
-            {
-                "invoiceHash": encoded_hash,
-                "uuid": uuid1,
-                "invoice": xml_base64_decode(signed_xmlfile_name),
-            }
+        submitted_invoice = read_invoice_payload(
+            uuid1, encoded_hash, signed_xmlfile_name, read_xml=xml_base64_decode
         )
+        payload = json.dumps(submitted_invoice.as_payload())
 
         credentials = get_api_authorization(company_abbr, source_doc, purpose="compliance")
         auth_source = credentials.source_kind

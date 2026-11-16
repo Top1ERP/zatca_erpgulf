@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "invoice_payload",
     "metadata_template_gate",
     "item_template_mode",
     "debug_generation_alignment",

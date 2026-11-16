@@ -1,8 +1,8 @@
 """this file is used to call the zatca api in the background and based on the response"""
 
+from .invoice_payload import read_invoice_payload
 from .invoice_generation_data import prepare_invoice_generation
 from .template_vat_source import resolve_invoice_template_mode
-import base64
 import os
 import io
 import requests
@@ -247,14 +247,12 @@ def reporting_api_sales_withoutxml(
             company_abbr, sales_invoice_doc, invoice_number, "invoices/reporting/single",
             expected_doctype="Sales Invoice",
         )
-        payload = {
-            "invoiceHash": encoded_hash,
-            "uuid": uuid1,
-            "invoice": xml_base64_decode(signed_xmlfile_name),
-        }
-        xml_base64 = xml_base64_decode(signed_xmlfile_name)
+        submitted_invoice = read_invoice_payload(
+            uuid1, encoded_hash, signed_xmlfile_name, read_xml=xml_base64_decode
+        )
+        payload = submitted_invoice.as_payload()
 
-        xml_cleared_data = base64.b64decode(xml_base64).decode("utf-8")
+        xml_cleared_data = submitted_invoice.xml_text()
         file = frappe.get_doc(
             {
                 "doctype": "File",

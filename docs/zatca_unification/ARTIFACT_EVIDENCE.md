@@ -1,5 +1,11 @@
 # Read-only attached-XML evidence preflight — increment 9
 
+Increment228 shares one request XML observation across13 API adapters and reuses
+it for canonical Reporting File/QR consumers. Routes, credentials and existing
+response/status handling remain unchanged. This is separate from saved-artifact
+evidence, wrapper identity reads and authenticated receipt custody. See
+[INVOICE_PAYLOAD.md](INVOICE_PAYLOAD.md).
+
 Development only. No tenant inventory was executed, invoice identity/counter/PIH
 was changed, worker restarted, schema migrated, or remote request performed.
 The tool is opt-in and is not connected to submission, onboarding, or Debug UI.

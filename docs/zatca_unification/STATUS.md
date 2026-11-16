@@ -1,5 +1,47 @@
 # Implementation status — 2026-11-16
 
+## One XML observation across request adapters — increment228
+
+Thirteen Sales/POS/legacy/Compliance API functions now compose their payload from
+one invocation of the currently imported XML reader. Canonical Reporting File
+and Sales QR consumers reuse that observation; changed/deleted files after a
+mock POST no longer substitute a different artifact. Stable input keeps original
+payload values/key order, Compliance JSON text, routes/auth/timeouts, modes,
+response interpretation and write/commit choreography. Private standalone and
+replaced helpers retain their earlier positional contracts. Four unused Base64
+imports and two stale credential comments were removed.
+
+541 new cases include432 complete-parent API comparisons,18 mode comparisons,
+36 first-read failures, explicit old/new changed-file cases,15 Compliance cases
+and lazy/native/helper contracts. Focused541 pass in4.92s. Final guarded broad
+run passes18,781 cases across71 reviewed suites in113.95s, including the existing
+response-processing and received-step suites. Six browser suites pass1,208 cases;
+no UI/catalogue change. Manifest200 local/57 private; no whole-manifest/private-SQL
+run. Initial test-harness issues were corrected: stable Sales parity needs a real
+fixture path, frozen functions need their former Base64 import, and existing POS
+Clearance rejects409. No runtime response-policy change was made for those tests.
+
+Structural restoration reproduces all15 existing changed function bodies and
+whole affected module ASTs after reversing only documented composition/helper
+changes and the four removed imports.350 other tracked runtime files and29
+previous Python reference fixtures remain byte-identical to increment227.
+Financial/signature/ICV algorithms, UUID allocation and original240 expectations
+remain unchanged:91 identical/117 previous differences awaiting review/32 blocked.
+
+One observation is not atomic file custody, a verified UUID/hash/QR binding,
+credential/source revision, transaction repository or authentic receipt. Earlier
+wrapper reads and arbitrary helper overrides remain outside that guarantee;
+legacy pre-request Files and partial writes remain. Logs:
+`/tmp/zatca-payload-228-focused-final.log`,
+`/tmp/zatca-payload-228-regression-verified.log`,
+`/tmp/zatca-payload-228-structure.json`. See
+[INVOICE_PAYLOAD.md](INVOICE_PAYLOAD.md).
+
+No installed application/site/schema/configuration/invoice, tenant SQL, restart
+or authority API action. Producer/wrapper content binding, source/settings/
+credential custody, fiscal/GL/precision/settlement review, installed ERPNext15/16,
+SDK/scanner and separately approved fictional-client rehearsal remain gates.
+
 ## Template validation before canonical identity — increment227
 
 Production/Debug Sales/POS metadata now validates item-template mode after its

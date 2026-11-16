@@ -1,5 +1,6 @@
 """This module is used to submit the POS invoice to ZATCA using the API through xml and qr."""
 
+from .invoice_payload import read_invoice_payload
 import base64
 from functools import partial
 from frappe import _
@@ -132,11 +133,10 @@ def reporting_api_xml_sales_invoice(
             expected_doctype="Sales Invoice", require_issuing_unit=True,
         )
 
-        payload = {
-            "invoiceHash": encoded_hash,
-            "uuid": uuid1,
-            "invoice": xml_base64_decode(signed_xmlfile_name),
-        }
+        submitted_invoice = read_invoice_payload(
+            uuid1, encoded_hash, signed_xmlfile_name, read_xml=xml_base64_decode
+        )
+        payload = submitted_invoice.as_payload()
         headers = {
             "accept": "application/json",
             "accept-language": "en",

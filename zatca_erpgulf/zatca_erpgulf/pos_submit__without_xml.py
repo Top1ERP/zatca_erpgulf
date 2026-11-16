@@ -1,8 +1,8 @@
 """This file contains the function to call the ZATCA API for POS Invoices"""
 
+from .invoice_payload import read_invoice_payload
 from .invoice_generation_data import prepare_invoice_generation
 from .template_vat_source import resolve_invoice_template_mode
-import base64
 from frappe import _  # pylint: disable=unused-import
 import frappe
 from zatca_erpgulf.zatca_erpgulf.template_vat_source import DeclaredVatError
@@ -186,14 +186,12 @@ def reporting_api_pos_without_xml(
             )
 
         # Prepare the payload without JSON formatting
-        payload = {
-            "invoiceHash": encoded_hash,
-            "uuid": uuid1,
-            "invoice": xml_base64_decode(signed_xmlfile_name),
-        }
-        xml_base64 = xml_base64_decode(signed_xmlfile_name)
+        submitted_invoice = read_invoice_payload(
+            uuid1, encoded_hash, signed_xmlfile_name, read_xml=xml_base64_decode
+        )
+        payload = submitted_invoice.as_payload()
 
-        xml_cleared_data = base64.b64decode(xml_base64).decode("utf-8")
+        xml_cleared_data = submitted_invoice.xml_text()
         file = frappe.get_doc(
             {
                 "doctype": "File",

@@ -5,6 +5,20 @@ development. They are part of the release scope, not optional work deferred
 until after the fictional-client rehearsal. Apply the same development-only
 and no-authority-request restrictions as [PLAN.md](PLAN.md).
 
+## Shared request composition with bounded artifact reuse — increment228
+
+One framework-free value container replaces13 duplicate payload dictionaries
+while retaining each imported reader and native serialization contract. Reporting
+consumers reuse its captured XML instead of reopening the path. Four unused
+Base64 imports are removed; no unused schema or public option is introduced.
+Code-only canonical helper references preserve existing replacement signatures.
+
+541 cases distinguish full-parent parity, first-read failure, lazy decode and
+changed/deleted-file behavior. Whole-module AST restoration bounds changes to
+composition and helper input; all earlier frozen fixtures and original financial
+oracles remain. This is a single observation rather than a transaction or receipt
+authentication claim. See [INVOICE_PAYLOAD.md](INVOICE_PAYLOAD.md).
+
 ## Canonical metadata gate with preserved integration contracts — increment227
 
 Share checked metadata/mode handoff in eight generators instead of maintaining

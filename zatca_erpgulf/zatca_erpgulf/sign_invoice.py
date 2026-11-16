@@ -7,6 +7,7 @@ including the creation of UBL XML
 invoices, signing, and submission to ZATCA servers for clearance and reporting.
 """
 
+from .invoice_payload import read_invoice_payload
 from .invoice_generation_data import prepare_invoice_generation
 from .template_vat_source import resolve_invoice_template_mode
 import os
@@ -272,10 +273,11 @@ def attach_qr_image(
         frappe.throw(_(("attach qr images" f"error: {str(e)}")))
 
 
-def _attach_reported_xml(signed_xmlfile_name, sales_invoice_doc):
+def _attach_reported_xml(signed_xmlfile_name, sales_invoice_doc, *, _xml_content=None):
     """Attach the submitted XML only after Reporting accepted it."""
-    xml_base64 = xml_base64_decode(signed_xmlfile_name)
-    xml_content = base64.b64decode(xml_base64).decode("utf-8")
+    if _xml_content is None:
+        xml_base64 = xml_base64_decode(signed_xmlfile_name)
+        _xml_content = base64.b64decode(xml_base64).decode("utf-8")
     file = frappe.get_doc(
         {
             "doctype": "File",
@@ -283,21 +285,47 @@ def _attach_reported_xml(signed_xmlfile_name, sales_invoice_doc):
             "attached_to_doctype": sales_invoice_doc.doctype,
             "is_private": 1,
             "attached_to_name": sales_invoice_doc.name,
-            "content": xml_content,
+            "content": _xml_content,
         }
     )
     file.save(ignore_permissions=True)
     sales_invoice_doc.db_set("custom_ksa_einvoicing_xml", file.file_url)
 
 
-def _extract_qr_payload(signed_xmlfile_name):
+def _extract_qr_payload(signed_xmlfile_name, *, _xml_content=None):
     """Read the exact QR TLV payload embedded in the XML submitted to ZATCA."""
-    root = etree.parse(signed_xmlfile_name)
+    source = (
+        signed_xmlfile_name
+        if _xml_content is None
+        else io.BytesIO(_xml_content.encode("utf-8"))
+    )
+    root = etree.parse(source)
     nodes = root.xpath(
         "//*[local-name()='AdditionalDocumentReference'][*[local-name()='ID' and normalize-space(.)='QR']]"
         "//*[local-name()='EmbeddedDocumentBinaryObject']"
     )
     return nodes[0].text.strip() if nodes and nodes[0].text else None
+
+
+# Retain the original positional contracts for installed helper replacements.
+_CANONICAL_REPORTED_XML_ATTACHMENT = _attach_reported_xml
+_CANONICAL_REPORTED_QR_READER = _extract_qr_payload
+
+
+def _attach_submitted_xml(submitted_invoice, path, invoice):
+    """Archive the observed request content when using the canonical helper."""
+    if _attach_reported_xml is _CANONICAL_REPORTED_XML_ATTACHMENT:
+        return _attach_reported_xml(
+            path, invoice, _xml_content=submitted_invoice.xml_text()
+        )
+    return _attach_reported_xml(path, invoice)
+
+
+def _submitted_qr_payload(submitted_invoice, path):
+    """Read QR from that same observation; keep replacement helper arguments."""
+    if _extract_qr_payload is _CANONICAL_REPORTED_QR_READER:
+        return _extract_qr_payload(path, _xml_content=submitted_invoice.xml_text())
+    return _extract_qr_payload(path)
 
 
 def _persist_reporting_rejection(invoice_number, response):
@@ -356,11 +384,10 @@ def reporting_api(
             expected_doctype="Sales Invoice",
         )
         # Reporting accepts the invoice hash and signed invoice payload.
-        payload = {
-            "invoiceHash": encoded_hash,
-            "uuid": uuid1,
-            "invoice": xml_base64_decode(signed_xmlfile_name),
-        }
+        submitted_invoice = read_invoice_payload(
+            uuid1, encoded_hash, signed_xmlfile_name, read_xml=xml_base64_decode
+        )
+        payload = submitted_invoice.as_payload()
         headers = {
             "accept": "application/json",
             "accept-language": "en",
@@ -473,9 +500,11 @@ def reporting_api(
                         submission, encoded_hash, sales_invoice_doc, msg
                     )
 
-                    _attach_reported_xml(signed_xmlfile_name, sales_invoice_doc)
+                    _attach_submitted_xml(
+                        submitted_invoice, signed_xmlfile_name, sales_invoice_doc
+                    )
                     # Persist the exact QR that was submitted after Reporting accepts it.
-                    qr_payload = _extract_qr_payload(signed_xmlfile_name)
+                    qr_payload = _submitted_qr_payload(submitted_invoice, signed_xmlfile_name)
                     if qr_payload:
                         attach_qr_image(qr_payload, sales_invoice_doc, allow_phase2=True)
                     invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
@@ -519,9 +548,11 @@ def reporting_api(
                         submission, encoded_hash, sales_invoice_doc, msg
                     )
 
-                    _attach_reported_xml(signed_xmlfile_name, sales_invoice_doc)
+                    _attach_submitted_xml(
+                        submitted_invoice, signed_xmlfile_name, sales_invoice_doc
+                    )
                     # Persist the exact QR that was submitted after Reporting accepts it.
-                    qr_payload = _extract_qr_payload(signed_xmlfile_name)
+                    qr_payload = _submitted_qr_payload(submitted_invoice, signed_xmlfile_name)
                     if qr_payload:
                         attach_qr_image(qr_payload, sales_invoice_doc, allow_phase2=True)
                     invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
@@ -588,11 +619,10 @@ def clearance_api(
             company_abbr, sales_invoice_doc, invoice_number, "invoices/clearance/single",
             expected_doctype="Sales Invoice",
         )
-        payload = {
-            "invoiceHash": encoded_hash,
-            "uuid": uuid1,
-            "invoice": xml_base64_decode(signed_xmlfile_name),
-        }
+        submitted_invoice = read_invoice_payload(
+            uuid1, encoded_hash, signed_xmlfile_name, read_xml=xml_base64_decode
+        )
+        payload = submitted_invoice.as_payload()
 
         headers = {
             "accept": "application/json",
