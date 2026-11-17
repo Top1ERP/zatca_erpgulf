@@ -481,3 +481,52 @@ def test_303_state_without_untampered_receipt_cannot_authorize_fallback(connecti
             now_utc=NOW+timedelta(seconds=1),supersedes_attempt=prior_id)
     assert caught.value.code=='dispatch_record_integrity'
     connection.rollback()
+
+
+def test_native_capacity_preflight_reads_real_column_types_without_changing_them(connections,tables):
+    from zatca_erpgulf.zatca_erpgulf.native_dispatch import _require_source_output_capacity,NativeDispatchError
+    connection=connections();database=Database(connection)
+    with connection.cursor() as cursor:
+        cursor.execute('CREATE TABLE `tabSales Invoice` (custom_uuid VARCHAR(36),custom_zatca_icv INT,'
+            'custom_zatca_issuing_unit VARCHAR(40)) ENGINE=InnoDB')
+    _require_source_output_capacity(database,'Sales Invoice',str(2**31-1))
+    with pytest.raises(NativeDispatchError) as small:
+        _require_source_output_capacity(database,'Sales Invoice',str(2**31))
+    assert small.value.code=='native_source_counter_capacity'
+    with connection.cursor() as cursor:
+        cursor.execute('ALTER TABLE `tabSales Invoice` MODIFY custom_zatca_icv BIGINT')
+    _require_source_output_capacity(database,'Sales Invoice',str(2**63-1))
+    with pytest.raises(NativeDispatchError):
+        _require_source_output_capacity(database,'Sales Invoice',str(2**63))
+    with connection.cursor() as cursor:
+        cursor.execute('ALTER TABLE `tabSales Invoice` MODIFY custom_zatca_icv FLOAT')
+    with pytest.raises(NativeDispatchError):
+        _require_source_output_capacity(database,'Sales Invoice','1')
+    with connection.cursor() as cursor:
+        cursor.execute('SELECT data_type FROM information_schema.columns WHERE table_schema=DATABASE() '
+            'AND table_name=%s AND column_name=%s',('tabSales Invoice','custom_zatca_icv'))
+        assert cursor.fetchone()==('float',)  # The preflight did not repair/alter it.
+
+
+def test_original_open_uses_current_custody_even_when_reader_snapshot_predates_issuance(connections,chain):
+    reader=connections()
+    with reader.cursor() as cursor:
+        cursor.execute('SELECT COUNT(*) FROM `tabZATCA Issuance` WHERE chain=%s',(chain['record_id'],))
+        assert cursor.fetchone()==(0,)
+    values=staged(connections,chain)
+    with reader.cursor() as cursor:
+        cursor.execute('SELECT COUNT(*) FROM `tabZATCA Issuance` WHERE chain=%s',(chain['record_id'],))
+        assert cursor.fetchone()==(0,)  # The ordinary repeatable-read view is still old.
+    assert store(reader).open_issuance(values['record_id'])[1]==BODY
+
+
+def test_receipt_open_uses_current_sealed_body_after_earlier_started_snapshot(connections,chain):
+    values=staged(connections,chain);attempt_id,fence=started(connections,chain,values)
+    reader=connections()
+    with reader.cursor() as cursor:
+        cursor.execute('SELECT state FROM `tabZATCA Dispatch Attempt` WHERE name=%s',(attempt_id,))
+        assert cursor.fetchone()==('STARTED',)
+    writer=connections();repo,head,issuance=locked(writer,chain,values['record_id'])
+    repo.retain_receipt(head,issuance,attempt_id=attempt_id,fence_token=fence,http_status=200,request_id='',body=b'NEW-RECEIPT')
+    writer.commit()
+    assert store(reader).open_receipt(attempt_id)[1]==b'NEW-RECEIPT'

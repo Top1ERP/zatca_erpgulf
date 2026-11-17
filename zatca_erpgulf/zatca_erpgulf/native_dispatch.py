@@ -10,7 +10,7 @@ import hashlib
 import json
 from uuid import uuid4
 
-from .dispatch_store import DispatchStore
+from .dispatch_store import DispatchStore, _counter
 from .issuing_attempt import issuing_attempt
 from .issuing_reads import DEPENDENCIES
 from .native_preparation import (
@@ -128,6 +128,44 @@ def _changed_once(database):
         raise NativeDispatchError('native_source_update_compare')
 
 
+def _require_source_output_capacity(database, doctype, icv):
+    """Read actual current-DB column capacity; never alter an ERP source schema.
+
+    The journal's64-digit bound is not a promise that an installed ERP Int field
+    can store that value. Stop before signing/staging rather than truncate or
+    convert a counter through float. Installed UI/metadata parity remains5.
+    """
+    if doctype not in SOURCE_TABLES:
+        raise NativeDispatchError('native_source_identity')
+    number = _counter(icv)
+    names = ('custom_uuid', 'custom_zatca_icv', 'custom_zatca_issuing_unit')
+    rows = database.sql('SELECT column_name AS fieldname,data_type AS kind,'
+        'character_maximum_length AS max_chars,column_type AS declaration '
+        'FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=%s '
+        'AND column_name IN (%s,%s,%s)', ('tab' + doctype, *names), as_dict=True)
+    fields = {row['fieldname']: row for row in rows}
+    if len(rows) != 3 or set(fields) != set(names):
+        raise NativeDispatchError('native_source_output_schema_required')
+    strings = ('char', 'varchar', 'tinytext', 'text', 'mediumtext', 'longtext')
+    for name, minimum in (('custom_uuid', 36), ('custom_zatca_issuing_unit', 40)):
+        column = fields[name]
+        if (column['kind'] not in strings or type(column['max_chars']) is not int
+                or column['max_chars'] < minimum):
+            raise NativeDispatchError('native_source_output_schema_required')
+    column = fields['custom_zatca_icv']
+    bits = {'tinyint': 8, 'smallint': 16, 'mediumint': 24, 'int': 32, 'bigint': 64}.get(column['kind'])
+    if bits is not None:
+        if type(column['declaration']) is not str:
+            raise NativeDispatchError('native_source_output_schema_required')
+        unsigned = 'unsigned' in column['declaration'].split()
+        fits = number <= 2 ** (bits if unsigned else bits - 1) - 1
+    else:
+        fits = (column['kind'] in strings and type(column['max_chars']) is int
+            and len(icv) <= column['max_chars'])
+    if not fits:
+        raise NativeDispatchError('native_source_counter_capacity')
+
+
 def _require_retained_binding(header,chain,scope,material,doctype,invoice_name):
     if (header['company']!=scope.company.name or header['environment']!=material.route.environment
             or header['chain']!=chain['record_id']
@@ -181,6 +219,7 @@ def prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build):
                 owner.commit()
                 return RetainedNativeIssuance(latest['record_id'],latest['state'],True,doctype,invoice_name)
             _require_new_source(locked)
+            _require_source_output_capacity(owner.database,doctype,str(int(chain['last_icv'])+1))
             tables=_business_tables(runtime,locked)
             proposed_uuid=str(uuid4())
             packet=None
@@ -237,6 +276,7 @@ def reserve_saved_issuance(doctype,invoice_name,*,runtime,translate,supersedes_a
             issuance=repository.lock_issuance(chain,latest['record_id'])
             header,original=repository.open_issuance(issuance['record_id'])
             _require_retained_binding(header,chain,scope,material,doctype,invoice_name)
+            _require_source_output_capacity(owner.database,doctype,header['icv'])
             if (locked.get('custom_uuid')!=header['invoice_uuid']
                     or str(locked.get('custom_zatca_icv'))!=header['icv']
                     or locked.get('custom_zatca_issuing_unit')!='egs:'+chain['record_id']):

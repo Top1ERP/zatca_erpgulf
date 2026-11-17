@@ -889,3 +889,4 @@ The ZATCA issuing context could not be confirmed after a transport invocation. T
 "The invoice transaction has committed, but background queue registration could not be confirmed. A worker may already be processing this invoice. Review the saved submission state before retrying.",اكتمل حفظ معاملة الفاتورة، لكن تعذر تأكيد تسجيلها في طابور الخلفية. قد يكون عامل الخلفية يعالجها بالفعل. راجع حالة الإرسال المحفوظة قبل إعادة المحاولة.
 ZATCA issuance records are maintained by the submission service and cannot be edited manually.,تدير خدمة الإرسال سجلات إصدار زاتكا ولا يمكن تعديلها يدوياً.
 ZATCA issuance records must be retained and cannot be deleted manually.,يجب الاحتفاظ بسجلات إصدار زاتكا ولا يمكن حذفها يدوياً.
+Immutable identity recorded by the dispatch service; generic ERP renames must not rewrite authenticated history.,هوية ثابتة يسجلها مسار الإرسال؛ يجب ألا تغيّر إعادة التسمية العامة في النظام هويات السجل المحمي.

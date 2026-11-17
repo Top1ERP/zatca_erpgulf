@@ -376,7 +376,8 @@ class DispatchStore:
         with self._operation():
             _identifier(attempt_id)
             rows=self._sql('SELECT '+','.join('`'+field+'`' for field in RECEIPT_FIELDS)+
-                ',SUBSTRING(receipt_ciphertext,1,%s) AS receipt_ciphertext FROM '+TABLE_ATTEMPT+' WHERE name=%s',
+                ',SUBSTRING(receipt_ciphertext,1,%s) AS receipt_ciphertext FROM '+TABLE_ATTEMPT+
+                ' WHERE name=%s LOCK IN SHARE MODE NOWAIT',
                 (MAX_CIPHERTEXT_CHARS+1,attempt_id))
             if len(rows)!=1:raise DispatchStoreError('dispatch_attempt_missing')
             row=dict(rows[0]);encrypted=row.pop('receipt_ciphertext')
@@ -495,11 +496,17 @@ class DispatchStore:
             return header['record_id']
 
     def open_issuance(self, record_id):
-        """Bound read/decrypt; no re-sign, source mutation or network decision."""
+        """Bound current read/decrypt; no re-sign or network decision.
+
+        A worker's earlier namespace/source read can have opened a repeatable-
+        read snapshot before another worker committed this row. A shared current
+        read must see its committed custody, not silently treat it as missing.
+        """
         with self._operation():
             _identifier(record_id)
             rows=self._sql('SELECT '+','.join('`'+field+'`' for field in ARTIFACT_FIELDS)+
-                ',SUBSTRING(artifact_ciphertext,1,%s) AS artifact_ciphertext FROM '+TABLE_ISSUANCE+' WHERE name=%s',
+                ',SUBSTRING(artifact_ciphertext,1,%s) AS artifact_ciphertext FROM '+TABLE_ISSUANCE+
+                ' WHERE name=%s LOCK IN SHARE MODE NOWAIT',
                 (MAX_CIPHERTEXT_CHARS+1,record_id))
             if len(rows)!=1:raise DispatchStoreError('dispatch_issuance_missing')
             row=dict(rows[0]);encrypted=row.pop('artifact_ciphertext')

@@ -97,6 +97,24 @@ def test_uncertain_commit_is_not_followed_by_speculative_rollback(boundary):
     assert caught.value.__context__ is None and 'PRIVATE' not in str(caught.value)
 
 
+@pytest.mark.parametrize('change',['site','actor','connection','socket','key','callbacks'])
+def test_changed_binding_during_a_returning_commit_is_unknown_and_cannot_release_dispatch(boundary,change):
+    runtime,db,connection=boundary
+    def commit():
+        if change=='site':runtime.local.site='changed.invalid'
+        elif change=='actor':runtime.session.user='another-user'
+        elif change=='connection':db._conn=object()
+        elif change=='socket':connection._sock=object()
+        elif change=='key':runtime.conf['encryption_key']='changed'
+        elif change=='callbacks':db.after_commit._functions.append(lambda:None)
+    db.commit.side_effect=commit
+    with pytest.raises(WorkerTransactionError) as caught:
+        with owned_worker_transaction(runtime) as owner:owner.commit()
+    assert caught.value.commit_uncertain and owner.state=='COMMIT_UNKNOWN'
+    db.rollback.assert_called_once()
+    assert OWNED_WORKER.get() is None
+
+
 @pytest.mark.parametrize('key',[None,'','invalid',base64.urlsafe_b64encode(b'X'*16).decode()])
 def test_missing_or_invalid_site_key_is_not_generated_or_saved(boundary,key):
     runtime,db,_=boundary;runtime.conf['encryption_key']=key;before=dict(runtime.conf)

@@ -45,7 +45,12 @@ def coordinator(boundary, materials, monkeypatch):
     b.frappe.has_permission = permitted
     chain = registration(b, owner, materials[0])
     state = SimpleNamespace(active=False, committed=False, rolled_back=False)
-    database = SimpleNamespace(sql=Mock(return_value=[{'changed': 1}]))
+    def sql(statement, values=(), **kwargs):
+        if 'information_schema.columns' in statement:
+            return [dict(fieldname=name, kind='varchar', max_chars=140, declaration='varchar(140)')
+                for name in ('custom_uuid', 'custom_zatca_icv', 'custom_zatca_issuing_unit')]
+        return [{'changed': 1}]
+    database = SimpleNamespace(sql=Mock(side_effect=sql))
     worker = SimpleNamespace(database=database, actor=b.frappe.session.user, site=b.frappe.local.site,
         storage_namespace='30000000-0000-4000-8000-000000000001', cipher=object(),
         owner_current=lambda: state.active)
@@ -118,7 +123,7 @@ def test_exact_native_handoff_is_stored_before_source_outputs_and_commit(coordin
     assert saved_chain is c.chain
     assert header['artifact_sha256'] == hashlib.sha256(original).hexdigest()
     assert header['source_name'] == source.name and header['icv'] == '1'
-    assert c.worker.database.sql.call_count == 4
+    assert c.worker.database.sql.call_count == 5
     assert c.state.committed and not c.state.rolled_back
     b.request.assert_not_called()
     b.frappe.db.commit.assert_not_called()
@@ -183,6 +188,7 @@ def test_returning_without_final_handoff_rolls_back_without_staging(coordinator)
 @pytest.mark.parametrize('value', [0, 2, True])
 def test_source_update_requires_one_literal_changed_row(coordinator, value):
     c = coordinator
+    c.worker.database.sql.side_effect = None
     c.worker.database.sql.return_value = [{'changed': value}]
     with pytest.raises(dispatch.NativeDispatchError) as caught:
         dispatch._changed_once(c.worker.database)
@@ -294,7 +300,7 @@ def test_assessment_uses_decrypted_original_and_receipt_then_commits_before_deri
     assessor.assert_called_once_with(header, original, metadata, receipt, fallback_receipt=None)
     c.repository.record_assessment.assert_called_once_with(c.chain, header,
         attempt_id=invocation.attempt_id, fence_token=invocation.fence_token, outcome='REPORTING_MATCHED')
-    c.worker.database.sql.assert_not_called()
+    assert c.worker.database.sql.call_count == 1  # Reservation capacity preflight only.
     assert c.state.committed and not c.state.active
 
 
@@ -379,3 +385,50 @@ def test_undefined_sender_result_never_becomes_a_retained_success(orchestration)
     assert caught.value.code == 'native_transport_contract_unknown'
     assert not caught.value.receipt_retained
     o.functions['assess_retained_dispatch'].assert_not_called()
+
+
+@pytest.mark.parametrize('kind,declaration,limit,value,valid', [
+    ('int', 'int(11)', None, str(2**31-1), True), ('int', 'int(11)', None, str(2**31), False),
+    ('bigint', 'bigint(20)', None, str(2**63-1), True), ('bigint', 'bigint(20)', None, str(2**63), False),
+    ('bigint', 'bigint(20) unsigned', None, str(2**64-1), True),
+    ('varchar', 'varchar(64)', 64, '9'*64, True), ('varchar', 'varchar(3)', 3, '1000', False),
+    ('float', 'float', None, '1', False), ('decimal', 'decimal(20,0)', None, '1', False),
+])
+def test_source_capacity_uses_exact_storage_limits_without_float(kind, declaration, limit, value, valid):
+    rows = [dict(fieldname=name, kind='varchar', max_chars=140, declaration='varchar(140)')
+        for name in ('custom_uuid', 'custom_zatca_icv', 'custom_zatca_issuing_unit')]
+    rows[1].update(kind=kind, declaration=declaration, max_chars=limit)
+    database = SimpleNamespace(sql=Mock(return_value=rows))
+    if valid:
+        dispatch._require_source_output_capacity(database, 'POS Invoice', value)
+    else:
+        with pytest.raises(dispatch.NativeDispatchError) as caught:
+            dispatch._require_source_output_capacity(database, 'POS Invoice', value)
+        assert caught.value.code == 'native_source_counter_capacity'
+    assert database.sql.call_count == 1
+    assert database.sql.call_args.args[0].startswith('SELECT')
+
+
+@pytest.mark.parametrize('fault', ['missing', 'duplicate', 'uuid_short', 'unit_short'])
+def test_missing_or_insufficient_output_columns_stop_before_build_or_staging(coordinator, fault):
+    c = coordinator
+    rows = [dict(fieldname=name, kind='varchar', max_chars=140, declaration='varchar(140)')
+        for name in ('custom_uuid', 'custom_zatca_icv', 'custom_zatca_issuing_unit')]
+    if fault == 'missing':
+        rows.pop()
+    elif fault == 'duplicate':
+        rows.append(rows[0])
+    elif fault == 'uuid_short':
+        rows[0]['max_chars'] = 35
+    elif fault == 'unit_short':
+        rows[2]['max_chars'] = 39
+    c.worker.database.sql.side_effect = None
+    c.worker.database.sql.return_value = rows
+    build = Mock()
+    with pytest.raises(dispatch.NativeDispatchError) as caught:
+        dispatch.prepare_saved_invoice('Sales Invoice', 'SI', runtime=c.b.frappe,
+            translate=lambda text: text, build=build)
+    assert caught.value.code == 'native_source_output_schema_required'
+    build.assert_not_called()
+    c.repository.stage_issuance.assert_not_called()
+    assert c.state.rolled_back and not c.state.committed

@@ -35,19 +35,21 @@
   },
   {
    "fieldname": "issuance",
-   "fieldtype": "Link",
+   "fieldtype": "Data",
    "label": "Issuance",
    "read_only": 1,
-   "options": "ZATCA Issuance",
-   "reqd": 1
+   "reqd": 1,
+   "search_index": 1,
+   "description": "Immutable identity recorded by the dispatch service; generic ERP renames must not rewrite authenticated history."
   },
   {
    "fieldname": "company",
-   "fieldtype": "Link",
+   "fieldtype": "Data",
    "label": "Company",
    "read_only": 1,
-   "options": "Company",
-   "reqd": 1
+   "reqd": 1,
+   "search_index": 1,
+   "description": "Immutable identity recorded by the dispatch service; generic ERP renames must not rewrite authenticated history."
   },
   {
    "fieldname": "source_doctype",
@@ -59,11 +61,12 @@
   },
   {
    "fieldname": "source_name",
-   "fieldtype": "Dynamic Link",
+   "fieldtype": "Data",
    "label": "Source Invoice",
    "read_only": 1,
-   "options": "source_doctype",
-   "reqd": 1
+   "reqd": 1,
+   "search_index": 1,
+   "description": "Immutable identity recorded by the dispatch service; generic ERP renames must not rewrite authenticated history."
   },
   {
    "fieldname": "environment",

@@ -57,11 +57,12 @@
   },
   {
    "fieldname": "owner_name",
-   "fieldtype": "Dynamic Link",
+   "fieldtype": "Data",
    "label": "Credential Owner",
    "read_only": 1,
-   "options": "owner_doctype",
-   "reqd": 1
+   "reqd": 1,
+   "search_index": 1,
+   "description": "Immutable identity recorded by the dispatch service; generic ERP renames must not rewrite authenticated history."
   },
   {
    "fieldname": "environment",

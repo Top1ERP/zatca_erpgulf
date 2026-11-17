@@ -56,3 +56,13 @@ def test_artifact_and_chain_slots_are_unique_independent_of_human_invoice_number
     chain={f['fieldname']:f for f in metadata('ZATCA Issuing Chain')['fields']}
     assert chain['active_owner_key']['unique']==1 and not chain['active_owner_key'].get('reqd')
     assert not chain['owner_key'].get('unique')  # Retain older registrations without a new active slot.
+
+
+def test_authenticated_identities_cannot_be_rewritten_by_generic_link_renames():
+    from zatca_erpgulf.zatca_erpgulf.dispatch_store import ARTIFACT_FIELDS, ATTEMPT_FIELDS
+    for name, fields in (('ZATCA Issuance', ARTIFACT_FIELDS), ('ZATCA Dispatch Attempt', ATTEMPT_FIELDS)):
+        declared = {field['fieldname']: field for field in metadata(name)['fields']}
+        assert all(declared[field]['fieldtype'] not in ('Link', 'Dynamic Link') for field in fields)
+    chain = {field['fieldname']: field for field in metadata('ZATCA Issuing Chain')['fields']}
+    assert chain['owner_name']['fieldtype'] == 'Data'
+    assert chain['owner_name']['read_only'] == 1

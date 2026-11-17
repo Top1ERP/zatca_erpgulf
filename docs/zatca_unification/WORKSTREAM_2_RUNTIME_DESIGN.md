@@ -228,15 +228,43 @@ Logs: `/tmp/zatca-axis2-central-private-final.log`,
 The source-only bigint customization currently covers Sales Invoice; the private
 pipeline intentionally uses string ICV support columns. Internal64-digit parsing
 does not prove installed Sales/POS field capacity or browser JSON integer fidelity.
-Installed5 must verify both source schemas and migration/data preservation before
-activation. In this batch the existing financial builders/reference fixtures were
-not changed: the only changed legacy function bodies are UUID/POS metadata/ICV
-guards, the final HTTP fence and its Compliance caller.
+The owned preparation/reservation now reads actual current-DB column definitions
+and stops before signing/staging/dispatch if UUID/unit columns are missing/short
+or the next/retained counter does not fit its integer/string storage. It rejects
+FLOAT/DECIMAL counter columns and never alters a schema or passes ICV through
+float. Private SQL verifies real INT/BIGINT/FLOAT definitions. Installed5 must
+still verify ORM/UI metadata parity, source schemas and data preservation.
+
+Commit return alone is no longer sufficient to release an invocation: physical
+connection/socket/site/actor/key bindings and empty callbacks are rechecked after
+commit. A returning but rebound commit is COMMIT_UNKNOWN with no speculative
+rollback. Original/receipt opens use shared NOWAIT current reads; an earlier
+repeatable-read view cannot hide newly committed custody and invite regeneration.
+Two private SQL cases explicitly keep an old ordinary read snapshot while the
+repository reads the later committed original/response.
+
+Authenticated historical identities are Data, not mutable ERP Link/Dynamic Link
+fields. Local Frappe15 `rename_doc.update_link_field_values` and
+`rename_dynamic_links` rewrite references directly without invoking the referencing
+record's controller. Those rewrites would otherwise invalidate ciphertext AAD.
+The immutable labels/UUID references now survive generic renames; internal data
+references retain search indexes. This does **not** authorize source/owner renames:
+the lifecycle/alias review guard remains required before public adoption so a
+rename cannot strand source lookup or reset an EGS registration.
+
+Focused follow-up logs: `/tmp/zatca-axis2-custody-schema-final.log`629 local cases
+and `/tmp/zatca-axis2-custody-schema-private-final.log`45 private SQL cases. The financial builders
+and reference fixtures remain unchanged; the changed legacy bodies are only
+UUID/POS metadata/ICV guards, the final HTTP fence and its Compliance caller.
 
 ## Next integration batch
 
-1. Derive source/QR/XML/status views only from committed current custody and
-   operation assessment. Keep already accepted originals readable after credential
+1. Derive source/QR/XML/status views from committed current custody and the
+   operation-specific publication rule. A prepared Simplified original may supply
+   its local QR/XML before Reporting, without being marked remotely accepted.
+   Standard publication needs matched clearance or the explicit303 fallback rule.
+   A response writer must never rewind the owner's generation-time PIH to an
+   older accepted invoice. Keep already accepted originals readable after credential
    expiry/rotation; cached accepted recovery must not send another request. Match
    the current source issuance identity before projecting a historical receipt.
 2. Add explicit corrected-rejection versioning. Require a matched retained400,
@@ -254,7 +282,7 @@ guards, the final HTTP fence and its Compliance caller.
    leave another allocating through the legacy counter. External XML needs its
    own source/file/chain admission and cannot consume a freshly proposed random
    native UUID. Unverified extensions must stop before transport.
-5. Complete cancellation/printing/recovery decisions and aggregated translated
+5. Complete cancellation/printing/recovery/rename decisions and aggregated translated
    operator outcomes. Then freeze the workstream2 qualification. Installed5,
    authentic crypto/SDK6, financial3 and the separately approved pilot7 retain
    their own gates; service-only/private-SQL success does not close those gates.

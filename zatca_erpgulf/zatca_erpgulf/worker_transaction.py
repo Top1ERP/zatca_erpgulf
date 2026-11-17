@@ -62,8 +62,12 @@ class WorkerTransaction:
 
     def owner_current(self):
         """No SQL/repair while checking an existing site/actor/physical handle."""
+        return self.state=='ACTIVE' and self._binding_current()
+
+    def _binding_current(self):
+        """Also usable after COMMIT acknowledgment, without issuing another SQL."""
         try:
-            return (self.state=='ACTIVE' and self.runtime.local.site==self.site
+            return (self.runtime.local.site==self.site
                 and self.runtime.local.db is self._expected_db and self.runtime.session.user==self.actor
                 and _configuration(self.runtime,'db_name')==self.db_name
                 and _configuration(self.runtime,'encryption_key')==self._encryption_text
@@ -168,7 +172,7 @@ class WorkerTransaction:
         self.state='COMMITTING';failed=False
         try:self.database.commit()
         except Exception:failed=True
-        if failed:
+        if failed or not self._binding_current() or not _callbacks_empty(self.database):
             self.state='COMMIT_UNKNOWN'
             raise WorkerTransactionError('worker_transaction_commit_unknown',commit_uncertain=True)
         self.state='COMMITTED'
