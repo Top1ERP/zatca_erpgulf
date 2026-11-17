@@ -5,71 +5,28 @@ No latest/name/status fallback, ORM, content reads, images, signing or dispatch.
 Consistent supplied bytes are not proof of origin, persistence or acceptance.
 """
 
-import base64
-import binascii
 from dataclasses import dataclass, field
 import hashlib
 from uuid import UUID
 
-from .artifact_evidence import ArtifactEvidenceError, NS, parse_diagnostic_xml
+from .artifact_evidence import ArtifactEvidenceError
 from .dispatch_journal import DispatchJournal, DispatchJournalError
 from .issuance_candidate import IssuanceContractError, PreparationContext, _canonical_uuid, _sha256
-from .issue_timestamp import IssueTimestampError, parse_issue_datetime
+from .issue_timestamp import IssueTimestampError
 from .response_assessment import CLEARANCE, REPORTING, ResponseAssessment, ResponseAssessmentError
 
 
-MAX_QR_BASE64_CHARS = 16 * 1024
-
-
-class QRSourceSelectionError(ValueError):
-    """Static codes only; no XML/QR/receipt/identity/parser representation."""
-
-    def __init__(self, code):
-        self.code = code
-        super().__init__(code)
-
-
-def _one(parent, xpath, code):
-    nodes = parent.xpath(xpath, namespaces=NS)
-    if len(nodes) != 1:
-        raise QRSourceSelectionError(code)
-    return nodes[0]
-
-
-def _text(node, code, maximum):
-    value = node.text
-    if len(node) or type(value) is not str or not 0 < len(value) <= maximum or value != value.strip():
-        raise QRSourceSelectionError(code)
-    return value
-
-
-def _clock(content):
-    root = parse_diagnostic_xml(content)
-    day = _text(_one(root, "./cbc:IssueDate", "qr_source_date"), "qr_source_date", 10)
-    clock = _text(_one(root, "./cbc:IssueTime", "qr_source_time"), "qr_source_time", 32)
-    # Validate without supplying a current timezone or normalizing historical text.
-    parse_issue_datetime(day, clock)
-    return day, clock
+# Compatibility aliases retain the legacy reader/error ABI without importing its
+# deferred journal model into the native runtime.
+from .qr_xml_contract import (
+    MAX_QR_BASE64_CHARS, QRXMLContractError as QRSourceSelectionError,
+    _one, _text, _clock, _payload as _read_payload,
+)
 
 
 def _payload(content):
-    root = parse_diagnostic_xml(content)
-    reference = _one(root, "./cac:AdditionalDocumentReference[cbc:ID='QR']", "qr_source_reference")
-    if _text(_one(reference, "./cbc:ID", "qr_source_reference"), "qr_source_reference", 2) != "QR":
-        raise QRSourceSelectionError("qr_source_reference")
-    attachment = _one(reference, "./cac:Attachment", "qr_source_attachment")
-    node = _one(attachment, "./cbc:EmbeddedDocumentBinaryObject", "qr_source_payload")
-    payload = _text(node, "qr_source_payload", MAX_QR_BASE64_CHARS)
-    try:
-        decoded = base64.b64decode(payload, validate=True)
-    except (ValueError, binascii.Error):
-        invalid = True
-    else:
-        invalid = not decoded or base64.b64encode(decoded).decode("ascii") != payload
-    if invalid:
-        raise QRSourceSelectionError("qr_source_base64")
-    # Base64 is a bounded lexical observation, NOT TLV/signature/QR validation.
-    return payload, len(decoded)
+    # Keep the legacy module's bounded-reader override for its existing callers.
+    return _read_payload(content, maximum=MAX_QR_BASE64_CHARS)
 
 
 def _select(source):

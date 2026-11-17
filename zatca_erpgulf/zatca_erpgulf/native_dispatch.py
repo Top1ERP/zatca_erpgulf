@@ -52,6 +52,7 @@ class NativeDispatchOutcome:
     warning_count: int
     has_warnings: bool
     reused_accepted: bool = False
+    source_projected: bool = False
 
 
 @dataclass(frozen=True, repr=False)
@@ -186,7 +187,7 @@ def _require_source_output_capacity(database, doctype, icv):
         raise NativeDispatchError('native_source_counter_capacity')
 
 
-def _require_retained_binding(header,chain,scope,material,doctype,invoice_name):
+def _require_retained_binding(header,chain,scope,material,doctype,invoice_name,*,check_source=True):
     if (header['company']!=scope.company.name or header['environment']!=material.route.environment
             or header['chain']!=chain['record_id']
             or (header['source_doctype'],header['source_name'])!=(doctype,invoice_name)
@@ -198,7 +199,7 @@ def _require_retained_binding(header,chain,scope,material,doctype,invoice_name):
         raise NativeDispatchError('native_retained_route_review')
     # Conservative until a documented fiscal projection permits specific
     # nonfiscal updates. Drift never grants permission to regenerate an original.
-    if header['source_sha256']!=source_observation_sha256(scope.source_identity,scope.source_observation):
+    if check_source and header['source_sha256']!=source_observation_sha256(scope.source_identity,scope.source_observation):
         raise NativeDispatchError('native_retained_source_review')
 
 
@@ -209,6 +210,68 @@ def prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build):
     a changed ERP source/credential does not grant it. Existing prepared/unknown
     originals are returned for the dispatch policy to review, never regenerated.
     """
+    return _prepare_saved_invoice(doctype,invoice_name,runtime=runtime,translate=translate,build=build)
+
+
+def prepare_corrected_rejection(doctype,invoice_name,*,runtime,translate,build,
+                                rejected_issuance_id,rejected_attempt_id):
+    """Explicit new local version after an exact retained validation rejection.
+
+    No submission or business-data edit is performed. The canonical builder
+    must supply corrected saved data and a distinct valid issue timestamp;
+    Reporting retains the original transaction date. An unchanged clock fails
+    locally rather than silently rewriting ERP posting dates or times.
+    """
+    from .dispatch_store import _identifier
+    _identifier(rejected_issuance_id)
+    _identifier(rejected_attempt_id)
+    return _prepare_saved_invoice(doctype,invoice_name,runtime=runtime,translate=translate,build=build,
+        rejection=(rejected_issuance_id,rejected_attempt_id))
+
+
+def _rejected_original(repository,chain,latest,source,rejection):
+    if (latest is None or latest['record_id']!=rejection[0] or latest['state']!='REJECTED'
+            or latest['active_attempt']!=rejection[1] or chain['active_attempt']):
+        raise NativeDispatchError('native_corrected_rejection_current_required')
+    latest=repository.lock_issuance(chain,latest['record_id'])
+    header,original=repository.open_issuance(latest['record_id'])
+    if type(header['source_version']) is not int or not 1<=header['source_version']<2147483647:
+        raise NativeDispatchError('native_corrected_version_capacity')
+    if (source.get('custom_uuid')!=header['invoice_uuid']
+            or type(source.get('custom_zatca_icv')) not in (int,str)
+            or str(source.get('custom_zatca_icv'))!=header['icv']
+            or source.get('custom_zatca_issuing_unit')!='egs:'+chain['record_id']
+            or source.get('custom_zatca_status') in ('REPORTED','CLEARED')):
+        raise NativeDispatchError('native_source_issuance_outputs_review')
+    receipt,body=repository.open_receipt(rejection[1])
+    fallback=repository.open_clearance_fallback(latest) if header['endpoint']!=receipt['endpoint'] else None
+    assessment=assess_native_receipt(header,original,receipt,body,fallback_receipt=fallback)
+    if receipt['http_status']!=400 or assessment.outcome!='VALIDATION_REJECTED':
+        raise NativeDispatchError('native_corrected_rejection_receipt_required')
+    return header,original
+
+
+def _require_corrected_artifact(previous,original,header,packet):
+    """Check the new identity/time without calculating or editing ERP amounts."""
+    from .issuance_candidate import _invoice_classification
+    from .qr_xml_contract import _clock
+    from .issue_timestamp import parse_issue_datetime
+    old_xml,_=_original(previous,original)
+    new_xml,_=_original(header,packet.request_bytes)
+    old_clock,new_clock=_clock(old_xml),_clock(new_xml)
+    old_instant=parse_issue_datetime(*old_clock)
+    new_instant=parse_issue_datetime(*new_clock)
+    if (header['invoice_uuid']==previous['invoice_uuid'] or header['invoice_hash']==previous['invoice_hash']
+            or int(header['icv'])<=int(previous['icv']) or old_instant==new_instant
+            or old_instant.utcoffset() is None or new_instant.utcoffset() is None
+            or _invoice_classification(new_xml)!=_invoice_classification(old_xml)
+            or header['endpoint']!=previous['endpoint']):
+        raise NativeDispatchError('native_corrected_artifact_review')
+    if header['endpoint']=='invoices/reporting/single' and new_clock[0]!=old_clock[0]:
+        raise NativeDispatchError('native_corrected_reporting_date_review')
+
+
+def _prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build,rejection=None):
     if doctype not in SOURCE_TABLES or type(invoice_name) is not str or not invoice_name:
         raise NativeDispatchError('native_source_identity')
     if not callable(build):raise NativeDispatchError('native_build_callback')
@@ -233,12 +296,21 @@ def prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build):
             locked=runtime.get_doc(doctype,invoice_name,for_update=True)
             scope.bind_prepared_invoice(locked)
             latest=repository.latest_issuance(chain['record_id'],doctype,invoice_name)
-            if latest is not None:
+            previous=None
+            if rejection is not None:
+                previous,old_original=_rejected_original(repository,chain,latest,locked,rejection)
+                _require_retained_binding(previous,chain,scope,material,doctype,invoice_name,check_source=False)
+                # These compatibility fields are cleared atomically only when
+                # the new custody/version/source identity is committed.
+                from .native_projection import _status_columns
+                _status_columns(owner.database,doctype,'Not Submitted','')
+            elif latest is not None:
                 header,original=repository.open_issuance(latest['record_id'])
                 _require_retained_binding(header,chain,scope,material,doctype,invoice_name)
                 owner.commit()
                 return RetainedNativeIssuance(latest['record_id'],latest['state'],True,doctype,invoice_name)
-            _require_new_source(locked)
+            else:
+                _require_new_source(locked)
             _require_source_output_capacity(owner.database,doctype,str(int(chain['last_icv'])+1))
             tables=_business_tables(runtime,locked)
             proposed_uuid=str(uuid4())
@@ -253,11 +325,19 @@ def prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build):
             scope.confirm_current()
             record_id=str(uuid4())
             occurred_at=owner.utc_now()
-            repository.stage_issuance(chain,_header(packet,record_id,1),packet.request_bytes,
+            version=1 if previous is None else previous['source_version']+1
+            header=_header(packet,record_id,version)
+            if previous is not None:
+                header['replaces_issuance']=previous['record_id']
+                _require_corrected_artifact(previous,old_original,header,packet)
+            repository.stage_issuance(chain,header,packet.request_bytes,
                 actor=owner.actor,occurred_at=occurred_at)
+            reset=',custom_zatca_status=%s,custom_zatca_full_response=%s' if previous is not None else ''
+            output=(packet.invoice_uuid,packet.icv,'egs:'+chain['record_id'])
+            if previous is not None:output+=('Not Submitted','')
             owner.database.sql('UPDATE '+SOURCE_TABLES[doctype]+
-                ' SET custom_uuid=%s,custom_zatca_icv=%s,custom_zatca_issuing_unit=%s WHERE name=%s',
-                (packet.invoice_uuid,packet.icv,'egs:'+chain['record_id'],invoice_name))
+                ' SET custom_uuid=%s,custom_zatca_icv=%s,custom_zatca_issuing_unit=%s'+reset+' WHERE name=%s',
+                (*output,invoice_name))
             _changed_once(owner.database)
             owner.database.sql('UPDATE '+OWNER_TABLES[scope.owner.doctype]+' SET custom_pih=%s WHERE name=%s',
                 (packet.invoice_hash,scope.owner.name))
@@ -409,18 +489,35 @@ def read_retained_invoice(doctype,invoice_name,*,runtime):
             accepted,warnings,has_warnings,xml,returned)
 
 
+def _project_source_status(doctype, invoice_name, *, runtime, readonly_cache=False):
+    # Import at the coordinator boundary: the projector reuses source ACL and
+    # identity helpers but cannot invoke transport or create another issuance.
+    from .native_projection import project_accepted_status
+    return project_accepted_status(doctype, invoice_name, runtime=runtime,
+        skip_if_readonly=readonly_cache).projected
+
+
 def dispatch_saved_invoice(doctype, invoice_name, *, runtime, translate, build, retry_attempt_id=None):
     """One native preparation, exact dispatch/custody and bounded303 fallback.
 
     Internal coordinator only, not a whitelisted RPC or public build callback.
     Each service owns and commits its separate transaction. The response is
     retained before assessment, and no legacy source-reset handler runs here.
-    Source/QR/File projection and public worker adoption remain separate work.
+    Accepted source status is projected after receipt assessment. QR/XML reading
+    is separate; File publication and public worker adoption remain open.
     """
     retained=read_retained_invoice(doctype,invoice_name,runtime=runtime)
     if retained is not None and retained.accepted:
+        projection_failed = False
+        try:
+            projected = _project_source_status(doctype, invoice_name, runtime=runtime, readonly_cache=True)
+        except Exception:
+            projection_failed = True
+        if projection_failed:
+            raise NativeDispatchReview('native_source_projection_incomplete', issuance_id=retained.issuance_id,
+                attempt_id=retained.attempt_id, invoked=False, receipt_retained=True)
         return NativeDispatchOutcome(retained.issuance_id,retained.attempt_id,retained.outcome,
-            True,retained.warning_count,retained.has_warnings,True)
+            True,retained.warning_count,retained.has_warnings,True,projected)
     if retained is None:
         prepare_saved_invoice(doctype, invoice_name, runtime=runtime, translate=translate, build=build)
     supersedes = retry_attempt_id
@@ -459,7 +556,18 @@ def dispatch_saved_invoice(doctype, invoice_name, *, runtime, translate, build, 
         if assessment.outcome == 'CLEARANCE_DISABLED' and current:
             supersedes = invocation.attempt_id
             continue
+        projected = False
+        if current and assessment.outcome in ('REPORTING_MATCHED', 'REPORTING_DUPLICATE_MATCHED',
+                'CLEARANCE_MATCHED', 'CLEARANCE_DUPLICATE_MATCHED'):
+            projection_failed = False
+            try:
+                projected = _project_source_status(doctype, invoice_name, runtime=runtime)
+            except Exception:
+                projection_failed = True
+            if projection_failed:
+                raise NativeDispatchReview('native_source_projection_incomplete', issuance_id=invocation.issuance_id,
+                    attempt_id=invocation.attempt_id, invoked=True, receipt_retained=True)
         return NativeDispatchOutcome(invocation.issuance_id, invocation.attempt_id, assessment.outcome,
-            current, assessment.warning_count, assessment.has_warnings)
+            current, assessment.warning_count, assessment.has_warnings,source_projected=projected)
     raise NativeDispatchReview('native_fallback_limit', issuance_id=invocation.issuance_id,
         attempt_id=invocation.attempt_id, invoked=True, receipt_retained=True)

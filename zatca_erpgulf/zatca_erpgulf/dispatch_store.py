@@ -152,6 +152,20 @@ class DispatchStore:
                 ' FROM '+TABLE_CHAIN+' WHERE name=%s AND owner_key=%s FOR UPDATE NOWAIT',(chain_id,owner_key))
             return self._remember_chain(rows,owner_key,require_active=False)
 
+    def lock_chain_reference(self, chain_id):
+        """Lock a saved source's opaque chain, without selecting current keys.
+
+        The source service checks read/write ACL before this historical lookup.
+        This is not registration, activation or permission to dispatch a request.
+        """
+        with self._operation():
+            _identifier(chain_id)
+            rows = self._sql('SELECT '+','.join('`'+field+'`' for field in CHAIN_FIELDS)+
+                ' FROM '+TABLE_CHAIN+' WHERE name=%s FOR UPDATE NOWAIT', (chain_id,))
+            if len(rows) != 1:
+                raise DispatchStoreError('dispatch_registration_required')
+            return self._remember_chain(rows, rows[0]['owner_key'], require_active=False)
+
     def _remember_chain(self,rows,owner_key,*,require_active):
         if len(rows)!=1:raise DispatchStoreError('dispatch_registration_required')
         chain=dict(rows[0])
@@ -217,10 +231,12 @@ class DispatchStore:
                 raise DispatchStoreError('dispatch_source_identity')
             rows=self._sql('SELECT '+','.join('`'+field+'`' for field in ARTIFACT_FIELDS)+
                 ',state,active_attempt,state_version FROM '+TABLE_ISSUANCE+
-                ' WHERE source_doctype=%s AND source_name=%s AND company=%s AND chain=%s '
-                'AND invoice_uuid=%s AND icv=%s LOCK IN SHARE MODE NOWAIT',
-                (doctype,invoice_name,company,chain_id,invoice_uuid,icv))
-            if len(rows)!=1:raise DispatchStoreError('dispatch_source_custody_review')
+                ' WHERE source_doctype=%s AND source_name=%s AND chain=%s '
+                'ORDER BY source_version DESC LIMIT 1 LOCK IN SHARE MODE NOWAIT',
+                (doctype,invoice_name,chain_id))
+            if (len(rows)!=1 or (rows[0]['company'],rows[0]['invoice_uuid'],rows[0]['icv'])
+                    !=(company,invoice_uuid,icv)):
+                raise DispatchStoreError('dispatch_source_custody_review')
             row=MappingProxyType(dict(rows[0]))
             self._locked_issuances[row['record_id']]=row
             return row

@@ -104,6 +104,27 @@ def test_whole_rollback_removes_artifact_and_counter_advance(connections,chain):
         assert cursor.fetchone()==(0,)
 
 
+def test_current_source_lookup_cannot_select_an_older_version_by_resetting_uuid(connections,chain):
+    connection=connections();repo=store(connection);locked=repo.lock_active_chain(chain['owner_key']);first=header(chain)
+    repo.stage_issuance(locked,first,BODY,actor='TEST',occurred_at=NOW);connection.commit()
+    repo=store(connection);locked=repo.lock_active_chain(chain['owner_key']);second=header(chain)
+    # Synthetic storage setup only: source-level replacement admission belongs
+    # to the coordinator, not this fixed-table repository method.
+    second.update(source_name=first['source_name'],source_version=2,icv='2',previous_hash=first['invoice_hash'],
+        replaces_issuance=first['record_id'],icv_key=hashlib.sha256((chain['record_id']+'\0'+'2').encode()).hexdigest())
+    repo.stage_issuance(locked,second,BODY,actor='TEST',occurred_at=NOW);connection.commit()
+    with pytest.raises(DispatchStoreError,match='dispatch_source_custody_review'):
+        store(connection).find_source_issuance(doctype='Sales Invoice',invoice_name=first['source_name'],
+            company=first['company'],chain_id=first['chain'],invoice_uuid=first['invoice_uuid'],icv=first['icv'])
+    connection.rollback()
+    current=store(connection).find_source_issuance(doctype='Sales Invoice',invoice_name=second['source_name'],
+        company=second['company'],chain_id=second['chain'],invoice_uuid=second['invoice_uuid'],icv=second['icv'])
+    assert current['record_id']==second['record_id']
+    # Historical originals remain available through explicit record custody.
+    old,raw=store(connection).open_issuance(first['record_id'])
+    assert old['invoice_uuid']==first['invoice_uuid'] and raw==BODY
+
+
 def test_competing_worker_cannot_acquire_same_chain_and_failed_handle_cannot_continue(connections,chain):
     first,second=connections(),connections();store(first).lock_active_chain(chain['owner_key']);contender=store(second)
     with pytest.raises(DispatchStoreError) as caught:contender.lock_active_chain(chain['owner_key'])

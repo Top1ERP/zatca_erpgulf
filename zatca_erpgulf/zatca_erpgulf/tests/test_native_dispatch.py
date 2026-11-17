@@ -85,12 +85,12 @@ def coordinator(boundary, materials, monkeypatch):
         repository=repository, factory=factory)
 
 
-def signed_build(b, source, *, validation_type='Simplified Invoice', endpoint='invoices/reporting/single'):
+def signed_build(b, source, *, validation_type='Simplified Invoice', endpoint='invoices/reporting/single', issue_instant=None):
     """Exercise actual native formatter, credential scope and final HTTP fence."""
     ticket = ACTIVE_PREPARATION.get()
     assert ticket is not None
     _, xml = sign_invoice._build_onboarding_invoice_xml(b.company, validation_type,
-        issue_instant=datetime(2026, 11, 10, 9, 5, 42, tzinfo=timezone.utc))
+        issue_instant=issue_instant or datetime(2026, 11, 10, 9, 5, 42, tzinfo=timezone.utc))
     root = etree.fromstring(xml.encode())
     ns = {'cbc': 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2',
           'cac': 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2'}
@@ -316,7 +316,7 @@ def orchestration(monkeypatch):
     functions = {}
     results = {'read_retained_invoice': None, 'prepare_saved_invoice': None, 'reserve_saved_issuance': invocation,
         'invoke_saved_request': received, 'retain_dispatch_observation': True,
-        'assess_retained_dispatch': (NativeAssessment('REPORTING_MATCHED'), True)}
+        'assess_retained_dispatch': (NativeAssessment('REPORTING_MATCHED'), True), '_project_source_status': True}
     for name, result in results.items():
         def run(*args, _name=name, _result=result, **kwargs):
             calls.append(_name)
@@ -335,7 +335,7 @@ def test_central_coordinator_retains_before_assessing_and_never_repeats_a_normal
     outcome = o.execute()
     assert outcome.current and outcome.outcome == 'REPORTING_MATCHED'
     assert o.calls == ['read_retained_invoice', 'prepare_saved_invoice', 'reserve_saved_issuance', 'invoke_saved_request',
-        'retain_dispatch_observation', 'assess_retained_dispatch']
+        'retain_dispatch_observation', 'assess_retained_dispatch', '_project_source_status']
     assert o.functions['retain_dispatch_observation'].call_args.args == (o.invocation, o.received)
 
 
@@ -401,6 +401,7 @@ def test_accepted_custody_short_circuits_preparation_credentials_and_http(orches
     o.functions['prepare_saved_invoice'].assert_not_called()
     o.functions['reserve_saved_issuance'].assert_not_called()
     o.functions['invoke_saved_request'].assert_not_called()
+    assert result.source_projected
 
 
 def test_existing_unaccepted_original_is_reserved_without_running_the_builder(orchestration):
@@ -410,6 +411,22 @@ def test_existing_unaccepted_original_is_reserved_without_running_the_builder(or
     assert o.execute().outcome == 'REPORTING_MATCHED'
     o.functions['prepare_saved_invoice'].assert_not_called()
     o.functions['reserve_saved_issuance'].assert_called_once()
+
+
+@pytest.mark.parametrize('cached', [False, True])
+def test_projection_failure_keeps_accepted_receipt_and_does_not_resend(orchestration, cached):
+    o = orchestration
+    if cached:
+        o.functions['read_retained_invoice'].side_effect = None
+        o.functions['read_retained_invoice'].return_value = SimpleNamespace(accepted=True, issuance_id='issued',
+            attempt_id='attempt', outcome='REPORTING_MATCHED', warning_count=0, has_warnings=False)
+    o.functions['_project_source_status'].side_effect = RuntimeError('PRIVATE-LOCAL-FAULT')
+    with pytest.raises(dispatch.NativeDispatchReview) as caught:
+        o.execute()
+    assert caught.value.code == 'native_source_projection_incomplete'
+    assert caught.value.receipt_retained and caught.value.invoked is (not cached)
+    assert caught.value.__context__ is None
+    assert o.functions['invoke_saved_request'].call_count == (0 if cached else 1)
 
 
 @pytest.mark.parametrize('kind,declaration,limit,value,valid', [

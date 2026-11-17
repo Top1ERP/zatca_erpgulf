@@ -7,6 +7,7 @@ is claimed; those retain their separate acceptance workstreams.
 """
 
 from collections import deque
+from datetime import datetime, timezone
 import base64
 import hashlib
 import json
@@ -18,7 +19,7 @@ import pytest
 from requests.structures import CaseInsensitiveDict
 
 from zatca_erpgulf.zatca_erpgulf import (
-    api_settings, credential_settings, native_dispatch, native_transport,
+    api_settings, credential_settings, native_artifact, native_dispatch, native_projection, native_transport,
     sign_invoice, sign_invoice_first, submission_context,
 )
 from zatca_erpgulf.zatca_erpgulf.invoice_xml_core import INITIAL_PREVIOUS_HASH
@@ -31,6 +32,7 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_native_dispatch_store_mariadb import
     isolated_server, connections, tables, chain, Database, NAMESPACE,
 )
 from zatca_erpgulf.zatca_erpgulf.worker_transaction import CALLBACKS
+from zatca_erpgulf.zatca_erpgulf.qr_xml_contract import _clock
 
 
 pytestmark = pytest.mark.skipif(os.environ.get('ZATCA_RUN_ISOLATED_MARIADB') != '1',
@@ -84,7 +86,7 @@ class Runtime:
 
 
 @pytest.mark.parametrize('kind,index', [('company', 0), ('device', 2), ('linked', 1)])
-@pytest.mark.parametrize('mode', ['simplified', 'standard303'])
+@pytest.mark.parametrize('mode', ['simplified', 'standard303', 'reject400'])
 def test_native_sales_and_pos_keep_one_chain_through_committed_mocked_dispatch(
         boundary, materials, monkeypatch, connections, tables, chain, kind, index, mode):
     b = boundary
@@ -123,9 +125,10 @@ def test_native_sales_and_pos_keep_one_chain_through_committed_mocked_dispatch(
             [(b.company.name, INITIAL_PREVIOUS_HASH), (b.linked.name, INITIAL_PREVIOUS_HASH)])
         cursor.execute('INSERT IGNORE INTO `tabZATCA Multiple Setting` VALUES (%s,%s)', (b.device.name, INITIAL_PREVIOUS_HASH))
         for table, source in (('tabSales Invoice', b.sales), ('tabPOS Invoice', b.pos)):
-            cursor.execute('CREATE TABLE IF NOT EXISTS `' + table + '` (`name` VARCHAR(140) PRIMARY KEY, `docstatus` INT,'
-                '`custom_uuid` VARCHAR(140), `custom_zatca_icv` VARCHAR(140), `custom_zatca_issuing_unit` VARCHAR(140)) ENGINE=InnoDB')
-            cursor.execute('INSERT INTO `' + table + '` (name,docstatus) VALUES (%s,1)', (source.name,))
+            cursor.execute('CREATE TABLE IF NOT EXISTS `' + table + '` (`name` VARCHAR(140) PRIMARY KEY, `docstatus` INT, `company` VARCHAR(140),'
+                '`custom_uuid` VARCHAR(140), `custom_zatca_icv` VARCHAR(140), `custom_zatca_issuing_unit` VARCHAR(140),'
+                '`custom_zatca_status` VARCHAR(140), `custom_zatca_full_response` LONGTEXT) ENGINE=InnoDB')
+            cursor.execute('INSERT INTO `' + table + '` (name,docstatus,company) VALUES (%s,1,%s)', (source.name, source.company))
         cursor.execute('UPDATE `tabZATCA Issuing Chain` SET owner_key=%s,active_owner_key=%s,owner_doctype=%s,owner_name=%s,'
             'certificate_sha256=%s,public_key_sha256=%s WHERE name=%s',
             (key, key, selected_owner.doctype, selected_owner.name, fingerprint['certificate_sha256'],
@@ -160,10 +163,20 @@ def test_native_sales_and_pos_keep_one_chain_through_committed_mocked_dispatch(
                 ('STARTED', chain['record_id']))
             assert cursor.fetchone()[0] == 1
         fresh.rollback()
+        if mode != 'standard303':
+            local = native_artifact.read_native_artifact(source.doctype, source.name, runtime=runtime)
+            assert not local.accepted and local.source_kind == 'SIMPLIFIED_GENERATED_XML'
+            assert local.xml_bytes == base64.b64decode(json.loads(prepared.body)['invoice'])
+        else:
+            with pytest.raises(native_dispatch.NativeDispatchError, match='native_standard_publication_unconfirmed'):
+                native_artifact.read_native_artifact(source.doctype, source.name, runtime=runtime)
         sent.append(prepared.body)
         clearing = prepared.url.endswith('/invoices/clearance/single')
         raw = b'Clearance disabled' if clearing else b' {"validationResults":{"status":"PASS","errorMessages":[],"warningMessages":[],"infoMessages":[]},"reportingStatus":"REPORTED"} '
-        return SimpleNamespace(request=prepared, url=prepared.url, history=[], status_code=303 if clearing else 200,
+        rejecting = mode == 'reject400' and _clock(base64.b64decode(json.loads(prepared.body)['invoice']))[1] == '09:05:42Z'
+        if rejecting:
+            raw = b'{"validationResults":{"status":"ERROR","errorMessages":[{"type":"ERROR","code":"TEST","message":"Synthetic rejected original","status":"ERROR"}],"warningMessages":[],"infoMessages":[]},"reportingStatus":"NOT_REPORTED"}'
+        return SimpleNamespace(request=prepared, url=prepared.url, history=[], status_code=400 if rejecting else (303 if clearing else 200),
             headers=CaseInsensitiveDict({'x-request-id': 'synthetic'}), close=Mock(),
             raw=SimpleNamespace(read1=Mock(side_effect=[raw, b''])))
     adapter = SimpleNamespace(send=Mock(side_effect=send), close=Mock())
@@ -172,17 +185,73 @@ def test_native_sales_and_pos_keep_one_chain_through_committed_mocked_dispatch(
     for index, source in enumerate((b.sales, b.pos), 1):
         validation_type = 'Standard Invoice' if mode == 'standard303' else 'Simplified Invoice'
         endpoint = 'invoices/clearance/single' if mode == 'standard303' else 'invoices/reporting/single'
-        outcome = native_dispatch.dispatch_saved_invoice(source.doctype, source.name, runtime=runtime,
-            translate=lambda text: text,
-            build=lambda locked: signed_build(b, locked, validation_type=validation_type, endpoint=endpoint))
+        def dispatch():
+            return native_dispatch.dispatch_saved_invoice(source.doctype, source.name, runtime=runtime,
+                translate=lambda text: text,
+                build=lambda locked: signed_build(b, locked, validation_type=validation_type, endpoint=endpoint))
+        if mode == 'reject400':
+            rejected = dispatch()
+            assert rejected.current and rejected.outcome == 'VALIDATION_REJECTED'
+            old = database.sql('SELECT invoice_hash,previous_hash,artifact_sha256,icv FROM `tabZATCA Issuance` WHERE name=%s',
+                (rejected.issuance_id,), as_dict=True)[0]
+            assert old['previous_hash'] == previous and old['icv'] == str(index * 2 - 1)
+            original_digest = old['artifact_sha256']
+            # An ordinary builder retaining the old issue clock cannot issue a
+            # corrected version. It rolls back; no automatic ERP time edit.
+            correction = dict(runtime=runtime, translate=lambda text: text,
+                rejected_issuance_id=rejected.issuance_id, rejected_attempt_id=rejected.attempt_id)
+            with pytest.raises(native_dispatch.NativeDispatchError, match='native_corrected_artifact_review'):
+                native_dispatch.prepare_corrected_rejection(source.doctype, source.name,
+                    build=lambda locked: signed_build(b, locked), **correction)
+            replacement = native_dispatch.prepare_corrected_rejection(source.doctype, source.name,
+                build=lambda locked: signed_build(b, locked,
+                    issue_instant=datetime(2026, 11, 10, 9, 6, 42, tzinfo=timezone.utc)), **correction)
+            assert replacement.state == 'PREPARED' and not replacement.reused
+            version = database.sql('SELECT source_version,replaces_issuance,previous_hash FROM `tabZATCA Issuance` WHERE name=%s',
+                (replacement.record_id,), as_dict=True)[0]
+            assert version['source_version'] == 2 and version['replaces_issuance'] == rejected.issuance_id
+            assert version['previous_hash'] == old['invoice_hash']
+            preserved = database.sql('SELECT state,artifact_sha256 FROM `tabZATCA Issuance` WHERE name=%s',
+                (rejected.issuance_id,), as_dict=True)[0]
+            assert preserved == dict(state='REJECTED', artifact_sha256=original_digest)
+            previous = old['invoice_hash']
+            outcome = dispatch()  # Dispatches committed replacement, no rebuild.
+        elif index == 1:
+            # The accepted receipt survives a local source-column failure. A
+            # later ordinary call repairs only bookkeeping, without current
+            # signing material, another HTTP call or another ICV allocation.
+            with monkeypatch.context() as patch:
+                patch.setattr(native_projection, '_status_columns', Mock(side_effect=
+                    native_dispatch.NativeDispatchError('native_projection_capacity')))
+                with pytest.raises(native_dispatch.NativeDispatchReview) as failed:
+                    dispatch()
+            assert failed.value.code == 'native_source_projection_incomplete'
+            assert failed.value.invoked and failed.value.receipt_retained
+            assert get_doc(source.doctype, source.name).custom_zatca_status is None
+            before = adapter.send.call_count
+            key_before = selected_owner.custom_private_key
+            selected_owner.custom_private_key = 'INVALID-KEY-MUST-NOT-BE-READ'
+            try:
+                outcome = dispatch()
+            finally:
+                selected_owner.custom_private_key = key_before
+            assert outcome.reused_accepted and adapter.send.call_count == before
+        else:
+            outcome = dispatch()
         assert outcome.current and outcome.outcome == 'REPORTING_MATCHED'
         row = database.sql('SELECT state,icv,previous_hash,invoice_hash,artifact_sha256 FROM `tabZATCA Issuance` WHERE name=%s',
             (outcome.issuance_id,), as_dict=True)[0]
-        assert row['state'] == 'REPORTED' and row['icv'] == str(index) and row['previous_hash'] == previous
+        expected_icv = str(index * 2 if mode == 'reject400' else index)
+        assert row['state'] == 'REPORTED' and row['icv'] == expected_icv and row['previous_hash'] == previous
         previous = row['invoice_hash']
         saved = get_doc(source.doctype, source.name)
-        assert saved.custom_zatca_icv == str(index) and saved.custom_uuid == json.loads(sent[-1])['uuid']
+        assert saved.custom_zatca_icv == expected_icv and saved.custom_uuid == json.loads(sent[-1])['uuid']
         assert saved.custom_zatca_issuing_unit == 'egs:' + chain['record_id']
+        assert saved.custom_zatca_status == 'REPORTED' and outcome.source_projected
+        assert saved.custom_zatca_full_response.startswith(' {') and saved.custom_zatca_full_response.endswith('} ')
+        published = native_artifact.read_native_artifact(source.doctype, source.name, runtime=runtime)
+        assert published.accepted and published.xml_bytes == base64.b64decode(json.loads(sent[-1])['invoice'])
+        assert published.source_kind == ('STANDARD_303_REPORTED_XML' if mode == 'standard303' else 'SIMPLIFIED_GENERATED_XML')
         assert hashlib.sha256(sent[-1]).hexdigest() == row['artifact_sha256']
         if mode == 'standard303':
             assert sent[-2] == sent[-1]  # Same signed original, not a second issuance.
@@ -203,7 +272,7 @@ def test_native_sales_and_pos_keep_one_chain_through_committed_mocked_dispatch(
         finally:
             selected_owner.custom_private_key=original_key
             runtime.has_permission=permission
-    assert database.commits == (14 if mode == 'standard303' else 8)
-    assert adapter.send.call_count == (4 if mode == 'standard303' else 2)
+    assert database.commits == (18 if mode == 'reject400' else (16 if mode == 'standard303' else 10))
+    assert adapter.send.call_count == (2 if mode == 'simplified' else 4)
     assert get_doc(selected_owner.doctype, selected_owner.name).custom_pih == previous
     b.request.assert_not_called()

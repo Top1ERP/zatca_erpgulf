@@ -1,6 +1,25 @@
-# Implementation status — 2026-11-16
+# Implementation status — 2026-11-17
 
-## Workstream1 local contract closed; workstream2 next
+## Current: workstream2 in progress
+
+Workstream1 closed at44fdd50. The clean detached qualification with its retry-UUID
+fixture correction passed39,003 across205 local suites. Workstream2 now has owned
+native generation/ICV/PIH, encrypted originals/receipts, committed attempt fencing,
+response assessment,303 fallback, retained reads and cached accepted recovery.
+Its new accepted-status projector, XML/QR reader and explicit corrected-rejection
+versioning are described in [WORKSTREAM_2_RUNTIME_DESIGN.md](WORKSTREAM_2_RUNTIME_DESIGN.md).
+The corrected-version backend deliberately refuses an unchanged issue clock;
+canonical builder/operator clock adoption is still open.
+
+Public worker/manual/batch adoption, registration/bootstrap and reviewed legacy
+continuity, File/print/UI publication and source/owner lifecycle guards remain.
+Workstream2 is not closed and no transition to3 is claimed. Installed15/16,
+financial review, authentic crypto/SDK and a specifically approved fictional
+rehearsal remain their own later gates. No live app/site/schema/service change or
+authority API request. Original240 financial comparison remains91/117/32; no
+financial reference expectations were rebaselined.
+
+## Workstream1 local closure snapshot
 
 The complete adopted source/settings/credential scope now covers ordinary and
 scheduled/generated Sales/POS, Debug, dedicated/automatic/collection Compliance,
@@ -16,7 +35,8 @@ restore to parent2d96f2c AST exactly;34 preexisting reference files are unchange
 Logs and precise extension/storage/acceptance limits are in
 [WORKSTREAM_1.md](WORKSTREAM_1.md) and
 [WORKSTREAM_1_CONTRACTS.md](WORKSTREAM_1_CONTRACTS.md). The separate earlier-started
-205-suite qualification is still running; it is not a claimed final green run.
+205-suite qualification has since completed:39,003 passed in3017.23s in the frozen
+checkout, with runtime44fdd50 and only the documented retry-UUID fixture correction.
 
 Versioned secret storage/activation remains explicitly unactivated; legacy
 preservation prevents destructive renewal. Business observations/original modified
@@ -27,7 +47,7 @@ source-observation helper. Installed15/16, SDK and approved fictional rehearsal
 remain their later acceptance gates. No live/site/schema/tenant-SQL/restart or
 authority API action; installed source/dirty tooltip hashes remain unchanged.
 
-## Workstream1 foundation — active, not a transition
+## Historical workstream1 foundation snapshot
 
 The user requested continuous work through each complete release workstream.
 [WORKSTREAM_1.md](WORKSTREAM_1.md) now records its explicit closure checklist.

@@ -175,8 +175,8 @@ attempt/version can retain its assessment without changing the latest issuance.
 Idempotent recovery reports an already applied current decision correctly. An
 explicit unchanged retry after a complete classified authentication/technical
 failure may start immediately; an interrupted attempt needs its expired lease.
-Neither changes the original bytes or counter. Derived source/QR/File updates
-are still separate and have not been wired.
+Neither changes the original bytes or counter. Accepted source status now uses
+the separate owned projector below; File publication remains unactivated.
 
 `dispatch_saved_invoice` now joins those services. It prepares once, commits an
 attempt, invokes once, retains the response and assesses from committed custody.
@@ -222,7 +222,7 @@ builder. It does not run installed ERP document/accounting hooks, the six full
 financial builders, SDK validation or any authority exchange.
 
 These services are not yet activated by the native worker. Registration/bootstrap,
-derived writes, corrected rejection, existing XML admission
+File/print/UI publication, corrected-clock builder adoption, existing XML admission
 and the public/manual/background adoption matrix are still open. Source-name
 index installation/performance and native framework ownership need installed5
 acceptance. Do not install these source DocTypes or treat this as a completed
@@ -277,7 +277,7 @@ UUID/POS metadata/ICV guards, the final HTTP fence and its Compliance caller.
 
 ## Next integration batch
 
-1. Finish source/QR/XML/status projection from committed current custody and the
+1. Finish File/print/UI publication from committed current custody and the
    operation-specific publication rule. A prepared Simplified original may supply
    its local QR/XML before Reporting, without being marked remotely accepted.
    Standard publication needs matched clearance or the explicit303 fallback rule.
@@ -287,10 +287,12 @@ UUID/POS metadata/ICV guards, the final HTTP fence and its Compliance caller.
    in the private pipeline. Match the current source issuance identity before
    projecting a historical receipt; do not introduce Frappe File callbacks into
    the strict read-only preparation transaction.
-2. Add explicit corrected-rejection versioning. Require a matched retained400,
-   source write access and current chain lock; link the new version, retain the
-   old one and use the current local tail. Unknown/auth/technical/duplicate review
-   outcomes never grant a replacement or counter rewind.
+2. Complete corrected-clock adoption by the canonical builders/operator operation.
+   The explicit backend versioning service below requires a matched retained400,
+   source write access and current chain lock; it links the new version, retains
+   the old one and uses the current local tail. Unknown/auth/technical/duplicate
+   review outcomes never grant replacement or counter rewind. Do not add an
+   automatic ERP posting date/time change to make the builder pass its check.
 3. Complete server-owned registration/bootstrap and cutover admission. A validated
    initial Final-CSID outcome must bind a genuinely new server-owned onboarding
    intent; missing history/token/PIH is insufficient. Existing installations need
@@ -316,3 +318,76 @@ pipeline cases now also invalidate the current signing key, reduce source access
 to read only, retrieve the exact accepted original and repeat the dispatch command
 without another transport call or counter increment. These are overlapping local
 evidence, not new installed/financial/authority acceptance.
+
+## Accepted source status, native artifact reads and explicit corrected versions
+
+`native_projection.project_accepted_status` is now called by the coordinator after
+current accepted receipt assessment, including208/409 contracts. It independently
+checks source/Company ACL, locks opaque chain/current source/issuance in order,
+decrypts the original and current receipt, reassesses acceptance, rejects older
+source versions, and writes only `custom_zatca_status` and exact UTF-8
+`custom_zatca_full_response`. Physical character/octet capacities must fit; no
+schema alteration or response truncation. No source save/File/accounting hooks,
+financial changes, ICV allocation or PIH rewind. An identical projection is a
+read-only no-op. A cached read-only viewer may explicitly skip projection, but
+never gains write permission. A post-receipt projection failure remains a retained
+acceptance with a distinct local-review result. A later authorized call repairs
+the fields without reading a current signing key, rebuilding or sending again.
+
+`native_artifact.read_native_artifact` obtains exact current custody through the
+existing read-ACL service. Simplified documents expose the generated original
+XML/QR before Reporting without an accepted flag. Standard documents need the
+matching cleared XML/QR, or accepted Reporting after the retained303 chain;303
+alone is insufficient. A returned Standard issue-clock change is not normalized
+or hidden by substituting the original QR. Missing/malformed native custody never
+falls back to an old attachment. The immutable data view carries ledger state;
+rejected originals are diagnostic data, not a valid-invoice/printing authorization.
+It performs no File/image write and has not been wired into print/UI hooks.
+This is a point-in-time read, not a reusable File-publication capability; a future
+writer must independently recheck the current source/version under its own lock.
+`qr_xml_contract` shares the bounded lexical parser with the legacy QR reader;
+its error/reader aliases and bounded override preserve existing tests. Canonical
+Base64 and metadata agreement remain distinct from TLV/crypto/SDK validation6.
+
+`DispatchStore.find_source_issuance` now reads the latest version before comparing
+the saved Company/UUID/ICV. Resetting source outputs to an older valid UUID cannot
+select that older version for current recovery/printing. Historical ciphertext
+remains readable by explicit record custody. The public rename/rebind guard is
+still required before adoption.
+
+`prepare_corrected_rejection` is an explicit no-HTTP operation, separate from
+ordinary prepare/retry. It requires the named current rejected issuance and
+attempt, source write ACL, no competing chain attempt, exact saved outputs,
+decrypted matched HTTP400 validation rejection and current issuer binding. A new
+version gets a new UUID/hash, next local ICV/current generated PIH and a durable
+`replaces_issuance` reference. Identity/custody/head and compatibility status reset
+commit together; the old original/receipt stays intact. The produced issue instant
+must differ, classification/endpoint must match, and Reporting retains the
+original XML transaction date. An unchanged-clock canonical builder fails locally
+without any counter advance or automatic ERP time edit. Actual builder/operator
+clock selection, fiscal-source edits and installed document lifecycle still need
+their explicit adoption/financial acceptance; this is not a new public reissue RPC.
+
+The official [technical guideline](https://www.zatca.gov.sa/en/E-Invoicing/Introduction/Guidelines/Documents/E-invoicing-Detailed-Technical-Guideline.pdf)
+FAQ distinguishes new identifiers/timestamp after validation rejection from
+retrying an uncertain exchange, preserves the Reporting transaction date, and
+bases PIH on the immediately preceding generated document. This implementation
+does not infer rejection from401, technical failures or unknown/duplicate review.
+
+Final focused evidence for this bundle (overlapping earlier evidence):
+
+- 1,108 local cases across16 reviewed suites in4.40s, including the shared legacy
+  QR read/access/regeneration contracts and native coordination/transaction tests.
+- 49 private InnoDB cases in4.80s. Nine combined Sales/POS cases cover Company,
+  device and linked owners across Simplified, Standard303 and matched400 rejection/
+  explicit replacement. Source projection failure is recovered with an invalid
+  current key, without another HTTP invocation. Prepared Simplified reads work
+  before the mocked response; Standard reads remain held until its bound outcome.
+  Resetting a source to an older version cannot select that version as current.
+- Logs: `/tmp/zatca-axis2-projection-rejection-final.log` and
+  `/tmp/zatca-axis2-projection-rejection-private-final.log`.
+
+No source financial amount/date/time is changed by these services. The test
+builder explicitly supplies a later replacement clock; it remains the synthetic
+onboarding/signing helper, not installed ERP financial-builder/SDK acceptance.
+The original240 financial comparison and expected reference files are unchanged.
