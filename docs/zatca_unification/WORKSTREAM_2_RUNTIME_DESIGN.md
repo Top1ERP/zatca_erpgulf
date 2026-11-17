@@ -36,7 +36,7 @@ checks. The owned services described below call it in explicit transactions.
 The public worker has not yet adopted those services; source-only schemas and
 private repository tests are not an installed native dispatcher.
 
-## Remaining integration sequence
+## Integration sequence and closure requirements
 
 1. Acquire a clean **worker-owned** Frappe DB transaction/site/actor/namespace/key
    without connecting to another configured site, discarding parent writes or
@@ -153,7 +153,8 @@ derived source update. Receipt retention does not depend on mutable source ACL o
 a still-valid certificate after a response was received. It can lock the original
 historical chain. Stale responses remain on their own attempt and cannot clear a
 newer fence. A retained current response enters REVIEW_REQUIRED, not acceptance;
-the operation-specific classifier/derived writer is still to be integrated.
+the owned assessor handles the next ledger step. Derived source writes remain
+separate.
 
 `response_contract.py` shares validation/message and bounded returned-XML readers
 with the earlier assessment model. The old module's XML-bound override remains a
@@ -177,8 +178,33 @@ failure may start immediately; an interrupted attempt needs its expired lease.
 Neither changes the original bytes or counter. Derived source/QR/File updates
 are still separate and have not been wired.
 
+`dispatch_saved_invoice` now joins those services. It prepares once, commits an
+attempt, invokes once, retains the response and assesses from committed custody.
+A current verified303 may perform one Reporting fallback. It decrypts the original
+303 evidence and reuses the exact request bytes/UUID/hash/ICV/PIH; a later retry
+stays on Reporting. A stale response cannot launch a fallback. Unexpected or
+unconfirmed responses cannot create an automatic replacement. Failure results
+distinguish invocation uncertainty, custody uncertainty and processing failure
+after retained receipt. No legacy source-identity reset writer runs here.
+
+A server-loaded source already marked `egs:<chain UUID>` cannot silently reenter
+legacy UUID/ICV/production HTTP paths. Active native preparation bypasses that
+guard only through its owned ticket. Debug and Compliance metadata stay local to
+their own purpose; the standalone Compliance API fence explicitly declares its
+purpose and cannot relabel a production scope. This is an adoption safeguard, not
+a hostile-Python sandbox or permission substitute.
+
+The private owned-pipeline suite runs real worker ownership, actual SQL commits,
+local signing/temporary formatting, encrypted custody and native response assessment
+together for Sales and POS through Company/device/linked owners. It also exercises
+303 fallback without re-signing and proves a separate connection can acquire the
+chain NOWAIT during the mocked HTTP call. Its source loaders and callback shape
+are explicit framework doubles and its input XML uses the synthetic onboarding
+builder. It does not run installed ERP document/accounting hooks, the six full
+financial builders, SDK validation or any authority exchange.
+
 These services are not yet activated by the native worker. Registration/bootstrap,
-derived writes, corrected rejection,303 fallback execution, existing XML admission
+derived writes, corrected rejection, existing XML admission
 and the public/manual/background adoption matrix are still open. Source-name
 index installation/performance and native framework ownership need installed5
 acceptance. Do not install these source DocTypes or treat this as a completed
@@ -187,13 +213,48 @@ registration/cutover admission must explicitly cover legacy sources before adopt
 
 Focused evidence (overlapping, not additive release totals):
 
-- 33 private InnoDB cases: staging/rollback/concurrent/shared locks, exact retry
- custody, immutable receipts, stale/current assessments and metadata tamper.
-- 585 local coordinator/transaction/transport/assessment cases: native signing
+- 42 private InnoDB cases:36 repository cases plus6 combined owner/pipeline/fallback
+ cases; staging/rollback/concurrent/shared locks, exact retry custody, immutable
+ receipts, stale/current assessments and metadata tamper.
+- 609 local coordinator/transaction/transport/assessment cases: native signing
  and capture, source/route/output changes, quiet ACL, unknown commit, bounded
  mocked HTTP and all invoice/credit/debit/advance response metadata contracts.
 - 20,750 existing fixed issuer-binding regression cases,81 suites.
 
-Logs: `/tmp/zatca-axis2-assessment-sql-final.log`,
-`/tmp/zatca-axis2-runtime-and-response-final.log`,
-`/tmp/zatca-axis2-issuer-regression.log`.
+Logs: `/tmp/zatca-axis2-central-private-final.log`,
+`/tmp/zatca-axis2-purpose-and-fallback-final.log`,
+`/tmp/zatca-axis2-purpose-regression-final.log`.
+
+The source-only bigint customization currently covers Sales Invoice; the private
+pipeline intentionally uses string ICV support columns. Internal64-digit parsing
+does not prove installed Sales/POS field capacity or browser JSON integer fidelity.
+Installed5 must verify both source schemas and migration/data preservation before
+activation. In this batch the existing financial builders/reference fixtures were
+not changed: the only changed legacy function bodies are UUID/POS metadata/ICV
+guards, the final HTTP fence and its Compliance caller.
+
+## Next integration batch
+
+1. Derive source/QR/XML/status views only from committed current custody and
+   operation assessment. Keep already accepted originals readable after credential
+   expiry/rotation; cached accepted recovery must not send another request. Match
+   the current source issuance identity before projecting a historical receipt.
+2. Add explicit corrected-rejection versioning. Require a matched retained400,
+   source write access and current chain lock; link the new version, retain the
+   old one and use the current local tail. Unknown/auth/technical/duplicate review
+   outcomes never grant a replacement or counter rewind.
+3. Complete server-owned registration/bootstrap and cutover admission. A validated
+   initial Final-CSID outcome must bind a genuinely new server-owned onboarding
+   intent; missing history/token/PIH is insufficient. Existing installations need
+   explicit reviewed continuity using the last **generated** document. Renewal
+   preserves the opaque chain; automatic credential staging remains deferred1.
+   No Company/source/schema operation is to be executed on a working site here.
+4. Adopt the coordinator across all six production generators and four existing-
+   XML wrappers/manual/batch/worker paths together. Do not activate one path and
+   leave another allocating through the legacy counter. External XML needs its
+   own source/file/chain admission and cannot consume a freshly proposed random
+   native UUID. Unverified extensions must stop before transport.
+5. Complete cancellation/printing/recovery decisions and aggregated translated
+   operator outcomes. Then freeze the workstream2 qualification. Installed5,
+   authentic crypto/SDK6, financial3 and the separately approved pilot7 retain
+   their own gates; service-only/private-SQL success does not close those gates.

@@ -16,6 +16,7 @@ from zatca_erpgulf.zatca_erpgulf import createxml,posxml,icv,qr_timestamp,sign_i
 from zatca_erpgulf.zatca_erpgulf.invoice_xml_core import INITIAL_PREVIOUS_HASH
 from zatca_erpgulf.zatca_erpgulf.invoice_payload import read_invoice_payload
 from zatca_erpgulf.zatca_erpgulf.issuing_attempt import confirm_issuing_transport
+from zatca_erpgulf.zatca_erpgulf.issuing_attempt import IssuingAttemptError
 from zatca_erpgulf.zatca_erpgulf.native_preparation import (
     ACTIVE_PREPARATION,NativePreparationError,PreparedRequestHandoff,native_preparation,source_observation_sha256,
 )
@@ -123,3 +124,83 @@ def test_native_source_fingerprint_is_typed_and_unambiguous_without_serializing_
     assert source_observation_sha256(identity,('ab','c'))!=source_observation_sha256(identity,('a','bc'))
     assert source_observation_sha256(identity,(b'1',))!=source_observation_sha256(identity,('1',))
     with pytest.raises(NativePreparationError):source_observation_sha256(identity,{'mutable':[]})
+
+
+@pytest.mark.parametrize('operation', ['uuid', 'icv', 'http'])
+def test_retained_native_source_cannot_reenter_a_legacy_writer_or_transport(boundary, monkeypatch, operation):
+    b = boundary
+    setup(b, monkeypatch, 'company')
+    b.sales.custom_zatca_issuing_unit = 'egs:30000000-0000-4000-8000-000000000001'
+    b.sales.custom_zatca_icv = '1'
+    b.sales.db_set = Mock()
+    monkeypatch.setattr(createxml, 'frappe', b.frappe)
+    monkeypatch.setattr(icv, 'frappe', b.frappe)
+    with pytest.raises(IssuingAttemptError) as caught:
+        if operation == 'uuid':
+            createxml._get_or_create_sales_invoice_uuid(b.sales)
+        elif operation == 'icv':
+            icv.get_icv(b.sales)
+        else:
+            confirm_issuing_transport('TC', b.sales, runtime=b.frappe)
+    assert caught.value.code == 'native_dispatch_required'
+    b.sales.db_set.assert_not_called()
+    b.frappe.db.commit.assert_not_called()
+    b.request.assert_not_called()
+
+
+def test_native_guard_keeps_the_post_invocation_uncertainty_message(boundary, monkeypatch):
+    from zatca_erpgulf.zatca_erpgulf.native_preparation import reject_legacy_native_preparation
+    from zatca_erpgulf.zatca_erpgulf.issuing_attempt import UNCERTAIN
+    b = boundary
+    setup(b, monkeypatch, 'company')
+    b.sales.custom_zatca_issuing_unit = 'egs:30000000-0000-4000-8000-000000000001'
+    with scope(b, b.sales) as issuer:
+        issuer.transport_started = True
+        with pytest.raises(IssuingAttemptError) as caught:
+            reject_legacy_native_preparation(b.sales, b.frappe)
+        assert caught.value.template == UNCERTAIN
+
+
+def test_standalone_compliance_remains_separate_from_a_retained_native_invoice(boundary, monkeypatch):
+    b = boundary
+    setup(b, monkeypatch, 'company')
+    b.sales.custom_zatca_issuing_unit = 'egs:30000000-0000-4000-8000-000000000001'
+    confirm_issuing_transport('TC', b.sales, runtime=b.frappe, purpose='compliance')
+    b.frappe.db.commit.assert_not_called()
+    b.request.assert_not_called()
+
+
+def test_production_scope_cannot_be_relabelled_as_compliance_to_bypass_native_guard(boundary, monkeypatch):
+    b = boundary
+    setup(b, monkeypatch, 'company')
+    b.sales.custom_zatca_issuing_unit = 'egs:30000000-0000-4000-8000-000000000001'
+    with scope(b, b.sales):
+        with pytest.raises(IssuingAttemptError) as caught:
+            confirm_issuing_transport('TC', b.sales, runtime=b.frappe, purpose='compliance')
+        assert caught.value.code == 'issuing_context_purpose'
+    b.request.assert_not_called()
+
+
+@pytest.mark.parametrize('kind', ['sales', 'pos'])
+@pytest.mark.parametrize('purpose', ['debug', 'compliance'])
+def test_native_source_keeps_nonproduction_metadata_without_mutating_identity(boundary, monkeypatch, kind, purpose):
+    b = boundary
+    setup(b, monkeypatch, 'company')
+    source = getattr(b, kind)
+    source.posting_date = '2026-11-17'
+    source.posting_time = '09:05:42'
+    source.items = []
+    source.custom_uuid = UUID
+    source.custom_zatca_icv = '1'
+    source.custom_zatca_issuing_unit = 'egs:30000000-0000-4000-8000-000000000001'
+    source.db_set = Mock()
+    module = createxml if kind == 'sales' else posxml
+    monkeypatch.setattr(module, 'frappe', b.frappe)
+    monkeypatch.setattr(module, '_', lambda text: text)
+    monkeypatch.setattr(qr_timestamp, 'get_system_timezone', lambda: 'UTC')
+    _root, _preview_uuid, returned = module.salesinvoice_data(ET.Element('Invoice'), source.name, purpose=purpose)
+    assert returned is source
+    assert source.custom_uuid == UUID and source.custom_zatca_icv == '1'
+    source.db_set.assert_not_called()
+    b.frappe.db.commit.assert_not_called()
+    b.request.assert_not_called()

@@ -131,3 +131,27 @@ def test_clearance303_is_an_operation_specific_fallback_observation():
     assert assess(header, original, b'Clearance disabled', status=303).outcome == 'CLEARANCE_DISABLED'
     header, original, _ = evidence()
     assert assess(header, original, b'Clearance disabled', status=303).outcome == 'UNCONFIRMED'
+
+
+@pytest.mark.parametrize('fault', ['none', 'missing', 'hash', 'status', 'artifact', 'operation'])
+def test_standard_reporting_requires_the_same_original_and_bound303_receipt(fault):
+    header, original, _ = evidence(indicator='0100000')
+    prior_body = b'Clearance disabled'
+    prior = dict(issuance=header['record_id'], request_sha256=header['artifact_sha256'], environment='Production',
+        endpoint=response.CLEARANCE, http_status=303, response_sha256=hashlib.sha256(prior_body).hexdigest())
+    body = json.dumps(dict(reportingStatus='REPORTED',
+        validationResults=dict(status='PASS', errorMessages=[], warningMessages=[], infoMessages=[]))).encode()
+    current = dict(prior, endpoint=response.REPORTING, http_status=200, response_sha256=hashlib.sha256(body).hexdigest())
+    fallback = (prior, prior_body)
+    if fault == 'missing':
+        fallback = None
+    elif fault == 'hash':
+        prior['response_sha256'] = '0' * 64
+    elif fault == 'status':
+        prior['http_status'] = 503
+    elif fault == 'artifact':
+        prior['request_sha256'] = '0' * 64
+    elif fault == 'operation':
+        prior['endpoint'] = response.REPORTING
+    result = response.assess_native_receipt(header, original, current, body, fallback_receipt=fallback)
+    assert (result.outcome == 'REPORTING_MATCHED') is (fault == 'none')

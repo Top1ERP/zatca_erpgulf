@@ -213,6 +213,24 @@ def active_preparation(runtime):
     return current
 
 
+def reject_legacy_native_preparation(document, runtime):
+    """A retained native source must not fall back to legacy UUID/ICV/HTTP.
+
+    This guards server-loaded source documents, not hostile Python or arbitrary
+    client objects. Public dispatcher admission must still reload and authorize
+    the saved source. Debug and Compliance callers choose their separate paths.
+    """
+    if active_preparation(runtime) is not None:
+        return
+    getter = getattr(document, 'get', None)
+    marker = getter('custom_zatca_issuing_unit') if callable(getter) else None
+    if type(marker) is str and marker.startswith('egs:'):
+        from .issuing_attempt import ACTIVE, IssuingAttemptError
+        current = ACTIVE.get()
+        raise IssuingAttemptError('native_dispatch_required',
+            transport_started=bool(current is not None and current.transport_started))
+
+
 @contextmanager
 def native_preparation(runtime,*,source_identity,company_name,chain,invoice_uuid,owner_check):
     """One internal lifetime and private scratch directory, never a queue payload."""

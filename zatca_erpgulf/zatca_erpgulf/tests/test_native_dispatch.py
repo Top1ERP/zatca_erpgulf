@@ -78,11 +78,11 @@ def coordinator(boundary, materials, monkeypatch):
         repository=repository, factory=factory)
 
 
-def signed_build(b, source):
+def signed_build(b, source, *, validation_type='Simplified Invoice', endpoint='invoices/reporting/single'):
     """Exercise actual native formatter, credential scope and final HTTP fence."""
     ticket = ACTIVE_PREPARATION.get()
     assert ticket is not None
-    _, xml = sign_invoice._build_onboarding_invoice_xml(b.company, 'Simplified Invoice',
+    _, xml = sign_invoice._build_onboarding_invoice_xml(b.company, validation_type,
         issue_instant=datetime(2026, 11, 10, 9, 5, 42, tzinfo=timezone.utc))
     root = etree.fromstring(xml.encode())
     ns = {'cbc': 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2',
@@ -97,7 +97,7 @@ def signed_build(b, source):
     ACTIVE.get().expect_prepared_payload(ticket.invoice_uuid, signed.encoded_hash)
     path = sign_invoice_first.structuring_signedxml(source.name, signed.xml)
     submission_context.get_submission_context('TC', source, source.name,
-        'invoices/reporting/single', expected_doctype=source.doctype)
+        endpoint, expected_doctype=source.doctype)
     read_invoice_payload(ticket.invoice_uuid, signed.encoded_hash, path, read_xml=reader)
     confirm_issuing_transport('TC', source, runtime=b.frappe)
 
@@ -205,7 +205,7 @@ def saved_issuance(c):
     c.repository.latest_issuance.return_value = dict(header, state='PREPARED')
     c.repository.open_issuance.return_value = (header, original)
     c.repository.lock_issuance = Mock(return_value=header)
-    c.repository.start_attempt = Mock()
+    c.repository.start_attempt = Mock(return_value={'endpoint': header['endpoint']})
     c.repository.lock_recorded_chain = Mock(return_value=c.chain)
     c.repository.retain_receipt = Mock(return_value=True)
     c.repository.mark_attempt_unknown = Mock(return_value=True)
@@ -282,7 +282,7 @@ def test_assessment_uses_decrypted_original_and_receipt_then_commits_before_deri
     header, original = saved_issuance(c)
     invocation = dispatch.reserve_saved_issuance('Sales Invoice', 'SI', runtime=c.b.frappe, translate=lambda text: text)
     c.state.committed = False
-    metadata = dict(fence_token=invocation.fence_token)
+    metadata = dict(fence_token=invocation.fence_token, endpoint=header['endpoint'])
     receipt = b'COMMITTED-ORIGINAL-RECEIPT'
     c.repository.open_receipt = Mock(return_value=(metadata, receipt))
     c.repository.record_assessment = Mock(return_value=True)
@@ -291,8 +291,91 @@ def test_assessment_uses_decrypted_original_and_receipt_then_commits_before_deri
     monkeypatch.setattr(dispatch, 'assess_native_receipt', assessor)
     result, current = dispatch.assess_retained_dispatch(invocation, runtime=c.b.frappe)
     assert result is assessment and current
-    assessor.assert_called_once_with(header, original, metadata, receipt)
+    assessor.assert_called_once_with(header, original, metadata, receipt, fallback_receipt=None)
     c.repository.record_assessment.assert_called_once_with(c.chain, header,
         attempt_id=invocation.attempt_id, fence_token=invocation.fence_token, outcome='REPORTING_MATCHED')
     c.worker.database.sql.assert_not_called()
     assert c.state.committed and not c.state.active
+
+
+@pytest.fixture
+def orchestration(monkeypatch):
+    from zatca_erpgulf.zatca_erpgulf.native_response import NativeAssessment
+    calls = []
+    invocation = SimpleNamespace(issuance_id='issued', attempt_id='attempt')
+    received = dispatch.NativeResponse(200, 'request', b'ORIGINAL')
+    functions = {}
+    results = {'prepare_saved_invoice': None, 'reserve_saved_issuance': invocation,
+        'invoke_saved_request': received, 'retain_dispatch_observation': True,
+        'assess_retained_dispatch': (NativeAssessment('REPORTING_MATCHED'), True)}
+    for name, result in results.items():
+        def run(*args, _name=name, _result=result, **kwargs):
+            calls.append(_name)
+            return _result
+        functions[name] = Mock(side_effect=run)
+        monkeypatch.setattr(dispatch, name, functions[name])
+    def execute():
+        return dispatch.dispatch_saved_invoice('Sales Invoice', 'SI', runtime=object(),
+            translate=lambda text: text, build=lambda source: None)
+    return SimpleNamespace(calls=calls, functions=functions, execute=execute,
+        invocation=invocation, received=received)
+
+
+def test_central_coordinator_retains_before_assessing_and_never_repeats_a_normal_send(orchestration):
+    o = orchestration
+    outcome = o.execute()
+    assert outcome.current and outcome.outcome == 'REPORTING_MATCHED'
+    assert o.calls == ['prepare_saved_invoice', 'reserve_saved_issuance', 'invoke_saved_request',
+        'retain_dispatch_observation', 'assess_retained_dispatch']
+    assert o.functions['retain_dispatch_observation'].call_args.args == (o.invocation, o.received)
+
+
+@pytest.mark.parametrize('invoked', [True, False])
+def test_central_transport_failure_retains_uncertainty_without_regeneration(orchestration, invoked):
+    o = orchestration
+    o.functions['invoke_saved_request'].side_effect = dispatch.NativeTransportError('native_transport_outcome_unknown', invoked=invoked)
+    with pytest.raises(dispatch.NativeDispatchReview) as caught:
+        o.execute()
+    assert caught.value.invoked is invoked and not caught.value.receipt_retained
+    assert caught.value.issuance_id == 'issued' and caught.value.__context__ is None
+    assert o.functions['retain_dispatch_observation'].call_args.args == (o.invocation, None)
+    o.functions['assess_retained_dispatch'].assert_not_called()
+    assert o.functions['prepare_saved_invoice'].call_count == o.functions['reserve_saved_issuance'].call_count == 1
+
+
+@pytest.mark.parametrize('stage,retained', [('retain_dispatch_observation', False), ('assess_retained_dispatch', True)])
+def test_received_response_local_failure_has_truthful_stage_and_no_inline_resend(orchestration, stage, retained):
+    o = orchestration
+    o.functions[stage].side_effect = RuntimeError('PRIVATE-LOCAL-DETAILS')
+    with pytest.raises(dispatch.NativeDispatchReview) as caught:
+        o.execute()
+    assert caught.value.invoked and caught.value.receipt_retained is retained
+    assert caught.value.__context__ is None and 'PRIVATE' not in str(caught.value)
+    assert o.functions['invoke_saved_request'].call_count == 1
+    if not retained:
+        o.functions['assess_retained_dispatch'].assert_not_called()
+
+
+@pytest.mark.parametrize('current', [True, False])
+def test303_fallback_is_bounded_current_only_and_does_not_prepare_twice(orchestration, current):
+    from zatca_erpgulf.zatca_erpgulf.native_response import NativeAssessment
+    o = orchestration
+    o.functions['assess_retained_dispatch'].side_effect = [
+        (NativeAssessment('CLEARANCE_DISABLED'), current), (NativeAssessment('REPORTING_MATCHED'), True)]
+    outcome = o.execute()
+    assert outcome.outcome == ('REPORTING_MATCHED' if current else 'CLEARANCE_DISABLED')
+    assert o.functions['prepare_saved_invoice'].call_count == 1
+    assert o.functions['invoke_saved_request'].call_count == (2 if current else 1)
+    if current:
+        assert o.functions['reserve_saved_issuance'].call_args.kwargs['supersedes_attempt'] == 'attempt'
+
+
+def test_undefined_sender_result_never_becomes_a_retained_success(orchestration):
+    o = orchestration
+    o.functions['invoke_saved_request'].side_effect = None
+    o.functions['invoke_saved_request'].return_value = None
+    with pytest.raises(dispatch.NativeDispatchReview) as caught:
+        o.execute()
+    assert caught.value.code == 'native_transport_contract_unknown'
+    assert not caught.value.receipt_retained
+    o.functions['assess_retained_dispatch'].assert_not_called()

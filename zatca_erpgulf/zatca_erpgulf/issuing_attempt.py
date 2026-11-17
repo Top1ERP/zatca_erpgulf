@@ -519,7 +519,7 @@ def issuing_attempt(company_abbr, source_doc, *, purpose, runtime, translate, in
         ACTIVE.reset(token)
 
 
-def confirm_issuing_transport(company_abbr, source_doc, *, runtime):
+def confirm_issuing_transport(company_abbr, source_doc, *, runtime, purpose=None):
     """Last observed-source check before the caller enters its HTTP function.
 
     This marker is not proof that bytes reached a socket or an authority receipt.
@@ -527,7 +527,12 @@ def confirm_issuing_transport(company_abbr, source_doc, *, runtime):
     """
     from .deferred_submission import reject_submit_hook_transport
     reject_submit_hook_transport(runtime, getattr(runtime, '_', lambda text:text))
-    current = active_attempt(company_abbr, source_doc, runtime=runtime)
+    if purpose not in (None,'production','compliance'):
+        raise ValueError('issuing_transport_purpose')
+    current = active_attempt(company_abbr, source_doc, runtime=runtime, purpose=purpose)
+    if (current is None and purpose!='compliance') or (current is not None and current.purpose=='production'):
+        from .native_preparation import reject_legacy_native_preparation
+        reject_legacy_native_preparation(current.prepared_source if current is not None else source_doc,runtime)
     if current is None:
         from .native_preparation import active_preparation, NativePreparationError
         if active_preparation(runtime) is not None:

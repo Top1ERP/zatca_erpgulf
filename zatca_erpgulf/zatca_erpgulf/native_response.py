@@ -76,7 +76,14 @@ def _reporting_duplicate(body):
         and all(error.get(key) is None or type(error[key]) is str for key in ('code', 'category')))
 
 
-def assess_native_receipt(header, original, receipt, body):
+def _receipt_bound(header, receipt, body):
+    return (receipt['issuance'] == header['record_id']
+        and receipt['request_sha256'] == header['artifact_sha256']
+        and receipt['environment'] == header['environment']
+        and hashlib.sha256(body).hexdigest() == receipt['response_sha256'])
+
+
+def assess_native_receipt(header, original, receipt, body, *, fallback_receipt=None):
     """Assess only this exact artifact/operation/receipt; preserve raw messages.
 
    208 requires matching cleared XML.409 recognition is restricted to the
@@ -86,17 +93,23 @@ def assess_native_receipt(header, original, receipt, body):
     """
     try:
         xml, expected = _original(header, original)
-        if (receipt['issuance'] != header['record_id']
-                or receipt['request_sha256'] != header['artifact_sha256']
-                or receipt['environment'] != header['environment']
-                or receipt['endpoint'] != header['endpoint']
-                or hashlib.sha256(body).hexdigest() != receipt['response_sha256']):
+        if not _receipt_bound(header, receipt, body):
             raise ArtifactEvidenceError('response_receipt_binding')
         endpoint, status = receipt['endpoint'], receipt['http_status']
+        fallback = False
+        if endpoint != header['endpoint']:
+            if (header['endpoint'] == CLEARANCE and endpoint == REPORTING
+                    and type(fallback_receipt) is tuple and len(fallback_receipt) == 2):
+                prior, raw_prior = fallback_receipt
+                fallback = (_receipt_bound(header, prior, raw_prior)
+                    and prior['endpoint'] == CLEARANCE and prior['http_status'] == 303)
+            if not fallback:
+                raise ArtifactEvidenceError('response_receipt_binding')
         if endpoint not in (REPORTING, CLEARANCE):
             raise ArtifactEvidenceError('response_operation_mismatch')
         code, indicator = _invoice_classification(xml)
-        if (endpoint == CLEARANCE and not indicator.startswith('01')) or (endpoint == REPORTING and not indicator.startswith('02')):
+        if (endpoint == CLEARANCE and not indicator.startswith('01')) or (endpoint == REPORTING
+                and not (indicator.startswith('02') or (fallback and indicator.startswith('01')))):
             raise ArtifactEvidenceError('response_operation_mismatch')
         if status == 303 and endpoint == CLEARANCE:
             return NativeAssessment('CLEARANCE_DISABLED')
@@ -111,7 +124,7 @@ def assess_native_receipt(header, original, receipt, body):
         standard = (header['environment'] == 'Production'
             and header['base_url_sha256'] == STANDARD_PRODUCTION_BASE_SHA256)
         if status == 409:
-            if endpoint == REPORTING and standard and _reporting_duplicate(parsed):
+            if endpoint == REPORTING and indicator.startswith('02') and standard and _reporting_duplicate(parsed):
                 return NativeAssessment('REPORTING_DUPLICATE_MATCHED')
             return NativeAssessment('DUPLICATE_REVIEW_REQUIRED')
         validation, warnings, problems = _validation(parsed)

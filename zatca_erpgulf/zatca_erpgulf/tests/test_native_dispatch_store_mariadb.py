@@ -416,3 +416,68 @@ def test_late_old_assessment_is_audited_without_overwriting_a_newer_attempt(conn
     with connection.cursor() as cursor:
         cursor.execute('SELECT outcome FROM `tabZATCA Dispatch Attempt` WHERE name=%s',(old_id,))
         assert cursor.fetchone()==('REPORTING_MATCHED',)
+
+
+def clearance_disabled(connections,chain):
+    connection=connections();repo=store(connection);values=header(chain)
+    values['endpoint']='invoices/clearance/single'
+    repo.stage_issuance(repo.lock_active_chain(chain['owner_key']),values,BODY,actor='TEST',occurred_at=NOW)
+    connection.commit()
+    attempt_id,fence=started(connections,chain,values)
+    repo,head,issuance=locked(connection,chain,values['record_id'])
+    repo.retain_receipt(head,issuance,attempt_id=attempt_id,fence_token=fence,http_status=303,
+        request_id='clearance-disabled',body=b'ORIGINAL303')
+    connection.commit()
+    repo,head,issuance=locked(connection,chain,values['record_id'])
+    repo.record_assessment(head,issuance,attempt_id=attempt_id,fence_token=fence,outcome='CLEARANCE_DISABLED')
+    connection.commit()
+    return values,attempt_id
+
+
+def test_303_reporting_reservation_changes_only_operation_and_attempt_not_original_or_counter(connections,chain):
+    values,prior_id=clearance_disabled(connections,chain)
+    connection=connections();repo,head,issuance=locked(connection,chain,values['record_id'])
+    identifier=str(uuid4())
+    reserved=repo.start_attempt(head,issuance,record_id=identifier,fence_token=str(uuid4()),actor='TEST',
+        now_utc=NOW+timedelta(seconds=1),supersedes_attempt=prior_id)
+    assert reserved['endpoint']=='invoices/reporting/single' and reserved['attempt_number']==2
+    connection.commit()
+    repo,head,issuance=locked(connection,chain,values['record_id'])
+    saved,original=repo.open_issuance(values['record_id'])
+    assert saved['endpoint']=='invoices/clearance/single' and original==BODY
+    assert saved['invoice_uuid']==values['invoice_uuid'] and head['last_icv']=='1'
+    assert repo.open_clearance_fallback(issuance)[1]==b'ORIGINAL303'
+
+
+def test_303_a_retried_fallback_stays_on_reporting_after_a_technical_response(connections,chain):
+    values,prior_id=clearance_disabled(connections,chain)
+    connection=connections();repo,head,issuance=locked(connection,chain,values['record_id'])
+    identifier,fence=str(uuid4()),str(uuid4())
+    repo.start_attempt(head,issuance,record_id=identifier,fence_token=fence,actor='TEST',
+        now_utc=NOW+timedelta(seconds=1),supersedes_attempt=prior_id)
+    connection.commit()
+    repo,head,issuance=locked(connection,chain,values['record_id'])
+    repo.retain_receipt(head,issuance,attempt_id=identifier,fence_token=fence,http_status=503,request_id='',body=b'TECHNICAL')
+    connection.commit()
+    repo,head,issuance=locked(connection,chain,values['record_id'])
+    repo.record_assessment(head,issuance,attempt_id=identifier,fence_token=fence,outcome='TECHNICAL_FAILURE')
+    connection.commit()
+    repo,head,issuance=locked(connection,chain,values['record_id'])
+    retry=repo.start_attempt(head,issuance,record_id=str(uuid4()),fence_token=str(uuid4()),actor='TEST',
+        now_utc=NOW+timedelta(seconds=2),supersedes_attempt=identifier)
+    assert retry['endpoint']=='invoices/reporting/single' and retry['attempt_number']==3
+    connection.commit()
+
+
+def test_303_state_without_untampered_receipt_cannot_authorize_fallback(connections,chain):
+    values,prior_id=clearance_disabled(connections,chain)
+    connection=connections()
+    with connection.cursor() as cursor:
+        cursor.execute('UPDATE `tabZATCA Dispatch Attempt` SET request_id=%s WHERE name=%s',('TAMPERED',prior_id))
+    connection.commit()
+    repo,head,issuance=locked(connection,chain,values['record_id'])
+    with pytest.raises(DispatchRecordError) as caught:
+        repo.start_attempt(head,issuance,record_id=str(uuid4()),fence_token=str(uuid4()),actor='TEST',
+            now_utc=NOW+timedelta(seconds=1),supersedes_attempt=prior_id)
+    assert caught.value.code=='dispatch_record_integrity'
+    connection.rollback()

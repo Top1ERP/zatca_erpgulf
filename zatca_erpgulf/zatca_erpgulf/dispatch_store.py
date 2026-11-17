@@ -238,10 +238,23 @@ class DispatchStore:
                     or type(actor) is not str or not actor):
                 raise DispatchStoreError('dispatch_server_metadata')
             previous=issuance['active_attempt']
+            endpoint=issuance['endpoint']
             if issuance['state']=='PREPARED':
                 if previous or supersedes_attempt is not None or chain['active_attempt']:
                     raise DispatchStoreError('dispatch_attempt_busy')
                 number=1
+            elif issuance['state']=='REPORTING_FALLBACK_READY':
+                if not previous or supersedes_attempt!=previous or chain['active_attempt']:
+                    raise DispatchStoreError('dispatch_retry_review_required')
+                prior=self._attempt(previous)
+                if (issuance['endpoint']!=ENDPOINTS[1] or prior['issuance']!=issuance['record_id']
+                        or prior['state']!='RESPONSE_RETAINED' or prior['outcome']!='CLEARANCE_DISABLED'
+                        or prior['http_status']!=303 or prior['endpoint']!=ENDPOINTS[1]
+                        or prior['request_sha256']!=issuance['artifact_sha256']):
+                    raise DispatchStoreError('dispatch_fallback_receipt_required')
+                self.open_clearance_fallback(issuance)
+                endpoint=ENDPOINTS[0]
+                number=prior['attempt_number']+1
             elif issuance['state'] in ('DISPATCHING','OUTCOME_UNKNOWN'):
                 if not previous or supersedes_attempt!=previous or chain['active_attempt'] not in (None,previous):
                     raise DispatchStoreError('dispatch_retry_review_required')
@@ -256,14 +269,19 @@ class DispatchStore:
                             or prior['lease_expires_at_utc']>now_utc))):
                     raise DispatchStoreError('dispatch_attempt_busy')
                 number=prior['attempt_number']+1
-                if type(number) is not int or not 2<=number<=2147483647:
-                    raise DispatchStoreError('dispatch_attempt_number')
+                endpoint=prior['endpoint']
+                if endpoint!=issuance['endpoint']:
+                    if endpoint!=ENDPOINTS[0] or issuance['endpoint']!=ENDPOINTS[1]:
+                        raise DispatchStoreError('dispatch_attempt_endpoint')
+                    self.open_clearance_fallback(issuance)
             else:raise DispatchStoreError('dispatch_attempt_state_review')
-            if issuance['endpoint'] not in ENDPOINTS:
+            if type(number) is not int or not 1<=number<=2147483647:
+                raise DispatchStoreError('dispatch_attempt_number')
+            if endpoint not in ENDPOINTS:
                 raise DispatchStoreError('dispatch_attempt_endpoint')
             header=dict(record_id=record_id,issuance=issuance['record_id'],company=issuance['company'],
                 source_doctype=issuance['source_doctype'],source_name=issuance['source_name'],
-                environment=issuance['environment'],endpoint=issuance['endpoint'],attempt_number=number,
+                environment=issuance['environment'],endpoint=endpoint,attempt_number=number,
                 fence_token=fence_token,lease_expires_at_utc=(now_utc+timedelta(seconds=lease_seconds)).strftime('%Y-%m-%dT%H:%M:%S.%f'),
                 request_sha256=issuance['artifact_sha256'])
             # Datetime is native in SQL and canonical text in authenticated flat
@@ -279,7 +297,7 @@ class DispatchStore:
             self._sql('UPDATE '+TABLE_CHAIN+' SET active_attempt=%s,state_version=state_version+1 '
                 'WHERE name=%s AND state_version=%s',(record_id,chain['record_id'],chain['state_version']))
             self._changed_once()
-            return record_id
+            return MappingProxyType(header)
 
     def mark_attempt_unknown(self,chain,issuance,*,attempt_id,fence_token):
         """An interrupted invocation is not a rejection or permission to reissue."""
@@ -368,6 +386,23 @@ class DispatchStore:
             if not opened.startswith(b'\x01') or hashlib.sha256(opened[1:]).hexdigest()!=row['response_sha256']:
                 raise DispatchStoreError('dispatch_receipt_digest')
             return MappingProxyType(row),opened[1:]
+
+    def open_clearance_fallback(self,issuance):
+        """Decrypt the original303 evidence; a state/flag alone is insufficient."""
+        with self._operation():
+            if self._locked_issuances.get(issuance['record_id']) is not issuance:
+                raise DispatchStoreError('dispatch_issuance_lock_required')
+            rows=self._sql('SELECT name FROM '+TABLE_ATTEMPT+
+                ' WHERE issuance=%s AND endpoint=%s AND http_status=303 AND outcome=%s '
+                'AND state=%s ORDER BY attempt_number LIMIT 1 FOR UPDATE NOWAIT',
+                (issuance['record_id'],ENDPOINTS[1],'CLEARANCE_DISABLED','RESPONSE_RETAINED'))
+            if len(rows)!=1:raise DispatchStoreError('dispatch_fallback_receipt_required')
+            header,body=self.open_receipt(rows[0]['name'])
+            if (header['issuance']!=issuance['record_id'] or header['environment']!=issuance['environment']
+                    or header['endpoint']!=ENDPOINTS[1] or header['http_status']!=303
+                    or header['request_sha256']!=issuance['artifact_sha256']):
+                raise DispatchStoreError('dispatch_fallback_receipt_required')
+            return header,body
 
     def record_assessment(self,chain,issuance,*,attempt_id,fence_token,outcome):
         """Record a server-computed assessment after committed receipt custody.

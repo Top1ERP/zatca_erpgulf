@@ -179,6 +179,7 @@ LOCAL_SUITES = (
     "zatca_response", "compatibility_hardening",
 )
 PRIVATE_SUITES = (
+    "native_owned_pipeline_mariadb",
     "native_dispatch_store_mariadb",
     "advance_settlement_mariadb",
     "settlement_advances_mariadb",

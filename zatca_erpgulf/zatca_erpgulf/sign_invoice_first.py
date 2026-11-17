@@ -1327,7 +1327,7 @@ def compliance_api_call(
             "Authorization": authorization,
             "Content-Type": "application/json",
         }
-        confirm_issuing_transport(company_abbr, source_doc, runtime=frappe)
+        confirm_issuing_transport(company_abbr, source_doc, runtime=frappe, purpose='compliance')
         response = requests.request(
             "POST",
             url=api_url,

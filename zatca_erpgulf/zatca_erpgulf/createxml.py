@@ -149,11 +149,12 @@ def _get_or_create_sales_invoice_uuid(sales_invoice_doc):
     the invoice but ERPNext failed to update the local status because of a
     timeout or network interruption.
     """
-    from .native_preparation import active_preparation
+    from .native_preparation import active_preparation, reject_legacy_native_preparation
     prepared=active_preparation(frappe)
     if prepared is not None:
         prepared.require_source(sales_invoice_doc,frappe)
         return prepared.invoice_uuid
+    reject_legacy_native_preparation(sales_invoice_doc,frappe)
     existing_uuid = getattr(sales_invoice_doc, "custom_uuid", None)
 
     if _is_valid_zatca_uuid_value(existing_uuid):

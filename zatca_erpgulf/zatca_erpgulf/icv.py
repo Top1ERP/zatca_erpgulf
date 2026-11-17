@@ -74,6 +74,10 @@ def get_icv(doc, environment="Production", debug=False):
 	if not doc or not getattr(doc, "company", None):
 		frappe.throw(_("Company is required before generating ZATCA ICV."))
 
+	if environment == "Production":
+		from .native_preparation import reject_legacy_native_preparation
+		reject_legacy_native_preparation(doc,frappe)
+
 	fieldname = "custom_zatca_icv"
 	if environment == "Production" and frappe.get_meta(doc.doctype).has_field(fieldname) and doc.get(fieldname):
 		return str(cint(doc.get(fieldname)))

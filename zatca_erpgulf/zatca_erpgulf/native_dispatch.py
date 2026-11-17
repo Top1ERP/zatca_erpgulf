@@ -19,7 +19,7 @@ from .native_preparation import (
 from .worker_transaction import owned_worker_transaction
 from .permission_compat import saved_row_has_permission
 from .api_routing import resolve_api_route
-from .native_transport import NativeInvocation, NativeResponse
+from .native_transport import NativeInvocation, NativeResponse, NativeTransportError, invoke_saved_request
 from .native_response import assess_native_receipt
 
 
@@ -29,6 +29,28 @@ OWNER_TABLES={'Company':'`tabCompany`','ZATCA Multiple Setting':'`tabZATCA Multi
 
 class NativeDispatchError(RuntimeError):
     def __init__(self,code):self.code=code;super().__init__(code)
+
+
+class NativeDispatchReview(NativeDispatchError):
+    """A stage-aware failure must never enter legacy identity-reset writers."""
+    http_status_code = 417
+
+    def __init__(self, code, *, issuance_id, attempt_id, invoked, receipt_retained):
+        self.issuance_id = issuance_id
+        self.attempt_id = attempt_id
+        self.invoked = invoked
+        self.receipt_retained = receipt_retained
+        super().__init__(code)
+
+
+@dataclass(frozen=True, repr=False)
+class NativeDispatchOutcome:
+    issuance_id: str
+    attempt_id: str
+    outcome: str
+    current: bool
+    warning_count: int
+    has_warnings: bool
 
 
 @dataclass(frozen=True,repr=False)
@@ -219,10 +241,10 @@ def reserve_saved_issuance(doctype,invoice_name,*,runtime,translate,supersedes_a
                     or str(locked.get('custom_zatca_icv'))!=header['icv']
                     or locked.get('custom_zatca_issuing_unit')!='egs:'+chain['record_id']):
                 raise NativeDispatchError('native_source_issuance_outputs_review')
-            route=resolve_api_route(scope.company.values,header['endpoint'])
             attempt_id,fence=str(uuid4()),str(uuid4())
-            repository.start_attempt(chain,issuance,record_id=attempt_id,fence_token=fence,
+            reserved=repository.start_attempt(chain,issuance,record_id=attempt_id,fence_token=fence,
                 actor=owner.actor,now_utc=owner.utc_now(),supersedes_attempt=supersedes_attempt)
+            route=resolve_api_route(scope.company.values,reserved['endpoint'])
             scope.confirm_current()
             invocation=NativeInvocation(issuance['record_id'],attempt_id,fence,key,chain['record_id'],owner.site,owner.actor,route,
                 material.authorization.header,header['artifact_sha256'],original)
@@ -274,8 +296,62 @@ def assess_retained_dispatch(invocation,*,runtime):
         if (header['artifact_sha256']!=invocation.request_sha256
                 or receipt['fence_token']!=invocation.fence_token):
             raise NativeDispatchError('native_observation_request_binding')
-        assessment=assess_native_receipt(header,original,receipt,body)
+        fallback=None
+        if header['endpoint']!=receipt['endpoint']:
+            fallback=repository.open_clearance_fallback(issuance)
+        assessment=assess_native_receipt(header,original,receipt,body,fallback_receipt=fallback)
         current=repository.record_assessment(chain,issuance,attempt_id=invocation.attempt_id,
             fence_token=invocation.fence_token,outcome=assessment.outcome)
         owner.commit()
         return assessment,current
+
+
+def dispatch_saved_invoice(doctype, invoice_name, *, runtime, translate, build, retry_attempt_id=None):
+    """One native preparation, exact dispatch/custody and bounded303 fallback.
+
+    Internal coordinator only, not a whitelisted RPC or public build callback.
+    Each service owns and commits its separate transaction. The response is
+    retained before assessment, and no legacy source-reset handler runs here.
+    Source/QR/File projection and public worker adoption remain separate work.
+    """
+    prepare_saved_invoice(doctype, invoice_name, runtime=runtime, translate=translate, build=build)
+    supersedes = retry_attempt_id
+    for _ in range(2):
+        invocation = reserve_saved_issuance(doctype, invoice_name, runtime=runtime,
+            translate=translate, supersedes_attempt=supersedes)
+        response = None
+        transport_error = None
+        try:
+            response = invoke_saved_request(invocation, runtime=runtime)
+        except NativeTransportError as error:
+            transport_error = error
+        if type(response) is not NativeResponse and transport_error is None:
+            response = None
+            transport_error = NativeTransportError('native_transport_contract_unknown', invoked=True)
+        custody_failed = False
+        try:
+            retain_dispatch_observation(invocation, response, runtime=runtime)
+        except Exception:
+            custody_failed = True
+        if custody_failed:
+            raise NativeDispatchReview('native_response_custody_unknown', issuance_id=invocation.issuance_id,
+                attempt_id=invocation.attempt_id, invoked=transport_error.invoked if transport_error else True,
+                receipt_retained=False)
+        if transport_error is not None:
+            raise NativeDispatchReview(transport_error.code, issuance_id=invocation.issuance_id,
+                attempt_id=invocation.attempt_id, invoked=transport_error.invoked, receipt_retained=False)
+        assessment_failed = False
+        try:
+            assessment, current = assess_retained_dispatch(invocation, runtime=runtime)
+        except Exception:
+            assessment_failed = True
+        if assessment_failed:
+            raise NativeDispatchReview('native_response_processing_incomplete', issuance_id=invocation.issuance_id,
+                attempt_id=invocation.attempt_id, invoked=True, receipt_retained=True)
+        if assessment.outcome == 'CLEARANCE_DISABLED' and current:
+            supersedes = invocation.attempt_id
+            continue
+        return NativeDispatchOutcome(invocation.issuance_id, invocation.attempt_id, assessment.outcome,
+            current, assessment.warning_count, assessment.has_warnings)
+    raise NativeDispatchReview('native_fallback_limit', issuance_id=invocation.issuance_id,
+        attempt_id=invocation.attempt_id, invoked=True, receipt_retained=True)
