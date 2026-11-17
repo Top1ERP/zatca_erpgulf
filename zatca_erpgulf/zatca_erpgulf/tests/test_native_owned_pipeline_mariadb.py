@@ -186,6 +186,23 @@ def test_native_sales_and_pos_keep_one_chain_through_committed_mocked_dispatch(
         assert hashlib.sha256(sent[-1]).hexdigest() == row['artifact_sha256']
         if mode == 'standard303':
             assert sent[-2] == sent[-1]  # Same signed original, not a second issuance.
+        original_key=selected_owner.custom_private_key
+        selected_owner.custom_private_key='INVALID-KEY-MUST-NOT-BE-READ'
+        permission=runtime.has_permission
+        runtime.has_permission=lambda doctype, operation, *, doc, user, raise_exception=True: operation=='read'
+        try:
+            view=native_dispatch.read_retained_invoice(source.doctype,source.name,runtime=runtime)
+            assert view.accepted and view.issuance_id==outcome.issuance_id
+            original=base64.b64decode(json.loads(sent[-1])['invoice'])
+            assert view.original_xml==original
+            before=adapter.send.call_count
+            cached=native_dispatch.dispatch_saved_invoice(source.doctype,source.name,runtime=runtime,
+                translate=lambda text:text,build=lambda saved:pytest.fail('Accepted original was rebuilt'))
+            assert cached.reused_accepted and cached.issuance_id==outcome.issuance_id
+            assert adapter.send.call_count==before
+        finally:
+            selected_owner.custom_private_key=original_key
+            runtime.has_permission=permission
     assert database.commits == (14 if mode == 'standard303' else 8)
     assert adapter.send.call_count == (4 if mode == 'standard303' else 2)
     assert get_doc(selected_owner.doctype, selected_owner.name).custom_pih == previous

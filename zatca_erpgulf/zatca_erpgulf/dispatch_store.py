@@ -204,6 +204,27 @@ class DispatchStore:
             self._locked_issuances[record_id]=locked
             return locked
 
+    def find_source_issuance(self,*,doctype,invoice_name,company,chain_id,invoice_uuid,icv):
+        """Read one exact saved-source reference, without current credentials.
+
+        A shared current read supports historical viewing after certificate
+        expiry. Mutation methods still require the separate chain write ticket.
+        Source/Company read ACL belongs to the service before this lookup.
+        """
+        with self._operation():
+            _identifier(chain_id);_identifier(invoice_uuid);_counter(icv)
+            if doctype not in ('Sales Invoice','POS Invoice'):
+                raise DispatchStoreError('dispatch_source_identity')
+            rows=self._sql('SELECT '+','.join('`'+field+'`' for field in ARTIFACT_FIELDS)+
+                ',state,active_attempt,state_version FROM '+TABLE_ISSUANCE+
+                ' WHERE source_doctype=%s AND source_name=%s AND company=%s AND chain=%s '
+                'AND invoice_uuid=%s AND icv=%s LOCK IN SHARE MODE NOWAIT',
+                (doctype,invoice_name,company,chain_id,invoice_uuid,icv))
+            if len(rows)!=1:raise DispatchStoreError('dispatch_source_custody_review')
+            row=MappingProxyType(dict(rows[0]))
+            self._locked_issuances[row['record_id']]=row
+            return row
+
     def _require_locked(self,chain,issuance):
         if (self._locked_chains.get(chain['record_id']) is not chain
                 or self._locked_issuances.get(issuance['record_id']) is not issuance

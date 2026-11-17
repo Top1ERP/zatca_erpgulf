@@ -20,7 +20,7 @@ from .worker_transaction import owned_worker_transaction
 from .permission_compat import saved_row_has_permission
 from .api_routing import resolve_api_route
 from .native_transport import NativeInvocation, NativeResponse, NativeTransportError, invoke_saved_request
-from .native_response import assess_native_receipt
+from .native_response import assess_native_receipt, _original
 
 
 SOURCE_TABLES={'Sales Invoice':'`tabSales Invoice`','POS Invoice':'`tabPOS Invoice`'}
@@ -51,6 +51,24 @@ class NativeDispatchOutcome:
     current: bool
     warning_count: int
     has_warnings: bool
+    reused_accepted: bool = False
+
+
+@dataclass(frozen=True, repr=False)
+class RetainedNativeView:
+    """Owned original bytes and a receipt-derived view, never a signing token."""
+    issuance_id: str
+    attempt_id: str | None
+    state: str
+    outcome: str
+    accepted: bool
+    warning_count: int
+    has_warnings: bool
+    original_xml: bytes = field(repr=False)
+    returned_xml: bytes | None = field(repr=False)
+
+    def __reduce_ex__(self, protocol):
+        raise TypeError('retained_native_view_not_serializable')
 
 
 @dataclass(frozen=True,repr=False)
@@ -97,7 +115,8 @@ def _require_new_source(source):
     placeholders=(None,'','Not Submitted','Not submitted','not submitted','0','false')
     if (source.get('custom_uuid') not in placeholders or source.get('custom_zatca_icv') not in (None,'',0,'0')
             or source.get('custom_zatca_issuing_unit') or source.get('custom_xml')
-            or source.get('custom_zatca_status') in ('REPORTED','CLEARED')):
+            or source.get('custom_zatca_status') not in placeholders
+            or source.get('custom_zatca_full_response') not in placeholders):
         raise NativeDispatchError('native_legacy_issuance_review')
 
 
@@ -113,9 +132,10 @@ def _header(packet,record_id,version):
         artifact_sha256=packet.request_sha256,replaces_issuance=None)
 
 
-def _require_access(runtime,source,company,actor):
+def _require_access(runtime,source,company,actor,*,write=True):
     """Reused originals require the same saved-row ACL as new generation."""
-    for document,operations in ((source,('read','write')),(company,('read',))):
+    operations=('read','write') if write else ('read',)
+    for document,operations in ((source,operations),(company,('read',))):
         for operation in operations:
             if not saved_row_has_permission(runtime.has_permission,document.doctype,
                     operation,doc=document,user=actor):
@@ -346,6 +366,49 @@ def assess_retained_dispatch(invocation,*,runtime):
         return assessment,current
 
 
+def read_retained_invoice(doctype,invoice_name,*,runtime):
+    """Read exact native custody using saved-source read ACL, not signing keys.
+
+    No artifact generation, key/route/certificate lookup, source repair, current
+    Company-phase requirement or HTTP occurs. Historical source identities must
+    still match; a rename/rebind needs its explicit reviewed transition.
+    """
+    if doctype not in SOURCE_TABLES or type(invoice_name) is not str or not invoice_name:
+        raise NativeDispatchError('native_source_identity')
+    with owned_worker_transaction(runtime) as owner:
+        source=runtime.get_doc(doctype,invoice_name)
+        company=runtime.get_doc('Company',source.company)
+        _require_access(runtime,source,company,owner.actor,write=False)
+        marker=source.get('custom_zatca_issuing_unit')
+        if type(marker) is not str or not marker.startswith('egs:'):
+            return None
+        value=source.get('custom_zatca_icv')
+        if type(value) not in (int,str):
+            raise NativeDispatchError('native_retained_source_identity')
+        repository=DispatchStore(owner.database,storage_namespace=owner.storage_namespace,
+            cipher=owner.cipher,owner_check=owner.owner_current)
+        saved=repository.find_source_issuance(doctype=doctype,invoice_name=invoice_name,
+            company=source.company,chain_id=marker[4:],invoice_uuid=source.get('custom_uuid'),icv=str(value))
+        header,original=repository.open_issuance(saved['record_id'])
+        xml,_evidence=_original(header,original)
+        outcome='RETAINED_ORIGINAL';warnings=0;has_warnings=False;returned=None
+        accepted=saved['state'] in ('REPORTED','CLEARED')
+        if accepted:
+            if not saved['active_attempt']:
+                raise NativeDispatchError('native_retained_acceptance_review')
+            receipt,body=repository.open_receipt(saved['active_attempt'])
+            fallback=repository.open_clearance_fallback(saved) if header['endpoint']!=receipt['endpoint'] else None
+            assessment=assess_native_receipt(header,original,receipt,body,fallback_receipt=fallback)
+            required=('REPORTING_MATCHED','REPORTING_DUPLICATE_MATCHED') if saved['state']=='REPORTED' else (
+                'CLEARANCE_MATCHED','CLEARANCE_DUPLICATE_MATCHED')
+            if assessment.outcome not in required:
+                raise NativeDispatchError('native_retained_acceptance_review')
+            outcome=assessment.outcome;warnings=assessment.warning_count;has_warnings=assessment.has_warnings
+            returned=assessment.returned_xml
+        return RetainedNativeView(saved['record_id'],saved['active_attempt'],saved['state'],outcome,
+            accepted,warnings,has_warnings,xml,returned)
+
+
 def dispatch_saved_invoice(doctype, invoice_name, *, runtime, translate, build, retry_attempt_id=None):
     """One native preparation, exact dispatch/custody and bounded303 fallback.
 
@@ -354,7 +417,12 @@ def dispatch_saved_invoice(doctype, invoice_name, *, runtime, translate, build, 
     retained before assessment, and no legacy source-reset handler runs here.
     Source/QR/File projection and public worker adoption remain separate work.
     """
-    prepare_saved_invoice(doctype, invoice_name, runtime=runtime, translate=translate, build=build)
+    retained=read_retained_invoice(doctype,invoice_name,runtime=runtime)
+    if retained is not None and retained.accepted:
+        return NativeDispatchOutcome(retained.issuance_id,retained.attempt_id,retained.outcome,
+            True,retained.warning_count,retained.has_warnings,True)
+    if retained is None:
+        prepare_saved_invoice(doctype, invoice_name, runtime=runtime, translate=translate, build=build)
     supersedes = retry_attempt_id
     for _ in range(2):
         invocation = reserve_saved_issuance(doctype, invoice_name, runtime=runtime,

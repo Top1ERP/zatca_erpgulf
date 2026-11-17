@@ -187,6 +187,24 @@ unconfirmed responses cannot create an automatic replacement. Failure results
 distinguish invocation uncertainty, custody uncertainty and processing failure
 after retained receipt. No legacy source-identity reset writer runs here.
 
+`read_retained_invoice` now reads one exact source/Company/chain/UUID/ICV reference
+with saved-source read ACL. It opens/decrypts the original and checks its metadata;
+an accepted ledger state additionally needs the matching retained response contract
+(and303 evidence when applicable). It does not parse a current private key, select
+a current gateway, require a current Company phase or re-sign. The owned read
+scope rolls back only its clean read transaction; it does not repair ERP fields.
+Generic rename/rebind remains a separately reviewed transition.
+
+The dispatcher consults that retained view first. An accepted original returns its
+stored result with `reused_accepted=True`, with no builder/reservation/HTTP. An
+existing unaccepted original skips the builder and goes through the ordinary
+permission/material/reservation policy; reading history does not authorize a
+retry. In this version unchanged retries still require the existing full signing
+material check in reservation, although no re-sign occurs. A keyless transport-only
+authorization adapter is not yet implemented. Unknown legacy status/response
+markers require review even when earlier code erased UUID/counter output fields;
+their absence alone must not be treated as a new issuance.
+
 A server-loaded source already marked `egs:<chain UUID>` cannot silently reenter
 legacy UUID/ICV/production HTTP paths. Active native preparation bypasses that
 guard only through its owned ticket. Debug and Compliance metadata stay local to
@@ -259,14 +277,16 @@ UUID/POS metadata/ICV guards, the final HTTP fence and its Compliance caller.
 
 ## Next integration batch
 
-1. Derive source/QR/XML/status views from committed current custody and the
+1. Finish source/QR/XML/status projection from committed current custody and the
    operation-specific publication rule. A prepared Simplified original may supply
    its local QR/XML before Reporting, without being marked remotely accepted.
    Standard publication needs matched clearance or the explicit303 fallback rule.
    A response writer must never rewind the owner's generation-time PIH to an
-   older accepted invoice. Keep already accepted originals readable after credential
-   expiry/rotation; cached accepted recovery must not send another request. Match
-   the current source issuance identity before projecting a historical receipt.
+   older accepted invoice. The retained reader/cached accepted no-send path is
+   implemented, including invalid current signing keys and read-only source ACL
+   in the private pipeline. Match the current source issuance identity before
+   projecting a historical receipt; do not introduce Frappe File callbacks into
+   the strict read-only preparation transaction.
 2. Add explicit corrected-rejection versioning. Require a matched retained400,
    source write access and current chain lock; link the new version, retain the
    old one and use the current local tail. Unknown/auth/technical/duplicate review
@@ -281,8 +301,18 @@ UUID/POS metadata/ICV guards, the final HTTP fence and its Compliance caller.
    XML wrappers/manual/batch/worker paths together. Do not activate one path and
    leave another allocating through the legacy counter. External XML needs its
    own source/file/chain admission and cannot consume a freshly proposed random
-   native UUID. Unverified extensions must stop before transport.
+   native UUID. Unverified extensions must stop before transport. Batch/hold
+   generation must reach the native request handoff without the legacy queue/save
+   branch, and local Simplified publication must not wait for Reporting success.
 5. Complete cancellation/printing/recovery/rename decisions and aggregated translated
    operator outcomes. Then freeze the workstream2 qualification. Installed5,
    authentic crypto/SDK6, financial3 and the separately approved pilot7 retain
    their own gates; service-only/private-SQL success does not close those gates.
+
+Retained-access follow-up:638 local cases in
+`/tmp/zatca-axis2-retained-access-final.log`,45 private SQL cases in
+`/tmp/zatca-axis2-retained-access-private-final.log`. The six combined private
+pipeline cases now also invalidate the current signing key, reduce source access
+to read only, retrieve the exact accepted original and repeat the dispatch command
+without another transport call or counter increment. These are overlapping local
+evidence, not new installed/financial/authority acceptance.

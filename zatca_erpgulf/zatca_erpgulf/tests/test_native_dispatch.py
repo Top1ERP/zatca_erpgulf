@@ -8,6 +8,8 @@ site access, HTTP, accounting records or customer credentials.
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
+import base64
+import json
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -162,7 +164,8 @@ def test_unknown_original_is_recovered_without_regeneration_or_counter_update(co
 
 
 @pytest.mark.parametrize('field,value', [('custom_uuid', 'OLD'), ('custom_zatca_icv', '55'),
-    ('custom_zatca_issuing_unit', 'OLD-UNIT'), ('custom_xml', '/private/old.xml'), ('custom_zatca_status', 'REPORTED')])
+    ('custom_zatca_issuing_unit', 'OLD-UNIT'), ('custom_xml', '/private/old.xml'), ('custom_zatca_status', 'REPORTED'),
+    ('custom_zatca_status', 'ERROR'), ('custom_zatca_full_response', '{"reportingStatus":"REPORTED"}')])
 def test_legacy_source_identity_requires_review_instead_of_new_genesis(coordinator, field, value):
     c = coordinator
     setattr(c.b.sales, field, value)
@@ -311,7 +314,7 @@ def orchestration(monkeypatch):
     invocation = SimpleNamespace(issuance_id='issued', attempt_id='attempt')
     received = dispatch.NativeResponse(200, 'request', b'ORIGINAL')
     functions = {}
-    results = {'prepare_saved_invoice': None, 'reserve_saved_issuance': invocation,
+    results = {'read_retained_invoice': None, 'prepare_saved_invoice': None, 'reserve_saved_issuance': invocation,
         'invoke_saved_request': received, 'retain_dispatch_observation': True,
         'assess_retained_dispatch': (NativeAssessment('REPORTING_MATCHED'), True)}
     for name, result in results.items():
@@ -331,7 +334,7 @@ def test_central_coordinator_retains_before_assessing_and_never_repeats_a_normal
     o = orchestration
     outcome = o.execute()
     assert outcome.current and outcome.outcome == 'REPORTING_MATCHED'
-    assert o.calls == ['prepare_saved_invoice', 'reserve_saved_issuance', 'invoke_saved_request',
+    assert o.calls == ['read_retained_invoice', 'prepare_saved_invoice', 'reserve_saved_issuance', 'invoke_saved_request',
         'retain_dispatch_observation', 'assess_retained_dispatch']
     assert o.functions['retain_dispatch_observation'].call_args.args == (o.invocation, o.received)
 
@@ -387,6 +390,28 @@ def test_undefined_sender_result_never_becomes_a_retained_success(orchestration)
     o.functions['assess_retained_dispatch'].assert_not_called()
 
 
+def test_accepted_custody_short_circuits_preparation_credentials_and_http(orchestration):
+    o = orchestration
+    o.functions['read_retained_invoice'].side_effect = None
+    o.functions['read_retained_invoice'].return_value = SimpleNamespace(accepted=True,
+        issuance_id='SAVED', attempt_id='ORIGINAL-ATTEMPT', outcome='REPORTING_MATCHED',
+        warning_count=1, has_warnings=True)
+    result = o.execute()
+    assert result.reused_accepted and result.issuance_id == 'SAVED' and result.has_warnings
+    o.functions['prepare_saved_invoice'].assert_not_called()
+    o.functions['reserve_saved_issuance'].assert_not_called()
+    o.functions['invoke_saved_request'].assert_not_called()
+
+
+def test_existing_unaccepted_original_is_reserved_without_running_the_builder(orchestration):
+    o = orchestration
+    o.functions['read_retained_invoice'].side_effect = None
+    o.functions['read_retained_invoice'].return_value = SimpleNamespace(accepted=False)
+    assert o.execute().outcome == 'REPORTING_MATCHED'
+    o.functions['prepare_saved_invoice'].assert_not_called()
+    o.functions['reserve_saved_issuance'].assert_called_once()
+
+
 @pytest.mark.parametrize('kind,declaration,limit,value,valid', [
     ('int', 'int(11)', None, str(2**31-1), True), ('int', 'int(11)', None, str(2**31), False),
     ('bigint', 'bigint(20)', None, str(2**63-1), True), ('bigint', 'bigint(20)', None, str(2**63), False),
@@ -432,3 +457,74 @@ def test_missing_or_insufficient_output_columns_stop_before_build_or_staging(coo
     build.assert_not_called()
     c.repository.stage_issuance.assert_not_called()
     assert c.state.rolled_back and not c.state.committed
+
+
+def retained_reader(c, *, accepted=True):
+    from zatca_erpgulf.zatca_erpgulf.tests.test_native_response import evidence, success
+    header, _unused, xml = evidence()
+    xml = xml.replace(b'INV-TEST', b'SI')
+    original = json.dumps(dict(invoiceHash=header['invoice_hash'], uuid=header['invoice_uuid'],
+        invoice=base64.b64encode(xml).decode())).encode()
+    header.update(source_name='SI', artifact_sha256=hashlib.sha256(original).hexdigest())
+    source = c.b.sales
+    source.custom_zatca_issuing_unit = 'egs:' + c.chain['record_id']
+    source.custom_uuid = header['invoice_uuid']
+    source.custom_zatca_icv = header['icv']
+    saved = dict(header, state='REPORTED' if accepted else 'PREPARED', active_attempt='attempt' if accepted else None)
+    c.repository.find_source_issuance = Mock(return_value=saved)
+    c.repository.open_issuance.return_value = (header, original)
+    body = json.dumps(success(header, xml)).encode()
+    receipt = dict(issuance=header['record_id'], request_sha256=header['artifact_sha256'],
+        environment=header['environment'], endpoint=header['endpoint'], http_status=200,
+        response_sha256=hashlib.sha256(body).hexdigest())
+    c.repository.open_receipt = Mock(return_value=(receipt, body))
+    return xml, saved, receipt
+
+
+@pytest.mark.parametrize('accepted', [True, False])
+def test_read_view_needs_read_acl_and_stored_identity_not_current_credentials(coordinator, accepted):
+    c = coordinator
+    xml, saved, _receipt = retained_reader(c, accepted=accepted)
+    def permission(doctype, operation, *, doc, user, raise_exception=True):
+        assert raise_exception is False
+        return operation == 'read'
+    c.b.frappe.has_permission = permission
+    c.b.company.custom_private_key = 'INVALID-MUST-NOT-BE-PARSED'
+    c.b.company.custom_basic_auth_from_production = None
+    c.b.company.custom_phase_1_or_2 = 'Phase-1'
+    view = dispatch.read_retained_invoice('Sales Invoice', 'SI', runtime=c.b.frappe)
+    assert view.original_xml == xml and view.accepted is accepted
+    assert view.state == saved['state']
+    assert c.state.rolled_back and not c.state.committed  # Read-only owned scope.
+    c.b.request.assert_not_called()
+    if not accepted:
+        c.repository.open_receipt.assert_not_called()
+
+
+def test_read_view_does_not_trust_a_saved_acceptance_status_without_matching_receipt(coordinator):
+    c = coordinator
+    _xml, _saved, receipt = retained_reader(c)
+    receipt['request_sha256'] = '0' * 64
+    with pytest.raises(dispatch.NativeDispatchError) as caught:
+        dispatch.read_retained_invoice('Sales Invoice', 'SI', runtime=c.b.frappe)
+    assert caught.value.code == 'native_retained_acceptance_review'
+
+
+def test_read_denial_precedes_any_custody_or_credential_lookup(coordinator):
+    c = coordinator
+    retained_reader(c)
+    c.b.frappe.has_permission = lambda doctype, operation, *, doc, user, raise_exception=True: False
+    with pytest.raises(dispatch.NativeDispatchError) as caught:
+        dispatch.read_retained_invoice('Sales Invoice', 'SI', runtime=c.b.frappe)
+    assert caught.value.code == 'native_source_permission'
+    c.factory.assert_not_called()
+
+
+def test_float_source_counter_cannot_select_a_historical_original(coordinator):
+    c = coordinator
+    retained_reader(c)
+    c.b.sales.custom_zatca_icv = 77.0
+    with pytest.raises(dispatch.NativeDispatchError) as caught:
+        dispatch.read_retained_invoice('Sales Invoice', 'SI', runtime=c.b.frappe)
+    assert caught.value.code == 'native_retained_source_identity'
+    c.factory.assert_not_called()
