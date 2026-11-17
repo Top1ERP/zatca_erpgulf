@@ -56,6 +56,10 @@ def test_artifact_and_chain_slots_are_unique_independent_of_human_invoice_number
     chain={f['fieldname']:f for f in metadata('ZATCA Issuing Chain')['fields']}
     assert chain['active_owner_key']['unique']==1 and not chain['active_owner_key'].get('reqd')
     assert not chain['owner_key'].get('unique')  # Retain older registrations without a new active slot.
+    assert chain['owner_key']['search_index']==1  # Review lookup includes inactive history.
+    assert chain['active']['default']=='0'  # A new metadata row is never implicitly active.
+    assert chain['registration_review_key']['unique']==1
+    assert not chain['registration_review_key'].get('reqd')
 
 
 def test_authenticated_identities_cannot_be_rewritten_by_generic_link_renames():

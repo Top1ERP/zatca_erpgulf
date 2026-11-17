@@ -166,6 +166,98 @@ class DispatchStore:
                 raise DispatchStoreError('dispatch_registration_required')
             return self._remember_chain(rows, rows[0]['owner_key'], require_active=False)
 
+    def reviewed_chain_for_owner(self, owner_key):
+        """Find an existing review/registration, including an inactive candidate.
+
+        The review coordinator first locks the saved credential owner. This is
+        not an automatic choice between multiple historical registrations.
+        """
+        with self._operation():
+            _fingerprint(owner_key)
+            rows = self._sql('SELECT '+','.join('`'+field+'`' for field in CHAIN_FIELDS)+
+                ' FROM '+TABLE_CHAIN+' WHERE owner_key=%s '
+                'AND (active_owner_key IS NOT NULL OR registration_review_key IS NOT NULL) '
+                'LIMIT 2 FOR UPDATE NOWAIT', (owner_key,))
+            if not rows:
+                history = self._sql('SELECT name FROM '+TABLE_CHAIN+
+                    ' WHERE owner_key=%s LIMIT 1 LOCK IN SHARE MODE NOWAIT', (owner_key,))
+                if history:
+                    raise DispatchStoreError('dispatch_registration_history_review')
+                return None
+            if len(rows) != 1:
+                raise DispatchStoreError('dispatch_registration_ambiguous')
+            return self._remember_chain(rows, owner_key, require_active=False)
+
+    def stage_reviewed_registration(self, header, payload, *, supersedes=None):
+        """Retain a positive legacy anchor as INACTIVE, without cutover/reset.
+
+        Saved source/owner/counter/File ACL and metadata checks belong to the
+        service. Missing history can never reach this method with ICV zero.
+        There is deliberately no activation/legacy retirement in this operation.
+        """
+        from .chain_registration import (
+            validate_registration_header, open_registration_payload, evidence_sha256,
+        )
+        with self._operation():
+            encoded = validate_registration_header(header)
+            open_registration_payload(header, payload)
+            occurred_at = datetime.strptime(header['reviewed_at_utc'], '%Y-%m-%dT%H:%M:%S.%f')
+            existing = self.reviewed_chain_for_owner(header['owner_key'])
+            if supersedes is None and (existing is not None or header['supersedes_review'] is not None):
+                raise DispatchStoreError('dispatch_registration_already_exists')
+            if supersedes is not None:
+                if (existing is None or existing['record_id'] != supersedes['record_id']
+                        or header['supersedes_review'] != existing['record_id']
+                        or existing['active'] != 0 or existing['state_version'] != 0
+                        or existing['active_owner_key'] is not None or existing['tail_issuance'] is not None
+                        or existing['active_attempt'] is not None):
+                    raise DispatchStoreError('dispatch_registration_supersedes_review')
+                # Authenticate the older review before closing its mutable slot.
+                # Its header/ciphertext and original chain anchor never change.
+                self.open_reviewed_registration(existing)
+                self._sql('UPDATE '+TABLE_CHAIN+' SET registration_review_key=NULL,state_version=state_version+1,'
+                    'modified=%s,modified_by=%s '
+                    'WHERE name=%s AND state_version=0 AND active=0 AND active_owner_key IS NULL '
+                    'AND registration_review_key=%s',
+                    (occurred_at,header['reviewed_by'],existing['record_id'],header['owner_key']))
+                self._changed_once()
+            encrypted = self._cipher.seal(header['record_id'], 'chain-registration', encoded, payload)
+            chain = {key: header[key] for key in ('record_id','owner_key','owner_doctype','owner_name',
+                'environment','seller_tax_id','registration_kind','certificate_sha256','public_key_sha256')}
+            chain.update(active_owner_key=None, registration_evidence_sha256=evidence_sha256(encoded,payload),
+                last_icv=header['icv'], previous_hash=header['invoice_hash'], tail_issuance=None,
+                active_attempt=None, state_version=0, active=0)
+            values = dict(chain, name=chain['record_id'], registration_review_key=header['owner_key'],
+                registration_header=encoded.decode('utf-8'),
+                registration_ciphertext=encrypted, owner=header['reviewed_by'], modified_by=header['reviewed_by'],
+                creation=occurred_at, modified=occurred_at, docstatus=0)
+            columns = tuple(values)
+            self._sql('INSERT INTO '+TABLE_CHAIN+' ('+','.join('`'+key+'`' for key in columns)+
+                ') VALUES ('+','.join('%s' for _ in columns)+')', tuple(values[key] for key in columns))
+            return self._remember_chain([chain], header['owner_key'], require_active=False)
+
+    def open_reviewed_registration(self, chain):
+        """Decrypt exact review custody under this transaction's chain ticket."""
+        from .chain_registration import (
+            decode_registration_header, open_registration_payload, evidence_sha256, CHAIN_BINDING,
+        )
+        with self._operation():
+            if self._locked_chains.get(chain['record_id']) is not chain:
+                raise DispatchStoreError('dispatch_chain_lock_required')
+            rows = self._sql('SELECT SUBSTRING(registration_header,1,32769) AS header,'
+                'SUBSTRING(registration_ciphertext,1,%s) AS ciphertext FROM '+TABLE_CHAIN+
+                ' WHERE name=%s LOCK IN SHARE MODE NOWAIT', (MAX_CIPHERTEXT_CHARS+1,chain['record_id']))
+            if len(rows) != 1:
+                raise DispatchStoreError('dispatch_registration_missing')
+            header, encoded = decode_registration_header(rows[0]['header'])
+            if any(header[key] != chain[key] for key in CHAIN_BINDING):
+                raise DispatchStoreError('dispatch_registration_chain_binding')
+            payload = self._cipher.open(chain['record_id'],'chain-registration',encoded,rows[0]['ciphertext'])
+            if evidence_sha256(encoded,payload) != chain['registration_evidence_sha256']:
+                raise DispatchStoreError('dispatch_registration_evidence_binding')
+            xml, reason = open_registration_payload(header,payload)
+            return header, xml, reason
+
     def _remember_chain(self,rows,owner_key,*,require_active):
         if len(rows)!=1:raise DispatchStoreError('dispatch_registration_required')
         chain=dict(rows[0])

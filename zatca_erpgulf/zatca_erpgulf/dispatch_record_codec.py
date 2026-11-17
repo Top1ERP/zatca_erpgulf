@@ -1,4 +1,4 @@
-"""Flat, authenticated storage envelopes for native issuance/receipt records.
+"""Flat authenticated envelopes for issuance, receipts and continuity reviews.
 
 This codec owns neither a database nor permission/dispatch decisions. Record ID,
 site/namespace, payload kind and exact public header bytes form authenticated
@@ -22,7 +22,7 @@ import os
 VERSION = 'v1'
 MAX_PAYLOAD_BYTES = 16 * 1024 * 1024
 MAX_HEADER_BYTES = 32 * 1024
-KINDS = frozenset(('artifact', 'receipt'))
+KINDS = frozenset(('artifact', 'receipt', 'chain-registration'))
 
 
 class DispatchRecordError(RuntimeError):

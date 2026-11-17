@@ -14,6 +14,11 @@ Eight native Reporting/Clearance API adapters now hand off inside owned preparat
 before legacy File/realtime/batch paths. Outside that context they retain their
 existing behavior. The fixed issuer-binding follow-up passes20,750 cases;49
 private SQL cases exercise actual adapters with the synthetic signing builder.
+Legacy continuity now has an owned staging service: it checks the last generated
+source/counter/private XML, retains encrypted evidence and stages an inactive
+review. Explicit rereview preserves the older evidence and the current slot
+atomically. This does not activate a native chain, retire legacy counters, infer
+NEW_EGS genesis or complete registration/cutover.
 
 Public worker/manual/batch adoption, registration/bootstrap and reviewed legacy
 continuity, File/print/UI publication and source/owner lifecycle guards remain.

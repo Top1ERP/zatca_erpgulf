@@ -29,7 +29,7 @@ from zatca_erpgulf.zatca_erpgulf.counter_inventory import read_invoice_counter_e
 from zatca_erpgulf.zatca_erpgulf.history_evidence import inspect_stored_response
 
 
-def _read_local_attachment(file_doc, doctype, invoice_name):
+def _read_local_attachment(file_doc, doctype, invoice_name, *, runtime=None):
     """Read bounded exact bytes only from this invoice's private local folder."""
     if (
         file_doc.get("attached_to_doctype") != doctype
@@ -54,10 +54,10 @@ def _read_local_attachment(file_doc, doctype, invoice_name):
         or any(c in filename for c in ("/", "\\", "\x00"))
     ):
         raise ArtifactEvidenceError("attachment_path")
-    return _read_private_xml(filename)
+    return _read_private_xml(filename) if runtime is None else _read_private_xml(filename, runtime=runtime)
 
 
-def _read_private_xml(filename, *, source="attachment", missing_ok=False):
+def _read_private_xml(filename, *, source="attachment", missing_ok=False, runtime=None):
     """Read bounded exact bytes without following a leaf symlink.
 
     Callers validate a single basename and supply an internal, static source
@@ -69,7 +69,8 @@ def _read_private_xml(filename, *, source="attachment", missing_ok=False):
     ):
         raise ArtifactEvidenceError(f"{source}_path")
     try:
-        folder = Path(frappe.get_site_path("private", "files")).resolve(strict=True)
+        reader_runtime = frappe if runtime is None else runtime
+        folder = Path(reader_runtime.get_site_path("private", "files")).resolve(strict=True)
         path = folder / filename
         if missing_ok:
             try:

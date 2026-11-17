@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "chain_registration",
     "native_rejection",
     "native_artifact",
     "native_projection",
@@ -182,6 +183,7 @@ LOCAL_SUITES = (
     "zatca_response", "compatibility_hardening",
 )
 PRIVATE_SUITES = (
+    "native_registration_mariadb",
     "native_owned_pipeline_mariadb",
     "native_dispatch_store_mariadb",
     "advance_settlement_mariadb",

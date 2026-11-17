@@ -300,6 +300,10 @@ UUID/POS metadata/ICV guards, the final HTTP fence and its Compliance caller.
    intent; missing history/token/PIH is insufficient. Existing installations need
    explicit reviewed continuity using the last **generated** document. Renewal
    preserves the opaque chain; automatic credential staging remains deferred1.
+   The owned legacy-review staging service below now retains exact reviewed
+   positive-counter anchors, including explicit rereview without destroying the
+   older evidence. It creates inactive candidates only. Initial NEW_EGS proof,
+   namespace/bootstrap, legacy-worker draining and activation are still open.
    No Company/source/schema operation is to be executed on a working site here.
 4. Adopt the coordinator across all six production generators and four existing-
    XML wrappers/manual/batch/worker paths together. Do not activate one path and
@@ -427,3 +431,92 @@ selections overlap earlier evidence; they are not additive release totals. Logs:
 `/tmp/zatca-axis2-native-api-private-final.log`. Financial builders/reference
 expectations are unchanged. The synthetic builder still does not exercise full
 installed financial generation, ERP accounting, authentic SDK or authority APIs.
+
+## Owned legacy-continuity reviews
+
+`native_registration.review_legacy_registration` now loads saved source, routing
+Company, actual credential owner, legacy counter and private attached XML under
+an owned transaction. It requires System Manager, READ on source/Company/counter/
+File and READ+WRITE on the selected credential owner before parsing its signing
+key. It never writes/relinks the invoice, so source WRITE is not required for
+this review operation. Corrected issuance and attachment writers retain their
+separate source-WRITE requirements.
+
+The counter's exact Company/unit/purpose/key and last invoice/type must match.
+Canonical positive integer/string ICV must agree with source and XML; float,
+zero, missing history and ambiguous shared-unit counters are rejected. The old
+counter field `environment=Production` denotes credential purpose, not historical
+gateway provenance. Current gateway/environment is retained as the reviewed
+configuration; this is not proof of where an old invoice was submitted.
+The original's invoice ID/UUID/ICV/taxpayer, declared invoice digest and embedded
+certificate must match the saved source, current owner's PIH and selected public
+material. A success-only PIH pointing behind the generated counter cannot seed a
+new chain. No automatic counter, PIH, invoice or credential repair is attempted.
+Historical cancelled source state does not erase a matched generated position.
+
+The reviewer supplies the SHA256 of the exact local private XML they selected.
+The shared attachment reader now accepts the owning runtime explicitly while
+preserving its former default ABI. It still rejects foreign/public/remote/debug-prefixed/
+unsafe attachments and bounds raw file reads without following a leaf symlink.
+No File.get_content URL fetch or directory/newest-file discovery occurs.
+
+`DispatchStore.stage_reviewed_registration` persists one flat header and exact
+reason/XML payload in the existing Issuing Chain table, using a distinct
+`chain-registration` AES-GCM domain. No credential/private key/OTP is stored.
+The encrypted review binds site/namespace/record/public owner/environment and
+the exact bytes. Hidden read-only header/ciphertext fields preserve the source
+controller's generic edit/delete/rename protection. No financial amount is
+recalculated. This is local consistency/custody review, not computed-hash/XML
+signature/CA/SDK validation or remote acceptance proof; those retain3/6 gates.
+
+The result is an **inactive candidate** with a positive retained ICV/PIH,
+`active_owner_key=NULL` and no local issuance/attempt. New chain metadata now
+defaults inactive. A nullable unique `registration_review_key` permits one
+current inactive review per owner/environment while leaving old evidence intact.
+The owner lookup also has a declared search index. Missing current slots with
+existing history are an explicit review condition, never permission to reset.
+
+Ordinary repeat calls reuse exact matching committed review custody. A changed
+head/reason/source/file requires explicit `supersedes_review_id` identifying the
+current candidate. Closing the older review slot and inserting the new encrypted
+candidate are one transaction. The old header/ciphertext/anchor remain unchanged;
+the new header links the older review. Partial failures restore the old slot and
+remove the new record. Unknown commit acknowledgments remain uncertain; repeating
+the same command recovers the existing current record without another version.
+Candidate IDs identify review proposals, not an already activated EGS. Activation
+must establish the stable native chain identity; ordinary rereview cannot replace
+an active chain or infer a new EGS from a changed certificate/token.
+
+This service has no public RPC, UI button, worker hook, installation, native
+activation or legacy retirement. An inactive reviewed row cannot obtain a native
+dispatch slot. Historical counters/files and incomplete old gateway provenance
+do not prove that all linked Companies/devices share one complete EGS history.
+Before actual cutover the provider must inventory all consumers, authenticate the
+initial/legacy origin, reconcile the financial/crypto evidence, drain and fence
+legacy generation/transport and freshly compare the current head. A DB counter
+row lock alone cannot prove an older worker has not already entered HTTP. Do not
+add a caller `drained=True` or `approved=True` flag as a substitute. Initial new
+EGS onboarding and reviewed live activation remain required workstream2 work.
+
+Final focused evidence for this increment:
+
+- 450 local cases across13 suites in2.35s: registration envelope/domain/bounds,
+  native schema and dispatch/retry/read contracts, plus unchanged legacy attached/
+  generated/history/certificate inventory behavior.
+- 95 private InnoDB cases in6.95s:46 review-service cases and49 existing dispatch/
+  repository cases. The review matrix covers Sales/POS, Simplified/Standard
+  originals and Company/device/linked owners. It verifies role/ACL denial,
+  counter/file/PIH mismatch, a counter above the safe float-integer range,
+  cancelled-source continuity, ambiguity, tamper, rollback, lost acknowledgments,
+  explicit supersession and a genuinely later synthetic generated invoice.
+- Logs: `/tmp/zatca-axis2-legacy-registration-local-final.log` and
+  `/tmp/zatca-axis2-legacy-registration-private-final.log`.
+
+The fixed manifest now declares218 local/60 private suites; this increment did
+not run the whole manifest. Earlier counts overlap and are not additive release
+totals. Its source loaders/permissions/credential material are explicit framework
+doubles, with real private SQL locks/commits, local signing and private file reads.
+No installed Frappe/ERP15/16, complete financial/XSD/SDK, history completeness,
+legacy-worker drain or authority acceptance is established. No working-site
+schema/configuration/invoice/service operation was performed. Financial builders
+and the original240 comparison/reference expectations remain unchanged.

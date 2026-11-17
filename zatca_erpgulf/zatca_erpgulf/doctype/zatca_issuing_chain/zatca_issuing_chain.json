@@ -21,7 +21,10 @@
   "tail_issuance",
   "active_attempt",
   "state_version",
-  "active"
+  "active",
+  "registration_header",
+  "registration_ciphertext",
+  "registration_review_key"
  ],
  "fields": [
   {
@@ -37,7 +40,8 @@
    "fieldtype": "Data",
    "label": "Owner and Environment Key",
    "read_only": 1,
-   "reqd": 1
+   "reqd": 1,
+   "search_index": 1
   },
   {
    "fieldname": "active_owner_key",
@@ -149,7 +153,34 @@
    "fieldtype": "Check",
    "label": "Active",
    "read_only": 1,
-   "default": "1"
+   "default": "0"
+  },
+  {
+   "fieldname": "registration_header",
+   "fieldtype": "Long Text",
+   "label": "Registration Evidence Header",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  },
+  {
+   "fieldname": "registration_ciphertext",
+   "fieldtype": "Long Text",
+   "label": "Registration Evidence Ciphertext",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  },
+  {
+   "fieldname": "registration_review_key",
+   "fieldtype": "Data",
+   "label": "Current Legacy Review Slot",
+   "read_only": 1,
+   "hidden": 1,
+   "unique": 1,
+   "description": "Only the current inactive legacy review occupies this nullable slot; superseded review evidence stays immutable."
   }
  ],
  "index_web_pages_for_search": 0,
