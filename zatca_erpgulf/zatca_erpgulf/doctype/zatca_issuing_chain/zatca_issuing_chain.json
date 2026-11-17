@@ -1,0 +1,173 @@
+{
+ "actions": [],
+ "autoname": "field:record_id",
+ "creation": "2026-11-16 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "record_id",
+  "owner_key",
+  "active_owner_key",
+  "owner_doctype",
+  "owner_name",
+  "environment",
+  "seller_tax_id",
+  "registration_kind",
+  "registration_evidence_sha256",
+  "certificate_sha256",
+  "public_key_sha256",
+  "last_icv",
+  "previous_hash",
+  "tail_issuance",
+  "active_attempt",
+  "state_version",
+  "active"
+ ],
+ "fields": [
+  {
+   "fieldname": "record_id",
+   "fieldtype": "Data",
+   "label": "Record ID",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "owner_key",
+   "fieldtype": "Data",
+   "label": "Owner and Environment Key",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "active_owner_key",
+   "fieldtype": "Data",
+   "label": "Active Owner Slot",
+   "read_only": 1,
+   "hidden": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "owner_doctype",
+   "fieldtype": "Select",
+   "label": "Credential Owner Type",
+   "read_only": 1,
+   "options": "Company\nZATCA Multiple Setting",
+   "reqd": 1
+  },
+  {
+   "fieldname": "owner_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Credential Owner",
+   "read_only": 1,
+   "options": "owner_doctype",
+   "reqd": 1
+  },
+  {
+   "fieldname": "environment",
+   "fieldtype": "Select",
+   "label": "Environment",
+   "read_only": 1,
+   "options": "Sandbox\nSimulation\nProduction",
+   "reqd": 1
+  },
+  {
+   "fieldname": "seller_tax_id",
+   "fieldtype": "Data",
+   "label": "Seller VAT ID",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "registration_kind",
+   "fieldtype": "Select",
+   "label": "Registration Kind",
+   "read_only": 1,
+   "options": "NEW_EGS\nLEGACY_REVIEWED",
+   "reqd": 1
+  },
+  {
+   "fieldname": "registration_evidence_sha256",
+   "fieldtype": "Data",
+   "label": "Registration Evidence Hash",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "certificate_sha256",
+   "fieldtype": "Data",
+   "label": "Certificate Hash",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "public_key_sha256",
+   "fieldtype": "Data",
+   "label": "Public Key Hash",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "last_icv",
+   "fieldtype": "Data",
+   "label": "Last Issued ICV",
+   "read_only": 1,
+   "reqd": 1,
+   "default": "0"
+  },
+  {
+   "fieldname": "previous_hash",
+   "fieldtype": "Data",
+   "label": "Previous Invoice Hash",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "tail_issuance",
+   "fieldtype": "Link",
+   "label": "Last Local Issuance",
+   "read_only": 1,
+   "options": "ZATCA Issuance"
+  },
+  {
+   "fieldname": "active_attempt",
+   "fieldtype": "Data",
+   "label": "Active Attempt",
+   "read_only": 1
+  },
+  {
+   "fieldname": "state_version",
+   "fieldtype": "Int",
+   "label": "State Version",
+   "read_only": 1,
+   "reqd": 1,
+   "default": "0"
+  },
+  {
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Active",
+   "read_only": 1,
+   "default": "1"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 0,
+ "links": [],
+ "modified": "2026-11-16 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Zatca Erpgulf",
+ "name": "ZATCA Issuing Chain",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 0,
+ "allow_import": 0,
+ "allow_rename": 0
+}

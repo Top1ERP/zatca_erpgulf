@@ -7,6 +7,7 @@ No schedule restrictions are added to explicit manual or batch submissions.
 
 import frappe
 
+from .deferred_submission import is_invoice_submission_deferred
 from .existing_xml_submission import ExistingXmlSubmissionError
 from .issuing_attempt import IssuingAttemptError
 from frappe.utils import add_to_date, cint, now_datetime
@@ -80,6 +81,10 @@ not provide a cross-worker lock or make remote submissions transactional.
                         continue
                     invoice.submit()
                     invoice.reload()
+                    if is_invoice_submission_deferred(frappe, doctype, invoice.name):
+                        if commit_per_invoice:
+                            frappe.db.commit()
+                        continue  # The successful ERP commit owns the queued handoff.
                     # on_submit may have accepted it already; do not send twice.
                     if not is_pending_invoice(invoice):
                         if commit_per_invoice:

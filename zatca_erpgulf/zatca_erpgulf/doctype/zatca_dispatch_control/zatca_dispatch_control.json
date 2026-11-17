@@ -1,0 +1,46 @@
+{
+ "actions": [],
+ "creation": "2026-11-16 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "storage_namespace",
+  "storage_version"
+ ],
+ "fields": [
+  {
+   "fieldname": "storage_namespace",
+   "fieldtype": "Data",
+   "label": "Storage Namespace",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "storage_version",
+   "fieldtype": "Int",
+   "label": "Storage Version",
+   "read_only": 1,
+   "reqd": 1,
+   "default": "1"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-11-16 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Zatca Erpgulf",
+ "name": "ZATCA Dispatch Control",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 0,
+ "allow_import": 0,
+ "allow_rename": 0
+}

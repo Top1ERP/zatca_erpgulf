@@ -8,6 +8,7 @@ invoices, signing, and submission to ZATCA servers for clearance and reporting.
 """
 
 from .issuing_reads import read_issuing_doc, read_issuing_cached_doc
+from .deferred_submission import invoice_submit_hook, maybe_defer_invoice_submission
 from .issuing_attempt import (
     collect_issuing_compliance, confirm_issuing_transport, issuing_attempt, invoice_issuing_attempt,
 )
@@ -891,6 +892,8 @@ def zatca_call(
         return dispatch_generator_compliance(
             "Sales Invoice", invoice_number, compliance_type, company_abbr
         )
+    if maybe_defer_invoice_submission('Sales Invoice', invoice_number, runtime=frappe, translate=_):
+        return
     try:
         if not frappe.db.exists("Sales Invoice", invoice_number):
             frappe.throw(_("Invoice Number is NOT Valid: " + str(invoice_number)))
@@ -1514,6 +1517,12 @@ def zatca_background(invoice_number, source_doc, bypass_background_check=False):
 
 @frappe.whitelist(allow_guest=False)
 def zatca_background_on_submit(doc, _method=None, bypass_background_check=False):
+    """Validate normally; defer Phase2 transport until the ERP commit succeeds."""
+    with invoice_submit_hook('Sales Invoice', doc, runtime=frappe, translate=_):
+        return _process_submitted_invoice(doc, _method, bypass_background_check)
+
+
+def _process_submitted_invoice(doc, _method=None, bypass_background_check=False):
     """referes according to the ZATC based sytem with the submitbutton of the sales invoice"""
     try:
         source_doc = doc
@@ -1538,8 +1547,14 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
             if company_doc.tax_id.strip() == customer_doc.tax_id.strip():
                 sales_invoice_doc.custom_zatca_status = "Intra-company transfer"
                 sales_invoice_doc.custom_zatca_full_response = "Intra-company transfer"
-                sales_invoice_doc.save(ignore_permissions=True)
-                frappe.db.commit()
+                # These output fields belong to the enclosing ERP transaction.
+                # Avoid save hooks and an early commit of its accounting writes.
+                frappe.db.set_value(sales_invoice_doc.doctype, sales_invoice_doc.name, {
+                    'custom_zatca_status': 'Intra-company transfer',
+                    'custom_zatca_full_response': 'Intra-company transfer',
+                }, update_modified=False)
+                doc.custom_zatca_status = 'Intra-company transfer'
+                doc.custom_zatca_full_response = 'Intra-company transfer'
                 return
 
         
@@ -1948,6 +1963,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
         raise
     except (ValueError, TypeError, KeyError, frappe.ValidationError) as e:
         frappe.throw(_(f"Error in background call on submit: {str(e)}"))
+
 
 
 

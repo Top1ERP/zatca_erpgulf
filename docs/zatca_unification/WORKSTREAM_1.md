@@ -65,10 +65,12 @@ Logs: `/tmp/zatca-axis1-profile-final.log`,
 `/tmp/zatca-axis1-credential-preservation.log`,
 `/tmp/zatca-axis1-browser.log`, `/tmp/zatca-axis1-read-audit.json`.
 
-A separate default-manifest qualification was started earlier and spans unrelated
-later-workstream primitives as well. It is not the final profile result and must
-not be reported as a completed green full-manifest run. Any failure relevant to
-this contract must be reviewed; later-workstream findings retain their own scope.
+A separate frozen default-manifest qualification completed: **39,003 passed in
+3017.23 seconds**,205 suites. The detached qualification commit b78fd24 pins
+runtime44fdd50 plus only a retry-fixture correction: the input XML UUID now matches
+the intended request. No runtime or expected financial result was changed there.
+Log: `/tmp/zatca-axis1-frozen-qualification.log`. This broader local result includes
+later-workstream primitives; it is not installed ERP15/16, SDK or live acceptance.
 
 ## Explicit remaining ownership
 

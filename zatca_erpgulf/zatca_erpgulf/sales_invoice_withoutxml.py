@@ -1,4 +1,5 @@
 """This file is used to generate the zATCA without XML file and the QR code for the sales invoice"""
+from .deferred_submission import maybe_defer_invoice_submission
 
 from .issuing_reads import read_issuing_doc, read_issuing_cached_doc
 from .issuing_attempt import (
@@ -156,6 +157,8 @@ def zatca_call_withoutxml(
         return dispatch_generator_compliance(
             "Sales Invoice", invoice_number, compliance_type, company_abbr
         )
+    if maybe_defer_invoice_submission('Sales Invoice', invoice_number, runtime=frappe, translate=_):
+        return
     try:
         if not frappe.db.exists(SALES_INVOICE, invoice_number):
             frappe.throw(_("Invoice Number is NOT Valid: " + str(invoice_number)))

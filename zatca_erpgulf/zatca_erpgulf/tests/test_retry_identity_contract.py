@@ -15,7 +15,7 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_generation_routes import (
     ADAPTERS as GENERATION_ADAPTERS, generation_boundary,
 )
 from zatca_erpgulf.zatca_erpgulf.tests.test_legacy_submission_context import (
-    ADAPTERS as XML_ADAPTERS, legacy_boundary,
+    ADAPTERS as XML_ADAPTERS, legacy_boundary, XML,
 )
 from zatca_erpgulf.zatca_erpgulf.tests.test_nonproduction_isolation import isolated
 from zatca_erpgulf.zatca_erpgulf.tests.test_submission_context import (
@@ -40,6 +40,9 @@ def retry_boundary(legacy_boundary, generation_boundary):
     # Both fixtures extend the same cached saved-record/HTTP boundary.
     assert legacy_boundary is generation_boundary
     b = legacy_boundary
+    # The pre-signed request metadata gate must match the intended test request;
+    # these cases characterize HTTP outcomes, not a pre-HTTP XML mismatch.
+    b.path.write_bytes(XML.replace(b'test-uuid', ISSUED_UUID.encode()))
     for invoice in (b.sales, b.pos):
         invoice.custom_uuid = ISSUED_UUID
         invoice.custom_zatca_icv = 77

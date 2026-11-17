@@ -1,4 +1,5 @@
 """This module is used to submit the POS invoice to ZATCA using the API through xml and qr."""
+from .deferred_submission import maybe_defer_invoice_submission
 
 from .issuing_attempt import (
     IssuingAttemptError, confirm_issuing_transport, issuing_attempt, seal_current_xml,
@@ -331,6 +332,8 @@ def reporting_api_xml_sales_invoice(
 
 def submit_sales_invoice_withxmlqr(sales_invoice_doc, file_path, invoice_number):
     """submit sales invoice with xml qr"""
+    if maybe_defer_invoice_submission('Sales Invoice', invoice_number, runtime=frappe, translate=_):
+        return
     try:
         company_abbr = frappe.db.get_value("Company", {"name": sales_invoice_doc.company}, "abbr")
         with issuing_attempt(company_abbr, sales_invoice_doc, purpose='production',

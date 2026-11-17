@@ -133,6 +133,12 @@ def get_previous_invoice_hash(company_abbr, source_doc):
         MISSING_PREVIOUS_HASH, previous_hash_value,
     )
 
+    from .native_preparation import active_preparation
+    prepared=active_preparation(frappe)
+    if prepared is not None:
+        prepared.require_source(source_doc,frappe)
+        return prepared.previous_hash
+
     from .issuing_attempt import active_attempt
     attempt = active_attempt(company_abbr, source_doc, runtime=frappe)
     if attempt is not None:

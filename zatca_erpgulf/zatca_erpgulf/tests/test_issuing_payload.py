@@ -187,3 +187,17 @@ def test_metadata_return_is_rebound_before_party_or_counter_builders(route_bound
     parties.assert_not_called()
     b.doc.db_set.assert_not_called()
     b.app.db.commit.assert_not_called()
+
+
+@pytest.mark.parametrize('newline',['\n','\r\n','\r'])
+def test_existing_xml_seal_uses_native_text_reader_newline_contract(boundary,monkeypatch,tmp_path,newline):
+    b=boundary;setup(b,monkeypatch,'company')
+    path=tmp_path/'newlines.xml'
+    raw=('<Invoice>'+newline+'<Value>115.00</Value>'+newline+'</Invoice>').encode()
+    path.write_bytes(raw)
+    with scope(b,b.sales) as current:
+        current.seal_xml(str(path),raw)
+        payload=read_invoice_payload('unchanged','unchanged',str(path),read_xml=reader)
+        confirm_issuing_transport('TC',b.sales,runtime=b.frappe)
+        assert payload.xml_text()=='<Invoice>\n<Value>115.00</Value>\n</Invoice>'
+    b.request.assert_not_called()

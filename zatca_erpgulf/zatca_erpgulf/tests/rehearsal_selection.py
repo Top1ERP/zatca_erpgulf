@@ -1,6 +1,15 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "native_response",
+    "native_transport",
+    "native_dispatch",
+    "worker_transaction",
+    "native_preparation",
+    "preparation_database",
+    "dispatch_record_codec",
+    "native_dispatch_schema",
+    "deferred_submission",
     "issuing_payload",
     "issuing_observation",
     "issuing_attempt",
@@ -170,6 +179,7 @@ LOCAL_SUITES = (
     "zatca_response", "compatibility_hardening",
 )
 PRIVATE_SUITES = (
+    "native_dispatch_store_mariadb",
     "advance_settlement_mariadb",
     "settlement_advances_mariadb",
     "settlement_plan_mariadb",

@@ -47,4 +47,8 @@ def read_invoice_payload(uuid, invoice_hash, path, *, read_xml):
     payload = InvoicePayload(invoice_hash, uuid, read_xml(path))
     if current is not None:
         current.observe_payload(payload, path)
+    from .native_preparation import active_preparation
+    prepared=active_preparation(current.runtime) if current is not None else None
+    if prepared is not None:
+        prepared.observe_payload(payload)
     return payload

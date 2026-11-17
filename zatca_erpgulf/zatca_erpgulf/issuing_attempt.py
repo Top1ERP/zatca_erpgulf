@@ -214,6 +214,8 @@ class IssuingAttempt:
         import hashlib
         self.require_runtime(self.runtime)
         text = xml.decode('utf-8') if isinstance(xml, bytes) else xml
+        # Native readers use text-mode universal newline decoding before lstrip.
+        text = text.replace('\r\n', '\n').replace('\r', '\n')
         self.payload_seal = (str(path), hashlib.sha256(text.lstrip().encode('utf-8')).digest(),
                              identity if identity is not None else self.prepared_identity)
         self.observed_payload = None
@@ -388,6 +390,10 @@ class IssuingAttempt:
             if failed is not None:
                 self.review(failed)
             self.signing_snapshot = captured
+        from .native_preparation import active_preparation
+        prepared=active_preparation(self.runtime)
+        if prepared is not None:
+            prepared.bind_material(self.signing_snapshot)
         return self.signing_snapshot
 
     def selection(self, endpoint, *, source_doc, runtime, require_issuing_unit=False):
@@ -425,6 +431,10 @@ class IssuingAttempt:
                 self.review('snapshot_certificate_time')
             if authorization != self.signing_snapshot.authorization:
                 self.review('snapshot_request_material_changed')
+        from .native_preparation import active_preparation
+        prepared=active_preparation(self.runtime)
+        if prepared is not None:
+            prepared.bind_selection(route,authorization)
         return route, authorization
 
 
@@ -515,8 +525,13 @@ def confirm_issuing_transport(company_abbr, source_doc, *, runtime):
     This marker is not proof that bytes reached a socket or an authority receipt.
     Post-invocation reads must not be mistaken for preparation-source observations.
     """
+    from .deferred_submission import reject_submit_hook_transport
+    reject_submit_hook_transport(runtime, getattr(runtime, '_', lambda text:text))
     current = active_attempt(company_abbr, source_doc, runtime=runtime)
     if current is None:
+        from .native_preparation import active_preparation, NativePreparationError
+        if active_preparation(runtime) is not None:
+            raise NativePreparationError('native_preparation_scope_missing')
         return  # Standalone request helpers keep their request-only contract.
     try:
         current.confirm_current()
@@ -529,6 +544,10 @@ def confirm_issuing_transport(company_abbr, source_doc, *, runtime):
         except Exception:
             pass
         raise
+    from .native_preparation import active_preparation
+    prepared=active_preparation(runtime)
+    if prepared is not None:
+        prepared.handoff(current)
     current.transport_started = True
 
 

@@ -1,0 +1,281 @@
+"""Native source preparation under one current-site worker transaction.
+
+No HTTP or installed-schema bootstrap. The internal queue coordinator supplies
+its canonical build callback; this service retains exact originals before a later
+attempt may dispatch. Legacy source history is never reinterpreted as new EGS.
+"""
+
+from dataclasses import dataclass,field
+import hashlib
+import json
+from uuid import uuid4
+
+from .dispatch_store import DispatchStore
+from .issuing_attempt import issuing_attempt
+from .issuing_reads import DEPENDENCIES
+from .native_preparation import (
+    native_preparation,PreparedRequestHandoff,PreparedNativeRequest,source_observation_sha256,
+)
+from .worker_transaction import owned_worker_transaction
+from .permission_compat import saved_row_has_permission
+from .api_routing import resolve_api_route
+from .native_transport import NativeInvocation, NativeResponse
+from .native_response import assess_native_receipt
+
+
+SOURCE_TABLES={'Sales Invoice':'`tabSales Invoice`','POS Invoice':'`tabPOS Invoice`'}
+OWNER_TABLES={'Company':'`tabCompany`','ZATCA Multiple Setting':'`tabZATCA Multiple Setting`'}
+
+
+class NativeDispatchError(RuntimeError):
+    def __init__(self,code):self.code=code;super().__init__(code)
+
+
+@dataclass(frozen=True,repr=False)
+class RetainedNativeIssuance:
+    record_id: str
+    state: str
+    reused: bool
+    source_doctype: str
+    source_name: str
+    def __reduce_ex__(self,protocol):raise TypeError('retained_native_issuance_not_serializable')
+
+
+def owner_key(doctype,name,environment):
+    raw=json.dumps((doctype,name,environment),ensure_ascii=False,separators=(',',':')).encode('utf-8')
+    return hashlib.sha256(b'zatca-native-owner/v1\0'+raw).hexdigest()
+
+
+def issuance_key(doctype,name,chain_id,version):
+    raw=json.dumps((doctype,name,chain_id,version),ensure_ascii=False,separators=(',',':')).encode('utf-8')
+    return hashlib.sha256(b'zatca-native-issuance/v1\0'+raw).hexdigest()
+
+
+def _business_tables(runtime,source):
+    """Source and child tables are schema-derived, never SQL identifiers from RPC."""
+    names=set(DEPENDENCIES)
+    for doctype in tuple(names):
+        meta=runtime.get_meta(doctype)
+        for item in meta.get_table_fields():names.add(item.options)
+    names.add(source.doctype)
+    return frozenset('tab'+name for name in names)
+
+
+def _check_chain(chain,scope,material):
+    if (chain['owner_doctype'],chain['owner_name'])!=(scope.owner.doctype,scope.owner.name):
+        raise NativeDispatchError('native_chain_owner')
+    if chain['environment']!=material.route.environment or chain['seller_tax_id']!=scope.company.get('tax_id'):
+        raise NativeDispatchError('native_chain_taxpayer_or_environment')
+    if (chain['certificate_sha256'],chain['public_key_sha256'])!=(material.certificate_der_sha256,material.public_key_sha256):
+        raise NativeDispatchError('native_chain_credential_review')
+
+
+def _require_new_source(source):
+    """Unknown legacy identity/artifacts require continuity review, never reset."""
+    placeholders=(None,'','Not Submitted','Not submitted','not submitted','0','false')
+    if (source.get('custom_uuid') not in placeholders or source.get('custom_zatca_icv') not in (None,'',0,'0')
+            or source.get('custom_zatca_issuing_unit') or source.get('custom_xml')
+            or source.get('custom_zatca_status') in ('REPORTED','CLEARED')):
+        raise NativeDispatchError('native_legacy_issuance_review')
+
+
+def _header(packet,record_id,version):
+    return dict(record_id=record_id,
+        issuance_key=issuance_key(packet.source_doctype,packet.source_name,packet.chain_id,version),
+        icv_key=hashlib.sha256((packet.chain_id+'\0'+packet.icv).encode()).hexdigest(),
+        chain=packet.chain_id,company=packet.company_name,source_doctype=packet.source_doctype,source_name=packet.source_name,
+        environment=packet.environment,source_version=version,source_sha256=packet.source_sha256,
+        invoice_uuid=packet.invoice_uuid,icv=packet.icv,invoice_hash=packet.invoice_hash,previous_hash=packet.previous_hash,
+        certificate_sha256=packet.certificate_sha256,public_key_sha256=packet.public_key_sha256,
+        endpoint=packet.endpoint,base_url_sha256=packet.base_url_sha256,
+        artifact_sha256=packet.request_sha256,replaces_issuance=None)
+
+
+def _require_access(runtime,source,company,actor):
+    """Reused originals require the same saved-row ACL as new generation."""
+    for document,operations in ((source,('read','write')),(company,('read',))):
+        for operation in operations:
+            if not saved_row_has_permission(runtime.has_permission,document.doctype,
+                    operation,doc=document,user=actor):
+                raise NativeDispatchError('native_source_permission')
+
+
+def _changed_once(database):
+    rows=database.sql('SELECT ROW_COUNT() AS changed',as_dict=True)
+    if len(rows)!=1 or type(rows[0].get('changed')) is not int or rows[0]['changed']!=1:
+        raise NativeDispatchError('native_source_update_compare')
+
+
+def _require_retained_binding(header,chain,scope,material,doctype,invoice_name):
+    if (header['company']!=scope.company.name or header['environment']!=material.route.environment
+            or header['chain']!=chain['record_id']
+            or (header['source_doctype'],header['source_name'])!=(doctype,invoice_name)
+            or header['certificate_sha256']!=material.certificate_der_sha256
+            or header['public_key_sha256']!=material.public_key_sha256):
+        raise NativeDispatchError('native_retained_issuance_binding')
+    base=material.route.url.removesuffix('/'+material.route.endpoint)
+    if header['base_url_sha256']!=hashlib.sha256(base.encode()).hexdigest():
+        raise NativeDispatchError('native_retained_route_review')
+    # Conservative until a documented fiscal projection permits specific
+    # nonfiscal updates. Drift never grants permission to regenerate an original.
+    if header['source_sha256']!=source_observation_sha256(scope.source_identity,scope.source_observation):
+        raise NativeDispatchError('native_retained_source_review')
+
+
+def prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build):
+    """Initial generation or exact existing custody, with no automatic reissue.
+
+    A corrected verified rejection needs a separate explicit version operation;
+    a changed ERP source/credential does not grant it. Existing prepared/unknown
+    originals are returned for the dispatch policy to review, never regenerated.
+    """
+    if doctype not in SOURCE_TABLES or type(invoice_name) is not str or not invoice_name:
+        raise NativeDispatchError('native_source_identity')
+    if not callable(build):raise NativeDispatchError('native_build_callback')
+    with owned_worker_transaction(runtime) as owner:
+        source=runtime.get_doc(doctype,invoice_name)
+        company=runtime.get_doc('Company',source.company)
+        if source.get('docstatus')!=1:raise NativeDispatchError('native_source_not_submitted')
+        _require_access(runtime,source,company,owner.actor)
+        # The same issuer scope spans preflight and preparation. The next HTTP
+        # transaction must independently match the stored public binding.
+        with issuing_attempt(company.abbr,source,purpose='production',runtime=runtime,
+                             translate=translate,invoice_doc=source) as scope:
+            scope.require_production_configuration()
+            material=scope.signing_material()
+            route=material.route
+            repository=DispatchStore(owner.database,storage_namespace=owner.storage_namespace,
+                cipher=owner.cipher,owner_check=owner.owner_current)
+            chain=repository.lock_active_chain(owner_key(scope.owner.doctype,scope.owner.name,route.environment))
+            _check_chain(chain,scope,material)
+            # Lock current source after the issuer chain; reject observed drift
+            # instead of mixing an earlier read snapshot with later metadata.
+            locked=runtime.get_doc(doctype,invoice_name,for_update=True)
+            scope.bind_prepared_invoice(locked)
+            latest=repository.latest_issuance(chain['record_id'],doctype,invoice_name)
+            if latest is not None:
+                header,original=repository.open_issuance(latest['record_id'])
+                _require_retained_binding(header,chain,scope,material,doctype,invoice_name)
+                owner.commit()
+                return RetainedNativeIssuance(latest['record_id'],latest['state'],True,doctype,invoice_name)
+            _require_new_source(locked)
+            tables=_business_tables(runtime,locked)
+            proposed_uuid=str(uuid4())
+            packet=None
+            with native_preparation(runtime,source_identity=(doctype,invoice_name),company_name=scope.company.name,
+                                    chain=chain,invoice_uuid=proposed_uuid,owner_check=owner.owner_current):
+                with owner.preparing(tables):
+                    try:build(locked)
+                    except PreparedRequestHandoff as ready:packet=ready.packet
+            if type(packet) is not PreparedNativeRequest:
+                raise NativeDispatchError('native_preparation_did_not_handoff')
+            scope.confirm_current()
+            record_id=str(uuid4())
+            occurred_at=owner.utc_now()
+            repository.stage_issuance(chain,_header(packet,record_id,1),packet.request_bytes,
+                actor=owner.actor,occurred_at=occurred_at)
+            owner.database.sql('UPDATE '+SOURCE_TABLES[doctype]+
+                ' SET custom_uuid=%s,custom_zatca_icv=%s,custom_zatca_issuing_unit=%s WHERE name=%s',
+                (packet.invoice_uuid,packet.icv,'egs:'+chain['record_id'],invoice_name))
+            _changed_once(owner.database)
+            owner.database.sql('UPDATE '+OWNER_TABLES[scope.owner.doctype]+' SET custom_pih=%s WHERE name=%s',
+                (packet.invoice_hash,scope.owner.name))
+            _changed_once(owner.database)
+            owner.commit()
+            return RetainedNativeIssuance(record_id,'PREPARED',False,doctype,invoice_name)
+
+
+def reserve_saved_issuance(doctype,invoice_name,*,runtime,translate,supersedes_attempt=None):
+    """Commit the attempt reservation, then release a transient exact invocation.
+
+    No public retry flag or artifact re-creation. An uncertain commit raises
+    before the invocation can leave this function; recovery must freshly read
+    the same issuance/attempt. All row locks are released before HTTP may start.
+    """
+    if doctype not in SOURCE_TABLES or type(invoice_name) is not str or not invoice_name:
+        raise NativeDispatchError('native_source_identity')
+    with owned_worker_transaction(runtime) as owner:
+        source=runtime.get_doc(doctype,invoice_name)
+        company=runtime.get_doc('Company',source.company)
+        if source.get('docstatus')!=1:raise NativeDispatchError('native_source_not_submitted')
+        _require_access(runtime,source,company,owner.actor)
+        with issuing_attempt(company.abbr,source,purpose='production',runtime=runtime,
+                             translate=translate,invoice_doc=source) as scope:
+            scope.require_production_configuration()
+            material=scope.signing_material()
+            key=owner_key(scope.owner.doctype,scope.owner.name,material.route.environment)
+            repository=DispatchStore(owner.database,storage_namespace=owner.storage_namespace,
+                cipher=owner.cipher,owner_check=owner.owner_current)
+            chain=repository.lock_active_chain(key)
+            _check_chain(chain,scope,material)
+            locked=runtime.get_doc(doctype,invoice_name,for_update=True)
+            scope.bind_prepared_invoice(locked)
+            latest=repository.latest_issuance(chain['record_id'],doctype,invoice_name)
+            if latest is None:raise NativeDispatchError('native_original_required')
+            issuance=repository.lock_issuance(chain,latest['record_id'])
+            header,original=repository.open_issuance(issuance['record_id'])
+            _require_retained_binding(header,chain,scope,material,doctype,invoice_name)
+            if (locked.get('custom_uuid')!=header['invoice_uuid']
+                    or str(locked.get('custom_zatca_icv'))!=header['icv']
+                    or locked.get('custom_zatca_issuing_unit')!='egs:'+chain['record_id']):
+                raise NativeDispatchError('native_source_issuance_outputs_review')
+            route=resolve_api_route(scope.company.values,header['endpoint'])
+            attempt_id,fence=str(uuid4()),str(uuid4())
+            repository.start_attempt(chain,issuance,record_id=attempt_id,fence_token=fence,
+                actor=owner.actor,now_utc=owner.utc_now(),supersedes_attempt=supersedes_attempt)
+            scope.confirm_current()
+            invocation=NativeInvocation(issuance['record_id'],attempt_id,fence,key,chain['record_id'],owner.site,owner.actor,route,
+                material.authorization.header,header['artifact_sha256'],original)
+            owner.commit()
+            return invocation
+
+
+def retain_dispatch_observation(invocation,response,*,runtime):
+    """Commit original receipt or uncertainty before any derived invoice update.
+
+    Do not require a still-valid certificate, unchanged source or current sender
+    fence to retain an already received response. A late worker's receipt stays
+    on its own attempt; the repository cannot overwrite the current outcome.
+    None means the transport outcome is unknown, never a verified rejection.
+    """
+    if type(invocation) is not NativeInvocation or (response is not None and type(response) is not NativeResponse):
+        raise NativeDispatchError('native_observation_shape')
+    if runtime.local.site!=invocation.site:
+        raise NativeDispatchError('native_observation_site_changed')
+    with owned_worker_transaction(runtime) as owner:
+        repository=DispatchStore(owner.database,storage_namespace=owner.storage_namespace,
+            cipher=owner.cipher,owner_check=owner.owner_current)
+        chain=repository.lock_recorded_chain(invocation.chain_id,invocation.owner_key)
+        issuance=repository.lock_issuance(chain,invocation.issuance_id)
+        if issuance['artifact_sha256']!=invocation.request_sha256:
+            raise NativeDispatchError('native_observation_request_binding')
+        if response is None:
+            current=repository.mark_attempt_unknown(chain,issuance,attempt_id=invocation.attempt_id,
+                fence_token=invocation.fence_token)
+        else:
+            current=repository.retain_receipt(chain,issuance,attempt_id=invocation.attempt_id,
+                fence_token=invocation.fence_token,http_status=response.http_status,
+                request_id=response.request_id,body=response.body)
+        owner.commit()
+        return current
+
+
+def assess_retained_dispatch(invocation,*,runtime):
+    """Assess from committed encrypted custody, never from a display/RPC body."""
+    if type(invocation) is not NativeInvocation or runtime.local.site!=invocation.site:
+        raise NativeDispatchError('native_observation_site_changed')
+    with owned_worker_transaction(runtime) as owner:
+        repository=DispatchStore(owner.database,storage_namespace=owner.storage_namespace,
+            cipher=owner.cipher,owner_check=owner.owner_current)
+        chain=repository.lock_recorded_chain(invocation.chain_id,invocation.owner_key)
+        issuance=repository.lock_issuance(chain,invocation.issuance_id)
+        header,original=repository.open_issuance(invocation.issuance_id)
+        receipt,body=repository.open_receipt(invocation.attempt_id)
+        if (header['artifact_sha256']!=invocation.request_sha256
+                or receipt['fence_token']!=invocation.fence_token):
+            raise NativeDispatchError('native_observation_request_binding')
+        assessment=assess_native_receipt(header,original,receipt,body)
+        current=repository.record_assessment(chain,issuance,attempt_id=invocation.attempt_id,
+            fence_token=invocation.fence_token,outcome=assessment.outcome)
+        owner.commit()
+        return assessment,current

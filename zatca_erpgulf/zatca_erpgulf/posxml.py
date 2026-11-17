@@ -266,8 +266,15 @@ def salesinvoice_data(invoice, invoice_number, *, purpose="production", _include
             resolve_invoice_template_mode(pos_invoice_doc, runtime=frappe, translate=_)
             if purpose in ("production", "debug") else None
         )
+        from .native_preparation import active_preparation
+        prepared=active_preparation(frappe)
+        if prepared is not None:
+            prepared.require_source(pos_invoice_doc,frappe)
+            if purpose!='production':
+                from .native_preparation import NativePreparationError
+                raise NativePreparationError('native_preparation_purpose')
         uuid1 = (
-            str(uuid.uuid1())
+            (prepared.invoice_uuid if prepared is not None else str(uuid.uuid1()))
             if purpose == "production"
             else preview_invoice_uuid(getattr(pos_invoice_doc, "custom_uuid", None), purpose)
         )

@@ -55,6 +55,14 @@ def get_icv(doc, environment="Production", debug=False):
 	Compliance keeps its dedicated counter for compatibility, but must never
 	overwrite the source invoice's live ICV or issuing unit. Debug only reads.
 	"""
+	from .native_preparation import active_preparation, NativePreparationError
+	prepared=active_preparation(frappe)
+	if prepared is not None:
+		prepared.require_source(doc,frappe)
+		if environment!='Production' or debug:
+			raise NativePreparationError('native_preparation_purpose')
+		return prepared.icv
+
 	if environment == "Debug" or debug:
 		if doc and frappe.get_meta(doc.doctype).has_field(fieldname := "custom_zatca_icv") and doc.get(fieldname):
 			return str(cint(doc.get(fieldname)))

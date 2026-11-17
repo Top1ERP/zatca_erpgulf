@@ -1,0 +1,237 @@
+{
+ "actions": [],
+ "autoname": "field:record_id",
+ "creation": "2026-11-16 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "record_id",
+  "issuance_key",
+  "icv_key",
+  "chain",
+  "company",
+  "source_doctype",
+  "source_name",
+  "environment",
+  "source_version",
+  "source_sha256",
+  "invoice_uuid",
+  "icv",
+  "invoice_hash",
+  "previous_hash",
+  "certificate_sha256",
+  "public_key_sha256",
+  "endpoint",
+  "base_url_sha256",
+  "artifact_sha256",
+  "artifact_ciphertext",
+  "state",
+  "replaces_issuance",
+  "active_attempt",
+  "state_version"
+ ],
+ "fields": [
+  {
+   "fieldname": "record_id",
+   "fieldtype": "Data",
+   "label": "Record ID",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "issuance_key",
+   "fieldtype": "Data",
+   "label": "Issuance Key",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "icv_key",
+   "fieldtype": "Data",
+   "label": "Chain and ICV Key",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "chain",
+   "fieldtype": "Link",
+   "label": "Issuing Chain",
+   "read_only": 1,
+   "options": "ZATCA Issuing Chain",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "read_only": 1,
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "source_doctype",
+   "fieldtype": "Select",
+   "label": "Source DocType",
+   "read_only": 1,
+   "options": "Sales Invoice\nPOS Invoice",
+   "reqd": 1
+  },
+  {
+   "fieldname": "source_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Source Invoice",
+   "read_only": 1,
+   "options": "source_doctype",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "environment",
+   "fieldtype": "Select",
+   "label": "Environment",
+   "read_only": 1,
+   "options": "Sandbox\nSimulation\nProduction",
+   "reqd": 1
+  },
+  {
+   "fieldname": "source_version",
+   "fieldtype": "Int",
+   "label": "Source Issuance Version",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "source_sha256",
+   "fieldtype": "Data",
+   "label": "Source Observation Hash",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "invoice_uuid",
+   "fieldtype": "Data",
+   "label": "Invoice UUID",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "icv",
+   "fieldtype": "Data",
+   "label": "Invoice Counter Value",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "invoice_hash",
+   "fieldtype": "Data",
+   "label": "Invoice Hash",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "previous_hash",
+   "fieldtype": "Data",
+   "label": "Previous Invoice Hash",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "certificate_sha256",
+   "fieldtype": "Data",
+   "label": "Certificate Hash",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "public_key_sha256",
+   "fieldtype": "Data",
+   "label": "Public Key Hash",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "endpoint",
+   "fieldtype": "Select",
+   "label": "Operation",
+   "read_only": 1,
+   "options": "invoices/reporting/single\ninvoices/clearance/single",
+   "reqd": 1
+  },
+  {
+   "fieldname": "base_url_sha256",
+   "fieldtype": "Data",
+   "label": "API Base URL Hash",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "artifact_sha256",
+   "fieldtype": "Data",
+   "label": "Artifact Hash",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "artifact_ciphertext",
+   "fieldtype": "Long Text",
+   "label": "Encrypted Original Artifact",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "state",
+   "fieldtype": "Select",
+   "label": "Issuance State",
+   "read_only": 1,
+   "options": "PREPARED\nDISPATCHING\nOUTCOME_UNKNOWN\nREPORTING_FALLBACK_READY\nREJECTED\nREPORTED\nCLEARED\nREVIEW_REQUIRED",
+   "reqd": 1
+  },
+  {
+   "fieldname": "replaces_issuance",
+   "fieldtype": "Link",
+   "label": "Replaces Rejected Issuance",
+   "read_only": 1,
+   "options": "ZATCA Issuance"
+  },
+  {
+   "fieldname": "active_attempt",
+   "fieldtype": "Data",
+   "label": "Active Attempt",
+   "read_only": 1
+  },
+  {
+   "fieldname": "state_version",
+   "fieldtype": "Int",
+   "label": "State Version",
+   "read_only": 1,
+   "reqd": 1,
+   "default": "0"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 0,
+ "links": [],
+ "modified": "2026-11-16 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Zatca Erpgulf",
+ "name": "ZATCA Issuance",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 0,
+ "allow_import": 0,
+ "allow_rename": 0
+}

@@ -86,7 +86,12 @@ def isolated_server(tmp_path_factory):
             deadline = time.monotonic() + 15
             while time.monotonic() < deadline:
                 if process.poll() is not None:
-                    pytest.fail("Private MariaDB subprocess exited before readiness")
+                    # Read only this guard-owned subprocess log, before cleanup.
+                    with (root / "server.log").open("rb") as diagnostic_log:
+                        diagnostic_log.seek(0, 2)
+                        diagnostic_log.seek(max(0, diagnostic_log.tell() - 4096))
+                        diagnostic = diagnostic_log.read(4096).decode("utf-8", errors="replace")
+                    pytest.fail("Private MariaDB subprocess exited before readiness. Owned server log tail:\n" + diagnostic, pytrace=False)
                 try:
                     return pymysql.connect(unix_socket=str(socket), user="root", connect_timeout=1, autocommit=True)
                 except pymysql.OperationalError:

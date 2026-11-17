@@ -1,4 +1,5 @@
 """This file contains the function to call the ZATCA API for POS Invoices"""
+from .deferred_submission import maybe_defer_invoice_submission
 
 from .issuing_reads import read_issuing_doc
 from .issuing_attempt import (
@@ -96,6 +97,8 @@ def zatca_call_pos_without_xml(
         return dispatch_generator_compliance(
             "POS Invoice", invoice_number, compliance_type, company_abbr
         )
+    if maybe_defer_invoice_submission('POS Invoice', invoice_number, runtime=frappe, translate=_):
+        return
     try:
 
         if not frappe.db.exists(POS_INVOICE, invoice_number):

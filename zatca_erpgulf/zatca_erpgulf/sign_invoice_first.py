@@ -1260,6 +1260,13 @@ def structuring_signedxml(invoice_number,updated_xml_string):
     """structuring the signed xml"""
     try:
         adjusted_xml_content = format_zatca_signed_xml(updated_xml_string)
+        from .native_preparation import active_preparation
+        prepared=active_preparation(frappe)
+        if prepared is not None:
+            path=prepared.write_signed_xml(invoice_number,adjusted_xml_content)
+            from .issuing_attempt import seal_current_xml
+            seal_current_xml(path,adjusted_xml_content,runtime=frappe)
+            return path
 
         with open(
             f"{frappe.local.site}/private/files/final_xml_after_indent_{invoice_number}.xml",

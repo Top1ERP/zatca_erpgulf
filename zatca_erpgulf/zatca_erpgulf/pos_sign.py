@@ -6,6 +6,7 @@ including the creation of UBL XML
 invoices, signing, and submission to ZATCA servers for clearance and reporting."""
 
 from .issuing_reads import read_issuing_doc
+from .deferred_submission import invoice_submit_hook, maybe_defer_invoice_submission
 from .issuing_attempt import (
     confirm_issuing_transport, issuing_attempt, invoice_issuing_attempt,
 )
@@ -622,6 +623,8 @@ def zatca_call(
         return dispatch_generator_compliance(
             "POS Invoice", invoice_number, compliance_type, company_abbr
         )
+    if maybe_defer_invoice_submission('POS Invoice', invoice_number, runtime=frappe, translate=_):
+        return
     try:
 
         if not frappe.db.exists("POS Invoice", invoice_number):
@@ -1129,6 +1132,12 @@ def is_qr_and_xml_attached(sales_invoice_doc):
 
 @frappe.whitelist(allow_guest=False)
 def zatca_background_on_submit(doc, _method=None, bypass_background_check=False):
+    """Validate normally; defer Phase2 transport until the ERP commit succeeds."""
+    with invoice_submit_hook('POS Invoice', doc, runtime=frappe, translate=_):
+        return _process_submitted_invoice(doc, _method, bypass_background_check)
+
+
+def _process_submitted_invoice(doc, _method=None, bypass_background_check=False):
     """Function for zatca background on submit"""
 
     try:
@@ -1154,8 +1163,14 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
             if company_doc.tax_id.strip() == customer_doc.tax_id.strip():
                 pos_invoice_doc.custom_zatca_status = "Intra-company transfer"
                 pos_invoice_doc.custom_zatca_full_response = "Intra-company transfer"
-                pos_invoice_doc.save(ignore_permissions=True)
-                frappe.db.commit()
+                # These output fields belong to the enclosing ERP transaction.
+                # Avoid save hooks and an early commit of its accounting writes.
+                frappe.db.set_value(pos_invoice_doc.doctype, pos_invoice_doc.name, {
+                    'custom_zatca_status': 'Intra-company transfer',
+                    'custom_zatca_full_response': 'Intra-company transfer',
+                }, update_modified=False)
+                doc.custom_zatca_status = 'Intra-company transfer'
+                doc.custom_zatca_full_response = 'Intra-company transfer'
                 return
 
         if not get_alias_value("customer_buyer_id_type", customer_doc, "") and get_alias_value("customer_buyer_id", customer_doc, ""):
@@ -1467,6 +1482,7 @@ def zatca_background_on_submit(doc, _method=None, bypass_background_check=False)
         raise
     except (ValueError, KeyError, TypeError, frappe.ValidationError) as e:
         frappe.throw(_("Error in background call submit: " + str(e)))
+
 
 
 @frappe.whitelist()
