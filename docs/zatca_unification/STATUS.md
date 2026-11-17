@@ -10,6 +10,10 @@ Its new accepted-status projector, XML/QR reader and explicit corrected-rejectio
 versioning are described in [WORKSTREAM_2_RUNTIME_DESIGN.md](WORKSTREAM_2_RUNTIME_DESIGN.md).
 The corrected-version backend deliberately refuses an unchanged issue clock;
 canonical builder/operator clock adoption is still open.
+Eight native Reporting/Clearance API adapters now hand off inside owned preparation
+before legacy File/realtime/batch paths. Outside that context they retain their
+existing behavior. The fixed issuer-binding follow-up passes20,750 cases;49
+private SQL cases exercise actual adapters with the synthetic signing builder.
 
 Public worker/manual/batch adoption, registration/bootstrap and reviewed legacy
 continuity, File/print/UI publication and source/owner lifecycle guards remain.

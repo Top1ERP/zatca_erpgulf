@@ -85,7 +85,7 @@ def coordinator(boundary, materials, monkeypatch):
         repository=repository, factory=factory)
 
 
-def signed_build(b, source, *, validation_type='Simplified Invoice', endpoint='invoices/reporting/single', issue_instant=None):
+def signed_build(b, source, *, validation_type='Simplified Invoice', endpoint='invoices/reporting/single', issue_instant=None, api=None):
     """Exercise actual native formatter, credential scope and final HTTP fence."""
     ticket = ACTIVE_PREPARATION.get()
     assert ticket is not None
@@ -103,6 +103,8 @@ def signed_build(b, source, *, validation_type='Simplified Invoice', endpoint='i
         tools=SigningTools.from_namespace(vars(sign_invoice_first)))
     ACTIVE.get().expect_prepared_payload(ticket.invoice_uuid, signed.encoded_hash)
     path = sign_invoice_first.structuring_signedxml(source.name, signed.xml)
+    if api is not None:
+        return api(ticket.invoice_uuid, signed.encoded_hash, path, source.name, source)
     submission_context.get_submission_context('TC', source, source.name,
         endpoint, expected_doctype=source.doctype)
     read_invoice_payload(ticket.invoice_uuid, signed.encoded_hash, path, read_xml=reader)

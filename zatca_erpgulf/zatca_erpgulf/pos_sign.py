@@ -12,6 +12,7 @@ from .issuing_attempt import (
 )
 from .existing_xml_submission import ExistingXmlSubmissionError
 from .invoice_payload import read_invoice_payload
+from .native_preparation import capture_before_legacy_side_effects
 from .invoice_generation_data import prepare_invoice_generation
 from .template_vat_source import resolve_invoice_template_mode
 import base64
@@ -171,6 +172,7 @@ def reporting_api(
         submitted_invoice = read_invoice_payload(
             uuid1, encoded_hash, signed_xmlfile_name, read_xml=xml_base64_decode
         )
+        capture_before_legacy_side_effects(company_abbr, pos_invoice_doc, runtime=frappe)
 
         xml_cleared_data = submitted_invoice.xml_text()
         file = read_issuing_doc(frappe,
@@ -418,6 +420,7 @@ def clearance_api(
         submitted_invoice = read_invoice_payload(
             uuid1, encoded_hash, signed_xmlfile_name, read_xml=xml_base64_decode
         )
+        capture_before_legacy_side_effects(company_abbr, pos_invoice_doc, runtime=frappe)
         payload = submitted_invoice.as_payload()
 
         headers = {

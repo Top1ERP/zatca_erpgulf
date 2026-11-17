@@ -26,6 +26,15 @@ def require_primary_qr_attachment(doc, *, expected_doctype=None):
     may already have staged CLEARED before the first QR attachment. Absence of a
     reference is only an attachment observation, never authenticated issuance.
     """
+    from .native_preparation import active_preparation, NativePreparationError
+    prepared = active_preparation(frappe)
+    if prepared is not None:
+        prepared.require_source(doc, frappe)
+        if expected_doctype is not None and doc.doctype != expected_doctype:
+            raise NativePreparationError('native_preparation_source')
+        # Native preparation retains a private temporary original, not a File
+        # attachment. Publication has its own current-custody/ownership policy.
+        return None
     if not hasattr(doc, "ksa_einv_qr"):
         frappe.throw(_(MISSING_QR_FIELD))
     values = dict(doctype=doc.doctype, invoice_name=doc.name,

@@ -213,6 +213,20 @@ def active_preparation(runtime):
     return current
 
 
+def capture_before_legacy_side_effects(company_abbr, source_doc, *, runtime):
+    """Hand off an owned native request before legacy File/queue/batch writes.
+
+    Outside owned native preparation this is inert. Inside it, reuse the same
+    source/material/payload fence as immediate HTTP; do not change Company send
+    settings or pretend a scheduled invoice has already been sent.
+    """
+    if active_preparation(runtime) is None:
+        return
+    from .issuing_attempt import confirm_issuing_transport
+    confirm_issuing_transport(company_abbr, source_doc, runtime=runtime, purpose='production')
+    raise NativePreparationError('native_preparation_handoff_required')
+
+
 def reject_legacy_native_preparation(document, runtime):
     """A retained native source must not fall back to legacy UUID/ICV/HTTP.
 

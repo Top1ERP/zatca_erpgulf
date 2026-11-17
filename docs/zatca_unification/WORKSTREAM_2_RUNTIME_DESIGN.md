@@ -53,7 +53,9 @@ private repository tests are not an installed native dispatcher.
    through `frappe.db.sql`, so a local DB proxy can guard native paths. This is not
    a sandbox for arbitrary privileged Python or cached raw connections.
 4. Intercept QR persistence before File/image writes and capture the actual
-   immutable InvoicePayload/route before native HTTP. An internal BaseException
+   immutable InvoicePayload/route before native HTTP. All six Reporting adapters
+   and two primary Clearance adapters now hand off before legacy File/realtime/
+   batch side effects when an owned preparation ticket is active. An internal BaseException
    handoff may unwind legacy generic writers; it is not a successful mock response.
    Use private temporary artifacts during preparation. Avoid fixed-filename
    overwrites of an already issued/accepted artifact.
@@ -304,8 +306,10 @@ UUID/POS metadata/ICV guards, the final HTTP fence and its Compliance caller.
    leave another allocating through the legacy counter. External XML needs its
    own source/file/chain admission and cannot consume a freshly proposed random
    native UUID. Unverified extensions must stop before transport. Batch/hold
-   generation must reach the native request handoff without the legacy queue/save
-   branch, and local Simplified publication must not wait for Reporting success.
+   generation now reaches the request handoff in the eight native API adapters
+   without the legacy queue/File/save branch. The public provider must still
+   select prepare-only versus dispatch according to Company scheduling, and local
+   Simplified publication must not wait for Reporting success.
 5. Complete cancellation/printing/recovery/rename decisions and aggregated translated
    operator outcomes. Then freeze the workstream2 qualification. Installed5,
    authentic crypto/SDK6, financial3 and the separately approved pilot7 retain
@@ -391,3 +395,35 @@ No source financial amount/date/time is changed by these services. The test
 builder explicitly supplies a later replacement clock; it remains the synthetic
 onboarding/signing helper, not installed ERP financial-builder/SDK acceptance.
 The original240 financial comparison and expected reference files are unchanged.
+
+## Native API handoff before legacy side effects
+
+The six Reporting APIs previously reached their final native fence only in an
+immediate-send branch. Five also attempted a File/source attachment write before
+that fence. An owned read-only preparation could therefore fail or enter a legacy
+batch path instead of returning its original. All six Reporting APIs and both
+primary Clearance APIs now call `capture_before_legacy_side_effects` immediately
+after their one payload capture. It reuses the existing source/material/payload
+fence and internal handoff. Outside an owned native preparation it is inert; the
+legacy Company send setting and request/response/file behavior remain unchanged.
+The primary attachment preflight recognizes the same owned source ticket and
+avoids querying/writing File metadata for a temporary native artifact; a foreign
+source still fails. Current-custody publication remains a separate operation.
+
+The nine private pipeline cases now use those actual API adapters rather than a
+direct test-only final-fence call. They cover all six Reporting adapters and both
+Clearance adapters across Company/device/linked owners, Batches/Background send
+settings,303 and rejection/replacement. Files and realtime/legacy HTTP must not
+execute before the handoff. The coordinator's explicit internal dispatch is
+mocked; this does not claim that public batch discovery/scheduling is adopted or
+that native dispatch automatically honors send settings. A future provider must
+choose prepare-only/scheduled/explicit send before entering that operation.
+
+Follow-up evidence:20,750 fixed issuer-binding regression cases in117.32s,
+1,108 focused native/QR cases in4.57s and49 private SQL cases in4.92s. These
+selections overlap earlier evidence; they are not additive release totals. Logs:
+`/tmp/zatca-axis2-native-api-regression.log`,
+`/tmp/zatca-axis2-native-api-local-final.log`,
+`/tmp/zatca-axis2-native-api-private-final.log`. Financial builders/reference
+expectations are unchanged. The synthetic builder still does not exercise full
+installed financial generation, ERP accounting, authentic SDK or authority APIs.

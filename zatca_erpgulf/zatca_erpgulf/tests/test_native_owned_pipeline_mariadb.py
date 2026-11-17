@@ -20,7 +20,8 @@ from requests.structures import CaseInsensitiveDict
 
 from zatca_erpgulf.zatca_erpgulf import (
     api_settings, credential_settings, native_artifact, native_dispatch, native_projection, native_transport,
-    sign_invoice, sign_invoice_first, submission_context,
+    sign_invoice, pos_sign, sign_invoice_first, submission_context, primary_qr_attachment,
+    sales_invoice_withoutxml, pos_submit__without_xml, zatca_background_sched, pos_schedule_background,
 )
 from zatca_erpgulf.zatca_erpgulf.invoice_xml_core import INITIAL_PREVIOUS_HASH
 from zatca_erpgulf.zatca_erpgulf.artifact_evidence import inspect_invoice_artifact
@@ -62,6 +63,11 @@ class OwnedDatabase(Database):
         self.connection.rollback()
         self.connection.begin()
         self.transaction_writes = 0
+
+    def get_value(self, doctype, filters, fieldname, *, cache=False):
+        assert doctype == 'Company' and set(filters) == {'name'} and fieldname == 'abbr' and cache is False
+        return self.sql('SELECT abbr FROM `tabCompany` WHERE name=%s LOCK IN SHARE MODE NOWAIT',
+            (filters['name'],), as_dict=True)[0]['abbr']
 
     def commit(self):
         self.connection.commit()
@@ -106,7 +112,9 @@ def test_native_sales_and_pos_keep_one_chain_through_committed_mocked_dispatch(
     database = OwnedDatabase(connection)
     runtime = Runtime(b.frappe, database)
     b.frappe = runtime
-    for module in (api_settings, credential_settings, sign_invoice, sign_invoice_first, submission_context):
+    for module in (api_settings, credential_settings, sign_invoice, sign_invoice_first, submission_context,
+            pos_sign, sales_invoice_withoutxml, pos_submit__without_xml, zatca_background_sched,
+            pos_schedule_background, primary_qr_attachment):
         monkeypatch.setattr(module, 'frappe', runtime)
     runtime.has_permission = lambda doctype, operation, *, doc, user, raise_exception=True: True
     runtime.get_meta = lambda doctype: SimpleNamespace(get_table_fields=lambda: [])
@@ -119,10 +127,11 @@ def test_native_sales_and_pos_keep_one_chain_through_committed_mocked_dispatch(
             ('ZATCA Dispatch Control', 'storage_namespace', NAMESPACE),
             ('ZATCA Dispatch Control', 'storage_version', '1')])
         for table in ('tabCompany', 'tabZATCA Multiple Setting'):
+            abbr = ', `abbr` VARCHAR(140)' if table == 'tabCompany' else ''
             cursor.execute('CREATE TABLE IF NOT EXISTS `' + table + '` (`name` VARCHAR(140) PRIMARY KEY,'
-                '`custom_pih` VARCHAR(140)) ENGINE=InnoDB')
-        cursor.executemany('INSERT IGNORE INTO `tabCompany` VALUES (%s,%s)',
-            [(b.company.name, INITIAL_PREVIOUS_HASH), (b.linked.name, INITIAL_PREVIOUS_HASH)])
+                '`custom_pih` VARCHAR(140)' + abbr + ') ENGINE=InnoDB')
+        cursor.executemany('INSERT IGNORE INTO `tabCompany` VALUES (%s,%s,%s)',
+            [(b.company.name, INITIAL_PREVIOUS_HASH, 'TC'), (b.linked.name, INITIAL_PREVIOUS_HASH, 'TB')])
         cursor.execute('INSERT IGNORE INTO `tabZATCA Multiple Setting` VALUES (%s,%s)', (b.device.name, INITIAL_PREVIOUS_HASH))
         for table, source in (('tabSales Invoice', b.sales), ('tabPOS Invoice', b.pos)):
             cursor.execute('CREATE TABLE IF NOT EXISTS `' + table + '` (`name` VARCHAR(140) PRIMARY KEY, `docstatus` INT, `company` VARCHAR(140),'
@@ -185,10 +194,21 @@ def test_native_sales_and_pos_keep_one_chain_through_committed_mocked_dispatch(
     for index, source in enumerate((b.sales, b.pos), 1):
         validation_type = 'Standard Invoice' if mode == 'standard303' else 'Simplified Invoice'
         endpoint = 'invoices/clearance/single' if mode == 'standard303' else 'invoices/reporting/single'
+        if mode == 'standard303':
+            api = sign_invoice.clearance_api if source.doctype == 'Sales Invoice' else pos_sign.clearance_api
+        else:
+            pairs = dict(company=(sign_invoice.reporting_api, pos_sign.reporting_api),
+                device=(sales_invoice_withoutxml.reporting_api_sales_withoutxml, pos_submit__without_xml.reporting_api_pos_without_xml),
+                linked=(zatca_background_sched.reporting_api_sales_withoutxml, pos_schedule_background.reporting_api_pos_without_xml))
+            api = pairs[kind][index - 1]
+        # Real legacy API adapters now hand off before their File/queue/realtime
+        # paths. Send settings remain untouched; batch scheduling is the future
+        # coordinator's decision, not a fake accepted response from this builder.
+        b.company.custom_send_invoice_to_zatca = 'Batches' if mode == 'simplified' else 'Background'
         def dispatch():
             return native_dispatch.dispatch_saved_invoice(source.doctype, source.name, runtime=runtime,
                 translate=lambda text: text,
-                build=lambda locked: signed_build(b, locked, validation_type=validation_type, endpoint=endpoint))
+                build=lambda locked: signed_build(b, locked, validation_type=validation_type, endpoint=endpoint, api=api))
         if mode == 'reject400':
             rejected = dispatch()
             assert rejected.current and rejected.outcome == 'VALIDATION_REJECTED'
@@ -202,10 +222,10 @@ def test_native_sales_and_pos_keep_one_chain_through_committed_mocked_dispatch(
                 rejected_issuance_id=rejected.issuance_id, rejected_attempt_id=rejected.attempt_id)
             with pytest.raises(native_dispatch.NativeDispatchError, match='native_corrected_artifact_review'):
                 native_dispatch.prepare_corrected_rejection(source.doctype, source.name,
-                    build=lambda locked: signed_build(b, locked), **correction)
+                    build=lambda locked: signed_build(b, locked, api=api), **correction)
             replacement = native_dispatch.prepare_corrected_rejection(source.doctype, source.name,
                 build=lambda locked: signed_build(b, locked,
-                    issue_instant=datetime(2026, 11, 10, 9, 6, 42, tzinfo=timezone.utc)), **correction)
+                    issue_instant=datetime(2026, 11, 10, 9, 6, 42, tzinfo=timezone.utc), api=api), **correction)
             assert replacement.state == 'PREPARED' and not replacement.reused
             version = database.sql('SELECT source_version,replaces_issuance,previous_hash FROM `tabZATCA Issuance` WHERE name=%s',
                 (replacement.record_id,), as_dict=True)[0]
