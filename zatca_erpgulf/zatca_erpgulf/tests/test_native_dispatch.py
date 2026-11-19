@@ -496,6 +496,9 @@ def retained_reader(c, *, accepted=True):
     source.custom_zatca_issuing_unit = 'egs:' + c.chain['record_id']
     source.custom_uuid = header['invoice_uuid']
     source.custom_zatca_icv = header['icv']
+    header['source_sha256'] = dispatch.source_observation_sha256(
+        (source.doctype, source.name), _source_observation(source))
+    header['chain'] = c.chain['record_id']
     saved = dict(header, state='REPORTED' if accepted else 'PREPARED', active_attempt='attempt' if accepted else None)
     c.repository.find_source_issuance = Mock(return_value=saved)
     c.repository.open_issuance.return_value = (header, original)

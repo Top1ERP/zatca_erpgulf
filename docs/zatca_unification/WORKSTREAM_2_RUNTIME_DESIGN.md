@@ -691,3 +691,37 @@ in `/tmp/zatca-axis2-enrollment-regression.log`. These sets overlap; they are no
 additive release totals. Read-only live-source checks retain HEAD ba51f258 and
 the previously recorded tooltip/customer-address hashes and dirty-file state.
 Financial builders and the original240 reference comparison91/117/32 are unchanged.
+
+## Custody-backed Desk views and transient print adoption — 2026-11-19
+
+`native_publication` now connects the retained XML/QR readers to three authenticated
+GET-only view/download endpoints and actual Sales/POS before-print hooks. Both
+Desk types use a shared read-only asset with translated QR/status messages,
+issued/original XML downloads, explicit refresh and stale/dirty-form guards.
+The print document's identity is compared to the same selected custody view,
+including fields omitted from its business observation; an earlier source read
+cannot authorize a changed version. Current source/child/Company reads are shared
+NOWAIT. Exact returned XML encoding/BOM is preserved; responses are no-store.
+
+No File/source persistence, counter/PIH change, canonical builder, signing or
+transport runs during publication. Print QR and verified status changes are
+in-memory only. Rejected/review originals remain separately diagnostic; Standard
+print requires matched clearance or bound accepted303. A prepared/uncertain
+Simplified original can supply its QR without claiming remote acceptance.
+
+This is not publication closure. The current source digest is deliberately strict:
+even outstanding-balance/payment bookkeeping changes can block printing. A reviewed
+versioned fiscal projection, frozen master/print information, saved File/external
+consumers, pre-issuance print policy and installed/browser/PDF/SDK qualification
+remain open. Do not silently reinterpret existing originals or relax observations
+to make tests pass. Details and operation matrix are in
+[NATIVE_PUBLICATION.md](NATIVE_PUBLICATION.md).
+
+Final qualification:196 local cases across5 suites in1.61s;75 fixture-owned private
+SQL cases across3 suites in15.82s;100 synthetic UI cases; fixed81-suite regression
+20,751 in122.40s. Logs use `/tmp/zatca-axis2-publication-*-final.log`. Sets overlap;
+the whole228 local/65 private manifest was not run. Private active registration
+and synthetic metadata/UBL builder remain explicit fixture inputs, not installed
+ERP or authority acceptance. Source-only live checks retain ba51f258 and recorded
+dirty tooltip/customer-address hashes. No financial expectation/reference change,
+live/schema/service operation, native activation or authority request occurred.

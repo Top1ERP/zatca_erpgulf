@@ -27,17 +27,28 @@ explicit supersession, but does not activate or retire a legacy issuer. See
 [NATIVE_STORAGE.md](NATIVE_STORAGE.md) and
 [WORKSTREAM_2_RUNTIME_DESIGN.md](WORKSTREAM_2_RUNTIME_DESIGN.md).
 
-Latest provider qualification:314 focused local cases across5 suites,188 private
-SQL cases across6 suites, and20,751 across the fixed81-suite issuer-binding
-profile. These sets overlap. Manifest227 local/64 private suites was not run in
-full. Private active registration is fixture input; generation uses the actual
-six entries with a synthetic metadata/signing builder. This is not installed
-Frappe/ERP, complete canonical financial/XSD/SDK or genuine authority acceptance.
-No financial reference was changed; original240 comparison remains91/117/32.
+Custody-backed Desk QR/XML views and transient Sales/POS print hooks are now
+adopted. Matched current version/source data are required; a Standard original
+cannot replace matched cleared XML. Rendering changes only its in-memory QR and
+status. Diagnostic original downloads remain separate. No File/source write,
+signing or resend occurs. Arabic display and English diagnostics remain separate.
+See [NATIVE_PUBLICATION.md](NATIVE_PUBLICATION.md), including its release blockers:
+the current conservative comparison can block printing after a balance/payment
+change, and saved File/external print consumers are not qualified yet.
+
+Latest publication qualification:196 focused local cases across5 suites in1.61s,
+75 private SQL cases across3 suites in15.82s,100 synthetic UI cases, and20,751
+across the fixed81-suite issuer-binding profile in122.40s. These sets overlap.
+Manifest228 local/65 private suites was not run in full. Private active registration
+is fixture input; generation uses the actual six entries with a synthetic metadata/
+signing builder. This is not installed Frappe/ERP, complete canonical financial/
+XSD/SDK or genuine authority acceptance. No financial reference was changed;
+original240 comparison remains91/117/32.
 
 Still open in2: complete identity/legacy-consumer inventory and reviewed activation/
-drain; four existing-XML admission paths; File/QR/print/UI publication; explicit
-unchanged retry and corrected-clock/operator adoption; draft-origin handoff and
+drain; four existing-XML admission paths; publication fiscal projection/frozen print
+information and File/external-print compatibility; explicit unchanged retry and
+corrected-clock/operator adoption; draft-origin handoff and
 source lifecycle decisions; whole runtime qualification. The handoff is not a
 durable outbox. Do not announce3 or installation from these narrower checks.
 Installed15/16, financial review, authentic SDK and the specifically approved

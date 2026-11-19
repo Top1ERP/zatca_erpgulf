@@ -56,3 +56,9 @@ No live migration/worker operation, authority API request, credential activation
 installed acceptance or fictional Company on a working site is authorized.
 
 Implementation sequence and current adoption limits: [WORKSTREAM_2_RUNTIME_DESIGN.md](WORKSTREAM_2_RUNTIME_DESIGN.md).
+
+The first actual custody-backed Desk/transient-print adapter is documented in
+[NATIVE_PUBLICATION.md](NATIVE_PUBLICATION.md). It does not close the publication
+checklist: conservative source comparison currently blocks some post-payment
+prints, and frozen master/print information, saved File consumers, external print
+engines and pre-issuance native printing still require explicit adoption/acceptance.

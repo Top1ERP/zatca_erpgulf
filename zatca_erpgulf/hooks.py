@@ -270,6 +270,7 @@ doc_events = {
         "validate": "zatca_erpgulf.zatca_erpgulf.address_validation.validate_zatca_address",
     },
     "Sales Invoice": {
+        "before_print": "zatca_erpgulf.zatca_erpgulf.native_publication.before_print",
         # "before_insert": "zatca_erpgulf.zatca_erpgulf.sales_invoice_hooks.set_draft_series",
         "before_save": "zatca_erpgulf.zatca_erpgulf.zatca_response.normalize_zatca_full_response",
         "validate": "zatca_erpgulf.overrides.sales_invoice.validate_zatca_sales_invoice",
@@ -298,6 +299,7 @@ doc_events = {
         "validate": "zatca_erpgulf.zatca_erpgulf.tax_error.validate_tax_template_category_constraints",
     },
     "POS Invoice": {
+        "before_print": "zatca_erpgulf.zatca_erpgulf.native_publication.before_print",
         "before_save": "zatca_erpgulf.zatca_erpgulf.zatca_response.normalize_zatca_full_response",
         "validate": "zatca_erpgulf.zatca_erpgulf.tax_error.validate_negative_item_values_on_save",
         "before_cancel": "zatca_erpgulf.zatca_erpgulf.validations.before_save",
@@ -323,6 +325,7 @@ doctype_js = {
     "Sales Invoice": [
         # "public/js/draft.js",
         "public/js/our_sales_invoice.js",
+        "public/js/native_publication.js",
         "public/js/zatca_advance_income_account_query.js",
         "public/js/zatca_advance_invoice_ui.js",
         "public/js/zatca_advance_direct_allocation.js",
@@ -334,6 +337,7 @@ doctype_js = {
     "Company": "public/js/company.js",
     "POS Invoice": [
         "public/js/our_pos_invoice.js",
+        "public/js/native_publication.js",
         "public/js/zatca_negative_line_validation.js",
         "public/js/badge_pos.js",
     ],

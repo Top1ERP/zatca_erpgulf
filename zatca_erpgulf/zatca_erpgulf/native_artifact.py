@@ -27,12 +27,16 @@ class NativeInvoiceArtifact:
     qr_payload_sha256: str
     issue_date: str
     issue_time: str
+    source_sha256: str | None = field(default=None, repr=False)
+    invoice_uuid: str | None = field(default=None, repr=False)
+    icv: str | None = field(default=None, repr=False)
+    chain_id: str | None = field(default=None, repr=False)
 
     def __reduce_ex__(self, protocol):
         raise TypeError('native_invoice_artifact_not_serializable')
 
 
-def read_native_artifact(doctype, invoice_name, *, runtime):
+def read_native_artifact(doctype, invoice_name, *, runtime, for_publication=False):
     """Read ACL and current saved identity are checked by the custody reader.
 
     No current signing key, gateway or phase is consulted. A legacy source
@@ -41,9 +45,13 @@ def read_native_artifact(doctype, invoice_name, *, runtime):
     Returned metadata matching remains distinct from workstream6 crypto/SDK
     verification and workstream3 financial reconciliation.
     """
-    view = read_retained_invoice(doctype, invoice_name, runtime=runtime)
+    view = read_retained_invoice(doctype, invoice_name, runtime=runtime,
+        require_current_source=for_publication)
     if view is None:
         return None
+    if for_publication and view.state not in (
+            'PREPARED', 'DISPATCHING', 'OUTCOME_UNKNOWN', 'REPORTED', 'CLEARED'):
+        raise NativeDispatchError('native_publication_state_review')
     failed = False
     try:
         _code, indicator = _invoice_classification(view.original_xml)
@@ -72,4 +80,4 @@ def read_native_artifact(doctype, invoice_name, *, runtime):
     # display this state; QR presence never makes a rejected document valid.
     return NativeInvoiceArtifact(view.issuance_id, view.state, kind, view.accepted, content, qr,
         hashlib.sha256(content).hexdigest(), hashlib.sha256(qr.encode('ascii')).hexdigest(),
-        *original_clock)
+        *original_clock, view.source_sha256, view.invoice_uuid, view.icv, view.chain_id)

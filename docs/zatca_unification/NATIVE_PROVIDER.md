@@ -130,8 +130,10 @@ generation, installed15/16, CA trust or SDK acceptance. Financial reference file
 and the original240 comparison91/117/32 are unchanged.
 
 Remaining workstream2 work includes actual initial/cutover activation and complete
-legacy-consumer inventory/drain; four existing-XML admission paths; publication to
-File/QR/print/UI; explicit unchanged retry and corrected-clock adoption; source
+legacy-consumer inventory/drain; four existing-XML admission paths; publication
+compatibility/fiscal projection (first Desk/transient-print adoption is described
+in [NATIVE_PUBLICATION.md](NATIVE_PUBLICATION.md)); explicit unchanged retry and
+corrected-clock adoption; source
 cancel/delete/rename decisions; and whole runtime qualification. Submitted manual
 and scheduled adoption do not close draft-origin handoff: a scheduled/manual ERP
 draft submission still defers through its ordinary submit intent first. The

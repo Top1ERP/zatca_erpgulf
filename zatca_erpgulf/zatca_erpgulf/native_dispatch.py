@@ -67,6 +67,10 @@ class RetainedNativeView:
     has_warnings: bool
     original_xml: bytes = field(repr=False)
     returned_xml: bytes | None = field(repr=False)
+    source_sha256: str | None = field(default=None, repr=False)
+    invoice_uuid: str | None = field(default=None, repr=False)
+    icv: str | None = field(default=None, repr=False)
+    chain_id: str | None = field(default=None, repr=False)
 
     def __reduce_ex__(self, protocol):
         raise TypeError('retained_native_view_not_serializable')
@@ -453,12 +457,14 @@ def assess_retained_dispatch(invocation,*,runtime):
         return assessment,current
 
 
-def read_retained_invoice(doctype,invoice_name,*,runtime):
+def read_retained_invoice(doctype,invoice_name,*,runtime,require_current_source=False):
     """Read exact native custody using saved-source read ACL, not signing keys.
 
     No artifact generation, key/route/certificate lookup, source repair, current
     Company-phase requirement or HTTP occurs. Historical source identities must
-    still match; a rename/rebind needs its explicit reviewed transition.
+    still match; a rename/rebind needs its explicit reviewed transition. Printing
+    additionally requires the submitted saved business observation to match the
+    original. Diagnostic reads deliberately retain access to changed originals.
     """
     if doctype not in SOURCE_TABLES or type(invoice_name) is not str or not invoice_name:
         raise NativeDispatchError('native_source_identity')
@@ -466,6 +472,13 @@ def read_retained_invoice(doctype,invoice_name,*,runtime):
         source=runtime.get_doc(doctype,invoice_name)
         company=runtime.get_doc('Company',source.company)
         _require_access(runtime,source,company,owner.actor,write=False)
+        if require_current_source:
+            # Current shared reads include native child rows, not the earlier
+            # repeatable-read snapshot. Locks end with this read-only scope.
+            with owner.preparing(_business_tables(runtime,source)):
+                source=runtime.get_doc(doctype,invoice_name,for_update=True)
+                company=runtime.get_doc('Company',source.company,for_update=True)
+                _require_access(runtime,source,company,owner.actor,write=False)
         marker=source.get('custom_zatca_issuing_unit')
         if type(marker) is not str or not marker.startswith('egs:'):
             return None
@@ -477,6 +490,11 @@ def read_retained_invoice(doctype,invoice_name,*,runtime):
         saved=repository.find_source_issuance(doctype=doctype,invoice_name=invoice_name,
             company=source.company,chain_id=marker[4:],invoice_uuid=source.get('custom_uuid'),icv=str(value))
         header,original=repository.open_issuance(saved['record_id'])
+        if require_current_source:
+            from .issuing_attempt import _source_observation
+            if (source.get('docstatus') != 1 or header['source_sha256'] !=
+                    source_observation_sha256((doctype,invoice_name),_source_observation(source))):
+                raise NativeDispatchError('native_publication_source_review')
         xml,_evidence=_original(header,original)
         outcome='RETAINED_ORIGINAL';warnings=0;has_warnings=False;returned=None
         accepted=saved['state'] in ('REPORTED','CLEARED')
@@ -493,7 +511,8 @@ def read_retained_invoice(doctype,invoice_name,*,runtime):
             outcome=assessment.outcome;warnings=assessment.warning_count;has_warnings=assessment.has_warnings
             returned=assessment.returned_xml
         return RetainedNativeView(saved['record_id'],saved['active_attempt'],saved['state'],outcome,
-            accepted,warnings,has_warnings,xml,returned)
+            accepted,warnings,has_warnings,xml,returned,header['source_sha256'],
+            header['invoice_uuid'],header['icv'],header['chain'])
 
 
 def _project_source_status(doctype, invoice_name, *, runtime, readonly_cache=False):
