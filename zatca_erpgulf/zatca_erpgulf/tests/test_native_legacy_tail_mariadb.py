@@ -17,12 +17,16 @@ pytestmark = pytest.mark.skipif(os.environ.get('ZATCA_RUN_ISOLATED_MARIADB') != 
     reason='Fixture-owned private SQL only')
 
 
-def insert_source(t, doctype, *, icv, name=None, company=None, unit=None, docstatus=1):
+UNSET_UUID = object()
+
+
+def insert_source(t, doctype, *, icv, name=None, company=None, unit=None, docstatus=1, invoice_uuid=UNSET_UUID):
     name = name or 'CANDIDATE-' + str(uuid4())
     with t.connection.cursor() as cursor:
         cursor.execute('INSERT INTO `tab' + doctype + '` (name,company,docstatus,custom_uuid,custom_zatca_icv,'
             'custom_zatca_issuing_unit) VALUES (%s,%s,%s,%s,%s,%s)',
-            (name, t.source.company if company is None else company, docstatus, str(uuid4()), icv,
+            (name, t.source.company if company is None else company, docstatus,
+                str(uuid4()) if invoice_uuid is UNSET_UUID else invoice_uuid, icv,
                 t.source.custom_zatca_issuing_unit if unit is None else unit))
     t.connection.commit()
     return name
@@ -206,3 +210,66 @@ def test_previously_reviewed_anchor_is_not_reused_after_another_generated_source
     row = t.database.sql('SELECT last_icv,active FROM `tabZATCA Issuing Chain` WHERE name=%s',
         (first.record_id,), as_dict=True)[0]
     assert row == {'last_icv': '27', 'active': 0}
+
+
+@pytest.mark.parametrize('kinds', [('Sales Invoice', 'Sales Invoice'), ('POS Invoice', 'POS Invoice'),
+    ('Sales Invoice', 'POS Invoice')])
+@pytest.mark.parametrize('field', ['icv', 'uuid'])
+def test_duplicates_below_the_tail_are_not_hidden_by_a_valid_current_anchor(legacy, kinds, field):
+    t = legacy
+    shared_uuid = str(uuid4())
+    insert_source(t, kinds[0], icv='25', invoice_uuid=shared_uuid)
+    insert_source(t, kinds[1], icv='25' if field == 'icv' else '26',
+        invoice_uuid=str(uuid4()) if field == 'icv' else shared_uuid)
+    with pytest.raises(registration.ChainRegistrationError, match='registration_saved_' + field + '_duplicate'):
+        t.review()
+    assert t.database.commits == 0
+
+
+@pytest.mark.parametrize('doctype', ['Sales Invoice', 'POS Invoice'])
+@pytest.mark.parametrize('invoice_uuid', [None, '', 'NOT-A-UUID', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\n',
+    'AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA'])
+def test_noncanonical_older_uuid_is_review_even_if_its_icv_is_lower(legacy, doctype, invoice_uuid):
+    t = legacy
+    insert_source(t, doctype, icv='26', invoice_uuid=invoice_uuid)
+    with pytest.raises(registration.ChainRegistrationError, match='registration_saved_uuid_review'):
+        t.review()
+    assert t.database.commits == 0
+
+
+@pytest.mark.parametrize('field', ['icv', 'uuid'])
+@pytest.mark.parametrize('kinds', [('POS Invoice', 'POS Invoice'), ('Sales Invoice', 'POS Invoice'),
+    ('POS Invoice', 'Sales Invoice')])
+def test_a_duplicate_committed_after_the_orm_read_view_is_still_seen_by_the_review(legacy, monkeypatch, field, kinds):
+    t = legacy
+    shared_uuid = str(uuid4())
+    insert_source(t, kinds[0], icv='25', invoice_uuid=shared_uuid)
+    peer = t.connections()
+    saved = t.runtime.get_doc
+    injected = []
+    def get_doc(doctype, name, **kwargs):
+        result = saved(doctype, name, **kwargs)
+        if (doctype, name) == (t.source.doctype, t.source.name) and not kwargs.get('for_update') and not injected:
+            injected.append(True)
+            with peer.cursor() as cursor:
+                cursor.execute('INSERT INTO `tab' + kinds[1] + '` (name,company,docstatus,custom_uuid,'
+                    'custom_zatca_icv,custom_zatca_issuing_unit) VALUES (%s,%s,1,%s,%s,%s)',
+                    ('AFTER-READ-VIEW-' + str(uuid4()), t.source.company,
+                        shared_uuid if field == 'uuid' else str(uuid4()),
+                        '26' if field == 'uuid' else '25', t.source.custom_zatca_issuing_unit))
+            peer.commit()
+        return result
+    monkeypatch.setattr(t.runtime, 'get_doc', get_doc)
+    with pytest.raises(registration.ChainRegistrationError, match='registration_saved_' + field + '_duplicate'):
+        t.review()
+    assert injected and t.database.commits == 0
+
+
+def test_noncontiguous_older_saved_positions_are_not_renumbered_or_treated_as_genesis(legacy):
+    t = legacy
+    insert_source(t, 'Sales Invoice', icv='1')
+    insert_source(t, 'POS Invoice', icv='9')
+    result = t.review()
+    assert result.last_icv == '27' and not result.active
+    assert t.runtime.get_doc(t.counter.doctype, t.counter.name).last_issued_icv == '27'
+    t.b.request.assert_not_called()

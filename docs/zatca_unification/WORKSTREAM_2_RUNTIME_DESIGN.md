@@ -819,3 +819,11 @@ unindexed/indexed concurrent inserts and updates, cancellation and recovery afte
 a newer source appears. This remains administrative review, not an invoice-path
 scan, complete history reconstruction, worker drain or activation. See
 [NATIVE_LEGACY_TAIL.md](NATIVE_LEGACY_TAIL.md).
+
+The subsequent saved-slot extension rejects noncanonical older UUIDs and repeated
+ICV/UUID positions within Sales/POS and across their join, even below a valid
+current tail. All aggregate/join probes are current locking reads. Actual private
+review tests commit duplicates after its initial ORM read view and require their
+detection; no plain consistent snapshot is used as a census. Noncontiguous legacy
+positions retain the exact reviewed counter. No all-history cryptographic proof,
+new persistent census/activation envelope, renumbering or authority call follows.

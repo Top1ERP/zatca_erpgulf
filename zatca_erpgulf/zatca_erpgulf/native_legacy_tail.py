@@ -1,4 +1,4 @@
-"""Negative saved-source tail checks for an inactive legacy continuity review.
+"""Saved-source contradictions for an inactive legacy continuity review.
 
 A matching counter/anchor alone cannot rule out a manually rewound counter or a
 later generated POS/Sales document. Check both fixed source tables under owned
@@ -13,6 +13,7 @@ from .native_identity_inventory import require_range_isolation, require_range_en
 
 SOURCE_TABLES = {'Sales Invoice': '`tabSales Invoice`', 'POS Invoice': '`tabPOS Invoice`'}
 CANONICAL_ICV = r'\A[1-9][0-9]{0,63}\z'
+CANONICAL_UUID = r'\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z'
 EXACT_COLUMN_TYPES = frozenset(('tinyint', 'smallint', 'mediumint', 'int', 'bigint',
     'char', 'varchar', 'tinytext', 'text', 'mediumtext', 'longtext'))
 
@@ -32,6 +33,40 @@ def _require_exact_counter_columns(owner):
             or any(row.get('data_type') not in EXACT_COLUMN_TYPES and not (
                 row.get('data_type') == 'decimal' and row.get('numeric_scale') == 0) for row in rows)):
         raise ChainRegistrationError('registration_counter_column_review')
+
+
+def _require_unique_saved_unit_slots(owner, unit):
+    """Audit known saved slots, not gap-free history or archived XML ancestry.
+
+    Every probe is a current locking read, including aggregates and both joined
+    tables. A plain consistent read could reuse an older ORM read view and hide
+    a duplicate committed before the preceding range locks were acquired.
+    Return only a contradiction bit; no unrelated invoice details are exposed.
+    """
+    for table in SOURCE_TABLES.values():
+        _owned(owner)
+        bad = owner.database.sql('SELECT 1 AS conflict FROM ' + table +
+            ' WHERE custom_zatca_issuing_unit=%s AND (custom_uuid IS NULL OR BINARY custom_uuid NOT REGEXP %s) '
+            'LIMIT 1 LOCK IN SHARE MODE NOWAIT', (unit, CANONICAL_UUID), as_dict=True)
+        if bad:
+            raise ChainRegistrationError('registration_saved_uuid_review')
+    for field, code in (('custom_zatca_icv', 'registration_saved_icv_duplicate'),
+            ('custom_uuid', 'registration_saved_uuid_duplicate')):
+        for table in SOURCE_TABLES.values():
+            _owned(owner)
+            bad = owner.database.sql('SELECT 1 AS conflict FROM ' + table +
+                ' WHERE custom_zatca_issuing_unit=%s GROUP BY BINARY CAST(`' + field + '` AS CHAR) '
+                'HAVING COUNT(*)>1 LIMIT 1 LOCK IN SHARE MODE NOWAIT', (unit,), as_dict=True)
+            if bad:
+                raise ChainRegistrationError(code)
+        _owned(owner)
+        bad = owner.database.sql('SELECT 1 AS conflict FROM `tabSales Invoice` AS s '
+            'INNER JOIN `tabPOS Invoice` AS p ON BINARY CAST(s.`' + field + '` AS CHAR)='
+            'BINARY CAST(p.`' + field + '` AS CHAR) WHERE s.custom_zatca_issuing_unit=%s '
+            'AND p.custom_zatca_issuing_unit=%s LIMIT 1 LOCK IN SHARE MODE NOWAIT', (unit, unit), as_dict=True)
+        if bad:
+            raise ChainRegistrationError(code)
+    _owned(owner)
 
 
 def require_unambiguous_saved_tail(owner, source, unit, icv):
@@ -74,4 +109,5 @@ def require_unambiguous_saved_tail(owner, source, unit, icv):
     require_range_engines(owner, (*tuple(table.strip('`') for table in SOURCE_TABLES.values()),
         'tabZATCA ICV Counter'))
     _require_exact_counter_columns(owner)
+    _require_unique_saved_unit_slots(owner,unit)
     _owned(owner)

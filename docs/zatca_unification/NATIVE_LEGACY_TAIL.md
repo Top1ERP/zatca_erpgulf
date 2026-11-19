@@ -57,10 +57,31 @@ large history. Private cases verify both unindexed and unit-indexed tables. This
 bundle installs no index or schema on an ERP site. Ordinary invoice generation
 does not run this administrative review query.
 
+## Known saved slot identity extension
+
+After the tail/storage checks, the same review now also requires canonical UUIDs
+on every known same-unit saved source and rejects repeated ICVs or UUIDs within
+Sales, within POS, or between the two tables. This includes positions below the
+current valid tail. UUID shape uses the existing lowercase36-character codec
+contract and binary matching, rather than a case-insensitive database default.
+No UUID/ICV is normalized, regenerated or copied from an XML file.
+
+Both single-table aggregates and the cross-table joins use current locking reads.
+Ordinary consistent reads could reuse the earlier ORM read view and miss a
+duplicate committed before the range locks. Private tests insert such duplicates
+after the initial ORM read, then require the actual review to detect them through
+both aggregate and join paths. Probes return only a contradiction bit, not older
+invoice details. They add administrative scans, never an invoice-path scan.
+
+This does not require positions to start at1 or be contiguous. A legacy sequence
+with saved positions1/9/27 retains its reviewed27; missing older records cannot
+authorize zero, cause renumbering or establish complete ancestry. No new census
+field/envelope is persisted; exact review recovery reruns these current checks.
+
 ## Scope still open
 
-This is a negative saved-tail check, not full history reconstruction. It does
-not validate every older slot/UUID/PIH link, discover unitless/deleted sources,
+This is a saved-source contradiction check, not full history reconstruction. It
+does not verify every earlier XML/PIH link or cross-unit UUID history, discover unitless/deleted sources,
 attribute rotated legacy tokens, scan unattached XML, prove remote acceptance or
 exclude old/external workers. Full identity/counter/source/File consumer coverage,
 old-worker drain and authenticated atomic activation remain open. Existing review
@@ -80,5 +101,5 @@ Only fixture-owned temporary TCP-disabled MariaDB servers are used. The DOUBLE
 case preserves/restores prior fixture strings; no financial reference changed.
 Installed ERP15/16 and authentic SDK/authority acceptance remain separate gates.
 
-Current test counts/logs are in STATUS.md. Original240 financial comparisons
+Current tail and slot-extension test counts/logs are in STATUS.md. Original240 financial comparisons
 remain91 identical /117 review /32 blocked.

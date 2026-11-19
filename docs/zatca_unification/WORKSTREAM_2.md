@@ -80,3 +80,8 @@ Inactive legacy review now also rejects saved Sales/POS contradictions to the
 counter tail, with exact ICV comparison and verified source/counter storage
 semantics. This is neither a full older-slot/PIH inventory nor activation/drain:
 [NATIVE_LEGACY_TAIL.md](NATIVE_LEGACY_TAIL.md).
+
+The same review now checks canonical older saved UUIDs and duplicate ICV/UUID
+slots within and between Sales/POS, using current locking aggregates/joins so an
+older ORM snapshot cannot hide a newly committed duplicate. Gaps are not a zero
+seed or a reason to renumber. Full XML/PIH/rotated-consumer history remains open.

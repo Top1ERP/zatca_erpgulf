@@ -29,6 +29,10 @@ def case(request):
         if 'information_schema.columns' in statement:
             return [dict(table_name=name, column_name='last_issued_icv' if name.endswith('Counter') else 'custom_zatca_icv',
                 data_type='varchar', numeric_scale=None) for name in ('tabSales Invoice', 'tabPOS Invoice', 'tabZATCA ICV Counter')]
+        if statement.startswith('SELECT 1 AS conflict'):
+            assert 'LOCK IN SHARE MODE NOWAIT' in statement
+            assert values in ((unit,), (unit, unit), (unit, tail.CANONICAL_UUID))
+            return []
         assert values == (unit, tail.CANONICAL_ICV, icv, source.company)
         assert 'LIMIT 2 LOCK IN SHARE MODE NOWAIT' in statement
         assert 'DECIMAL(65,0)' in statement and 'MAX(' not in statement
@@ -44,7 +48,7 @@ def test_submitted_or_cancelled_exact_generated_anchor_remains_the_tail(case, do
     c = case
     c.source.docstatus = c.row['docstatus'] = docstatus
     assert tail.require_unambiguous_saved_tail(c.owner, c.source, c.unit, c.icv) is None
-    assert c.owner.database.sql.call_count == 5
+    assert c.owner.database.sql.call_count == 13
 
 
 @pytest.mark.parametrize('other_doctype', ['Sales Invoice', 'POS Invoice'])
@@ -111,3 +115,20 @@ def test_only_exact_counter_column_types_can_support_tail_order(case, kind, scal
     else:
         with pytest.raises(ChainRegistrationError, match='registration_counter_column_review'):
             tail.require_unambiguous_saved_tail(c.owner, c.source, c.unit, c.icv)
+
+
+@pytest.mark.parametrize('probe,code', [('uuid_shape', 'registration_saved_uuid_review'),
+    ('icv_group', 'registration_saved_icv_duplicate'), ('icv_join', 'registration_saved_icv_duplicate'),
+    ('uuid_group', 'registration_saved_uuid_duplicate'), ('uuid_join', 'registration_saved_uuid_duplicate')])
+def test_older_slot_probes_stop_on_static_contradiction_without_a_new_seed(case, probe, code):
+    c = case
+    sql = c.owner.database.sql.side_effect
+    def conflict(statement, values=(), **kwargs):
+        rows = sql(statement, values, **kwargs)
+        selected = ('NOT REGEXP' in statement and statement.startswith('SELECT 1')) if probe == 'uuid_shape' else (
+            ('GROUP BY' in statement if probe.endswith('group') else 'INNER JOIN' in statement)
+            and ('custom_zatca_icv`' in statement if probe.startswith('icv') else 'custom_uuid`' in statement))
+        return [{'conflict': 1}] if selected else rows
+    c.owner.database.sql.side_effect = conflict
+    with pytest.raises(ChainRegistrationError, match=code):
+        tail.require_unambiguous_saved_tail(c.owner, c.source, c.unit, c.icv)

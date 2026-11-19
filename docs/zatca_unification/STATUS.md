@@ -61,8 +61,10 @@ Inactive legacy continuity review now also checks saved Sales/POS contradictions
 to its counter tail before retaining/reusing an anchor. Exact ICV ordering,
 partial/draft/foreign-Company observations, concurrent inserts/updates and
 physical source/counter engine/type checks are covered. No maximum is adopted;
-cancelled generated documents retain their position. This is not complete older
-slot/UUID/PIH/consumer history or proof of drained workers. See
+cancelled generated documents retain their position. Known same-unit saved UUID
+shape and ICV/UUID uniqueness are now checked within and between Sales/POS using
+current locking aggregates/joins, including duplicates below the tail. This is
+not complete XML/PIH/rotated-consumer history or proof of drained workers. See
 [NATIVE_LEGACY_TAIL.md](NATIVE_LEGACY_TAIL.md).
 
 Latest XML qualification:691 local cases across6 suites in4.72s,138 private SQL
@@ -93,6 +95,14 @@ issuer-binding suites in122.77s. Sets overlap. Logs:
 `/tmp/zatca-axis2-legacy-tail-regression-final.log`.
 Manifest232 local/68 private suites was not run in full. Private DDL/column
 precision tests affect only their owned fixture server, never an ERP site.
+
+Latest saved-slot extension:237 local cases across6 suites in1.55s and118
+private SQL cases across2 suites in10.50s. Logs:
+`/tmp/zatca-axis2-legacy-slots-local.log`,
+`/tmp/zatca-axis2-legacy-slots-private-final.log`.
+The above fixed81 result belongs to d3ee480; it was not rerun for this targeted
+administrative extension. Manifest232 local/68 private suites was not run in full.
+Full canonical/runtime, installed15/16 and authentic SDK acceptance remain open.
 
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; frozen print/master information
