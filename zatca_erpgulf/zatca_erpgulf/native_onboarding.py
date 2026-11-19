@@ -27,6 +27,7 @@ from .native_dispatch import OWNER_TABLES, owner_key, _changed_once
 from .native_registration import _saved, _name
 from .worker_transaction import owned_worker_transaction
 from .credential_material import NATIVE_OWNER_MARKER as MARKER, NATIVE_CREDENTIAL_FIELDS as PROTECTED_FIELDS
+from .credential_identity import declared_egs_identity_key as egs_identity_key
 
 
 MODE = 'zatca_native_dispatch'

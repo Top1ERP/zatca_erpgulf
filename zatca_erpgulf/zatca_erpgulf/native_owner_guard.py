@@ -21,10 +21,11 @@ FIELDS = (*PROTECTED_FIELDS,MARKER,'custom_csr_config','custom_pih','custom_zatc
     'custom_linked_doctype','custom__use_company_certificate__keys')
 
 
-def reject_legacy_owner_credentials(runtime, target):
+def reject_legacy_owner_credentials(runtime, target, *, company=None):
     from .native_onboarding import NativeOnboardingError, native_onboarding_selected
     from .native_owner_registry import has_registered_native_material
-    if native_onboarding_selected(runtime,target) or has_registered_native_material(runtime,target):
+    environment = company.get('custom_select') if company is not None else None
+    if native_onboarding_selected(runtime,target) or has_registered_native_material(runtime,target,environment=environment):
         raise NativeOnboardingError('native_onboarding_service_required')
 
 

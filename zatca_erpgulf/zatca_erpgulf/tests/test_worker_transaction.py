@@ -11,6 +11,15 @@ import pytest
 from zatca_erpgulf.zatca_erpgulf.worker_transaction import (
     CALLBACKS,OWNED_WORKER,WorkerTransactionError,owned_worker_transaction,
 )
+from zatca_erpgulf.zatca_erpgulf.dispatch_storage_context import derive_storage_cipher,make_storage_probe
+
+
+def control_rows(namespace, *, site='fictional.invalid'):
+    key=base64.urlsafe_b64encode(b'T'*32).decode()
+    cipher=derive_storage_cipher(key,site=site,namespace=namespace)
+    return [('ZATCA Dispatch Control','storage_namespace',namespace),
+        ('ZATCA Dispatch Control','storage_version','1'),
+        ('ZATCA Dispatch Control','storage_key_check',make_storage_probe(cipher,namespace))]
 
 
 @pytest.fixture
@@ -20,9 +29,10 @@ def boundary():
         transaction_writes=0,auto_commit_on_many_writes=0,rollback=Mock(),commit=Mock())
     for name in CALLBACKS:setattr(db,name,SimpleNamespace(_functions=deque()))
     namespace='30000000-0000-4000-8000-000000000001'
+    ready=[{'field':name,'value':value} for _doctype,name,value in control_rows(namespace)]
     def sql(statement,values=(),**kwargs):
         if statement.startswith('SELECT DATABASE'):return [{'db_name':'synthetic'}]
-        return [{'field':'storage_namespace','value':namespace},{'field':'storage_version','value':'1'}]
+        return ready
     db.sql=Mock(side_effect=sql)
     runtime=SimpleNamespace(local=SimpleNamespace(site='fictional.invalid',db=db),
         session=SimpleNamespace(user='operator'),conf={'db_name':'synthetic','encryption_key':base64.urlsafe_b64encode(b'T'*32).decode()})
@@ -48,6 +58,16 @@ def test_parent_writes_or_callbacks_are_not_rolled_back_or_committed(boundary,di
     with pytest.raises(WorkerTransactionError) as caught:
         with owned_worker_transaction(runtime):pytest.fail('parent transaction taken')
     assert caught.value.code=='worker_transaction_parent_state'
+    db.sql.assert_not_called();db.rollback.assert_not_called();db.commit.assert_not_called()
+
+
+def test_an_invoice_submit_context_cannot_acquire_an_owned_transaction_even_before_parent_writes(boundary):
+    from zatca_erpgulf.zatca_erpgulf.deferred_submission import HOOK
+    runtime,db,_=boundary;token=HOOK.set(object())
+    try:
+        with pytest.raises(WorkerTransactionError,match='worker_transaction_submit_context'):
+            with owned_worker_transaction(runtime):pytest.fail('Submit context was taken')
+    finally:HOOK.reset(token)
     db.sql.assert_not_called();db.rollback.assert_not_called();db.commit.assert_not_called()
 
 

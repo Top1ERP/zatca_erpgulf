@@ -216,9 +216,10 @@ def _require_csr_key_preservation(doc):
 
 def _write_private_key(company_abbr, zatca_doc, progress):
     """Shared worker, not another public error boundary or rotation policy."""
-    doc = _load_csr_write_source(company_abbr, zatca_doc).target
+    loaded = _load_csr_write_source(company_abbr, zatca_doc)
+    doc = loaded.target
     from .native_owner_guard import reject_legacy_owner_credentials
-    reject_legacy_owner_credentials(frappe,doc)
+    reject_legacy_owner_credentials(frappe,doc,company=loaded.company)
     _require_csr_key_preservation(doc)
     private_key = ec.generate_private_key(ec.SECP256K1(), backend=default_backend())
     private_key_pem = private_key.private_bytes(
@@ -406,14 +407,15 @@ def _require_csid_preservation(doc):
 
 def _create_csid(progress, zatca_doc, company_abbr, portal_type):
     """Legacy Compliance writer; no public message, retry or transaction owner."""
-    doc = load_credential_write_source(frappe, has_permission, company_abbr, zatca_doc).target
+    loaded = load_credential_write_source(frappe, has_permission, company_abbr, zatca_doc)
+    doc = loaded.target
     from .native_onboarding import native_onboarding_selected
     if native_onboarding_selected(frappe,doc):
         from .native_enrollment import request_initial_csid
         return request_initial_csid(company_abbr,{'doctype':doc.doctype,'name':doc.name},'compliance',
             runtime=frappe,portal_type=portal_type)
     from .native_owner_guard import reject_legacy_owner_credentials
-    reject_legacy_owner_credentials(frappe,doc)
+    reject_legacy_owner_credentials(frappe,doc,company=loaded.company)
     _require_csid_preservation(doc)
     if doc.doctype == "ZATCA Multiple Setting":
         multiple_setting_doc = doc
@@ -1433,13 +1435,14 @@ def production_csid(zatca_doc, company_abbr):
 
 def _production_csid(progress, zatca_doc, company_abbr):
     """Legacy Final-CSID writer, separate from invoice reporting/clearance."""
-    doc = load_credential_write_source(frappe, has_permission, company_abbr, zatca_doc).target
+    loaded = load_credential_write_source(frappe, has_permission, company_abbr, zatca_doc)
+    doc = loaded.target
     from .native_onboarding import native_onboarding_selected
     if native_onboarding_selected(frappe,doc):
         from .native_enrollment import request_initial_csid
         return request_initial_csid(company_abbr,{'doctype':doc.doctype,'name':doc.name},'production/csids',runtime=frappe)
     from .native_owner_guard import reject_legacy_owner_credentials
-    reject_legacy_owner_credentials(frappe,doc)
+    reject_legacy_owner_credentials(frappe,doc,company=loaded.company)
     _require_csid_preservation(doc)
     if doc.doctype == "ZATCA Multiple Setting":
         multiple_setting_doc = doc

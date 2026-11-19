@@ -265,7 +265,7 @@ class DispatchStore:
         selected owner and the coordinator must write both in one transaction.
         An earlier owner history/registration is never adopted as a new intent.
         """
-        from .native_onboarding import validate_intent_header, inspect_intent_csr, intent_sha256
+        from .native_onboarding import validate_intent_header, inspect_intent_csr, intent_sha256, egs_identity_key
         from .invoice_xml_core import INITIAL_PREVIOUS_HASH
         with self._operation():
             encoded = validate_intent_header(header)
@@ -283,6 +283,7 @@ class DispatchStore:
             occurred_at = datetime.strptime(header['created_at_utc'],'%Y-%m-%dT%H:%M:%S.%f')
             values = dict(chain,name=header['record_id'],onboarding_header=encoded.decode('utf-8'),
                 onboarding_ciphertext=encrypted,onboarding_owner_key=header['owner_key'],onboarding_state='CSR_READY',
+                egs_identity_key=egs_identity_key(header['environment'],header['seller_tax_id'],header['csr_serial']),
                 owner=header['created_by'],modified_by=header['created_by'],creation=occurred_at,modified=occurred_at,docstatus=0)
             columns = tuple(values)
             self._sql('INSERT INTO '+TABLE_CHAIN+' ('+','.join('`'+name+'`' for name in columns)+') '
@@ -291,13 +292,13 @@ class DispatchStore:
 
     def open_onboarding_intent(self, chain):
         """Read authenticated initial CSR custody, not a client intent claim."""
-        from .native_onboarding import validate_intent_header, inspect_intent_csr, intent_sha256
+        from .native_onboarding import validate_intent_header, inspect_intent_csr, intent_sha256, egs_identity_key
         from .dispatch_record_codec import decode_record_header
         with self._operation():
             if self._locked_chains.get(chain['record_id']) is not chain:
                 raise DispatchStoreError('dispatch_chain_lock_required')
             rows = self._sql('SELECT SUBSTRING(onboarding_header,1,32769) AS header,'
-                'SUBSTRING(onboarding_ciphertext,1,%s) AS ciphertext,onboarding_state,onboarding_owner_key '
+                'SUBSTRING(onboarding_ciphertext,1,%s) AS ciphertext,onboarding_state,onboarding_owner_key,egs_identity_key '
                 'FROM '+TABLE_CHAIN+' WHERE name=%s LOCK IN SHARE MODE NOWAIT',
                 (MAX_CIPHERTEXT_CHARS+1,chain['record_id']))
             if len(rows)!=1 or type(rows[0]['header']) is not str or len(rows[0]['header'])>32768:
@@ -307,7 +308,8 @@ class DispatchStore:
             validate_intent_header(header)
             if (chain['registration_kind']!='NEW_EGS' or any(chain[key]!=header[key] for key in (
                     'record_id','owner_key','owner_doctype','owner_name','environment','seller_tax_id','public_key_sha256'))
-                    or rows[0]['onboarding_owner_key']!=chain['owner_key']):
+                    or rows[0]['onboarding_owner_key']!=chain['owner_key']
+                    or rows[0]['egs_identity_key']!=egs_identity_key(header['environment'],header['seller_tax_id'],header['csr_serial'])):
                 raise DispatchStoreError('dispatch_onboarding_chain_binding')
             csr = self._cipher.open(chain['record_id'],'chain-onboarding',encoded,rows[0]['ciphertext'])
             inspect_intent_csr(header,csr)

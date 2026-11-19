@@ -10,6 +10,7 @@ import pytest
 from zatca_erpgulf.zatca_erpgulf import native_owner_registry as registry, native_owner_guard as guard
 from zatca_erpgulf.zatca_erpgulf import native_preparation, submission_context
 from zatca_erpgulf.zatca_erpgulf.credential_material import CredentialConfigurationError
+from zatca_erpgulf.zatca_erpgulf.credential_identity import declared_egs_identity_key
 from zatca_erpgulf.zatca_erpgulf.issuing_attempt import IssuingAttemptError
 from zatca_erpgulf.zatca_erpgulf.tests.test_credential_selection import Document
 from zatca_erpgulf.zatca_erpgulf.tests.test_onboarding_response import material, parse
@@ -39,6 +40,15 @@ def test_known_public_key_is_found_through_each_legacy_material_field(material,f
 def test_invalid_alias_cannot_hide_another_valid_registered_material_field(material):
     doc=Document(doctype='Company',name='COPY',custom_private_key='INVALID',custom_certificate=parse(material).certificate_text)
     assert registry._fingerprints(doc)==(material.header['public_key_sha256'],)
+
+
+def test_certificate_unit_claims_are_checked_separately_from_the_public_key(material):
+    doc=Document(doctype='Company',name='OTHER-OWNER',custom_certificate=parse(material).certificate_text)
+    fingerprints,identities=registry._material_evidence(doc,'Production')
+    assert fingerprints==(material.header['public_key_sha256'],)
+    assert identities==(declared_egs_identity_key('Production',material.header['seller_tax_id'],material.header['csr_serial']),)
+    assert registry._material_evidence(doc,'Simulation')[1]!=identities
+    assert registry._material_evidence(doc,' Production ')[1]==identities
 
 
 def test_unmigrated_metadata_and_empty_material_need_no_registry_query():

@@ -22,10 +22,11 @@ skips its old second immediate send when the hook registered a deferred submissi
 Two intra-company hook paths update output fields within the enclosing transaction,
 without save hooks or an early accounting commit.
 
-Four source-only DocTypes declare protected metadata views: Dispatch Control,
-Issuing Chain, Issuance, Dispatch Attempt. Their shared controller denies generic
-write/delete/rename; roles have read only. XML/request/receipt payloads are encrypted,
-never credential stores. No site has these schemas installed by the agent. The
+Five source-only DocTypes declare protected metadata views: Dispatch Control,
+Issuing Chain, Issuance, Dispatch Attempt and Onboarding Attempt. Their shared
+controller denies generic write/delete/rename; roles have read only. Invoice
+payloads contain no credentials; issued CSID secrets occur only in their distinct
+encrypted onboarding-response custody. No site has these schemas installed by the agent. The
 flat AES-GCM envelope binds site, namespace, record, payload kind and exact header.
 It is separate from the deferred credential-version activation design.
 
@@ -35,6 +36,11 @@ retains immutable receipts and records current/stale assessments with compare
 checks. The owned services described below call it in explicit transactions.
 The public worker has not yet adopted those services; source-only schemas and
 private repository tests are not an installed native dispatcher.
+
+The explicit storage initializer, worker key-check probe and unique declared EGS
+reservation are now described in [NATIVE_STORAGE.md](NATIVE_STORAGE.md). They do
+not install a schema, activate a chain or change a site's encryption key. Missing
+or partial/orphan custody cannot be reset by a normal worker or the setup service.
 
 ## Integration sequence and closure requirements
 

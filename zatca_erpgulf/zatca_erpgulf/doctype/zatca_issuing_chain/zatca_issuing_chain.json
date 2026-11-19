@@ -31,7 +31,8 @@
   "onboarding_state",
   "onboarding_attempt",
   "onboarding_compliance_attempt",
-  "onboarding_final_attempt"
+  "onboarding_final_attempt",
+  "egs_identity_key"
  ],
  "fields": [
   {
@@ -249,6 +250,17 @@
    "hidden": 1,
    "no_copy": 1,
    "print_hide": 1
+  },
+  {
+   "fieldname": "egs_identity_key",
+   "label": "Reserved EGS Identity",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1,
+   "unique": 1,
+   "description": "Stable local environment/taxpayer/serial identity. Keep this chain across credential renewal; an inactive legacy review does not occupy this slot."
   }
  ],
  "index_web_pages_for_search": 0,

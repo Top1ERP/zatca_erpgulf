@@ -1,22 +1,18 @@
 """Acquire a clean current-site worker transaction without taking parent writes.
 
-Only the internal queue coordinator may enter this boundary. It creates neither
+Only internal owned coordinators may enter this boundary. It creates neither
 site/key/namespace nor another connection. Framework15 callbacks and connection
 shape are checked explicitly; installed15/16 acceptance remains a release gate.
 Unknown commit acknowledgments are surfaced, never retried or interpreted as a
 rollback. No connection is closed or foreign transaction repaired here.
 """
 
-import base64
 from collections import deque
 from contextlib import contextmanager
 from contextvars import ContextVar
-import re
-
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-
-from .dispatch_record_codec import DispatchRecordCipher, DispatchRecordError, _identifier
+from .dispatch_storage_context import (
+    CONTROL, CONTROL_FIELDS, StorageContextError, derive_storage_cipher, verify_storage_probe,
+)
 from .preparation_database import preparation_database
 
 
@@ -81,8 +77,16 @@ class WorkerTransaction:
         if not self.owner_current():raise WorkerTransactionError('worker_transaction_owner_changed')
 
     def start(self):
+        self._start_transaction()
+        self._load_storage_context()
+
+    def _start_transaction(self):
+        """Same clean pinned transaction for workers and the explicit setup service."""
         if self.state!='NEW' or OWNED_WORKER.get() is not self:
             raise WorkerTransactionError('worker_transaction_lifetime')
+        from .deferred_submission import HOOK
+        if HOOK.get() is not None:
+            raise WorkerTransactionError('worker_transaction_submit_context')
         db=self.database
         if (type(getattr(db,'transaction_writes',None)) is not int or db.transaction_writes!=0
                 or getattr(db,'auto_commit_on_many_writes',0) not in (0,False)
@@ -114,33 +118,29 @@ class WorkerTransaction:
         except Exception:failed=True
         if failed:raise WorkerTransactionError('worker_transaction_begin_failed')
         self.state='ACTIVE';self.require_owner()
-        self._load_storage_context()
 
     def _load_storage_context(self):
         self.require_owner();failed=False
         try:
-            rows=self.database.sql('SELECT field,SUBSTRING(value,1,257) AS value FROM `tabSingles` '
-                'WHERE doctype=%s AND field IN (%s,%s)',
-                ('ZATCA Dispatch Control','storage_namespace','storage_version'),as_dict=True)
+            rows=self.database.sql('SELECT field,SUBSTRING(value,1,513) AS value FROM `tabSingles` '
+                'WHERE doctype=%s AND field IN (%s,%s,%s) LOCK IN SHARE MODE NOWAIT',
+                (CONTROL,*CONTROL_FIELDS),as_dict=True)
         except Exception:failed=True
         if failed:raise WorkerTransactionError('worker_storage_not_ready')
         values={row['field']:row['value'] for row in rows}
-        if len(rows)!=2 or set(values)!=set(('storage_namespace','storage_version')) or values['storage_version']!='1':
+        if len(rows)!=3 or set(values)!=set(CONTROL_FIELDS) or values['storage_version']!='1':
             raise WorkerTransactionError('worker_storage_not_ready')
-        try:_identifier(values['storage_namespace'])
-        except DispatchRecordError:failed=True
-        text=self._encryption_text
-        if type(text) is not str or not re.fullmatch(r'[A-Za-z0-9_-]{43}=',text):
-            failed=True
-        if failed:raise WorkerTransactionError('worker_storage_configuration')
-        decoded=base64.urlsafe_b64decode(text)
-        if len(decoded)!=32 or base64.urlsafe_b64encode(decoded).decode()!=text:
-            raise WorkerTransactionError('worker_storage_configuration')
         namespace=values['storage_namespace']
-        key=HKDF(algorithm=hashes.SHA256(),length=32,salt=None,
-            info=b'zatca-native-dispatch/v1\0'+namespace.encode('ascii')).derive(decoded)
+        code=None
+        try:
+            cipher=derive_storage_cipher(self._encryption_text,site=self.site,namespace=namespace)
+            verify_storage_probe(cipher,namespace,values['storage_key_check'])
+        except StorageContextError as error:
+            code=error.code
+        if code is not None:
+            raise WorkerTransactionError(code)
         self.storage_namespace=namespace
-        self.cipher=DispatchRecordCipher(key,site=self.site,storage_namespace=namespace)
+        self.cipher=cipher
         self.require_owner()
 
     @contextmanager
@@ -195,11 +195,21 @@ class WorkerTransaction:
 
 @contextmanager
 def owned_worker_transaction(runtime):
+    with _owned_transaction(runtime,load_storage=True) as owner:
+        yield owner
+
+
+@contextmanager
+def _owned_transaction(runtime, *, load_storage):
+    """Internal setup entry is not an invoice worker/storage-read bypass API."""
     if OWNED_WORKER.get() is not None:
         raise WorkerTransactionError('worker_transaction_nested')
     owner=WorkerTransaction(runtime);token=OWNED_WORKER.set(owner)
     try:
-        owner.start()
+        if load_storage:
+            owner.start()
+        else:
+            owner._start_transaction()
         yield owner
     finally:
         try:owner.close()

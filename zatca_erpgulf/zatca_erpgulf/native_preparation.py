@@ -247,7 +247,7 @@ def reject_legacy_native_preparation(document, runtime):
             from .native_owner_registry import has_registered_native_material
             from .credential_material import CredentialConfigurationError
             try:
-                native_owner = has_registered_native_material(runtime,current.owner)
+                native_owner = has_registered_native_material(runtime,current.owner,environment=current.company.get('custom_select'))
             except CredentialConfigurationError:
                 raise IssuingAttemptError('native_dispatch_required', transport_started=current.transport_started) from None
     if native_owner or type(marker) is str and marker.startswith('egs:'):

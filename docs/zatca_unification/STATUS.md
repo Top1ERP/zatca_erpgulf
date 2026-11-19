@@ -30,7 +30,16 @@ recovers committed results without another request. Existing CSID buttons select
 it only for the explicit native rollout/owner marker. FINAL_READY remains inactive
 and cannot issue through legacy generation/transport. Known native key/auth copies
 are also fenced, even when a copied owner has no marker. Registration/activation,
-complete identity inventory and namespace bootstrap remain open.
+and complete identity inventory remain open.
+The explicit source-only storage initializer and authenticated worker key probe
+are now implemented; normal workers still cannot bootstrap themselves. Initial
+CSR custody reserves a unique local environment/taxpayer/serial identity, and
+legacy guards check known unit declarations even with a fresh key. See
+[NATIVE_STORAGE.md](NATIVE_STORAGE.md). Complete legacy inventory, reviewed
+activation and installed bootstrap acceptance remain open; no chain was activated.
+Storage/identity follow-up passes166 focused local,188 private SQL and the fixed
+issuer-binding profile20,750. Its manifest225 local/63 private suites was not run
+in full. Results/limits are in NATIVE_STORAGE.md; financial references are unchanged.
 The frozen81-suite issuer-binding follow-up passes20,750; focused enrollment
 coverage passes153 local and157 private InnoDB cases. Counts overlap. No runtime
 site/worker/schema operation or authority request occurred; no finance reference

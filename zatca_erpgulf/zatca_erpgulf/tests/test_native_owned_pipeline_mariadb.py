@@ -34,6 +34,7 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_native_dispatch_store_mariadb import
 )
 from zatca_erpgulf.zatca_erpgulf.worker_transaction import CALLBACKS
 from zatca_erpgulf.zatca_erpgulf.qr_xml_contract import _clock
+from zatca_erpgulf.zatca_erpgulf.tests.test_worker_transaction import control_rows
 
 
 pytestmark = pytest.mark.skipif(os.environ.get('ZATCA_RUN_ISOLATED_MARIADB') != '1',
@@ -123,9 +124,7 @@ def test_native_sales_and_pos_keep_one_chain_through_committed_mocked_dispatch(
     with connection.cursor() as cursor:
         cursor.execute('CREATE TABLE IF NOT EXISTS `tabSingles` (`doctype` VARCHAR(140), `field` VARCHAR(140),'
             '`value` LONGTEXT, PRIMARY KEY(doctype,field)) ENGINE=InnoDB')
-        cursor.executemany('INSERT IGNORE INTO `tabSingles` VALUES (%s,%s,%s)', [
-            ('ZATCA Dispatch Control', 'storage_namespace', NAMESPACE),
-            ('ZATCA Dispatch Control', 'storage_version', '1')])
+        cursor.executemany('INSERT IGNORE INTO `tabSingles` VALUES (%s,%s,%s)',control_rows(NAMESPACE))
         for table in ('tabCompany', 'tabZATCA Multiple Setting'):
             abbr = ', `abbr` VARCHAR(140)' if table == 'tabCompany' else ''
             cursor.execute('CREATE TABLE IF NOT EXISTS `' + table + '` (`name` VARCHAR(140) PRIMARY KEY,'

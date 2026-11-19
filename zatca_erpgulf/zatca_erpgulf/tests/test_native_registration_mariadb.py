@@ -23,6 +23,7 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_native_dispatch import signed_build
 from zatca_erpgulf.zatca_erpgulf.tests.test_native_preparation import registration as chain_values
 from zatca_erpgulf.zatca_erpgulf.tests.test_native_owned_pipeline_mariadb import OwnedDatabase, Runtime
 from zatca_erpgulf.zatca_erpgulf.tests.test_native_dispatch_store_mariadb import isolated_server, connections, tables, NAMESPACE
+from zatca_erpgulf.zatca_erpgulf.tests.test_worker_transaction import control_rows
 
 
 pytestmark=pytest.mark.skipif(os.environ.get('ZATCA_RUN_ISOLATED_MARIADB')!='1',reason='Owned private SQL opt-in only')
@@ -86,8 +87,7 @@ def legacy(boundary,materials,monkeypatch,connections,tables,tmp_path,request):
         monkeypatch.setattr(module,'frappe',runtime)
     with connection.cursor() as cursor:
         cursor.execute('CREATE TABLE IF NOT EXISTS `tabSingles` (`doctype` VARCHAR(140),`field` VARCHAR(140),`value` LONGTEXT,PRIMARY KEY(doctype,field)) ENGINE=InnoDB')
-        cursor.executemany('INSERT IGNORE INTO `tabSingles` VALUES (%s,%s,%s)',[
-            ('ZATCA Dispatch Control','storage_namespace',NAMESPACE),('ZATCA Dispatch Control','storage_version','1')])
+        cursor.executemany('INSERT IGNORE INTO `tabSingles` VALUES (%s,%s,%s)',control_rows(NAMESPACE))
         columns={'Company':{'custom_pih':'VARCHAR(140)'},'ZATCA Multiple Setting':{'custom_pih':'VARCHAR(140)'},
             'Sales Invoice':{'company':'VARCHAR(140)','docstatus':'INT','custom_uuid':'VARCHAR(140)',
                 'custom_zatca_icv':'VARCHAR(140)','custom_zatca_issuing_unit':'VARCHAR(140)'},

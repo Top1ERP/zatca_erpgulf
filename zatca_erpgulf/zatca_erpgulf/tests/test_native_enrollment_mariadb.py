@@ -39,7 +39,7 @@ def flow(target, monkeypatch):
             assert cursor.fetchone() == ('RESERVED',)
         assert runtime is t.runtime
         calls.append(value)
-        body = issued_body(csr, request_id=1001 if value.route.endpoint == 'compliance' else 2002)
+        body = issued_body(csr, request_id=1001 if value.route.endpoint == 'compliance' else 2002,serial=t.serial)
         return NativeResponse(200, 'SYNTHETIC-REQUEST', body)
     sender = Mock(side_effect=invoke)
     monkeypatch.setattr(enrollment, 'invoke_onboarding_request', sender)
@@ -99,6 +99,33 @@ def test_copied_initial_key_is_registered_and_cannot_enter_a_legacy_credential_w
     assert native_owner_registry.has_registered_native_material(t.runtime,copied)
     with pytest.raises(onboarding.NativeOnboardingError,match='service_required'):
         native_owner_guard.reject_legacy_owner_credentials(t.runtime,copied)
+    f.sender.assert_not_called()
+
+
+def test_a_fresh_key_with_the_same_csr_unit_claim_cannot_bypass_the_reserved_identity(flow):
+    from cryptography.hazmat.primitives import hashes,serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from zatca_erpgulf.zatca_erpgulf.csr_template import csr_builder,encode_customoid,CSR_LABELS
+    from zatca_erpgulf.zatca_erpgulf.csr_draft import _configuration
+    f=flow;t=f.t
+    key=ec.generate_private_key(ec.SECP256K1())
+    csr=csr_builder(_configuration(t.configuration),encode_customoid(CSR_LABELS['Production'])).sign(key,hashes.SHA256())
+    copied=Document(doctype='Company',name='UNMARKED-FRESH-KEY',custom_select='Production',
+        custom_csr_data=base64.b64encode(csr.public_bytes(serialization.Encoding.PEM)).decode())
+    assert native_owner_registry.has_registered_native_material(t.runtime,copied,environment='Production')
+    assert native_owner_registry.has_registered_native_material(t.runtime,copied,environment=' Production ')
+    assert not native_owner_registry.has_registered_native_material(t.runtime,copied,environment='Simulation')
+    f.sender.assert_not_called()
+
+
+def test_the_legacy_csr_button_cannot_create_a_key_for_an_already_reserved_unit(flow,monkeypatch):
+    f=flow;t=f.t;t.runtime.conf[onboarding.MODE]=0
+    identity={'doctype':t.b.device.doctype,'name':t.b.device.name}
+    monkeypatch.setattr(client.ec,'generate_private_key',lambda *a,**kw:pytest.fail('Duplicate unit keygen'))
+    with pytest.raises(AssertionError,match='Native ZATCA onboarding could not be confirmed'):
+        inspect.unwrap(client.create_csr)(identity,'Production','TC')
+    assert t.runtime.get_doc(t.b.device.doctype,t.b.device.name).custom_private_key is None
+    assert t.database.commits==1
     f.sender.assert_not_called()
 
 
@@ -178,8 +205,8 @@ def test_nonissued_or_unbound_responses_are_retained_but_never_projected(flow,fa
     f=flow
     if fault=='bad_key':
         from cryptography.hazmat.primitives.asymmetric import ec
-        body=issued_body(f.csr,key=ec.generate_private_key(ec.SECP256K1()))
-    elif fault=='bad_vat':body=issued_body(f.csr,taxpayer='OTHER-VAT')
+        body=issued_body(f.csr,key=ec.generate_private_key(ec.SECP256K1()),serial=f.t.serial)
+    elif fault=='bad_vat':body=issued_body(f.csr,taxpayer='OTHER-VAT',serial=f.t.serial)
     elif fault=='bad_serial':body=issued_body(f.csr,serial='OTHER-UNIT')
     elif fault=='malformed':body=b'{"secret":"PRIVATE-INVALID"}'
     elif fault=='unauthorized':body=b'{"message":"Unauthorized"}'

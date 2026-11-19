@@ -17,6 +17,7 @@ from zatca_erpgulf.zatca_erpgulf.tests.test_credential_selection import Document
 from zatca_erpgulf.zatca_erpgulf.tests.test_issuing_attempt import boundary,materials,setup
 from zatca_erpgulf.zatca_erpgulf.tests.test_native_owned_pipeline_mariadb import OwnedDatabase,Runtime
 from zatca_erpgulf.zatca_erpgulf.tests.test_native_dispatch_store_mariadb import isolated_server,connections,tables,NAMESPACE
+from zatca_erpgulf.zatca_erpgulf.tests.test_worker_transaction import control_rows
 
 
 pytestmark=pytest.mark.skipif(os.environ.get('ZATCA_RUN_ISOLATED_MARIADB')!='1',reason='Owned private SQL opt-in only')
@@ -38,9 +39,11 @@ def target(boundary,materials,monkeypatch,connections,tables,request):
     for doc in (b.company,b.device):doc.name+=suffix
     b.device.custom_linked_doctype=b.company.name
     selected=b.company if kind=='company' else b.device
+    serial='1-TEST|2-TEST|3-SYNTHETIC'+suffix
+    configuration=CONFIG.replace('1-TEST|2-TEST|3-SYNTHETIC',serial)
     for doc in (b.company,b.device):
         for name in onboarding.PROTECTED_FIELDS:setattr(doc,name,None)
-        doc.custom_csr_config=CONFIG;doc.custom_pih=None;doc.custom_zatca_icv_counter=None
+        doc.custom_csr_config=configuration;doc.custom_pih=None;doc.custom_zatca_icv_counter=None
         setattr(doc,onboarding.MARKER,None)
     connection=connections();database=OwnedDatabase(connection);runtime=Runtime(b.frappe,database)
     runtime.conf[onboarding.MODE]=1
@@ -52,8 +55,7 @@ def target(boundary,materials,monkeypatch,connections,tables,request):
         has_field=lambda name:name in columns)
     with connection.cursor() as cursor:
         cursor.execute('CREATE TABLE IF NOT EXISTS `tabSingles` (`doctype` VARCHAR(140),`field` VARCHAR(140),`value` LONGTEXT,PRIMARY KEY(doctype,field)) ENGINE=InnoDB')
-        cursor.executemany('INSERT IGNORE INTO `tabSingles` VALUES (%s,%s,%s)',[
-            ('ZATCA Dispatch Control','storage_namespace',NAMESPACE),('ZATCA Dispatch Control','storage_version','1')])
+        cursor.executemany('INSERT IGNORE INTO `tabSingles` VALUES (%s,%s,%s)',control_rows(NAMESPACE))
         for doc in (b.company,b.device):
             cursor.execute('CREATE TABLE IF NOT EXISTS `tab'+doc.doctype+'` (`name` VARCHAR(140) PRIMARY KEY,'+
                 ','.join('`'+name+'` '+('VARCHAR(140)' if name==onboarding.MARKER else 'LONGTEXT') for name in columns)+') ENGINE=InnoDB')
@@ -72,7 +74,7 @@ def target(boundary,materials,monkeypatch,connections,tables,request):
     identity={'doctype':selected.doctype,'name':selected.name}
     def prepare():return onboarding.prepare_new_unit('TC',identity,'Production',runtime=runtime)
     return SimpleNamespace(b=b,runtime=runtime,database=database,selected=selected,identity=identity,prepare=prepare,
-        connection=connection,connections=connections)
+        connection=connection,connections=connections,serial=serial,configuration=configuration)
 
 
 @pytest.mark.parametrize('target',['company','device'],indirect=True)
@@ -176,7 +178,7 @@ def test_any_partial_write_is_rolled_back_without_leaving_an_orphan_key_or_inten
 def test_recovery_refuses_changed_material_instead_of_generating_another_key(target,fault):
     t=target;first=t.prepare()
     name,value={'key':('custom_private_key','INVALID-KEY'),'csr':('custom_csr_data','CHANGED-CSR'),
-        'config':('custom_csr_config',CONFIG+'\n'),'certificate':('custom_certificate','UNRECORDED-CERT'),
+        'config':('custom_csr_config',t.configuration+'\n'),'certificate':('custom_certificate','UNRECORDED-CERT'),
         'history':('custom_pih','UNRECORDED-HASH')}[fault]
     with t.connection.cursor() as cursor:
         cursor.execute('UPDATE `tab'+t.selected.doctype+'` SET `'+name+'`=%s WHERE name=%s',(value,t.selected.name))
@@ -191,13 +193,13 @@ def test_crypto_callback_cannot_mix_one_config_with_another_saved_epoch(target,m
     def changed(*args,**kwargs):
         with t.connection.cursor() as cursor:
             cursor.execute('UPDATE `tab'+t.selected.doctype+'` SET custom_csr_config=%s WHERE name=%s',
-                (CONFIG+'\n',t.selected.name))
+                (t.configuration+'\n',t.selected.name))
         return keygen(*args,**kwargs)
     with monkeypatch.context() as patch:
         patch.setattr(onboarding.ec,'generate_private_key',changed)
         with pytest.raises(onboarding.NativeOnboardingError,match='native_onboarding_source_changed'):t.prepare()
     assert t.database.commits==0
-    assert t.runtime.get_doc(t.selected.doctype,t.selected.name).custom_csr_config==CONFIG
+    assert t.runtime.get_doc(t.selected.doctype,t.selected.name).custom_csr_config==t.configuration
 
 
 def test_disabled_mode_or_wrong_environment_cannot_create_an_intent(target):
@@ -250,3 +252,25 @@ def test_a_device_using_company_keys_cannot_create_a_second_intent_for_the_share
     monkeypatch.setattr(onboarding.ec,'generate_private_key',lambda *a,**kw:pytest.fail('Wrong-owner keygen'))
     with pytest.raises(onboarding.NativeOnboardingError,match='native_onboarding_shared_owner'):t.prepare()
     assert t.database.commits==0
+
+
+def test_another_owner_cannot_reserve_the_same_declared_unit_with_a_fresh_key(target):
+    t=target;first=t.prepare()
+    other={'doctype':t.b.device.doctype,'name':t.b.device.name}
+    with pytest.raises(onboarding.NativeOnboardingError):
+        onboarding.prepare_new_unit('TC',other,'Production',runtime=t.runtime)
+    assert t.database.commits==1
+    saved=t.runtime.get_doc(t.b.device.doctype,t.b.device.name)
+    assert saved.get(onboarding.MARKER) is None and saved.custom_private_key is None
+    rows=t.database.sql('SELECT name FROM `tabZATCA Issuing Chain` WHERE egs_identity_key=%s',
+        (onboarding.egs_identity_key('Production','TEST-VAT',t.serial),),as_dict=True)
+    assert len(rows)==1 and rows[0]['name']==first.record_id
+
+
+def test_changed_or_missing_unit_reservation_is_review_not_a_new_initialization(target):
+    t=target;first=t.prepare()
+    with t.connection.cursor() as cursor:
+        cursor.execute('UPDATE `tabZATCA Issuing Chain` SET egs_identity_key=NULL WHERE name=%s',(first.record_id,))
+    t.connection.commit()
+    with pytest.raises(onboarding.NativeOnboardingError):t.prepare()
+    assert t.database.commits==1

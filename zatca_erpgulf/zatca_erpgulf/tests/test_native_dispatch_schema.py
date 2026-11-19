@@ -60,6 +60,8 @@ def test_artifact_and_chain_slots_are_unique_independent_of_human_invoice_number
     assert chain['active']['default']=='0'  # A new metadata row is never implicitly active.
     assert chain['registration_review_key']['unique']==1
     assert not chain['registration_review_key'].get('reqd')
+    assert chain['egs_identity_key']['unique']==1
+    assert not chain['egs_identity_key'].get('reqd')  # Inactive legacy review is not an activation.
 
 
 def test_authenticated_identities_cannot_be_rewritten_by_generic_link_renames():

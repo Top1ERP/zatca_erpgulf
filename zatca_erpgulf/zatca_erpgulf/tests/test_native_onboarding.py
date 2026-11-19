@@ -34,3 +34,12 @@ def test_pending_csr_value_is_redacted_and_not_queue_material():
     value=onboarding.PreparedNewUnit('ID','PRIVATE-CSR-EXAMPLE',False)
     assert 'PRIVATE' not in repr(value)
     with pytest.raises(TypeError,match='not_serializable'):pickle.dumps(value)
+
+
+def test_declared_unit_key_is_stable_across_owners_and_key_rotation_but_not_taxpayer_or_environment():
+    key=onboarding.egs_identity_key('Production','TEST-VAT','1-A|2-B|3-C')
+    assert key==onboarding.egs_identity_key('Production','TEST-VAT','1-A|2-B|3-C')
+    assert len(key)==64
+    assert key!=onboarding.egs_identity_key('Simulation','TEST-VAT','1-A|2-B|3-C')
+    assert key!=onboarding.egs_identity_key('Production','OTHER-VAT','1-A|2-B|3-C')
+    assert key!=onboarding.egs_identity_key('Production','TEST-VAT','1-A|2-B|3-D')
