@@ -806,3 +806,16 @@ material/history-backed unit claims stop a fresh initial key. Unused config
 templates are reported; unique native unit reservation remains authoritative for
 their eventual first use. Cached owned CSR recovery and invoice runtime are
 unchanged. No complete-history, old-worker drain or activation claim follows.
+
+## Saved Sales/POS contradictions to a reviewed legacy tail
+
+The actual inactive legacy review now checks both saved source tables before
+retaining/reusing its exact anchor. Another same-unit source at/above the counter
+tail, noncanonical/partial source or another Company holds; no latest/max seed
+or Source status acceptance is inferred. Exact SQL comparison, physical column/
+engine checks and shared range locks cover this negative proof. Owner inventory
+reuses the same isolation/engine helpers. Tests include actual DOUBLE loss,
+unindexed/indexed concurrent inserts and updates, cancellation and recovery after
+a newer source appears. This remains administrative review, not an invoice-path
+scan, complete history reconstruction, worker drain or activation. See
+[NATIVE_LEGACY_TAIL.md](NATIVE_LEGACY_TAIL.md).

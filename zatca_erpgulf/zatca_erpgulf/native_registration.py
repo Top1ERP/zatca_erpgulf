@@ -22,6 +22,8 @@ from .icv import _counter_key
 from .issuing_attempt import ACTIVE, IssuingAttemptError, issuing_attempt
 from .native_dispatch import NativeDispatchError, SOURCE_TABLES, owner_key, _require_access
 from .native_preparation import source_observation_sha256
+from .native_legacy_tail import require_unambiguous_saved_tail
+from .native_identity_inventory import IdentityInventoryError
 from .permission_compat import PermissionCompatibilityError, saved_row_has_permission
 from .worker_transaction import WorkerTransactionError, owned_worker_transaction
 
@@ -89,6 +91,7 @@ def _legacy_anchor(runtime, owner, source, counter_name):
     _identifier(source.get('custom_uuid'))
     if source.get('docstatus') not in (1,2):
         raise ChainRegistrationError('registration_generated_source_review')
+    require_unambiguous_saved_tail(owner,source,unit,value)
     return source, unit, value
 
 
@@ -108,7 +111,7 @@ def review_legacy_registration(doctype, invoice_name, counter_name, file_id, *,
             translate=translate,reason=reason,expected_xml_sha256=expected_xml_sha256,
             supersedes_review_id=supersedes_review_id)
     except (ChainRegistrationError,DispatchRecordError,DispatchStoreError,NativeDispatchError,
-            ArtifactEvidenceError,IssuingAttemptError) as error:
+            ArtifactEvidenceError,IssuingAttemptError,IdentityInventoryError) as error:
         code = error.code
     except PermissionCompatibilityError:
         code = 'permission_engine_signature'

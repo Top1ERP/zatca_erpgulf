@@ -90,12 +90,30 @@ def _material(record, environments):
     return tuple(sorted(keys)), tuple(sorted(units)), tuple(unparsed)
 
 
-def _scan(runtime, owner):
+def require_range_isolation(owner):
+    """Require gap-lock semantics; do not change a caller's session isolation."""
     _owned(owner)
     isolation = owner.database.sql('SELECT @@tx_isolation AS isolation_level', as_dict=True)
     if (len(isolation) != 1 or isolation[0].get('isolation_level') not in
             ('REPEATABLE-READ', 'SERIALIZABLE')):
         raise IdentityInventoryError('native_identity_inventory_isolation')
+
+
+def require_range_engines(owner, tables):
+    """Check engines after opening ranges, while transaction MDL prevents DDL."""
+    _owned(owner)
+    if (type(tables) is not tuple or not tables or any(type(table) is not str or not table for table in tables)
+            or len(set(tables)) != len(tables)):
+        raise IdentityInventoryError('native_identity_inventory_tables')
+    engines = owner.database.sql('SELECT TABLE_NAME AS table_name, ENGINE AS engine FROM information_schema.tables '
+        'WHERE table_schema=DATABASE() AND table_name IN (' + ','.join('%s' for _ in tables) + ')', tables, as_dict=True)
+    if (len(engines) != len(tables) or {row.get('table_name') for row in engines} != set(tables)
+            or any(row.get('engine') != 'InnoDB' for row in engines)):
+        raise IdentityInventoryError('native_identity_inventory_engine')
+
+
+def _scan(runtime, owner):
+    require_range_isolation(owner)
     saved = {}
     for doctype, table in NATIVE_OWNER_TABLES.items():
         _owned(owner)
@@ -122,13 +140,7 @@ def _scan(runtime, owner):
             saved[doctype, name] = record
     # Check after opening both ranges: transaction metadata locks now prevent
     # an engine-changing DDL race between this check and the caller's commit.
-    _owned(owner)
-    tables = tuple(table.strip('`') for table in NATIVE_OWNER_TABLES.values())
-    engines = owner.database.sql('SELECT TABLE_NAME AS table_name, ENGINE AS engine FROM information_schema.tables '
-        'WHERE table_schema=DATABASE() AND table_name IN (%s,%s)', tables, as_dict=True)
-    if (len(engines) != len(tables) or {row.get('table_name') for row in engines} != set(tables)
-            or any(row.get('engine') != 'InnoDB' for row in engines)):
-        raise IdentityInventoryError('native_identity_inventory_engine')
+    require_range_engines(owner, tuple(table.strip('`') for table in NATIVE_OWNER_TABLES.values()))
     return saved
 
 

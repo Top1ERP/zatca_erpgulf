@@ -75,3 +75,8 @@ material/history-backed declaration of the same unit before generating a key.
 This covers owner/key/serial discovery only; full legacy counter/source/File
 history and drained dispatchers remain open. See
 [NATIVE_IDENTITY_INVENTORY.md](NATIVE_IDENTITY_INVENTORY.md).
+
+Inactive legacy review now also rejects saved Sales/POS contradictions to the
+counter tail, with exact ICV comparison and verified source/counter storage
+semantics. This is neither a full older-slot/PIH inventory nor activation/drain:
+[NATIVE_LEGACY_TAIL.md](NATIVE_LEGACY_TAIL.md).

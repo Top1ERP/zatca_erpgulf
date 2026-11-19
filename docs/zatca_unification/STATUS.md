@@ -57,6 +57,14 @@ an empty match is not genesis or old-worker drain evidence. See
 inactive. The complete legacy counter/source/XML/consumer review and activation
 remain open.
 
+Inactive legacy continuity review now also checks saved Sales/POS contradictions
+to its counter tail before retaining/reusing an anchor. Exact ICV ordering,
+partial/draft/foreign-Company observations, concurrent inserts/updates and
+physical source/counter engine/type checks are covered. No maximum is adopted;
+cancelled generated documents retain their position. This is not complete older
+slot/UUID/PIH/consumer history or proof of drained workers. See
+[NATIVE_LEGACY_TAIL.md](NATIVE_LEGACY_TAIL.md).
+
 Latest XML qualification:691 local cases across6 suites in4.72s,138 private SQL
 cases across4 suites in21.63s, and20,751 across the fixed81 issuer-binding suites
 in114.45s. The earlier100 synthetic UI cases remain
@@ -76,6 +84,15 @@ issuer-binding suites in114.24s. Sets overlap. Logs:
 Manifest231 local/67 private suites was not run in full. No live source/schema,
 service, installed site or authority operation was performed. Source checks
 confirmed the installed app HEAD/dirty-tooltip/customer-address hashes unchanged.
+
+Latest saved-tail qualification:232 local cases across6 suites in2.01s,178
+private SQL cases across5 suites in21.47s, and20,751 across the fixed81
+issuer-binding suites in122.77s. Sets overlap. Logs:
+`/tmp/zatca-axis2-legacy-tail-local-final.log`,
+`/tmp/zatca-axis2-legacy-tail-private-final.log`,
+`/tmp/zatca-axis2-legacy-tail-regression-final.log`.
+Manifest232 local/68 private suites was not run in full. Private DDL/column
+precision tests affect only their owned fixture server, never an ERP site.
 
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; frozen print/master information
