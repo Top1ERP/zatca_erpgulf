@@ -14,6 +14,9 @@ from zatca_erpgulf.ksa_compliance import field_compat
 
 
 UNIT='30000000-0000-4000-8000-000000000001'
+CLASSIFIED_XML=(b'<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" '
+    b'xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">'
+    b'<cbc:InvoiceTypeCode name="0200000">388</cbc:InvoiceTypeCode></Invoice>')
 
 
 @pytest.fixture
@@ -75,7 +78,7 @@ def test_cached_verified_acceptance_needs_no_current_customer_key_or_enabled_rol
 @pytest.mark.parametrize('state,status',[('PREPARED','PREPARED'),('REJECTED','ERROR'),('OUTCOME_UNKNOWN','REVIEW')])
 def test_hold_policy_keeps_exact_custody_without_regeneration_or_retry(entry,state,status):
     e=entry;e.company.custom_send_invoice_to_zatca='Batches'
-    e.read.return_value=RetainedNativeView('ISSUANCE',None,state,'RETAINED_ORIGINAL',False,0,False,b'PRIVATE-XML',None)
+    e.read.return_value=RetainedNativeView('ISSUANCE',None,state,'RETAINED_ORIGINAL',False,0,False,CLASSIFIED_XML,None)
     result=e.run();assert result['status']==status and not result['accepted']
     e.prepare.assert_not_called();e.dispatch.assert_not_called()
 

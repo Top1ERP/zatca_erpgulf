@@ -8,7 +8,7 @@ repair history or authorize automatic unknown-outcome retries.
 
 from .credential_material import NATIVE_OWNER_MARKER as MARKER
 from .credential_settings import _resolve_owner_record_from_saved_company
-from .dispatch_record_codec import _identifier
+from .dispatch_record_codec import _identifier,DispatchRecordError
 from .issuing_attempt import IssuingAttemptError
 from .native_dispatch import (
     dispatch_saved_invoice,prepare_saved_invoice,read_retained_invoice,
@@ -113,18 +113,22 @@ def _run(doctype,invoice_name,*,runtime,translate,build,intent,source):
             intent=intent,source=source,company=company)
 
 
-def _run_selected(doctype,invoice_name,*,runtime,translate,build,intent,source,company):
+def _run_selected(doctype,invoice_name,*,runtime,translate,build,intent,source,company,expected_issuance_id=None):
     if not is_zatca_invoice_enabled(company) or resolve_zatca_phase(company)!=PHASE_2_VALUE:
         return {'status':'SKIPPED','accepted':False,'reason':'company_policy_changed'}
     retained=read_retained_invoice(doctype,invoice_name,runtime=runtime)
+    if expected_issuance_id is not None and (retained is None or retained.issuance_id!=expected_issuance_id):
+        raise NativeProviderError('native_expected_issuance_changed')
+    expected={} if expected_issuance_id is None else {'expected_issuance_id':expected_issuance_id}
     if retained is not None and retained.accepted:
-        value=dispatch_saved_invoice(doctype,invoice_name,runtime=runtime,translate=translate,build=build)
+        value=dispatch_saved_invoice(doctype,invoice_name,runtime=runtime,translate=translate,build=build,**expected)
         return _result(doctype,invoice_name,value)
     if not native_mode_enabled(runtime):
         raise NativeProviderError('native_provider_rollout_disabled')
     customer=runtime.get_doc('Customer',source.customer)
     _permitted(runtime,customer)
-    decision=delivery_decision(company,customer,intent)
+    original_xml=retained.original_xml if retained is not None and retained.state=='PREPARED' else None
+    decision=delivery_decision(company,customer,intent,original_xml=original_xml)
     if decision.action=='SKIP':
         return {'status':'SKIPPED','accepted':False,'reason':'company_policy_changed'}
     if retained is not None and (decision.action=='PREPARE' or retained.state!='PREPARED'):
@@ -133,9 +137,13 @@ def _run_selected(doctype,invoice_name,*,runtime,translate,build,intent,source,c
         return {'status':'ERROR' if retained.state=='REJECTED' else 'REVIEW','accepted':False,
             'source_doctype':doctype,'source_name':invoice_name,'issuance_id':retained.issuance_id,
             'state':retained.state,'reused':True}
-    with native_delivery(runtime,source,intent,decision):
+    # Bind ordinary retained dispatch as well as attached-XML admission to the
+    # exact version supplying its classification; no newer version can replace it.
+    if retained is not None and not expected:
+        expected={'expected_issuance_id':retained.issuance_id}
+    with native_delivery(runtime,source,intent,decision,original_xml=original_xml):
         operation=prepare_saved_invoice if decision.action=='PREPARE' else dispatch_saved_invoice
-        value=operation(doctype,invoice_name,runtime=runtime,translate=translate,build=build)
+        value=operation(doctype,invoice_name,runtime=runtime,translate=translate,build=build,**expected)
     return _result(doctype,invoice_name,value)
 
 
@@ -146,12 +154,18 @@ def maybe_process_native_invoice(doctype,invoice_name,*,runtime,translate,build,
     callback belongs to the server entry, never a serialized or whitelisted input.
     No HTTP200/local status/UUID alone becomes a successful public result.
     """
+    return reviewed_native_operation(lambda:_run(doctype,invoice_name,runtime=runtime,translate=translate,
+        build=build,intent=intent,source=source),runtime=runtime,translate=translate)
+
+
+def reviewed_native_operation(operation,*,runtime,translate):
+    """One English diagnostic and translated review for fixed native adapters."""
     failed=None
     try:
-        return _run(doctype,invoice_name,runtime=runtime,translate=translate,build=build,intent=intent,source=source)
+        return operation()
     except Exception as error:
         failed=error.code if isinstance(error,(IssuingAttemptError,NativeDispatchError,NativeDeliveryError,
-            NativeOnboardingError,DispatchStoreError,WorkerTransactionError)) else 'native_provider_operation_review'
+            NativeOnboardingError,DispatchStoreError,DispatchRecordError,WorkerTransactionError)) else 'native_provider_operation_review'
     review=NativeProviderError(failed)
     runtime.log_error(title='Native ZATCA invoice review',message=f'{failed}: {REVIEW}')
     review.diagnostic_logged=True

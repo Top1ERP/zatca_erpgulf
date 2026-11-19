@@ -53,6 +53,15 @@ def test_unknown_simplified_submission_method_never_grants_transport(policy):
     with pytest.raises(delivery.NativeDeliveryError):delivery.delivery_decision(company,customer,'entry')
 
 
+@pytest.mark.parametrize('indicator,buyer,action',[('0200000',0,'PREPARE'),('0100000',1,'DISPATCH')])
+def test_retained_document_classification_controls_delivery_after_a_buyer_flag_change(policy,indicator,buyer,action):
+    company,customer=policy;company.custom_send_invoice_to_zatca='Batches';customer.b2c=buyer
+    from zatca_erpgulf.zatca_erpgulf.tests.test_native_provider import CLASSIFIED_XML
+    original=CLASSIFIED_XML.replace(b'0200000',indicator.encode())
+    decision=delivery.delivery_decision(company,customer,'entry',original_xml=original)
+    assert decision.action==action and decision.simplified is indicator.startswith('02')
+
+
 def test_a_retained_or_cross_site_context_cannot_authorize_another_operation(policy):
     company,customer=policy;source=Document(doctype='Sales Invoice',name='SYNTHETIC',company=company.name,customer=customer.name)
     runtime=SimpleNamespace(local=SimpleNamespace(site='fictional.invalid'),session=SimpleNamespace(user='operator'))

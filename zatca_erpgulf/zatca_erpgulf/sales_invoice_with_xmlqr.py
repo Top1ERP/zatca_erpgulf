@@ -1,5 +1,7 @@
 """This module is used to submit the POS invoice to ZATCA using the API through xml and qr."""
 from .deferred_submission import maybe_defer_invoice_submission
+from .native_existing_xml import maybe_process_native_existing_xml
+from .native_preparation import capture_before_legacy_side_effects
 
 from .issuing_attempt import (
     IssuingAttemptError, confirm_issuing_transport, issuing_attempt, seal_current_xml,
@@ -132,6 +134,11 @@ def reporting_api_xml_sales_invoice(
     uuid1, encoded_hash, signed_xmlfile_name, invoice_number, sales_invoice_doc
 ):
     """reporting api based on the api data and payload"""
+    native = maybe_process_native_existing_xml('Sales Invoice', invoice_number, signed_xmlfile_name,
+        runtime=frappe, translate=_, source=sales_invoice_doc, path_kind='file',
+        require_issuing_unit=True, supplied_identity=(uuid1, encoded_hash))
+    if native is not None:
+        return native
     try:
         company_abbr = frappe.db.get_value(
             "Company", {"name": sales_invoice_doc.company}, "abbr"
@@ -147,6 +154,7 @@ def reporting_api_xml_sales_invoice(
             runtime=frappe, translate=_,
         )
         payload = submitted_invoice.as_payload()
+        capture_before_legacy_side_effects(company_abbr, sales_invoice_doc, runtime=frappe)
         headers = {
             "accept": "application/json",
             "accept-language": "en",
@@ -334,6 +342,10 @@ def submit_sales_invoice_withxmlqr(sales_invoice_doc, file_path, invoice_number)
     """submit sales invoice with xml qr"""
     if maybe_defer_invoice_submission('Sales Invoice', invoice_number, runtime=frappe, translate=_):
         return
+    native = maybe_process_native_existing_xml('Sales Invoice', invoice_number, file_path,
+        runtime=frappe, translate=_, source=sales_invoice_doc, require_issuing_unit=True)
+    if native is not None:
+        return native
     try:
         company_abbr = frappe.db.get_value("Company", {"name": sales_invoice_doc.company}, "abbr")
         with issuing_attempt(company_abbr, sales_invoice_doc, purpose='production',

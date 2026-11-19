@@ -107,6 +107,18 @@ def test_inconsistent_identity_or_receipt_stops_before_source_update(target, fau
     t.c.worker.commit.assert_not_called()
 
 
+@pytest.mark.parametrize('readonly',[False,True])
+def test_expected_version_is_not_skipped_for_write_or_readonly_cached_viewers(target,readonly):
+    t=target
+    if readonly:
+        t.c.b.frappe.has_permission=lambda dt,op,*,doc,user,raise_exception=True:op=='read'
+    with pytest.raises(dispatch.NativeDispatchError,match='native_expected_issuance_changed'):
+        projection.project_accepted_status('Sales Invoice','SI',runtime=t.c.b.frappe,
+            skip_if_readonly=readonly,expected_issuance_id='DIFFERENT')
+    assert not t.writes
+    t.c.worker.commit.assert_not_called()
+
+
 @pytest.mark.parametrize('fault', ['missing', 'short_chars', 'short_bytes', 'numeric'])
 def test_source_storage_capacity_is_checked_without_truncation(target, fault):
     t = target

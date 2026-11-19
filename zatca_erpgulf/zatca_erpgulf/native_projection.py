@@ -45,7 +45,7 @@ def _status_columns(database, doctype, status, text):
             raise NativeDispatchError('native_projection_capacity')
 
 
-def project_accepted_status(doctype, invoice_name, *, runtime, skip_if_readonly=False):
+def project_accepted_status(doctype, invoice_name, *, runtime, skip_if_readonly=False, expected_issuance_id=None):
     """Recover source status from exact current custody, even after key expiry.
 
     Ordinary projection requires source write permission. The cached-result path
@@ -61,6 +61,21 @@ def project_accepted_status(doctype, invoice_name, *, runtime, skip_if_readonly=
         _require_access(runtime, source, company, owner.actor, write=False)
         if skip_if_readonly and not saved_row_has_permission(runtime.has_permission, doctype,
                 'write', doc=source, user=owner.actor):
+            if expected_issuance_id is not None:
+                # A read-only cached viewer still cannot acknowledge a different
+                # current version after attachment admission. No write ticket is
+                # acquired and the existing source/Company READ checks remain.
+                marker = source.get('custom_zatca_issuing_unit')
+                value = source.get('custom_zatca_icv')
+                if (type(marker) is not str or not marker.startswith('egs:')
+                        or type(value) not in (int, str) or source.get('docstatus') != 1):
+                    raise NativeDispatchError('native_projection_source_identity')
+                repository = DispatchStore(owner.database, storage_namespace=owner.storage_namespace,
+                    cipher=owner.cipher, owner_check=owner.owner_current)
+                saved = repository.find_source_issuance(doctype=doctype, invoice_name=invoice_name,
+                    company=source.company, chain_id=marker[4:], invoice_uuid=source.get('custom_uuid'), icv=str(value))
+                if saved['record_id'] != expected_issuance_id:
+                    raise NativeDispatchError('native_expected_issuance_changed')
             return StatusProjection(None, None, skipped_readonly=True)
         _require_access(runtime, source, company, owner.actor)
         marker = source.get('custom_zatca_issuing_unit')
@@ -79,6 +94,8 @@ def project_accepted_status(doctype, invoice_name, *, runtime, skip_if_readonly=
             raise NativeDispatchError('native_projection_source_identity')
         saved = repository.find_source_issuance(doctype=doctype, invoice_name=invoice_name,
             company=source.company, chain_id=chain['record_id'], invoice_uuid=source.get('custom_uuid'), icv=str(value))
+        if expected_issuance_id is not None and saved['record_id']!=expected_issuance_id:
+            raise NativeDispatchError('native_expected_issuance_changed')
         saved = repository.lock_issuance(chain, saved['record_id'])
         latest = repository.latest_issuance(chain['record_id'], doctype, invoice_name)
         if latest is None or latest['record_id'] != saved['record_id']:

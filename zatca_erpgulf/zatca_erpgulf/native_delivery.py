@@ -17,6 +17,7 @@ from .issuing_reads import read_issuing_doc
 from .permission_compat import saved_row_has_permission
 from .scheduling import is_within_company_windows
 from .zatca_runtime import get_b2c_submission_method,is_zatca_invoice_enabled,resolve_zatca_phase,PHASE_2_VALUE
+from .issuance_candidate import _invoice_classification
 
 
 CURRENT = ContextVar('zatca_native_delivery',default=None)
@@ -36,12 +37,18 @@ class DeliveryDecision:
     method: str
 
 
-def delivery_decision(company,customer,intent):
+def delivery_decision(company,customer,intent,*,original_xml=None):
     if intent not in INTENTS:
         raise NativeDeliveryError('native_delivery_intent')
     if not is_zatca_invoice_enabled(company) or resolve_zatca_phase(company)!=PHASE_2_VALUE:
         return DeliveryDecision('SKIP',False,'')
-    simplified=use_linked_company(get_alias_value('customer_b2c',customer,0))
+    if original_xml is None:
+        simplified=use_linked_company(get_alias_value('customer_b2c',customer,0))
+    else:
+        # Only the internal coordinator supplies authenticated retained bytes.
+        # A later Customer flag cannot reclassify an already issued document.
+        _code,indicator=_invoice_classification(original_xml)
+        simplified=indicator.startswith('02')
     method=get_b2c_submission_method(company)
     if simplified and method not in ('','Live','Batches','Background'):
         raise NativeDeliveryError('native_delivery_method')
@@ -61,6 +68,7 @@ class _Delivery:
     source: tuple
     intent: str
     decision: DeliveryDecision
+    original_xml: bytes | None=None
     closed: bool=False
 
     def require(self,runtime,source):
@@ -73,10 +81,10 @@ class _Delivery:
 
 
 @contextmanager
-def native_delivery(runtime,source,intent,decision):
+def native_delivery(runtime,source,intent,decision,*,original_xml=None):
     if CURRENT.get() is not None or intent not in INTENTS or type(decision) is not DeliveryDecision:
         raise NativeDeliveryError('native_delivery_nested')
-    current=_Delivery(runtime.local.site,runtime.session.user,(source.doctype,source.name),intent,decision)
+    current=_Delivery(runtime.local.site,runtime.session.user,(source.doctype,source.name),intent,decision,original_xml)
     token=CURRENT.set(current)
     try:
         yield
@@ -102,7 +110,7 @@ def confirm_delivery_policy(scope,owner,*,dispatch=False):
         customer=read_issuing_doc(runtime,'Customer',source.customer,for_update=True)
         if not saved_row_has_permission(runtime.has_permission,'Customer','read',doc=customer,user=owner.actor):
             raise NativeDeliveryError('native_delivery_customer_access')
-        decision=delivery_decision(company,customer,current.intent)
+        decision=delivery_decision(company,customer,current.intent,original_xml=current.original_xml)
         if decision!=current.decision or decision.action=='SKIP' or dispatch and decision.action!='DISPATCH':
             raise NativeDeliveryError('native_delivery_policy_changed')
         scope.confirm_current()

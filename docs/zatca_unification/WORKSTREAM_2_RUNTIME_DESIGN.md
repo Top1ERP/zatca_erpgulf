@@ -760,3 +760,37 @@ transitions/reversal, pending exact dispatch and POS consolidation references;
 they do not perform genuine ERP posting/closing or prove installed15/16/SDK.
 Financial builders/reference91/117/32 remain unchanged. Full rule and remaining
 publication boundaries: [PUBLICATION_COLLECTION_STATE.md](PUBLICATION_COLLECTION_STATE.md).
+
+## Existing native XML adapter and retained classification — 2026-11-19
+
+The four existing-XML wrapper/API pairs now select native admission before legacy
+extractors and response writers. A submitted saved Source/Company and exact one
+private local File require their normal permissions. Bounded bytes and raw UUID/
+hash arguments must match the authenticated current original exactly. No remote,
+traversal, public/Debug, symlink, ambiguous, changed or unowned file can create a
+new issuance or grant a retry. Caller data cannot select a different source/issuer.
+
+The matching issuance ID is checked through facade, reservation and status
+projection, including read-only cached projection. Owned preparation captures
+all four APIs before legacy progress; no old HTTP/writer runs for a native result.
+The same entry/manual/scheduled policy remains in use. Retained PREPARED XML now
+supplies its original classification through the shared-lock policy recheck;
+changing the current Customer B2C flag cannot reclassify it or alter deferral.
+Its supplying version is fenced for ordinary retained dispatch too.
+
+Matched cached acceptance needs no new send/current signing key. Rejected,
+unknown or in-flight outcomes stay held even with an exact matching upload.
+Legacy/unowned history remains outside this adapter and needs continuity review/
+drain rather than an inferred zero counter or imported acceptance. Details and
+the eight callsites are in [NATIVE_EXISTING_XML.md](NATIVE_EXISTING_XML.md).
+
+Qualification:691 local cases across6 suites in4.72s;138 fixture-owned private SQL
+cases across4 suites in21.63s; fixed81-suite issuer-binding regression20,751
+in114.45s. Logs use `/tmp/zatca-axis2-existing-xml-*-final.log`. Sets overlap;
+whole230 local/66 private manifest was not run. No financial reference, live/
+schema/service, native activation or authority request changed. Private active
+registration/framework and synthetic metadata/UBL builders remain explicit
+fixtures, not installed ERP/CA/SDK/genuine authority acceptance. Workstream2 is
+still open for initial/cutover activation/inventory/drain, operator retry/correction,
+draft/durable handoff, source lifecycle, frozen print/master and File/external
+publication, and whole canonical runtime qualification.

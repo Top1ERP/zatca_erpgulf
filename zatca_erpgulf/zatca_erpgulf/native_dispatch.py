@@ -73,6 +73,7 @@ class RetainedNativeView:
     chain_id: str | None = field(default=None, repr=False)
     publication_sha256: str | None = field(default=None, repr=False)
     render_source_sha256: str | None = field(default=None, repr=False)
+    invoice_hash: str | None = field(default=None, repr=False)
 
     def __reduce_ex__(self, protocol):
         raise TypeError('retained_native_view_not_serializable')
@@ -361,7 +362,7 @@ def _prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build,reject
             return RetainedNativeIssuance(record_id,'PREPARED',False,doctype,invoice_name)
 
 
-def reserve_saved_issuance(doctype,invoice_name,*,runtime,translate,supersedes_attempt=None):
+def reserve_saved_issuance(doctype,invoice_name,*,runtime,translate,supersedes_attempt=None,expected_issuance_id=None):
     """Commit the attempt reservation, then release a transient exact invocation.
 
     No public retry flag or artifact re-creation. An uncertain commit raises
@@ -390,6 +391,8 @@ def reserve_saved_issuance(doctype,invoice_name,*,runtime,translate,supersedes_a
             confirm_delivery_policy(scope,owner,dispatch=True)
             latest=repository.latest_issuance(chain['record_id'],doctype,invoice_name)
             if latest is None:raise NativeDispatchError('native_original_required')
+            if expected_issuance_id is not None and latest['record_id']!=expected_issuance_id:
+                raise NativeDispatchError('native_expected_issuance_changed')
             issuance=repository.lock_issuance(chain,latest['record_id'])
             header,original=repository.open_issuance(issuance['record_id'])
             _require_retained_binding(header,chain,scope,material,doctype,invoice_name,repository=repository)
@@ -527,18 +530,19 @@ def read_retained_invoice(doctype,invoice_name,*,runtime,require_current_source=
             returned=assessment.returned_xml
         return RetainedNativeView(saved['record_id'],saved['active_attempt'],saved['state'],outcome,
             accepted,warnings,has_warnings,xml,returned,header['source_sha256'],
-            header['invoice_uuid'],header['icv'],header['chain'],publication,render_source)
+            header['invoice_uuid'],header['icv'],header['chain'],publication,render_source,header['invoice_hash'])
 
 
-def _project_source_status(doctype, invoice_name, *, runtime, readonly_cache=False):
+def _project_source_status(doctype, invoice_name, *, runtime, readonly_cache=False, expected_issuance_id=None):
     # Import at the coordinator boundary: the projector reuses source ACL and
     # identity helpers but cannot invoke transport or create another issuance.
     from .native_projection import project_accepted_status
     return project_accepted_status(doctype, invoice_name, runtime=runtime,
-        skip_if_readonly=readonly_cache).projected
+        skip_if_readonly=readonly_cache,expected_issuance_id=expected_issuance_id).projected
 
 
-def dispatch_saved_invoice(doctype, invoice_name, *, runtime, translate, build, retry_attempt_id=None):
+def dispatch_saved_invoice(doctype, invoice_name, *, runtime, translate, build, retry_attempt_id=None,
+                           expected_issuance_id=None):
     """One native preparation, exact dispatch/custody and bounded303 fallback.
 
     Internal coordinator only, not a whitelisted RPC or public build callback.
@@ -548,10 +552,13 @@ def dispatch_saved_invoice(doctype, invoice_name, *, runtime, translate, build, 
     is separate; File publication and complete runtime qualification remain open.
     """
     retained=read_retained_invoice(doctype,invoice_name,runtime=runtime)
+    if expected_issuance_id is not None and (retained is None or retained.issuance_id!=expected_issuance_id):
+        raise NativeDispatchError('native_expected_issuance_changed')
+    expected={} if expected_issuance_id is None else {'expected_issuance_id':expected_issuance_id}
     if retained is not None and retained.accepted:
         projection_failed = False
         try:
-            projected = _project_source_status(doctype, invoice_name, runtime=runtime, readonly_cache=True)
+            projected = _project_source_status(doctype, invoice_name, runtime=runtime, readonly_cache=True,**expected)
         except Exception:
             projection_failed = True
         if projection_failed:
@@ -564,7 +571,7 @@ def dispatch_saved_invoice(doctype, invoice_name, *, runtime, translate, build, 
     supersedes = retry_attempt_id
     for _ in range(2):
         invocation = reserve_saved_issuance(doctype, invoice_name, runtime=runtime,
-            translate=translate, supersedes_attempt=supersedes)
+            translate=translate, supersedes_attempt=supersedes,**expected)
         response = None
         transport_error = None
         try:
@@ -602,7 +609,7 @@ def dispatch_saved_invoice(doctype, invoice_name, *, runtime, translate, build, 
                 'CLEARANCE_MATCHED', 'CLEARANCE_DUPLICATE_MATCHED'):
             projection_failed = False
             try:
-                projected = _project_source_status(doctype, invoice_name, runtime=runtime)
+                projected = _project_source_status(doctype, invoice_name, runtime=runtime,**expected)
             except Exception:
                 projection_failed = True
             if projection_failed:

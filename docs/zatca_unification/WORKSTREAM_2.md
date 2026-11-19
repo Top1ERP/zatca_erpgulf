@@ -63,3 +63,8 @@ checklist: [generation-time collection evidence](PUBLICATION_COLLECTION_STATE.md
 now admits named payment/POS updates; legacy NULL evidence keeps its old full
 comparison. Frozen master/print information, saved File consumers, external print
 engines and pre-issuance native printing still require explicit adoption/acceptance.
+
+The four existing-XML wrapper/API pairs now have actual native admission for
+exact private attached originals, version fences and frozen retained type policy:
+[NATIVE_EXISTING_XML.md](NATIVE_EXISTING_XML.md). This is not legacy-history import
+or completion of activation/drain, explicit retry/correction and whole-runtime gates.

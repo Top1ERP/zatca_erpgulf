@@ -130,7 +130,7 @@ generation, installed15/16, CA trust or SDK acceptance. Financial reference file
 and the original240 comparison91/117/32 are unchanged.
 
 Remaining workstream2 work includes actual initial/cutover activation and complete
-legacy-consumer inventory/drain; four existing-XML admission paths; publication
+legacy-consumer inventory/drain; publication
 compatibility/frozen master and print data (first Desk/transient-print adoption
 is described in [NATIVE_PUBLICATION.md](NATIVE_PUBLICATION.md), with authenticated
 collection updates in [PUBLICATION_COLLECTION_STATE.md](PUBLICATION_COLLECTION_STATE.md));
@@ -141,3 +141,9 @@ draft submission still defers through its ordinary submit intent first. The
 existing24-hour discovery horizon and non-durable queue handoff are unchanged;
 there is no outbox/restart-delivery guarantee. Installed/dummy-site rehearsals
 retain their specific authorization gates. Workstream2 is not closed.
+
+The four existing-XML wrapper/API pairs now use exact private attached-original
+admission and the same owned facade. Retained PREPARED classification is frozen
+from authenticated XML through the shared policy recheck, and version expectations
+are fenced through reservation/projection. Details and qualification limits:
+[NATIVE_EXISTING_XML.md](NATIVE_EXISTING_XML.md).

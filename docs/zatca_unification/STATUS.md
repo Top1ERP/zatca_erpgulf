@@ -40,10 +40,17 @@ frozen print/master information and external print consumers remain unqualified.
 See [NATIVE_PUBLICATION.md](NATIVE_PUBLICATION.md) and
 [PUBLICATION_COLLECTION_STATE.md](PUBLICATION_COLLECTION_STATE.md).
 
-Latest collection/publication qualification:372 local cases across10 suites
-in3.28s,165 private SQL cases across5 suites in22.16s, and20,751 across the fixed81
-issuer-binding suites in120.13s. The earlier100 synthetic UI cases remain unchanged.
-These sets overlap. Manifest229 local/65 private suites was not run in full.
+Four existing-XML wrapper/API pairs now admit exactly matching private attached
+native originals to owned delivery, with source/Company/File permissions and
+version checks through reservation/projection. Rejected/unknown outcomes remain
+held. Retained classification comes from its XML even if the Customer flag changes.
+Unowned/legacy XML is not silently imported. See
+[NATIVE_EXISTING_XML.md](NATIVE_EXISTING_XML.md).
+
+Latest XML qualification:691 local cases across6 suites in4.72s,138 private SQL
+cases across4 suites in21.63s, and20,751 across the fixed81 issuer-binding suites
+in114.45s. The earlier100 synthetic UI cases remain
+unchanged. Sets overlap. Manifest230 local/66 private suites was not run in full.
 Private active registration
 is fixture input; generation uses the actual six entries with a synthetic metadata/
 signing builder. This is not installed Frappe/ERP, complete canonical financial/
@@ -51,7 +58,7 @@ XSD/SDK or genuine authority acceptance. No financial reference was changed;
 original240 comparison remains91/117/32.
 
 Still open in2: complete identity/legacy-consumer inventory and reviewed activation/
-drain; four existing-XML admission paths; frozen print/master information
+drain; frozen print/master information
 and File/external-print compatibility; explicit unchanged retry and
 corrected-clock/operator adoption; draft-origin handoff and
 source lifecycle decisions; whole runtime qualification. The handoff is not a

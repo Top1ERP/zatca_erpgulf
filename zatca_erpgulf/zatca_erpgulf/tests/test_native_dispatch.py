@@ -558,3 +558,13 @@ def test_float_source_counter_cannot_select_a_historical_original(coordinator):
         dispatch.read_retained_invoice('Sales Invoice', 'SI', runtime=c.b.frappe)
     assert caught.value.code == 'native_retained_source_identity'
     c.factory.assert_not_called()
+
+
+def test_requested_existing_version_cannot_generate_when_current_custody_is_missing(orchestration):
+    o=orchestration
+    with pytest.raises(dispatch.NativeDispatchError,match='native_expected_issuance_changed'):
+        dispatch.dispatch_saved_invoice('Sales Invoice','SI',runtime=object(),translate=lambda s:s,
+            build=Mock(),expected_issuance_id='REQUESTED')
+    assert o.calls==['read_retained_invoice']
+    o.functions['prepare_saved_invoice'].assert_not_called()
+    o.functions['reserve_saved_issuance'].assert_not_called()
