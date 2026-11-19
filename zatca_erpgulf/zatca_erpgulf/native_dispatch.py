@@ -21,10 +21,10 @@ from .permission_compat import saved_row_has_permission
 from .api_routing import resolve_api_route
 from .native_transport import NativeInvocation, NativeResponse, NativeTransportError, invoke_saved_request
 from .native_response import assess_native_receipt, _original
+from .credential_material import NATIVE_OWNER_TABLES as OWNER_TABLES
 
 
 SOURCE_TABLES={'Sales Invoice':'`tabSales Invoice`','POS Invoice':'`tabPOS Invoice`'}
-OWNER_TABLES={'Company':'`tabCompany`','ZATCA Multiple Setting':'`tabZATCA Multiple Setting`'}
 
 
 class NativeDispatchError(RuntimeError):

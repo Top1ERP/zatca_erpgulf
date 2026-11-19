@@ -26,7 +26,7 @@ OWNER_FIELDS = (
     'custom_private_key', 'custom_certificate', 'custom_certficate',
     'custom_basic_auth_from_csid', 'custom_basic_auth_from_production',
     'custom_final_auth_csid', 'custom_pih', 'tax_id',
-    'custom_linked_doctype', 'custom__use_company_certificate__keys',
+    'custom_linked_doctype', 'custom__use_company_certificate__keys', 'custom_zatca_native_chain',
 )
 COMPANY_FIELDS = tuple(dict.fromkeys((
     *ISSUING_COMPANY_FIELDS, *OWNER_FIELDS,

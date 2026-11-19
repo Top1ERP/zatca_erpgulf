@@ -211,6 +211,8 @@ def _require_csr_key_preservation(doc):
 def _write_private_key(company_abbr, zatca_doc, progress):
     """Shared worker, not another public error boundary or rotation policy."""
     doc = _load_csr_write_source(company_abbr, zatca_doc).target
+    from .native_owner_guard import reject_legacy_owner_credentials
+    reject_legacy_owner_credentials(frappe,doc)
     _require_csr_key_preservation(doc)
     private_key = ec.generate_private_key(ec.SECP256K1(), backend=default_backend())
     private_key_pem = private_key.private_bytes(
@@ -238,6 +240,10 @@ def _create_csr(zatca_doc, portal_type, company_abbr, progress):
     """Keep existing OIDs, signing and key-before-CSR ordering explicit."""
     doc = _load_csr_write_source(company_abbr, zatca_doc).target
     _require_csr_key_preservation(doc)
+    from .native_onboarding import native_onboarding_selected, prepare_new_unit
+    if native_onboarding_selected(frappe,doc):
+        return prepare_new_unit(company_abbr,{'doctype':doc.doctype,'name':doc.name},portal_type,
+            runtime=frappe,progress=progress).csr_data
     identity = {"doctype": doc.doctype, "name": doc.name}
     # Keep construction in a separate worker so child exceptions reach only the
     # outer owner, never a nested public key helper with its own popup.
@@ -386,6 +392,8 @@ def _require_csid_preservation(doc):
 def _create_csid(progress, zatca_doc, company_abbr, portal_type):
     """Legacy Compliance writer; no public message, retry or transaction owner."""
     doc = load_credential_write_source(frappe, has_permission, company_abbr, zatca_doc).target
+    from .native_owner_guard import reject_legacy_owner_credentials
+    reject_legacy_owner_credentials(frappe,doc)
     _require_csid_preservation(doc)
     if doc.doctype == "ZATCA Multiple Setting":
         multiple_setting_doc = doc
@@ -1406,6 +1414,8 @@ def production_csid(zatca_doc, company_abbr):
 def _production_csid(progress, zatca_doc, company_abbr):
     """Legacy Final-CSID writer, separate from invoice reporting/clearance."""
     doc = load_credential_write_source(frappe, has_permission, company_abbr, zatca_doc).target
+    from .native_owner_guard import reject_legacy_owner_credentials
+    reject_legacy_owner_credentials(frappe,doc)
     _require_csid_preservation(doc)
     if doc.doctype == "ZATCA Multiple Setting":
         multiple_setting_doc = doc

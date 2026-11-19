@@ -238,9 +238,12 @@ def reject_legacy_native_preparation(document, runtime):
         return
     getter = getattr(document, 'get', None)
     marker = getter('custom_zatca_issuing_unit') if callable(getter) else None
-    if type(marker) is str and marker.startswith('egs:'):
-        from .issuing_attempt import ACTIVE, IssuingAttemptError
-        current = ACTIVE.get()
+    from .issuing_attempt import ACTIVE, IssuingAttemptError
+    current = ACTIVE.get()
+    native_owner = False
+    if current is not None and current.purpose == 'production':
+        native_owner = current.owner.values.get('custom_zatca_native_chain') not in (None,'')
+    if native_owner or type(marker) is str and marker.startswith('egs:'):
         raise IssuingAttemptError('native_dispatch_required',
             transport_started=bool(current is not None and current.transport_started))
 

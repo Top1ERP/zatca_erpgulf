@@ -24,7 +24,11 @@
   "active",
   "registration_header",
   "registration_ciphertext",
-  "registration_review_key"
+  "registration_review_key",
+  "onboarding_header",
+  "onboarding_ciphertext",
+  "onboarding_owner_key",
+  "onboarding_state"
  ],
  "fields": [
   {
@@ -181,6 +185,39 @@
    "hidden": 1,
    "unique": 1,
    "description": "Only the current inactive legacy review occupies this nullable slot; superseded review evidence stays immutable."
+  },
+  {
+   "fieldname": "onboarding_header",
+   "fieldtype": "Long Text",
+   "label": "Initial CSR Intent Header",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  },
+  {
+   "fieldname": "onboarding_ciphertext",
+   "fieldtype": "Long Text",
+   "label": "Initial CSR Intent Ciphertext",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  },
+  {
+   "fieldname": "onboarding_owner_key",
+   "fieldtype": "Data",
+   "label": "Initial Onboarding Owner Slot",
+   "read_only": 1,
+   "hidden": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "onboarding_state",
+   "fieldtype": "Select",
+   "label": "Onboarding State",
+   "read_only": 1,
+   "options": "CSR_READY\nREVIEW_REQUIRED"
   }
  ],
  "index_web_pages_for_search": 0,

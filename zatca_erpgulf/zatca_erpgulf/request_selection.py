@@ -18,7 +18,7 @@ SOURCE_FIELDS = ('company', 'custom_zatca_pos_name', 'modified')
 OWNER_FIELDS = (
     'tax_id', 'custom_linked_doctype', 'custom__use_company_certificate__keys',
     'custom_basic_auth_from_csid', 'custom_basic_auth_from_production',
-    'custom_final_auth_csid', 'modified',
+    'custom_final_auth_csid', 'modified', 'custom_zatca_native_chain',
 )
 COMPANY_FIELDS = (
     *OWNER_FIELDS, 'custom_select', *ENVIRONMENT_FIELDS.values(),
@@ -74,6 +74,12 @@ def capture_request_selection(company_abbr, source_doc, endpoint, *, runtime,
         raise  # A replacement error callback returning cannot authorize a request.
     try:
         owner, kind = resolve_owner_record(company, source_doc, load_doc=load_saved)
+        if route.required_credential == 'production' and owner.get('custom_zatca_native_chain') not in (None,''):
+            from .issuing_attempt import ACTIVE, IssuingAttemptError
+            from .native_preparation import active_preparation
+            current = ACTIVE.get()
+            if active_preparation(runtime) is None and (current is None or current.purpose == 'production'):
+                raise IssuingAttemptError('native_dispatch_required')
         authorization = authorization_for_owner(CredentialOwner(
             company.name, owner.doctype, owner.name, kind, owner.values,
         ), route.required_credential)

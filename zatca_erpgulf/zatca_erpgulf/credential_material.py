@@ -4,6 +4,17 @@ from dataclasses import dataclass, field
 from collections.abc import Mapping, Sequence
 
 
+# Shared owner vocabulary stays dependency-free: ordinary Company form hooks
+# must not import invoice builders or the onboarding cryptography/service graph.
+NATIVE_OWNER_MARKER = 'custom_zatca_native_chain'
+NATIVE_OWNER_TABLES = {'Company': '`tabCompany`', 'ZATCA Multiple Setting': '`tabZATCA Multiple Setting`'}
+NATIVE_CREDENTIAL_FIELDS = (
+    'custom_private_key', 'custom_public_key', 'custom_csr_data', 'custom_certificate',
+    'custom_certficate', 'custom_basic_auth_from_csid', 'custom_basic_auth_from_production',
+    'custom_final_auth_csid', 'custom_compliance_request_id_',
+)
+
+
 class CredentialConfigurationError(ValueError):
     def __init__(self, code: str):
         self.code = code

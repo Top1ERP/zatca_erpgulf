@@ -5,12 +5,22 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "section_break_4qzz"
+  "section_break_4qzz",
+  "custom_zatca_native_chain"
  ],
  "fields": [
   {
    "fieldname": "section_break_4qzz",
    "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "custom_zatca_native_chain",
+   "fieldtype": "Data",
+   "label": "Native ZATCA Issuing Unit",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "description": "Service-owned issuing-unit identity. Ordinary credential edits, renames and deletion require a separate reviewed workflow."
   }
  ],
  "index_web_pages_for_search": 1,

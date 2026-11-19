@@ -78,6 +78,7 @@ PYTHON_MANAGED_COMPANY_ZATCA_FIELDS = {
     ("Company", "custom_csr_config"),
     ("Company", "custom_create_csr"),
     ("Company", "custom_csr_data"),
+    ("Company", "custom_zatca_native_chain"),
     ("Company", "custom_zatca_pih_section"),
     ("Company", "custom_pih"),
     ("Company", "custom_keys__certificate_for_zatca"),
@@ -2950,6 +2951,18 @@ def sync_company_zatca_fields_and_layout() -> dict[str, list[str]]:
         },
 
         # PIH: full-width own section.
+        {
+            "fieldname": "custom_zatca_native_chain",
+            "label": "Native ZATCA Issuing Unit",
+            "fieldtype": "Data",
+            "insert_after": "custom_csr_data",
+            "read_only": 1,
+            "hidden": 1,
+            "no_copy": 1,
+            "module": MODULE_NAME,
+            "create_if_missing": True,
+            "description": "Service-owned issuing-unit identity; ordinary form edits must not replace it.",
+        },
         {
             "fieldname": "custom_zatca_pih_section",
             "label": "ZATCA Chain State",

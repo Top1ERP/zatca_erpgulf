@@ -258,6 +258,63 @@ class DispatchStore:
             xml, reason = open_registration_payload(header,payload)
             return header, xml, reason
 
+    def stage_onboarding_intent(self, header, csr):
+        """Reserve one inactive initial intent, without issuing a certificate.
+
+        Only public CSR bytes are encrypted here; the private key belongs to the
+        selected owner and the coordinator must write both in one transaction.
+        An earlier owner history/registration is never adopted as a new intent.
+        """
+        from .native_onboarding import validate_intent_header, inspect_intent_csr, intent_sha256
+        from .invoice_xml_core import INITIAL_PREVIOUS_HASH
+        with self._operation():
+            encoded = validate_intent_header(header)
+            inspect_intent_csr(header,csr)
+            rows = self._sql('SELECT name FROM '+TABLE_CHAIN+' WHERE owner_key=%s LIMIT 1 FOR UPDATE NOWAIT',
+                (header['owner_key'],))
+            if rows:
+                raise DispatchStoreError('dispatch_onboarding_existing_owner_review')
+            encrypted = self._cipher.seal(header['record_id'],'chain-onboarding',encoded,csr)
+            chain = {key:header[key] for key in ('record_id','owner_key','owner_doctype','owner_name',
+                'environment','seller_tax_id','public_key_sha256')}
+            chain.update(active_owner_key=None,registration_kind='NEW_EGS',certificate_sha256='0'*64,
+                registration_evidence_sha256=intent_sha256(encoded,csr),last_icv='0',
+                previous_hash=INITIAL_PREVIOUS_HASH,tail_issuance=None,active_attempt=None,state_version=0,active=0)
+            occurred_at = datetime.strptime(header['created_at_utc'],'%Y-%m-%dT%H:%M:%S.%f')
+            values = dict(chain,name=header['record_id'],onboarding_header=encoded.decode('utf-8'),
+                onboarding_ciphertext=encrypted,onboarding_owner_key=header['owner_key'],onboarding_state='CSR_READY',
+                owner=header['created_by'],modified_by=header['created_by'],creation=occurred_at,modified=occurred_at,docstatus=0)
+            columns = tuple(values)
+            self._sql('INSERT INTO '+TABLE_CHAIN+' ('+','.join('`'+name+'`' for name in columns)+') '
+                'VALUES ('+','.join('%s' for _ in columns)+')',tuple(values[name] for name in columns))
+            return self._remember_chain([chain],header['owner_key'],require_active=False)
+
+    def open_onboarding_intent(self, chain):
+        """Read authenticated initial CSR custody, not a client intent claim."""
+        from .native_onboarding import validate_intent_header, inspect_intent_csr, intent_sha256
+        from .dispatch_record_codec import decode_record_header
+        with self._operation():
+            if self._locked_chains.get(chain['record_id']) is not chain:
+                raise DispatchStoreError('dispatch_chain_lock_required')
+            rows = self._sql('SELECT SUBSTRING(onboarding_header,1,32769) AS header,'
+                'SUBSTRING(onboarding_ciphertext,1,%s) AS ciphertext,onboarding_state,onboarding_owner_key '
+                'FROM '+TABLE_CHAIN+' WHERE name=%s LOCK IN SHARE MODE NOWAIT',
+                (MAX_CIPHERTEXT_CHARS+1,chain['record_id']))
+            if len(rows)!=1 or type(rows[0]['header']) is not str or len(rows[0]['header'])>32768:
+                raise DispatchStoreError('dispatch_onboarding_intent_missing')
+            encoded = rows[0]['header'].encode('utf-8')
+            header = dict(decode_record_header(encoded))
+            validate_intent_header(header)
+            if (chain['registration_kind']!='NEW_EGS' or any(chain[key]!=header[key] for key in (
+                    'record_id','owner_key','owner_doctype','owner_name','environment','seller_tax_id','public_key_sha256'))
+                    or rows[0]['onboarding_owner_key']!=chain['owner_key']):
+                raise DispatchStoreError('dispatch_onboarding_chain_binding')
+            csr = self._cipher.open(chain['record_id'],'chain-onboarding',encoded,rows[0]['ciphertext'])
+            inspect_intent_csr(header,csr)
+            if rows[0]['onboarding_state']=='CSR_READY' and intent_sha256(encoded,csr)!=chain['registration_evidence_sha256']:
+                raise DispatchStoreError('dispatch_onboarding_evidence_binding')
+            return MappingProxyType(header),csr,rows[0]['onboarding_state']
+
     def _remember_chain(self,rows,owner_key,*,require_active):
         if len(rows)!=1:raise DispatchStoreError('dispatch_registration_required')
         chain=dict(rows[0])

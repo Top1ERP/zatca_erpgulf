@@ -253,6 +253,16 @@ scheduler_events = {
 #     }
 # }
 doc_events = {
+    "Company": {
+        "validate": "zatca_erpgulf.zatca_erpgulf.native_owner_guard.validate_native_owner",
+        "before_rename": "zatca_erpgulf.zatca_erpgulf.native_owner_guard.protect_native_owner_lifecycle",
+        "on_trash": "zatca_erpgulf.zatca_erpgulf.native_owner_guard.protect_native_owner_lifecycle",
+    },
+    "ZATCA Multiple Setting": {
+        "validate": "zatca_erpgulf.zatca_erpgulf.native_owner_guard.validate_native_owner",
+        "before_rename": "zatca_erpgulf.zatca_erpgulf.native_owner_guard.protect_native_owner_lifecycle",
+        "on_trash": "zatca_erpgulf.zatca_erpgulf.native_owner_guard.protect_native_owner_lifecycle",
+    },
     "Customer": {
         "validate": "zatca_erpgulf.zatca_erpgulf.customer_validation.validate_customer_zatca",
     },

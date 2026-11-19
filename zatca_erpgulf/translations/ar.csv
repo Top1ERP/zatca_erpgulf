@@ -890,3 +890,6 @@ The ZATCA issuing context could not be confirmed after a transport invocation. T
 ZATCA issuance records are maintained by the submission service and cannot be edited manually.,تدير خدمة الإرسال سجلات إصدار زاتكا ولا يمكن تعديلها يدوياً.
 ZATCA issuance records must be retained and cannot be deleted manually.,يجب الاحتفاظ بسجلات إصدار زاتكا ولا يمكن حذفها يدوياً.
 Immutable identity recorded by the dispatch service; generic ERP renames must not rewrite authenticated history.,هوية ثابتة يسجلها مسار الإرسال؛ يجب ألا تغيّر إعادة التسمية العامة في النظام هويات السجل المحمي.
+"Native ZATCA settings are owned by their onboarding and issuing services. Reload these settings before saving; changing credentials, issuer identity or chain state requires its reviewed service.",تدير خدمات الربط والإصدار إعدادات زاتكا الجديدة. أعد تحميل الإعدادات قبل الحفظ؛ فتغيير بيانات الاعتماد أو هوية المُصدر أو حالة السلسلة يتطلب الخدمة المخصصة بعد المراجعة.
+This owner has a native ZATCA unit. Rename or deletion requires a reviewed identity and history transition.,يرتبط هذا السجل بوحدة إصدار زاتكا جديدة. تتطلب إعادة تسميته أو حذفه عملية انتقال مُراجعة تحفظ الهوية والسجل التاريخي.
+Native ZATCA Issuing Unit,وحدة إصدار زاتكا الجديدة

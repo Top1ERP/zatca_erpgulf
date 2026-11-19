@@ -1,4 +1,4 @@
-# Implementation status — 2026-11-17
+# Implementation status — 2026-11-19
 
 ## Current: workstream2 in progress
 
@@ -19,6 +19,12 @@ source/counter/private XML, retains encrypted evidence and stages an inactive
 review. Explicit rereview preserves the older evidence and the current slot
 atomically. This does not activate a native chain, retire legacy counters, infer
 NEW_EGS genesis or complete registration/cutover.
+Initial native enrollment now commits a fresh key, exact public CSR and inactive
+encrypted intent atomically. The existing CSR entry uses this service only with
+the explicit native rollout setting. Saved native owners cannot fall back to
+legacy credential/issuance writers or have protected state overwritten by stale
+ordinary forms. CSR_READY does not authorize issuance, certificate adoption or
+counter genesis. Fenced Compliance/Final-CSID admission is the next integration.
 
 Public worker/manual/batch adoption, registration/bootstrap and reviewed legacy
 continuity, File/print/UI publication and source/owner lifecycle guards remain.

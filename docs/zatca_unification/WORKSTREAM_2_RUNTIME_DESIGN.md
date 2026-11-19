@@ -520,3 +520,48 @@ No installed Frappe/ERP15/16, complete financial/XSD/SDK, history completeness,
 legacy-worker drain or authority acceptance is established. No working-site
 schema/configuration/invoice/service operation was performed. Financial builders
 and the original240 comparison/reference expectations remain unchanged.
+
+## Initial CSR custody — 2026-11-19
+
+`native_onboarding.prepare_new_unit` requires the explicit site rollout setting,
+System Manager, saved target READ+WRITE and routing Company READ. It resolves the
+actual credential owner and rejects a device choosing its Company's key rather
+than creating another unit. Initial material/history must be empty; an existing
+intent, key, credential, noninitial PIH or legacy counter cannot be silently
+adopted or replaced. Namespace, encryption key and storage metadata must already
+exist; this service performs no installation/bootstrap.
+
+A fresh secp256k1 key, the existing environment-specific CSR template, saved-owner
+marker and encrypted public CSR intent commit in one owned transaction. Physical
+column capacity is checked before writing. Configuration/route/taxpayer/owner
+observations are rechecked after cryptography. Partial writes roll back together;
+lost commit acknowledgments are uncertain and a repeat recovers the exact saved
+key/CSR. The private key remains in the existing owner field; the intent stores
+only public CSR bytes/fingerprints, not OTP/private-key/auth material. This is
+initial custody, not the deferred versioned secret renewal mechanism.
+
+The row is inactive NEW_EGS/CSR_READY with no active owner slot. Its zero/initial
+hash is a reservation, never genesis authorization. There is no Final-CSID proof,
+CA trust/revocation proof, native activation, public worker adoption or legacy
+cutover in this increment. Compliance and Final-CSID calls for a native owner
+currently stop before the legacy writer; their fenced replacement is pending.
+The feature is disabled by default. Ordinary unmarked legacy paths keep their
+existing behavior; the marker prevents fallback even if the flag is later off.
+
+Company/device ORM validation blocks invented/cleared markers, stale protected
+credential/route/identity/PIH/counter updates and rename/delete. Unrelated business
+fields and OTP entry remain editable. Its shared field vocabulary is kept in the
+pure credential policy module so ordinary Company saves do not import invoice
+generation/crypto services. This is not protection against privileged raw SQL;
+cross-owner copying of native keys/credentials still needs a registry fence
+before Final-CSID activation/public adoption.
+
+Evidence:58 focused local cases (`/tmp/zatca-axis2-onboarding-local.log`),32 private
+InnoDB cases (`/tmp/zatca-axis2-onboarding-private.log`) and the81-suite fixed
+issuer-binding profile20,750 cases (`/tmp/zatca-axis2-onboarding-regression.log`).
+Private coverage includes Company/device, existing CSR button compatibility,
+permission/role denial before key generation, shared Company-key rejection,
+actual SQL rollback/commit loss and changed config/key/CSR/schema/capacity.
+Framework permissions/metadata are explicit doubles, not installed15/16 proof.
+The manifest now declares220 local/61 private suites; it was not run in full.
+No live-site/schema/configuration/service change or authority request occurred.
