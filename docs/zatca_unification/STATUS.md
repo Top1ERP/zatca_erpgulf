@@ -47,6 +47,16 @@ held. Retained classification comes from its XML even if the Customer flag chang
 Unowned/legacy XML is not silently imported. See
 [NATIVE_EXISTING_XML.md](NATIVE_EXISTING_XML.md).
 
+Initial native CSR preparation now inventories saved Company/device identity
+claims before key generation. Matching material/history-backed legacy claims hold
+instead of starting another unit. Full ordinary READ coverage, verified InnoDB/
+session isolation and exhausted shared PRIMARY range locks prevent a partial or
+racing owner scan. Public observations preserve delegation and malformed aliases;
+an empty match is not genesis or old-worker drain evidence. See
+[NATIVE_IDENTITY_INVENTORY.md](NATIVE_IDENTITY_INVENTORY.md). FINAL_READY is still
+inactive. The complete legacy counter/source/XML/consumer review and activation
+remain open.
+
 Latest XML qualification:691 local cases across6 suites in4.72s,138 private SQL
 cases across4 suites in21.63s, and20,751 across the fixed81 issuer-binding suites
 in114.45s. The earlier100 synthetic UI cases remain
@@ -57,7 +67,17 @@ signing builder. This is not installed Frappe/ERP, complete canonical financial/
 XSD/SDK or genuine authority acceptance. No financial reference was changed;
 original240 comparison remains91/117/32.
 
-Still open in2: complete identity/legacy-consumer inventory and reviewed activation/
+Latest owner-inventory qualification:209 local cases across7 suites in1.61s,
+156 private SQL cases across5 suites in15.21s, and20,751 across the fixed81
+issuer-binding suites in114.24s. Sets overlap. Logs:
+`/tmp/zatca-axis2-identity-local-final.log`,
+`/tmp/zatca-axis2-identity-private-final.log`,
+`/tmp/zatca-axis2-identity-regression-final.log`.
+Manifest231 local/67 private suites was not run in full. No live source/schema,
+service, installed site or authority operation was performed. Source checks
+confirmed the installed app HEAD/dirty-tooltip/customer-address hashes unchanged.
+
+Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; frozen print/master information
 and File/external-print compatibility; explicit unchanged retry and
 corrected-clock/operator adoption; draft-origin handoff and

@@ -68,3 +68,10 @@ The four existing-XML wrapper/API pairs now have actual native admission for
 exact private attached originals, version fences and frozen retained type policy:
 [NATIVE_EXISTING_XML.md](NATIVE_EXISTING_XML.md). This is not legacy-history import
 or completion of activation/drain, explicit retry/correction and whole-runtime gates.
+
+Initial native CSR preparation now uses a bounded, permission-checked saved-owner
+identity inventory under verified InnoDB range-lock semantics. It rejects another
+material/history-backed declaration of the same unit before generating a key.
+This covers owner/key/serial discovery only; full legacy counter/source/File
+history and drained dispatchers remain open. See
+[NATIVE_IDENTITY_INVENTORY.md](NATIVE_IDENTITY_INVENTORY.md).

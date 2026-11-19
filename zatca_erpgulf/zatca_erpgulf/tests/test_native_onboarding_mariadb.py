@@ -50,7 +50,7 @@ def target(boundary,materials,monkeypatch,connections,tables,request):
     runtime.get_roles=lambda actor:['System Manager']
     runtime.has_permission=lambda doctype,operation,*,doc,user,raise_exception=True:True
     columns=tuple(dict.fromkeys((*onboarding.PROTECTED_FIELDS,onboarding.MARKER,'custom_csr_config','custom_pih',
-        'custom_zatca_icv_counter','custom_linked_doctype','custom__use_company_certificate__keys','custom_otp')))
+        'custom_zatca_icv_counter','custom_linked_doctype','custom__use_company_certificate__keys','custom_otp','custom_select')))
     runtime.get_meta=lambda dt:SimpleNamespace(get_field=lambda name:SimpleNamespace(fieldtype='Data' if name==onboarding.MARKER else 'Long Text'),
         has_field=lambda name:name in columns)
     with connection.cursor() as cursor:
@@ -68,7 +68,8 @@ def target(boundary,materials,monkeypatch,connections,tables,request):
             assert name=={'abbr':'TC'};name=b.company.name
         suffix=' FOR UPDATE NOWAIT' if kwargs.get('for_update') else ''
         row=runtime.db.sql('SELECT * FROM `tab'+doctype+'` WHERE name=%s'+suffix,(name,),as_dict=True)[0]
-        return Document(**(vars(prototypes[doctype,name])|dict(row)))
+        prototype=prototypes.get((doctype,name))
+        return Document(**((vars(prototype) if prototype is not None else {'doctype':doctype})|dict(row)))
     runtime.get_doc=get_doc
     monkeypatch.setattr(client,'frappe',runtime);monkeypatch.setattr(client,'has_permission',runtime.has_permission)
     identity={'doctype':selected.doctype,'name':selected.name}

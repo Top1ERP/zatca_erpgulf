@@ -794,3 +794,15 @@ fixtures, not installed ERP/CA/SDK/genuine authority acceptance. Workstream2 is
 still open for initial/cutover activation/inventory/drain, operator retry/correction,
 draft/durable handoff, source lifecycle, frozen print/master and File/external
 publication, and whole canonical runtime qualification.
+
+## Saved-owner identity inventory before initial native key generation
+
+The next activation prerequisite is now adopted at the initial CSR writer:
+[NATIVE_IDENTITY_INVENTORY.md](NATIVE_IDENTITY_INVENTORY.md). It discovers saved
+Company/device material and declared identities, preserves delegation provenance,
+requires full ordinary READ coverage and verifies InnoDB/session isolation before
+exhausting both owner PRIMARY ranges under shared NOWAIT locks. Matching legacy
+material/history-backed unit claims stop a fresh initial key. Unused config
+templates are reported; unique native unit reservation remains authoritative for
+their eventual first use. Cached owned CSR recovery and invoice runtime are
+unchanged. No complete-history, old-worker drain or activation claim follows.

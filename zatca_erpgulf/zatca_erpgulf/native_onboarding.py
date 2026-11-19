@@ -28,6 +28,7 @@ from .native_registration import _saved, _name
 from .worker_transaction import owned_worker_transaction
 from .credential_material import NATIVE_OWNER_MARKER as MARKER, NATIVE_CREDENTIAL_FIELDS as PROTECTED_FIELDS
 from .credential_identity import declared_egs_identity_key as egs_identity_key
+from .native_identity_inventory import IdentityInventoryError, require_distinct_new_declaration
 
 
 MODE = 'zatca_native_dispatch'
@@ -195,7 +196,7 @@ def prepare_new_unit(company_abbr, supplied, portal_type, *, runtime):
     try:
         return _prepare_new_unit(company_abbr,supplied,portal_type,runtime=runtime)
     except Exception as error:
-        code = error.code if isinstance(error,NativeOnboardingError) else 'native_onboarding_preparation_review'
+        code = error.code if isinstance(error,(NativeOnboardingError,IdentityInventoryError)) else 'native_onboarding_preparation_review'
         uncertain = getattr(error,'commit_uncertain',False) is True
     raise NativeOnboardingError(code,commit_uncertain=uncertain)
 
@@ -228,6 +229,8 @@ def _prepare_new_unit(company_abbr, supplied, portal_type, *, runtime):
             raise NativeOnboardingError('native_onboarding_existing_material_review')
         if target.get('custom_pih') not in (None,'',INITIAL_PREVIOUS_HASH) or target.get('custom_zatca_icv_counter'):
             raise NativeOnboardingError('native_onboarding_existing_history_review')
+        require_distinct_new_declaration(runtime,owner,target,egs_identity_key(
+            route.environment,company.get('tax_id'),values['csr.serial.number']))
         source_values = {name:target.get(name) for name in WATCHED_OWNER_FIELDS}
         # Validate structure before acquiring a fresh key; never inherit a key
         # whose preparation history is unknown or rewrite the saved CSR config.
