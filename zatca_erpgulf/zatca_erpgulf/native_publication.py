@@ -21,7 +21,7 @@ from .dispatch_store import DispatchStoreError
 from .issuing_attempt import _source_observation
 from .native_artifact import read_native_artifact
 from .native_dispatch import NativeDispatchError, read_retained_invoice, SOURCE_TABLES
-from .native_preparation import source_observation_sha256
+from .publication_source import render_source_sha256
 from .operation_messages import mute_operation_messages
 from .worker_transaction import WorkerTransactionError
 
@@ -62,10 +62,10 @@ def _qr_image(payload):
 def load_publication(doctype, invoice_name, *, runtime, render_document=None):
     """Internal strict print/preview selector; historical diagnostics are separate.
 
-    Matching is conservative: all retained invoice-owned fields must match, even
-    currently nonfiscal changes, until an explicit fiscal projection is reviewed.
+    A generation-time authenticated publication projection permits only named
+    collection updates. Old originals without one keep their full comparison.
     Output bookkeeping, QR links and framework metadata are already excluded by
-    the versioned native source observer. No current credential is required.
+    the native observer. No current signing credential is required.
     """
     _identity(doctype, invoice_name)
     artifact = read_native_artifact(doctype, invoice_name, runtime=runtime, for_publication=True)
@@ -81,8 +81,11 @@ def load_publication(doctype, invoice_name, *, runtime, render_document=None):
                 or type(render_document.get('custom_zatca_icv')) not in (str, int)
                 or str(render_document.get('custom_zatca_icv')) != artifact.icv):
             raise NativePublicationError('native_publication_render_identity')
-        observed = source_observation_sha256((doctype, invoice_name), _source_observation(render_document))
-        if observed != artifact.source_sha256:
+        # Fiscal matching to the issued original happened inside the saved read.
+        # The whole supplied render record must now match that current saved
+        # observation, including collection fields: no fabricated paid balance.
+        observed = render_source_sha256((doctype, invoice_name), _source_observation(render_document))
+        if observed != artifact.render_source_sha256:
             raise NativePublicationError('native_publication_render_changed')
     return artifact, _qr_image(artifact.qr_payload)
 

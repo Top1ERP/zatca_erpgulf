@@ -52,6 +52,7 @@ def test_artifact_and_chain_slots_are_unique_independent_of_human_invoice_number
     artifact={f['fieldname']:f for f in metadata('ZATCA Issuance')['fields']}
     assert all(artifact[name]['unique']==1 for name in ('record_id','issuance_key','icv_key','invoice_uuid'))
     assert artifact['artifact_ciphertext']['reqd']==1
+    assert not artifact['publication_ciphertext'].get('reqd')  # Historical v1 custody stays unchanged.
     assert artifact['icv']['fieldtype']=='Data'  # No float or signed-64 conversion of an existing ICV.
     chain={f['fieldname']:f for f in metadata('ZATCA Issuing Chain')['fields']}
     assert chain['active_owner_key']['unique']==1 and not chain['active_owner_key'].get('reqd')

@@ -59,6 +59,7 @@ Implementation sequence and current adoption limits: [WORKSTREAM_2_RUNTIME_DESIG
 
 The first actual custody-backed Desk/transient-print adapter is documented in
 [NATIVE_PUBLICATION.md](NATIVE_PUBLICATION.md). It does not close the publication
-checklist: conservative source comparison currently blocks some post-payment
-prints, and frozen master/print information, saved File consumers, external print
+checklist: [generation-time collection evidence](PUBLICATION_COLLECTION_STATE.md)
+now admits named payment/POS updates; legacy NULL evidence keeps its old full
+comparison. Frozen master/print information, saved File consumers, external print
 engines and pre-issuance native printing still require explicit adoption/acceptance.

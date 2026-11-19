@@ -71,6 +71,8 @@ class RetainedNativeView:
     invoice_uuid: str | None = field(default=None, repr=False)
     icv: str | None = field(default=None, repr=False)
     chain_id: str | None = field(default=None, repr=False)
+    publication_sha256: str | None = field(default=None, repr=False)
+    render_source_sha256: str | None = field(default=None, repr=False)
 
     def __reduce_ex__(self, protocol):
         raise TypeError('retained_native_view_not_serializable')
@@ -194,7 +196,7 @@ def _require_source_output_capacity(database, doctype, icv):
         raise NativeDispatchError('native_source_counter_capacity')
 
 
-def _require_retained_binding(header,chain,scope,material,doctype,invoice_name,*,check_source=True):
+def _require_retained_binding(header,chain,scope,material,doctype,invoice_name,*,check_source=True,repository=None):
     if (header['company']!=scope.company.name or header['environment']!=material.route.environment
             or header['chain']!=chain['record_id']
             or (header['source_doctype'],header['source_name'])!=(doctype,invoice_name)
@@ -204,10 +206,14 @@ def _require_retained_binding(header,chain,scope,material,doctype,invoice_name,*
     base=material.route.url.removesuffix('/'+material.route.endpoint)
     if header['base_url_sha256']!=hashlib.sha256(base.encode()).hexdigest():
         raise NativeDispatchError('native_retained_route_review')
-    # Conservative until a documented fiscal projection permits specific
-    # nonfiscal updates. Drift never grants permission to regenerate an original.
+    # Reuse only the retained original. A captured versioned projection permits
+    # identified collection changes, never fiscal drift or regeneration.
     if check_source and header['source_sha256']!=source_observation_sha256(scope.source_identity,scope.source_observation):
-        raise NativeDispatchError('native_retained_source_review')
+        from .publication_source import publication_source_sha256
+        retained=repository.open_publication(header) if repository is not None else None
+        current=publication_source_sha256(scope.source_identity,scope.source_observation)
+        if retained is None or current!=retained:
+            raise NativeDispatchError('native_retained_source_review')
 
 
 def prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build):
@@ -311,7 +317,7 @@ def _prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build,reject
                 _require_retained_binding(previous,chain,scope,material,doctype,invoice_name,check_source=False)
             elif latest is not None:
                 header,original=repository.open_issuance(latest['record_id'])
-                _require_retained_binding(header,chain,scope,material,doctype,invoice_name)
+                _require_retained_binding(header,chain,scope,material,doctype,invoice_name,repository=repository)
                 owner.commit()
                 return RetainedNativeIssuance(latest['record_id'],latest['state'],True,doctype,invoice_name)
             else:
@@ -342,7 +348,7 @@ def _prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build,reject
                 header['replaces_issuance']=previous['record_id']
                 _require_corrected_artifact(previous,old_original,header,packet)
             repository.stage_issuance(chain,header,packet.request_bytes,
-                actor=owner.actor,occurred_at=occurred_at)
+                actor=owner.actor,occurred_at=occurred_at,publication_sha256=packet.publication_sha256)
             output=(packet.invoice_uuid,packet.icv,'egs:'+chain['record_id'],'Not Submitted','')
             owner.database.sql('UPDATE '+SOURCE_TABLES[doctype]+
                 ' SET custom_uuid=%s,custom_zatca_icv=%s,custom_zatca_issuing_unit=%s,custom_zatca_status=%s,custom_zatca_full_response=%s WHERE name=%s',
@@ -386,7 +392,7 @@ def reserve_saved_issuance(doctype,invoice_name,*,runtime,translate,supersedes_a
             if latest is None:raise NativeDispatchError('native_original_required')
             issuance=repository.lock_issuance(chain,latest['record_id'])
             header,original=repository.open_issuance(issuance['record_id'])
-            _require_retained_binding(header,chain,scope,material,doctype,invoice_name)
+            _require_retained_binding(header,chain,scope,material,doctype,invoice_name,repository=repository)
             _require_source_output_capacity(owner.database,doctype,header['icv'])
             if (locked.get('custom_uuid')!=header['invoice_uuid']
                     or str(locked.get('custom_zatca_icv'))!=header['icv']
@@ -490,10 +496,19 @@ def read_retained_invoice(doctype,invoice_name,*,runtime,require_current_source=
         saved=repository.find_source_issuance(doctype=doctype,invoice_name=invoice_name,
             company=source.company,chain_id=marker[4:],invoice_uuid=source.get('custom_uuid'),icv=str(value))
         header,original=repository.open_issuance(saved['record_id'])
+        publication=None
+        observed_source=None
+        render_source=None
         if require_current_source:
             from .issuing_attempt import _source_observation
-            if (source.get('docstatus') != 1 or header['source_sha256'] !=
-                    source_observation_sha256((doctype,invoice_name),_source_observation(source))):
+            from .publication_source import publication_source_sha256,render_source_sha256
+            observation=_source_observation(source)
+            observed_source=source_observation_sha256((doctype,invoice_name),observation)
+            render_source=render_source_sha256((doctype,invoice_name),observation)
+            publication=repository.open_publication(header)
+            current=(publication_source_sha256((doctype,invoice_name),observation) if publication is not None else
+                observed_source)
+            if source.get('docstatus') != 1 or current!=(publication if publication is not None else header['source_sha256']):
                 raise NativeDispatchError('native_publication_source_review')
         xml,_evidence=_original(header,original)
         outcome='RETAINED_ORIGINAL';warnings=0;has_warnings=False;returned=None
@@ -512,7 +527,7 @@ def read_retained_invoice(doctype,invoice_name,*,runtime,require_current_source=
             returned=assessment.returned_xml
         return RetainedNativeView(saved['record_id'],saved['active_attempt'],saved['state'],outcome,
             accepted,warnings,has_warnings,xml,returned,header['source_sha256'],
-            header['invoice_uuid'],header['icv'],header['chain'])
+            header['invoice_uuid'],header['icv'],header['chain'],publication,render_source)
 
 
 def _project_source_status(doctype, invoice_name, *, runtime, readonly_cache=False):

@@ -4,6 +4,7 @@ import base64
 from copy import deepcopy
 from dataclasses import replace
 import hashlib
+from datetime import date,timedelta
 import inspect
 import json
 from unittest.mock import Mock
@@ -278,3 +279,18 @@ def test_ordinary_unsaved_draft_does_not_enter_native_storage_or_reload_saved_do
     publication.before_print(source)
     c.b.frappe.get_doc.assert_not_called()
     c.factory.assert_not_called()
+
+
+def test_normal_json_print_dates_match_saved_dates_without_changing_xml_or_qr(view):
+    c=view
+    c.b.sales.posting_date=date(2026,9,27)
+    c.b.sales.posting_time=timedelta(hours=9,minutes=5,seconds=42)
+    original,_,_=c.retain()
+    from frappe.utils.response import json_handler
+    rendered=deepcopy(c.b.sales)
+    rendered.posting_date=json_handler(c.b.sales.posting_date)
+    rendered.posting_time=json_handler(c.b.sales.posting_time)
+    publication.before_print(rendered)
+    assert rendered.ksa_einv_qr.startswith('data:image/png;base64,')
+    assert artifact.read_native_artifact('Sales Invoice','SI',runtime=c.b.frappe).xml_bytes==original
+    c.worker.commit.assert_not_called()

@@ -49,6 +49,7 @@ class PreparedNativeRequest:
     source_sha256: str
     request_sha256: str
     request_bytes: bytes = field(repr=False)
+    publication_sha256: str | None = field(default=None, repr=False)
 
     def __reduce_ex__(self,protocol):raise TypeError('prepared_native_request_not_serializable')
 
@@ -198,11 +199,13 @@ class NativePreparation:
         # value for storage and dispatch; never re-sign/re-serialize an unknown retry.
         body=json.dumps(self._payload.as_payload(),allow_nan=False).encode('utf-8')
         base=self._route.url.removesuffix('/'+self._route.endpoint)
+        from .publication_source import publication_source_sha256
         packet=PreparedNativeRequest(*self.source_identity,self.company_name,self.chain_id,self.environment,
             self.invoice_uuid,self.icv,self.previous_hash,self._payload.invoice_hash,self._route.endpoint,
             hashlib.sha256(base.encode()).hexdigest(),*self._material,
             source_observation_sha256(self.source_identity,issuing_scope.source_observation),
-            hashlib.sha256(body).hexdigest(),body)
+            hashlib.sha256(body).hexdigest(),body,
+            publication_source_sha256(self.source_identity,issuing_scope.source_observation))
         self._handed_off=True
         raise PreparedRequestHandoff(packet)
 

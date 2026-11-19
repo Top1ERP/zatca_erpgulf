@@ -25,6 +25,7 @@
   "base_url_sha256",
   "artifact_sha256",
   "artifact_ciphertext",
+  "publication_ciphertext",
   "state",
   "replaces_issuance",
   "active_attempt",
@@ -186,6 +187,16 @@
    "no_copy": 1,
    "print_hide": 1,
    "reqd": 1
+  },
+  {
+   "fieldname": "publication_ciphertext",
+   "fieldtype": "Long Text",
+   "label": "Encrypted Publication Observation",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1,
+   "description": "Optional immutable generation-time collection-state projection. Missing evidence retains the original full source comparison."
   },
   {
    "fieldname": "state",

@@ -79,7 +79,8 @@ def coordinator(boundary, materials, monkeypatch):
                 state.rolled_back = True
             state.active = False
     repository = SimpleNamespace(lock_active_chain=Mock(return_value=chain),
-        latest_issuance=Mock(return_value=None), open_issuance=Mock(), stage_issuance=Mock())
+        latest_issuance=Mock(return_value=None), open_issuance=Mock(), stage_issuance=Mock(),
+        open_publication=Mock(return_value=None))
     factory = Mock(return_value=repository)
     monkeypatch.setattr(dispatch, 'owned_worker_transaction', transaction)
     monkeypatch.setattr(dispatch, 'DispatchStore', factory)

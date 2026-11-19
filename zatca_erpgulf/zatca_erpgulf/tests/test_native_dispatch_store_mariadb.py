@@ -171,6 +171,72 @@ def test_tampered_plain_metadata_cannot_decrypt_a_stored_original(connections,ch
     assert caught.value.code=='dispatch_record_integrity' and caught.value.__context__ is None
 
 
+def test_publication_evidence_commits_with_original_without_changing_original_header_or_bytes(connections,chain):
+    connection=connections();repo=store(connection);locked=repo.lock_active_chain(chain['owner_key']);values=header(chain)
+    repo.stage_issuance(locked,values,BODY,actor='TEST',occurred_at=NOW,publication_sha256='9'*64)
+    connection.commit()  # Also models a lost acknowledgment; recover, do not stage again.
+    fresh=store(connections());saved,raw=fresh.open_issuance(values['record_id'])
+    assert dict(saved)==values and raw==BODY and fresh.open_publication(saved)=='9'*64
+    with connection.cursor() as cursor:
+        cursor.execute('SELECT publication_ciphertext FROM `tabZATCA Issuance` WHERE name=%s',(values['record_id'],))
+        encrypted=cursor.fetchone()[0]
+    assert encrypted.startswith('v1.') and 'native-invoice' not in encrypted and '9'*64 not in encrypted
+
+
+def test_legacy_null_publication_evidence_remains_absent_and_does_not_rewrite_original(connections,chain):
+    connection=connections();repo=store(connection);locked=repo.lock_active_chain(chain['owner_key']);values=header(chain)
+    repo.stage_issuance(locked,values,BODY,actor='TEST',occurred_at=NOW);connection.commit()
+    with connection.cursor() as cursor:
+        cursor.execute('SELECT artifact_ciphertext,publication_ciphertext FROM `tabZATCA Issuance` WHERE name=%s',(values['record_id'],))
+        before=cursor.fetchone()
+    fresh=store(connections());saved,raw=fresh.open_issuance(values['record_id'])
+    assert fresh.open_publication(saved) is None and raw==BODY
+    with connection.cursor() as cursor:
+        cursor.execute('SELECT artifact_ciphertext,publication_ciphertext FROM `tabZATCA Issuance` WHERE name=%s',(values['record_id'],))
+        assert cursor.fetchone()==before and before[1] is None
+
+
+def test_publication_rollback_cannot_leave_projection_without_original_or_advance_head(connections,chain):
+    connection=connections();repo=store(connection);locked=repo.lock_active_chain(chain['owner_key']);values=header(chain)
+    repo.stage_issuance(locked,values,BODY,actor='TEST',occurred_at=NOW,publication_sha256='8'*64)
+    connection.rollback()
+    fresh=connections()
+    with fresh.cursor() as cursor:
+        cursor.execute('SELECT COUNT(*) FROM `tabZATCA Issuance` WHERE name=%s',(values['record_id'],))
+        assert cursor.fetchone()==(0,)
+    assert store(fresh).lock_active_chain(chain['owner_key'])['last_icv']=='0'
+
+
+@pytest.mark.parametrize('fault',['empty','truncated','artifact-domain','other-record','profile','source-hash','unknown-field'])
+def test_bad_publication_evidence_never_falls_back_but_keeps_exact_original_diagnostic(connections,chain,fault):
+    from zatca_erpgulf.zatca_erpgulf.dispatch_record_codec import encode_record_header
+    from zatca_erpgulf.zatca_erpgulf.publication_source import PROFILE
+    connection=connections();repo=store(connection);locked=repo.lock_active_chain(chain['owner_key']);values=header(chain)
+    repo.stage_issuance(locked,values,BODY,actor='TEST',occurred_at=NOW,publication_sha256='7'*64);connection.commit()
+    with connection.cursor() as cursor:
+        cursor.execute('SELECT artifact_ciphertext,publication_ciphertext FROM `tabZATCA Issuance` WHERE name=%s',(values['record_id'],))
+        artifact,ciphertext=cursor.fetchone()
+    if fault=='empty':ciphertext=''
+    elif fault=='truncated':ciphertext=ciphertext[:-4]
+    elif fault=='artifact-domain':ciphertext=artifact
+    else:
+        fields=dict(profile=PROFILE,source_sha256=values['source_sha256'],publication_sha256='7'*64)
+        identifier=values['record_id']
+        if fault=='other-record':identifier=str(uuid4())
+        elif fault=='profile':fields['profile']='UNKNOWN/v2'
+        elif fault=='source-hash':fields['source_sha256']='6'*64
+        else:fields['unexpected']='INVENTED'
+        cipher=DispatchRecordCipher(b'T'*32,site='fictional.invalid',storage_namespace=NAMESPACE)
+        ciphertext=cipher.seal(identifier,'publication-source',encode_record_header(values),encode_record_header(fields))
+    with connection.cursor() as cursor:
+        cursor.execute('UPDATE `tabZATCA Issuance` SET publication_ciphertext=%s WHERE name=%s',(ciphertext,values['record_id']))
+    connection.commit()
+    fresh=store(connections());saved,raw=fresh.open_issuance(values['record_id'])
+    with pytest.raises((DispatchStoreError,DispatchRecordError)):
+        fresh.open_publication(saved)
+    assert store(connections()).open_issuance(values['record_id'])[1]==raw==BODY
+
+
 def test_fabricated_or_copied_head_is_not_a_repository_lock_ticket(connections,chain):
     connection=connections();repo=store(connection);before=repo.lock_active_chain(chain['owner_key']);values=header(chain)
     with pytest.raises(DispatchStoreError) as caught:repo.stage_issuance(dict(before),values,BODY,actor='TEST',occurred_at=NOW)

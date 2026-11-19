@@ -11,7 +11,9 @@ from datetime import datetime, timedelta
 import hashlib
 from types import MappingProxyType
 
-from .dispatch_record_codec import DispatchRecordCipher, DispatchRecordError, encode_record_header, _identifier
+from .dispatch_record_codec import (
+    DispatchRecordCipher, DispatchRecordError, encode_record_header, decode_record_header, _identifier,
+)
 
 
 TABLE_CHAIN = '`tabZATCA Issuing Chain`'
@@ -43,6 +45,7 @@ ASSESSMENT_STATES = {
 }
 MAX_COUNTER_DIGITS = 64
 MAX_CIPHERTEXT_CHARS = 3+4*((16*1024*1024+28+2)//3)
+MAX_PUBLICATION_CIPHERTEXT_CHARS = 4096
 
 
 class DispatchStoreError(RuntimeError):
@@ -635,7 +638,7 @@ class DispatchStore:
             (issuance['chain'],issuance['source_doctype'],issuance['source_name']))
         return len(rows)==1 and rows[0]['name']==issuance['record_id']
 
-    def stage_issuance(self, chain, header, exact_request_bytes, *, actor, occurred_at):
+    def stage_issuance(self, chain, header, exact_request_bytes, *, actor, occurred_at, publication_sha256=None):
         """One local generation: store original + head; never remote acceptance.
 
         This method does not decide initial enrollment, validate signed XML,
@@ -670,7 +673,15 @@ class DispatchStore:
             if header['artifact_sha256']!=hashlib.sha256(exact_request_bytes).hexdigest():
                 raise DispatchStoreError('dispatch_request_digest')
             encrypted=self._cipher.seal(header['record_id'],'artifact',encoded,exact_request_bytes)
-            values=dict(header,artifact_ciphertext=encrypted,state='PREPARED',state_version=0,active_attempt=None)
+            publication=None
+            if publication_sha256 is not None:
+                from .publication_source import PROFILE
+                _fingerprint(publication_sha256)
+                evidence=encode_record_header(dict(profile=PROFILE,source_sha256=header['source_sha256'],
+                    publication_sha256=publication_sha256))
+                publication=self._cipher.seal(header['record_id'],'publication-source',encoded,evidence)
+            values=dict(header,artifact_ciphertext=encrypted,publication_ciphertext=publication,
+                state='PREPARED',state_version=0,active_attempt=None)
             values.update(name=header['record_id'],owner=actor,modified_by=actor,creation=occurred_at,modified=occurred_at,docstatus=0)
             columns=tuple(values)
             self._sql('INSERT INTO '+TABLE_ISSUANCE+' ('+','.join('`'+field+'`' for field in columns)+
@@ -704,3 +715,31 @@ class DispatchStore:
             if hashlib.sha256(opened).hexdigest()!=row['artifact_sha256']:
                 raise DispatchStoreError('dispatch_request_digest')
             return MappingProxyType(row),opened
+
+    def open_publication(self, header):
+        """Optional immutable generation-time projection; never backfill history.
+
+        Its separate domain authenticates the exact existing artifact header,
+        leaving original v1 request custody/AAD and request bytes unchanged. NULL
+        means the old full-source comparison, never a newly inferred exemption.
+        """
+        with self._operation():
+            from .publication_source import PROFILE
+            encoded=_flat_header(dict(header),ARTIFACT_FIELDS)
+            rows=self._sql('SELECT SUBSTRING(publication_ciphertext,1,%s) AS publication_ciphertext '
+                'FROM '+TABLE_ISSUANCE+' WHERE name=%s LOCK IN SHARE MODE NOWAIT',
+                (MAX_PUBLICATION_CIPHERTEXT_CHARS+1,header['record_id']))
+            if len(rows)!=1:
+                raise DispatchStoreError('dispatch_publication_missing')
+            ciphertext=rows[0]['publication_ciphertext']
+            if ciphertext is None:
+                return None
+            if type(ciphertext) is not str or not 0<len(ciphertext)<=MAX_PUBLICATION_CIPHERTEXT_CHARS:
+                raise DispatchStoreError('dispatch_publication_size')
+            raw=self._cipher.open(header['record_id'],'publication-source',encoded,ciphertext)
+            evidence=decode_record_header(raw)
+            if (set(evidence)!={'profile','source_sha256','publication_sha256'}
+                    or evidence['profile']!=PROFILE or evidence['source_sha256']!=header['source_sha256']):
+                raise DispatchStoreError('dispatch_publication_binding')
+            _fingerprint(evidence['publication_sha256'])
+            return evidence['publication_sha256']

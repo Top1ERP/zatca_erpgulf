@@ -32,22 +32,27 @@ adopted. Matched current version/source data are required; a Standard original
 cannot replace matched cleared XML. Rendering changes only its in-memory QR and
 status. Diagnostic original downloads remain separate. No File/source write,
 signing or resend occurs. Arabic display and English diagnostics remain separate.
-See [NATIVE_PUBLICATION.md](NATIVE_PUBLICATION.md), including its release blockers:
-the current conservative comparison can block printing after a balance/payment
-change, and saved File/external print consumers are not qualified yet.
+An authenticated generation-time projection now permits identified later
+collection and POS-consolidation updates. Print JSON must still match the whole
+current saved record, including balances/status. Old originals without captured
+evidence retain the strict original comparison; no backfill occurs. Saved File,
+frozen print/master information and external print consumers remain unqualified.
+See [NATIVE_PUBLICATION.md](NATIVE_PUBLICATION.md) and
+[PUBLICATION_COLLECTION_STATE.md](PUBLICATION_COLLECTION_STATE.md).
 
-Latest publication qualification:196 focused local cases across5 suites in1.61s,
-75 private SQL cases across3 suites in15.82s,100 synthetic UI cases, and20,751
-across the fixed81-suite issuer-binding profile in122.40s. These sets overlap.
-Manifest228 local/65 private suites was not run in full. Private active registration
+Latest collection/publication qualification:372 local cases across10 suites
+in3.28s,165 private SQL cases across5 suites in22.16s, and20,751 across the fixed81
+issuer-binding suites in120.13s. The earlier100 synthetic UI cases remain unchanged.
+These sets overlap. Manifest229 local/65 private suites was not run in full.
+Private active registration
 is fixture input; generation uses the actual six entries with a synthetic metadata/
 signing builder. This is not installed Frappe/ERP, complete canonical financial/
 XSD/SDK or genuine authority acceptance. No financial reference was changed;
 original240 comparison remains91/117/32.
 
 Still open in2: complete identity/legacy-consumer inventory and reviewed activation/
-drain; four existing-XML admission paths; publication fiscal projection/frozen print
-information and File/external-print compatibility; explicit unchanged retry and
+drain; four existing-XML admission paths; frozen print/master information
+and File/external-print compatibility; explicit unchanged retry and
 corrected-clock/operator adoption; draft-origin handoff and
 source lifecycle decisions; whole runtime qualification. The handoff is not a
 durable outbox. Do not announce3 or installation from these narrower checks.

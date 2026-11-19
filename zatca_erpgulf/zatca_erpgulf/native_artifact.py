@@ -31,6 +31,8 @@ class NativeInvoiceArtifact:
     invoice_uuid: str | None = field(default=None, repr=False)
     icv: str | None = field(default=None, repr=False)
     chain_id: str | None = field(default=None, repr=False)
+    publication_sha256: str | None = field(default=None, repr=False)
+    render_source_sha256: str | None = field(default=None, repr=False)
 
     def __reduce_ex__(self, protocol):
         raise TypeError('native_invoice_artifact_not_serializable')
@@ -80,4 +82,5 @@ def read_native_artifact(doctype, invoice_name, *, runtime, for_publication=Fals
     # display this state; QR presence never makes a rejected document valid.
     return NativeInvoiceArtifact(view.issuance_id, view.state, kind, view.accepted, content, qr,
         hashlib.sha256(content).hexdigest(), hashlib.sha256(qr.encode('ascii')).hexdigest(),
-        *original_clock, view.source_sha256, view.invoice_uuid, view.icv, view.chain_id)
+        *original_clock, view.source_sha256, view.invoice_uuid, view.icv, view.chain_id,
+        view.publication_sha256, view.render_source_sha256)

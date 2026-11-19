@@ -131,10 +131,11 @@ and the original240 comparison91/117/32 are unchanged.
 
 Remaining workstream2 work includes actual initial/cutover activation and complete
 legacy-consumer inventory/drain; four existing-XML admission paths; publication
-compatibility/fiscal projection (first Desk/transient-print adoption is described
-in [NATIVE_PUBLICATION.md](NATIVE_PUBLICATION.md)); explicit unchanged retry and
-corrected-clock adoption; source
-cancel/delete/rename decisions; and whole runtime qualification. Submitted manual
+compatibility/frozen master and print data (first Desk/transient-print adoption
+is described in [NATIVE_PUBLICATION.md](NATIVE_PUBLICATION.md), with authenticated
+collection updates in [PUBLICATION_COLLECTION_STATE.md](PUBLICATION_COLLECTION_STATE.md));
+explicit unchanged retry and corrected-clock adoption; source cancel/delete/rename
+decisions; and whole runtime qualification. Submitted manual
 and scheduled adoption do not close draft-origin handoff: a scheduled/manual ERP
 draft submission still defers through its ordinary submit intent first. The
 existing24-hour discovery horizon and non-durable queue handoff are unchanged;

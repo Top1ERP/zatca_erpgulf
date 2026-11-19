@@ -725,3 +725,38 @@ and synthetic metadata/UBL builder remain explicit fixture inputs, not installed
 ERP or authority acceptance. Source-only live checks retain ba51f258 and recorded
 dirty tooltip/customer-address hashes. No financial expectation/reference change,
 live/schema/service operation, native activation or authority request occurred.
+
+## Generation-time collection-state evidence — 2026-11-19
+
+The blanket post-payment hold above is resolved for newly captured native
+originals by `native-invoice-publication/v1`. It retains all typed source fields
+except identified header collection state, five owned Sales Payment Schedule
+collection columns and the POS consolidation link. Actual ERP15 source and public
+ERP16 code were inspected. The full generation observation remains unchanged.
+
+One optional `publication_ciphertext` is inserted atomically with the original
+and local chain advance. A separate AEAD domain authenticates the exact existing
+artifact header, profile and source/projection digests. Original v1 request
+ciphertext/AAD/header contracts and bytes are unchanged. Missing historical
+evidence keeps the prior full-source comparison; no backfill method exists.
+Corrupt/foreign/unknown evidence fails closed without hiding diagnostic originals.
+
+Current saved fiscal state must match this captured projection. Render JSON then
+matches the whole current saved observation, so it cannot fabricate paid status,
+outstanding balance or child metrics. Exact retained preparation/reservation also
+permits these collection updates, without another build/UUID/ICV/PIH or blind
+unknown retry. Pending/accepted and legacy outcomes keep their separate rules.
+
+The current render comparison also accepts Frappe's verified native-date/time
+versus JSON text representation, without numeric coercion or any change to the
+stored typed generation/fiscal observation. Actual framework JSON and hook tests
+cover this separate print-input boundary; PDF/browser acceptance remains gated.
+
+372 local cases across10 suites pass in3.28s;165 private SQL cases across5 suites
+pass in22.16s; fixed81-suite issuer-binding regression20,751 in120.13s. Logs use
+`/tmp/zatca-axis2-collection-*-final.log`. Sets overlap;229 local/65 private manifest
+was not run in full. Native-shaped SQL source/child doubles exercise payment
+transitions/reversal, pending exact dispatch and POS consolidation references;
+they do not perform genuine ERP posting/closing or prove installed15/16/SDK.
+Financial builders/reference91/117/32 remain unchanged. Full rule and remaining
+publication boundaries: [PUBLICATION_COLLECTION_STATE.md](PUBLICATION_COLLECTION_STATE.md).

@@ -46,8 +46,10 @@ scanning, signature verification or SDK acceptance.
 
 Sales and POS `before_print` reload the saved marker; supplied print JSON cannot
 hide native ownership. Render UUID/ICV/chain must match the very same custody
-view, rather than a source read preceding a version change. Render business data
-must match the retained source observation. Only the transient document receives
+view, rather than a source read preceding a version change. Render data must match
+the whole current saved observation, whose fiscal projection is checked against
+generation-time evidence. Old originals without that evidence keep the full
+original comparison. Only the transient document receives
 `ksa_einv_qr` as a PNG data URI and a receipt-derived accepted status, or `Not
 Submitted`. No source/File save, status/ICV/PIH update, disk write, signing or
 transport occurs. Failure stops native rendering without an old QR fallback.
@@ -69,13 +71,14 @@ latest-version leases. Subsequent downloads recheck the current saved identity.
 
 ## Remaining release blockers
 
-The comparison is conservative, not a finished fiscal projection. Framework
-metadata and issuance outputs are excluded, but ordinary invoice-owned bookkeeping
-changes, including outstanding balance after payment, can currently block preview/
-print. This is not an approved final user experience. An authenticated, versioned
-publication projection must distinguish these changes without weakening fiscal,
-child or advance checks. Existing originals must never be silently relabeled under
-a new observation profile. No monetary expectation was rebaselined.
+The first blanket post-payment hold has been replaced for newly captured native
+originals by a generation-time authenticated collection-state projection. It
+permits only the inspected header/schedule and POS consolidation fields; fiscal
+and unknown fields remain exact. Rendered collection values must still match the
+current saved source. Old originals are never silently relabeled or backfilled.
+The full rule, compatibility boundaries and latest evidence are in
+[PUBLICATION_COLLECTION_STATE.md](PUBLICATION_COLLECTION_STATE.md). No monetary
+expectation was rebaselined.
 
 Also open: frozen seller/buyer/address/print values versus current master reads;
 saved File/link and attachment-sidebar consumers; external integrations bypassing

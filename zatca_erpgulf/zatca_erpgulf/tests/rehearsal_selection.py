@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "publication_source",
     "native_publication",
     "native_delivery",
     "native_provider",
