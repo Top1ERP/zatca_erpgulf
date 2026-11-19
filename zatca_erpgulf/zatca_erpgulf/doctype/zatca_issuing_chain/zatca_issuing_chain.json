@@ -28,7 +28,10 @@
   "onboarding_header",
   "onboarding_ciphertext",
   "onboarding_owner_key",
-  "onboarding_state"
+  "onboarding_state",
+  "onboarding_attempt",
+  "onboarding_compliance_attempt",
+  "onboarding_final_attempt"
  ],
  "fields": [
   {
@@ -114,7 +117,8 @@
    "fieldtype": "Data",
    "label": "Public Key Hash",
    "read_only": 1,
-   "reqd": 1
+   "reqd": 1,
+   "search_index": 1
   },
   {
    "fieldname": "last_icv",
@@ -217,7 +221,34 @@
    "fieldtype": "Select",
    "label": "Onboarding State",
    "read_only": 1,
-   "options": "CSR_READY\nREVIEW_REQUIRED"
+   "options": "CSR_READY\nCCSID_PENDING\nCCSID_RESPONSE\nCCSID_READY\nFINAL_PENDING\nFINAL_RESPONSE\nFINAL_READY\nREVIEW_REQUIRED"
+  },
+  {
+   "fieldname": "onboarding_attempt",
+   "label": "Current Onboarding Attempt",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  },
+  {
+   "fieldname": "onboarding_compliance_attempt",
+   "label": "Admitted Compliance Attempt",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  },
+  {
+   "fieldname": "onboarding_final_attempt",
+   "label": "Admitted Final Attempt",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1
   }
  ],
  "index_web_pages_for_search": 0,

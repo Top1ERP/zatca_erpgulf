@@ -24,7 +24,18 @@ encrypted intent atomically. The existing CSR entry uses this service only with
 the explicit native rollout setting. Saved native owners cannot fall back to
 legacy credential/issuance writers or have protected state overwritten by stale
 ordinary forms. CSR_READY does not authorize issuance, certificate adoption or
-counter genesis. Fenced Compliance/Final-CSID admission is the next integration.
+counter genesis. The fenced initial Compliance/Final-CSID service now reserves
+before transport, retains encrypted responses before material projection and
+recovers committed results without another request. Existing CSID buttons select
+it only for the explicit native rollout/owner marker. FINAL_READY remains inactive
+and cannot issue through legacy generation/transport. Known native key/auth copies
+are also fenced, even when a copied owner has no marker. Registration/activation,
+complete identity inventory and namespace bootstrap remain open.
+The frozen81-suite issuer-binding follow-up passes20,750; focused enrollment
+coverage passes153 local and157 private InnoDB cases. Counts overlap. No runtime
+site/worker/schema operation or authority request occurred; no finance reference
+was changed. Detailed custody/unsupported-profile/activation limits are recorded
+in the runtime design.
 
 Public worker/manual/batch adoption, registration/bootstrap and reviewed legacy
 continuity, File/print/UI publication and source/owner lifecycle guards remain.

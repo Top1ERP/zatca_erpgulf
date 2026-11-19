@@ -1,0 +1,150 @@
+{
+ "actions": [],
+ "autoname": "field:record_id",
+ "creation": "2026-11-19 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "record_id",
+  "chain",
+  "owner_key",
+  "environment",
+  "endpoint",
+  "fence_token",
+  "previous_attempt",
+  "request_sha256",
+  "state",
+  "request_header",
+  "request_ciphertext",
+  "receipt_header",
+  "receipt_ciphertext"
+ ],
+ "fields": [
+  {
+   "fieldname": "record_id",
+   "label": "Record ID",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "chain",
+   "label": "Onboarding Unit",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "owner_key",
+   "label": "Owner and Environment Key",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "environment",
+   "label": "Environment",
+   "fieldtype": "Select",
+   "read_only": 1,
+   "reqd": 1,
+   "options": "Sandbox\nSimulation\nProduction"
+  },
+  {
+   "fieldname": "endpoint",
+   "label": "Onboarding Operation",
+   "fieldtype": "Select",
+   "read_only": 1,
+   "reqd": 1,
+   "options": "compliance\nproduction/csids"
+  },
+  {
+   "fieldname": "fence_token",
+   "label": "Request Fence",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "previous_attempt",
+   "label": "Previous Onboarding Attempt",
+   "fieldtype": "Data",
+   "read_only": 1
+  },
+  {
+   "fieldname": "request_sha256",
+   "label": "Request Body Hash",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "state",
+   "label": "Custody State",
+   "fieldtype": "Select",
+   "read_only": 1,
+   "reqd": 1,
+   "options": "RESERVED\nRESPONSE_RETAINED"
+  },
+  {
+   "fieldname": "request_header",
+   "label": "Request Binding Header",
+   "fieldtype": "Long Text",
+   "read_only": 1,
+   "reqd": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  },
+  {
+   "fieldname": "request_ciphertext",
+   "label": "Request Ciphertext",
+   "fieldtype": "Long Text",
+   "read_only": 1,
+   "reqd": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  },
+  {
+   "fieldname": "receipt_header",
+   "label": "Response Binding Header",
+   "fieldtype": "Long Text",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  },
+  {
+   "fieldname": "receipt_ciphertext",
+   "label": "Response Ciphertext",
+   "fieldtype": "Long Text",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 0,
+ "links": [],
+ "modified": "2026-11-19 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Zatca Erpgulf",
+ "name": "ZATCA Onboarding Attempt",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 0,
+ "allow_import": 0,
+ "allow_rename": 0
+}

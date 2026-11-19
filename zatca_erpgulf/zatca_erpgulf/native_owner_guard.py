@@ -23,7 +23,8 @@ FIELDS = (*PROTECTED_FIELDS,MARKER,'custom_csr_config','custom_pih','custom_zatc
 
 def reject_legacy_owner_credentials(runtime, target):
     from .native_onboarding import NativeOnboardingError, native_onboarding_selected
-    if native_onboarding_selected(runtime,target):
+    from .native_owner_registry import has_registered_native_material
+    if native_onboarding_selected(runtime,target) or has_registered_native_material(runtime,target):
         raise NativeOnboardingError('native_onboarding_service_required')
 
 
@@ -48,6 +49,9 @@ def validate_native_owner(doc, event=None):
         marker = saved.get(MARKER)
         if marker in (None,''):
             failed = doc.get(MARKER) not in (None,'')
+            if not failed and any(doc.get(name) != saved.get(name) for name in PROTECTED_FIELDS):
+                from .native_owner_registry import has_registered_native_material
+                failed = has_registered_native_material(frappe,doc)
         else:
             for name, value in saved.items():
                 candidate = doc.get(name)

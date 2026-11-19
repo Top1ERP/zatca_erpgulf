@@ -47,7 +47,7 @@ def target(boundary,materials,monkeypatch,connections,tables,request):
     runtime.get_roles=lambda actor:['System Manager']
     runtime.has_permission=lambda doctype,operation,*,doc,user,raise_exception=True:True
     columns=tuple(dict.fromkeys((*onboarding.PROTECTED_FIELDS,onboarding.MARKER,'custom_csr_config','custom_pih',
-        'custom_zatca_icv_counter','custom_linked_doctype','custom__use_company_certificate__keys')))
+        'custom_zatca_icv_counter','custom_linked_doctype','custom__use_company_certificate__keys','custom_otp')))
     runtime.get_meta=lambda dt:SimpleNamespace(get_field=lambda name:SimpleNamespace(fieldtype='Data' if name==onboarding.MARKER else 'Long Text'),
         has_field=lambda name:name in columns)
     with connection.cursor() as cursor:
@@ -101,6 +101,23 @@ def test_existing_csr_button_uses_owned_native_preparation_when_enabled(target):
     assert t.database.commits==1
     t.selected.save.assert_not_called()
     t.b.request.assert_not_called()
+    assert inspect.unwrap(client.create_csr)(t.identity,'Production','TC')==encoded
+    assert t.database.commits==1
+
+
+def test_existing_csr_button_preserves_its_safe_error_when_the_commit_acknowledgment_is_lost(target,monkeypatch):
+    t=target;commit=t.database.commit
+    def unknown():
+        commit()
+        raise RuntimeError('PRIVATE-LOST-ACK')
+    with monkeypatch.context() as patch:
+        patch.setattr(t.database,'commit',unknown)
+        with pytest.raises(AssertionError,match='Native ZATCA onboarding could not be confirmed') as failed:
+            inspect.unwrap(client.create_csr)(t.identity,'Production','TC')
+    assert failed.value.__context__ is None
+    saved=t.runtime.get_doc(t.selected.doctype,t.selected.name)
+    assert inspect.unwrap(client.create_csr)(t.identity,'Production','TC')==saved.custom_csr_data
+    assert t.database.commits==1
 
 
 @pytest.mark.parametrize('field',onboarding.PROTECTED_FIELDS)

@@ -98,22 +98,33 @@ def invoke_saved_request(invocation, *, runtime):
     _validate(invocation)
     if (runtime.local.site != invocation.site or runtime.session.user != invocation.actor):
         raise NativeTransportError('native_transport_owner_changed')
+    headers = {
+        'accept': 'application/json', 'accept-language': 'en',
+        'Accept-Version': 'V2', 'Content-Type': 'application/json',
+        'Accept-Encoding': 'identity', 'Authorization': invocation.authorization,
+        'Clearance-Status': '1' if invocation.route.endpoint == ENDPOINTS[1] else '0',
+    }
+    return _exchange(invocation.route.url, invocation.request_bytes, headers)
+
+
+def _exchange(url, body, headers, *, max_response_bytes=None):
+    """Internal bounded entity exchange; public callers validate their own type.
+
+    Invoice and onboarding coordinators have distinct capabilities/routes. This
+    helper shares only mechanical TLS/body handling and grants no dispatch right.
+    """
+    limit = MAX_RESPONSE_BYTES if max_response_bytes is None else max_response_bytes
     adapter = response = None
     failed = None
     invoked = False
     result = None
     try:
-        headers = {
-            'accept': 'application/json', 'accept-language': 'en',
-            'Accept-Version': 'V2', 'Content-Type': 'application/json',
-            'Accept-Encoding': 'identity', 'Authorization': invocation.authorization,
-            'Clearance-Status': '1' if invocation.route.endpoint == ENDPOINTS[1] else '0',
-        }
-        prepared = Request('POST', invocation.route.url, data=invocation.request_bytes, headers=headers).prepare()
-        if (prepared.url != invocation.route.url or prepared.body != invocation.request_bytes
+        prepared = Request('POST', url, data=body, headers=headers).prepare()
+        if (type(limit) is not int or not 0 < limit <= MAX_RESPONSE_BYTES
+                or prepared.url != url or prepared.body != body
                 or set(prepared.headers) != set(headers) | {'Content-Length'}
                 or any(prepared.headers.get(name) != value for name, value in headers.items())
-                or prepared.headers.get('Content-Length') != str(len(invocation.request_bytes))
+                or prepared.headers.get('Content-Length') != str(len(body))
                 or any(prepared.hooks.values())):
             raise ValueError
         # Direct adapter avoids Session's redirect-next construction, which may
@@ -131,7 +142,7 @@ def invoke_saved_request(invocation, *, runtime):
             raise ValueError
         length = response.headers.get('Content-Length')
         if length is not None and (not length.isascii() or not length.isdecimal()
-                or len(length) > 10 or int(length) > MAX_RESPONSE_BYTES):
+                or len(length) > 10 or int(length) > limit):
             raise ValueError
         transfer = response.headers.get('Transfer-Encoding', '').strip().lower()
         if (response.headers.get('Content-Encoding', 'identity').strip().lower() not in ('', 'identity')
@@ -147,13 +158,13 @@ def invoke_saved_request(invocation, *, runtime):
         while True:
             if time.monotonic() > deadline:
                 raise ValueError
-            amount = min(64 * 1024, MAX_RESPONSE_BYTES - len(content) + 1)
+            amount = min(64 * 1024, limit - len(content) + 1)
             chunk = response.raw.read1(amount, decode_content=False)
             if type(chunk) is not bytes or len(chunk) > amount or time.monotonic() > deadline:
                 raise ValueError
             if not chunk:
                 break
-            if len(content) + len(chunk) > MAX_RESPONSE_BYTES:
+            if len(content) + len(chunk) > limit:
                 raise ValueError
             content.extend(chunk)
         if time.monotonic() > deadline or (length is not None and len(content) != int(length)):

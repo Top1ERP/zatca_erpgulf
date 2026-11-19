@@ -302,8 +302,10 @@ UUID/POS metadata/ICV guards, the final HTTP fence and its Compliance caller.
    preserves the opaque chain; automatic credential staging remains deferred1.
    The owned legacy-review staging service below now retains exact reviewed
    positive-counter anchors, including explicit rereview without destroying the
-   older evidence. It creates inactive candidates only. Initial NEW_EGS proof,
-   namespace/bootstrap, legacy-worker draining and activation are still open.
+   older evidence. It creates inactive candidates only. The initial owned CSR
+   and fenced CSID response services below now retain their bound evidence, with
+   FINAL_READY still inactive. Complete unit-identity inventory, namespace/bootstrap,
+   legacy-worker draining and activation are still open.
    No Company/source/schema operation is to be executed on a working site here.
 4. Adopt the coordinator across all six production generators and four existing-
    XML wrappers/manual/batch/worker paths together. Do not activate one path and
@@ -565,3 +567,114 @@ actual SQL rollback/commit loss and changed config/key/CSR/schema/capacity.
 Framework permissions/metadata are explicit doubles, not installed15/16 proof.
 The manifest now declares220 local/61 private suites; it was not run in full.
 No live-site/schema/configuration/service change or authority request occurred.
+
+## Fenced initial CSID requests and receipt recovery — 2026-11-19
+
+`native_enrollment.request_initial_csid` continues the same saved CSR intent for
+`compliance` and then `production/csids`. It requires System Manager, saved owner
+READ+WRITE, Company READ, the native rollout flag and exact current owner/route/
+taxpayer/key/CSR/configuration binding. This is initial enrollment only. It does
+not renew, replace or import unrecorded credentials. A Final request uses the
+admitted encrypted Compliance receipt's exact requestID and auth, with matching
+saved owner fields. The existing environment is retained; Production onboarding
+does not silently switch to Sandbox or invoice reporting/clearance.
+
+The new source-only `ZATCA Onboarding Attempt` controller denies generic edits,
+rename and deletion. Its public flat header contains identities/fingerprints and
+an opaque request fence. Its exact request body contains only CSR or Compliance
+requestID; OTP and HTTP Basic headers are transient and never queued/persisted.
+The raw response can contain the issued secret, so it has a separate AES-GCM
+`onboarding-response` domain with hidden/no-copy/no-print custody. No response or
+secret reaches messages/logs. The existing site encryption key/namespace is used;
+neither is created or rotated. This is retained response custody, not the deferred
+general versioned credential renewal/activation mechanism.
+
+There are three separate owned commits:
+
+1. Reserve the exact request and set a pending pointer before one HTTP invocation.
+2. Retain the exact response before parsing or projecting credentials.
+3. Atomically project validated owner material and the admitted attempt pointer.
+
+An interrupted request or lost reservation acknowledgment is held as pending;
+no lease expiry or automatic new key/request guesses its remote outcome. A lost
+response/admission acknowledgment, projection error or restored original route
+can recover the retained result without sending again. Current head must remain
+inactive, zero/initial hash and free of any issuance/attempt; absence of invoice
+history by itself never activates a unit. The mutable owner and routing source
+are reloaded after crypto/metadata work before SQL projection/reservation.
+
+`onboarding_response` requires an exact bounded JSON response, HTTP200, ISSUED,
+no errors, a canonical requestID, a nonempty printable secret and a recognized
+certificate token encoding. The certificate must be current, secp256k1, match the
+saved CSR public key/taxpayer and the app's DirectoryName surname EGS-serial
+profile. Unknown profiles, duplicate JSON keys, changed unit/VAT/key and malformed
+responses require review. Returned requestID identifies that issuance response;
+Final's ID is not assumed to equal the earlier Compliance ID sent in its body.
+Native projection stores the certificate as canonical Base64 DER; existing
+legacy owners and financial/hash algorithms are unchanged. Device Compliance
+and Final retain the existing purpose-specific field policy.
+
+Only a subsequent explicit service/button call may reserve a new request after
+an authenticated retained HTTP400 with exactly Invalid-OTP (Compliance) or
+Missing-ComplianceSteps (Final). The prior header/ciphertext/response remain
+immutable and the new attempt links its predecessor. Unknown/malformed bodies,
+401,5xx and incomplete responses never authorize this release. The receiving
+invocation does not retry. These are supported endpoint error contracts, not
+claims that local tests completed any authority Compliance steps.
+
+`onboarding_transport` shares only the existing bounded TLS entity exchange.
+Its typed invocation permits onboarding endpoints and their respective OTP or
+Compliance auth only. Invoice `NativeInvocation` keeps its original two endpoint
+restriction. Neither adapter uses ambient Session/netrc/proxy/redirect/retry
+behavior. The shared90s elapsed checks still do not interrupt native DNS/read
+calls or provide a hard wall-clock guarantee. All exchanges in this development
+run were mocked under the offline guard; no authority request was performed.
+
+The existing CSR/CSID buttons now distinguish durable native outcomes from legacy
+in-memory progress flags. Atomic CSR commit loss and retained recovery no longer
+create invalid partial-save progress combinations. Native completion retains the
+legacy success return shape and emits one translated notice that the unit is
+inactive. Native failures have one translated review message; structured success
+metadata stays English and contains no requestID, token or secret. The rollout
+setting is disabled by default. No active installation was changed/enabled here.
+
+`native_owner_registry` closes the ordinary unmarked-copy gap noted in the CSR
+increment. It derives public fingerprints from the supplied saved/application
+key/CSR/certificate/auth projections, then checks the indexed native registry.
+Forms cannot import registered native material into another unmarked owner;
+legacy credential writers, UUID/ICV generation and final Production-purpose
+request selection/transport also hold copied native keys/auth. The marker cannot
+be bypassed by clearing the rollout flag. Default legacy material with no native
+registration keeps its path. Metadata without the marker is inert; after marker
+installation, a registry read failure is review. Invalid legacy aliases do not
+hide another valid copied material field. No privileged raw-SQL sandbox or CA
+trust assertion is made. Unchanged ordinary forms avoid crypto/registry work.
+
+FINAL_READY is deliberately **inactive**. Initial intent plus locally consistent
+returned material is not complete public adoption, authenticated history
+inventory, a new counter genesis authorization, CA path/revocation/SDK acceptance
+or permission to deploy. Serial/identity inventory across owners and legacy
+consumers, reviewed activation/worker fencing, namespace/bootstrap, corrected
+clocks, publication and remaining public paths still belong to workstream2.
+
+The certificate/CSR profile was checked against the official
+[Security Features Implementation Standards v1.2](https://zatca.gov.sa/ar/E-Invoicing/SystemsDevelopers/Documents/20230519_ZATCA_Electronic_Invoice_Security_Features_Implementation_Standards_vF.pdf)
+and response shape against the official
+[Developer Portal User Manual](https://zatca.gov.sa/en/E-Invoicing/SystemsDevelopers/ComplianceEnablementToolbox/Documents/Developer%20Portal%20User%20Manual.pdf).
+Those describe the intended profile/process; synthetic certificates and fixed
+fixtures do not establish CA trust or real-world acceptance of every profile.
+
+Focused evidence:153 local cases across8 suites in0.92s and157 private InnoDB
+cases across5 suites in11.43s. Logs: `/tmp/zatca-axis2-enrollment-local.log` and
+`/tmp/zatca-axis2-enrollment-private.log`. Coverage includes Company/device CSR,
+both buttons, actual SQL reservation visibility, concurrent button exclusion,
+unknown commits at all three stages, local projection/metadata/route failures,
+exact cached recovery, known400 predecessor retention, wrong certificates,
+registry copies and the existing dispatch/cutover pipelines. Manifest224 local/
+62 private suites; the whole manifest was not run. Installed ERP15/16, financial
+parity and authentic complete XML/SDK acceptance retain their separate gates.
+The fixed81-suite issuer-binding regression also passes20,750 in120.68s, logged
+in `/tmp/zatca-axis2-enrollment-regression.log`. These sets overlap; they are not
+additive release totals. Read-only live-source checks retain HEAD ba51f258 and
+the previously recorded tooltip/customer-address hashes and dirty-file state.
+Financial builders and the original240 reference comparison91/117/32 are unchanged.

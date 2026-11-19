@@ -2,9 +2,10 @@
 
 This codec owns neither a database nor permission/dispatch decisions. Record ID,
 site/namespace, payload kind and exact public header bytes form authenticated
-associated data. The service must keep credentials/private keys out of these records and
-validate its fixed header field set. Parse/decrypt at storage boundaries, not on
-every property read.
+associated data. Services validate their fixed public header field sets. Private
+keys never enter these records. Onboarding responses alone may contain issued
+secrets, inside their separate encrypted domain; issuance/receipt records must
+not contain credentials. Parse/decrypt at storage boundaries.
 """
 
 import base64
@@ -22,7 +23,8 @@ import os
 VERSION = 'v1'
 MAX_PAYLOAD_BYTES = 16 * 1024 * 1024
 MAX_HEADER_BYTES = 32 * 1024
-KINDS = frozenset(('artifact', 'receipt', 'chain-registration', 'chain-onboarding'))
+KINDS = frozenset(('artifact', 'receipt', 'chain-registration', 'chain-onboarding',
+                   'onboarding-request', 'onboarding-response'))
 
 
 class DispatchRecordError(RuntimeError):

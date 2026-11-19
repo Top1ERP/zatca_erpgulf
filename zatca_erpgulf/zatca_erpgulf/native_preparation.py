@@ -243,6 +243,13 @@ def reject_legacy_native_preparation(document, runtime):
     native_owner = False
     if current is not None and current.purpose == 'production':
         native_owner = current.owner.values.get('custom_zatca_native_chain') not in (None,'')
+        if not native_owner:
+            from .native_owner_registry import has_registered_native_material
+            from .credential_material import CredentialConfigurationError
+            try:
+                native_owner = has_registered_native_material(runtime,current.owner)
+            except CredentialConfigurationError:
+                raise IssuingAttemptError('native_dispatch_required', transport_started=current.transport_started) from None
     if native_owner or type(marker) is str and marker.startswith('egs:'):
         raise IssuingAttemptError('native_dispatch_required',
             transport_started=bool(current is not None and current.transport_started))

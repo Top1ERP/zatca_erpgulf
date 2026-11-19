@@ -74,6 +74,10 @@ def capture_request_selection(company_abbr, source_doc, endpoint, *, runtime,
         raise  # A replacement error callback returning cannot authorize a request.
     try:
         owner, kind = resolve_owner_record(company, source_doc, load_doc=load_saved)
+        if route.required_credential == 'production' and owner.get('custom_zatca_native_chain') in (None,''):
+            from .native_owner_registry import has_registered_native_material
+            if has_registered_native_material(runtime,owner):
+                raise CredentialConfigurationError('native_owner_registry_review')
         if route.required_credential == 'production' and owner.get('custom_zatca_native_chain') not in (None,''):
             from .issuing_attempt import ACTIVE, IssuingAttemptError
             from .native_preparation import active_preparation

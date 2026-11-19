@@ -893,3 +893,5 @@ Immutable identity recorded by the dispatch service; generic ERP renames must no
 "Native ZATCA settings are owned by their onboarding and issuing services. Reload these settings before saving; changing credentials, issuer identity or chain state requires its reviewed service.",تدير خدمات الربط والإصدار إعدادات زاتكا الجديدة. أعد تحميل الإعدادات قبل الحفظ؛ فتغيير بيانات الاعتماد أو هوية المُصدر أو حالة السلسلة يتطلب الخدمة المخصصة بعد المراجعة.
 This owner has a native ZATCA unit. Rename or deletion requires a reviewed identity and history transition.,يرتبط هذا السجل بوحدة إصدار زاتكا جديدة. تتطلب إعادة تسميته أو حذفه عملية انتقال مُراجعة تحفظ الهوية والسجل التاريخي.
 Native ZATCA Issuing Unit,وحدة إصدار زاتكا الجديدة
+Native ZATCA onboarding could not be confirmed. Reload the saved settings and review the retained attempt before another request; no automatic retry was performed.,تعذر تأكيد خطوة الربط مع زاتكا. أعد تحميل الإعدادات المحفوظة وراجع المحاولة المسجلة قبل تنفيذ طلب آخر؛ لم تتم إعادة المحاولة تلقائيًا.
+The native ZATCA unit remains inactive until its reviewed activation is completed.,تبقى وحدة زاتكا الجديدة غير مفعلة حتى استكمال مراجعة تفعيلها.

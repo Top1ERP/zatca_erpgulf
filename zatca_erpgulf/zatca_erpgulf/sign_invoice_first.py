@@ -160,12 +160,16 @@ def _run_csr_operation(purpose, worker, *args):
     diagnostics may contain private key material. Never retry, restore, commit
     or roll back here. A save returning does not prove durable completion.
     """
+    from .native_onboarding import NativeOnboardingError, PreparedNewUnit, ONBOARDING_REVIEW
     progress = CSRProgress()
     failure = None
     denied = False
     try:
         with mute_operation_messages(frappe):
             result = worker(*args, progress)
+    except NativeOnboardingError:
+        failure = {"status": "ERROR", "purpose": purpose, "code": "NATIVE_ONBOARDING_REVIEW",
+                   "message": ONBOARDING_REVIEW}
     except CSRKeyPreservationError as error:
         failure = csr_local_failure(purpose, progress)
         if not progress.key_save_started:
@@ -183,6 +187,8 @@ def _run_csr_operation(purpose, worker, *args):
             failure["notice"] = access_message
     except Exception:
         failure = csr_local_failure(purpose, progress)
+    if failure is None and type(result) is PreparedNewUnit:
+        return result.csr_data
     if failure is None and not (progress.key_save_completed if purpose == "key" else progress.csr_save_completed):
         failure = csr_local_failure(purpose, progress)
     if failure is not None:
@@ -243,7 +249,7 @@ def _create_csr(zatca_doc, portal_type, company_abbr, progress):
     from .native_onboarding import native_onboarding_selected, prepare_new_unit
     if native_onboarding_selected(frappe,doc):
         return prepare_new_unit(company_abbr,{'doctype':doc.doctype,'name':doc.name},portal_type,
-            runtime=frappe,progress=progress).csr_data
+            runtime=frappe)
     identity = {"doctype": doc.doctype, "name": doc.name}
     # Keep construction in a separate worker so child exceptions reach only the
     # outer owner, never a nested public key helper with its own popup.
@@ -292,16 +298,17 @@ def get_compliance_api_url(company_abbr, base_url="compliance/invoices", environ
     ).url
 
 
-def _csid_creation_success(purpose):
+def _csid_creation_success(purpose, *, native=False):
     """One translated success notice after save; English auth-free JSON result.
 
     Do not pass a response body or certificate to this presentation boundary.
     Preserve the JSON-string return shape used by existing wizard consumers.
     """
     result = csid_creation_result(purpose)
+    notice = "The native ZATCA unit remains inactive until its reviewed activation is completed." if native else ""
     frappe.msgprint({
         "title": _("CSID Generation Result"),
-        "message": _(result["message"]) + "<br>" + _(CSID_FORM_REVIEW),
+        "message": _(result["message"]) + "<br>" + _(CSID_FORM_REVIEW) + ("<br>" + _(notice) if notice else ""),
         "indicator": "green",
     })
     return json.dumps(result, ensure_ascii=False)
@@ -329,12 +336,18 @@ def _run_csid_operation(purpose, operation, *args):
     owned by their caller. Do not stringify/log exceptions or retry after faults.
     Cleanup targets only the progress display, not saved/physical credentials.
     """
+    from .native_onboarding import NativeOnboardingError, ONBOARDING_REVIEW
+    from .native_enrollment import EnrollmentOutcome
     progress = CSIDProgress()
     failure = None
+    result = None
     try:
         try:
             with mute_operation_messages(frappe):
-                operation(progress, *args)
+                result = operation(progress, *args)
+        except NativeOnboardingError:
+            failure = {"status": "ERROR", "purpose": purpose, "code": "NATIVE_ONBOARDING_REVIEW",
+                       "http_status": None, "message": ONBOARDING_REVIEW}
         except CSIDRequestRejected as error:
             failure = error.result
         except CSIDPreservationError as error:
@@ -358,16 +371,18 @@ def _run_csid_operation(purpose, operation, *args):
                 if failure is None:
                     failure = csid_local_failure(purpose, progress)
                 failure = {**failure, "notices": [*failure.get("notices", ()), CSID_PROGRESS_REVIEW]}
-    if failure is None and not progress.save_completed:
+    native = type(result) is EnrollmentOutcome
+    if failure is None and not native and not progress.save_completed:
         failure = csid_local_failure(purpose, progress)
     # No caught raw exception or response is attached to the public failure.
     if failure is not None:
         _raise_csid_failure(failure)
         return None
     try:
-        return _csid_creation_success(purpose)
+        return _csid_creation_success(purpose, native=native)
     except Exception:
-        failure = csid_local_failure(purpose, progress)
+        failure = ({"status": "ERROR", "purpose": purpose, "code": "NATIVE_ONBOARDING_REVIEW",
+                    "http_status": None, "message": ONBOARDING_REVIEW} if native else csid_local_failure(purpose, progress))
     _raise_csid_failure(failure)
 
 
@@ -392,6 +407,11 @@ def _require_csid_preservation(doc):
 def _create_csid(progress, zatca_doc, company_abbr, portal_type):
     """Legacy Compliance writer; no public message, retry or transaction owner."""
     doc = load_credential_write_source(frappe, has_permission, company_abbr, zatca_doc).target
+    from .native_onboarding import native_onboarding_selected
+    if native_onboarding_selected(frappe,doc):
+        from .native_enrollment import request_initial_csid
+        return request_initial_csid(company_abbr,{'doctype':doc.doctype,'name':doc.name},'compliance',
+            runtime=frappe,portal_type=portal_type)
     from .native_owner_guard import reject_legacy_owner_credentials
     reject_legacy_owner_credentials(frappe,doc)
     _require_csid_preservation(doc)
@@ -1414,6 +1434,10 @@ def production_csid(zatca_doc, company_abbr):
 def _production_csid(progress, zatca_doc, company_abbr):
     """Legacy Final-CSID writer, separate from invoice reporting/clearance."""
     doc = load_credential_write_source(frappe, has_permission, company_abbr, zatca_doc).target
+    from .native_onboarding import native_onboarding_selected
+    if native_onboarding_selected(frappe,doc):
+        from .native_enrollment import request_initial_csid
+        return request_initial_csid(company_abbr,{'doctype':doc.doctype,'name':doc.name},'production/csids',runtime=frappe)
     from .native_owner_guard import reject_legacy_owner_credentials
     reject_legacy_owner_credentials(frappe,doc)
     _require_csid_preservation(doc)

@@ -30,6 +30,9 @@ from .credential_material import NATIVE_OWNER_MARKER as MARKER, NATIVE_CREDENTIA
 
 
 MODE = 'zatca_native_dispatch'
+ONBOARDING_REVIEW = 'Native ZATCA onboarding could not be confirmed. Reload the saved settings and review the retained attempt before another request; no automatic retry was performed.'
+WATCHED_OWNER_FIELDS = (*PROTECTED_FIELDS, MARKER, 'custom_csr_config', 'custom_pih',
+    'custom_zatca_icv_counter', 'custom_linked_doctype', 'custom__use_company_certificate__keys')
 INTENT_FIELDS = ('record_id','owner_key','owner_doctype','owner_name','company','environment',
     'seller_tax_id','base_url_sha256','public_key_sha256','csr_sha256','configuration_sha256',
     'csr_serial','created_by','created_at_utc')
@@ -138,7 +141,7 @@ def _columns(runtime, database, doctype, values):
             raise NativeOnboardingError('native_onboarding_owner_capacity')
 
 
-def _verify_saved_material(target, header, csr):
+def _verify_saved_csr(target, header, csr):
     """A retry reads its existing key/CSR; it cannot create a replacement key."""
     invalid = False
     try:
@@ -149,18 +152,39 @@ def _verify_saved_material(target, header, csr):
                 or target.get('custom_csr_data') != base64.b64encode(csr).decode()
                 or hashlib.sha256(target.get('custom_csr_config').encode()).hexdigest() != header['configuration_sha256']):
             raise ValueError
-        if (any(target.get(name) not in (None,'') for name in PROTECTED_FIELDS
-                if name not in ('custom_private_key','custom_csr_data'))
-                or target.get('custom_pih') not in (None,'',INITIAL_PREVIOUS_HASH)
-                or target.get('custom_zatca_icv_counter')):
-            raise ValueError
     except Exception:
         invalid = True
     if invalid:
         raise NativeOnboardingError('native_onboarding_saved_material_review')
 
 
-def prepare_new_unit(company_abbr, supplied, portal_type, *, runtime, progress=None):
+def _verify_saved_material(target, header, csr):
+    _verify_saved_csr(target, header, csr)
+    if (any(target.get(name) not in (None,'') for name in PROTECTED_FIELDS
+            if name not in ('custom_private_key','custom_csr_data'))
+            or target.get('custom_pih') not in (None,'',INITIAL_PREVIOUS_HASH)
+            or target.get('custom_zatca_icv_counter')):
+        raise NativeOnboardingError('native_onboarding_saved_material_review')
+
+
+def _load_initial_owner(runtime, owner, company_abbr, supplied, portal_type=None):
+    """Lock/authorize the same saved owner for CSR and both initial CSID steps."""
+    if 'System Manager' not in runtime.get_roles(owner.actor):
+        raise NativeOnboardingError('native_onboarding_manager_required')
+    loaded = load_credential_write_source(runtime,runtime.has_permission,company_abbr,supplied)
+    company = _saved(runtime,'Company',loaded.company.name,owner.actor)
+    target = _saved(runtime,loaded.target.doctype,loaded.target.name,owner.actor,write=True)
+    selected,_kind = _resolve_owner_record_from_saved_company(company,target,
+        load_doc=lambda dt,name:_saved(runtime,dt,name,owner.actor))
+    if (selected.doctype,selected.name) != (target.doctype,target.name):
+        raise NativeOnboardingError('native_onboarding_shared_owner')
+    route = resolve_api_route(vars(company) if not hasattr(company,'as_dict') else company.as_dict(), 'compliance')
+    if portal_type is not None and portal_type != route.environment:
+        raise NativeOnboardingError('native_onboarding_environment')
+    return company, target, route
+
+
+def prepare_new_unit(company_abbr, supplied, portal_type, *, runtime):
     """Own initial key/CSR/intent persistence with no HTTP or invoice required.
 
     Requires the explicit site rollout setting, installed metadata/storage and
@@ -168,27 +192,18 @@ def prepare_new_unit(company_abbr, supplied, portal_type, *, runtime, progress=N
     silently adopted. The initial certificate workflow must complete separately.
     """
     try:
-        return _prepare_new_unit(company_abbr,supplied,portal_type,runtime=runtime,progress=progress)
+        return _prepare_new_unit(company_abbr,supplied,portal_type,runtime=runtime)
     except Exception as error:
         code = error.code if isinstance(error,NativeOnboardingError) else 'native_onboarding_preparation_review'
         uncertain = getattr(error,'commit_uncertain',False) is True
     raise NativeOnboardingError(code,commit_uncertain=uncertain)
 
 
-def _prepare_new_unit(company_abbr, supplied, portal_type, *, runtime, progress):
+def _prepare_new_unit(company_abbr, supplied, portal_type, *, runtime):
     if not native_mode_enabled(runtime):
         raise NativeOnboardingError('native_onboarding_disabled')
     with owned_worker_transaction(runtime) as owner:
-        if 'System Manager' not in runtime.get_roles(owner.actor):
-            raise NativeOnboardingError('native_onboarding_manager_required')
-        loaded = load_credential_write_source(runtime,runtime.has_permission,company_abbr,supplied)
-        company = _saved(runtime,'Company',loaded.company.name,owner.actor)
-        target = _saved(runtime,loaded.target.doctype,loaded.target.name,owner.actor,write=True)
-        selected,_kind = _resolve_owner_record_from_saved_company(company,target,
-            load_doc=lambda dt,name:_saved(runtime,dt,name,owner.actor))
-        if (selected.doctype,selected.name) != (target.doctype,target.name):
-            raise NativeOnboardingError('native_onboarding_shared_owner')
-        route = resolve_api_route(vars(company) if not hasattr(company,'as_dict') else company.as_dict(), 'compliance')
+        company,target,route = _load_initial_owner(runtime,owner,company_abbr,supplied,portal_type)
         if portal_type != route.environment:
             raise NativeOnboardingError('native_onboarding_environment')
         configuration = target.get('custom_csr_config')
@@ -207,16 +222,12 @@ def _prepare_new_unit(company_abbr, supplied, portal_type, *, runtime, progress)
             if header['environment'] != route.environment or header['base_url_sha256'] != hashlib.sha256(base.encode()).hexdigest():
                 raise NativeOnboardingError('native_onboarding_route_review')
             _verify_saved_material(target,header,csr)
-            if progress is not None:
-                progress.key_save_completed = progress.csr_save_completed = True
             return PreparedNewUnit(marker,base64.b64encode(csr).decode(),True)
         if any(target.get(name) not in (None,'') for name in PROTECTED_FIELDS):
             raise NativeOnboardingError('native_onboarding_existing_material_review')
         if target.get('custom_pih') not in (None,'',INITIAL_PREVIOUS_HASH) or target.get('custom_zatca_icv_counter'):
             raise NativeOnboardingError('native_onboarding_existing_history_review')
-        watched = (*PROTECTED_FIELDS,MARKER,'custom_csr_config','custom_pih','custom_zatca_icv_counter',
-            'custom_linked_doctype','custom__use_company_certificate__keys')
-        source_values = {name:target.get(name) for name in watched}
+        source_values = {name:target.get(name) for name in WATCHED_OWNER_FIELDS}
         # Validate structure before acquiring a fresh key; never inherit a key
         # whose preparation history is unknown or rewrite the saved CSR config.
         builder = csr_builder(values,encode_customoid(CSR_LABELS[route.environment]))
@@ -242,12 +253,8 @@ def _prepare_new_unit(company_abbr, supplied, portal_type, *, runtime, progress)
             configuration_sha256=hashlib.sha256(configuration.encode()).hexdigest(),
             csr_serial=values['csr.serial.number'],created_by=owner.actor,created_at_utc=owner.utc_now().strftime('%Y-%m-%dT%H:%M:%S.%f'))
         repository.stage_onboarding_intent(header,csr)
-        if progress is not None:
-            progress.key_save_started = progress.csr_save_started = True
         owner.database.sql('UPDATE '+OWNER_TABLES[target.doctype]+' SET '+','.join('`'+name+'`=%s' for name in writes)+
             ' WHERE name=%s',(*writes.values(),target.name))
         _changed_once(owner.database)
         owner.commit()
-        if progress is not None:
-            progress.key_save_completed = progress.csr_save_completed = True
         return PreparedNewUnit(record_id,writes['custom_csr_data'],False)
