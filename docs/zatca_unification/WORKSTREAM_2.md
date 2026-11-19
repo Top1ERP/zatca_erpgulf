@@ -85,3 +85,10 @@ The same review now checks canonical older saved UUIDs and duplicate ICV/UUID
 slots within and between Sales/POS, using current locking aggregates/joins so an
 older ORM snapshot cannot hide a newly committed duplicate. Gaps are not a zero
 seed or a reason to renumber. Full XML/PIH/rotated-consumer history remains open.
+
+Known owner/delegate/declared-unit consumer closure and a permission-checked,
+current locked counter catalog are now adopted in that inactive review. Another
+known Production counter holds without maximum/zero inference. Captured issuer
+records are also compared with current locking reads before material admission.
+This is not full unattributed history, drain or activation:
+[NATIVE_LEGACY_CONSUMERS.md](NATIVE_LEGACY_CONSUMERS.md).

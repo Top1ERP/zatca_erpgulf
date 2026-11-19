@@ -827,3 +827,23 @@ review tests commit duplicates after its initial ORM read view and require their
 detection; no plain consistent snapshot is used as a census. Noncontiguous legacy
 positions retain the exact reviewed counter. No all-history cryptographic proof,
 new persistent census/activation envelope, renumbering or authority call follows.
+
+## Known consumer closure and current issuer/counter observations
+
+Inactive legacy review now traverses saved public-key/declared-unit relations and
+explicit Company-key delegates, then reads the full bounded saved counter catalog
+with ordinary READ ACL and current shared PRIMARY range locks. Current legacy
+logical aliases and saved pointers expose known fragments; another Production
+counter holds even when inactive/zero. Compliance/Debug purposes remain separate;
+unattributed history is not a no-history proof. Owner inventory's nonpersisted
+digest is now v2; artifact/registration/onboarding cipher envelopes are unchanged.
+
+The review compares captured credential/routing projections, including delegate
+flags and schema presence, with current locking ORM reads before material
+admission. This closes a demonstrated older-read-view window where a token,
+environment or flag could change underneath a captured issuer. Source flags,
+ordinary generation, money/XML/signature logic and chain activation are unchanged.
+The actual review/private fixture matrix now uses independent fresh test keys and
+persisted mutation rows; it must not hide real cross-case copied-key conflicts.
+See [NATIVE_LEGACY_CONSUMERS.md](NATIVE_LEGACY_CONSUMERS.md) for coverage and the
+still-open full historical/installed/drain/activation gates.

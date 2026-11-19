@@ -82,12 +82,17 @@ field/envelope is persisted; exact review recovery reruns these current checks.
 
 This is a saved-source contradiction check, not full history reconstruction. It
 does not verify every earlier XML/PIH link or cross-unit UUID history, discover unitless/deleted sources,
-attribute rotated legacy tokens, scan unattached XML, prove remote acceptance or
+attribute all rotated legacy tokens, scan unattached XML, prove remote acceptance or
 exclude old/external workers. Full identity/counter/source/File consumer coverage,
 old-worker drain and authenticated atomic activation remain open. Existing review
 envelopes/cipher domains were not changed, and no new persistent census proof is
 claimed. Every explicit review/recovery reruns this check; future activation must
 revalidate under its own fresh cutover locks rather than trust an older review.
+
+Known copied/delegated/declared-unit consumers and their counter aliases/pointers
+now have an additional current catalog check:
+[NATIVE_LEGACY_CONSUMERS.md](NATIVE_LEGACY_CONSUMERS.md). Unattributed history and
+the broader cutover/drain requirements remain open.
 
 ## Offline evidence
 

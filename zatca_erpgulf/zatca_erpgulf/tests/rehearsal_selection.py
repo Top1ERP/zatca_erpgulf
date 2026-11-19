@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "native_legacy_consumers",
     "native_legacy_tail",
     "native_identity_inventory",
     "native_existing_xml",
@@ -197,6 +198,7 @@ LOCAL_SUITES = (
     "zatca_response", "compatibility_hardening",
 )
 PRIVATE_SUITES = (
+    "native_legacy_consumers_mariadb",
     "native_legacy_tail_mariadb",
     "native_identity_inventory_mariadb",
     "native_existing_xml_mariadb",

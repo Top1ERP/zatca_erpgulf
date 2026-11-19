@@ -43,7 +43,9 @@ owner READ+WRITE, Company READ and System Manager requirements.
 
 The immutable, non-queue inventory contains owner references, public-key and
 declared-unit fingerprints, routing/delegation observations, unparsed field names
-and a material/history-presence flag. No raw key, certificate, authorization or
+and a material/history-presence flag. Its v2 observation also contains the exact
+legacy logical unit hash and saved counter reference for known-consumer discovery.
+The old token/name hash is not a stable native EGS identity. No raw key, certificate, authorization or
 CSR configuration is returned. Material has a bounded per-owner byte budget.
 The digest describes identity observations; it is not a saved-material epoch,
 private credential digest, complete-history proof or activation approval.
@@ -60,6 +62,11 @@ consumer inventory, evidence of drained old dispatchers, authenticated activatio
 evidence and atomic transition. This service neither retires counters nor changes
 PIH/ICV, imports historical XML, sends an onboarding request or activates a chain.
 Unknown external software/fleets cannot be excluded by a local owner-table scan.
+
+The actual inactive legacy review now uses this owner inventory to discover
+known copied/delegated/declared-unit consumers and contradictory saved counters:
+[NATIVE_LEGACY_CONSUMERS.md](NATIVE_LEGACY_CONSUMERS.md). It still cannot turn an
+empty known match into complete historical coverage, drain or activation evidence.
 
 ## Offline qualification
 

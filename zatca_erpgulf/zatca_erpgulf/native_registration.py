@@ -24,6 +24,8 @@ from .native_dispatch import NativeDispatchError, SOURCE_TABLES, owner_key, _req
 from .native_preparation import source_observation_sha256
 from .native_legacy_tail import require_unambiguous_saved_tail
 from .native_identity_inventory import IdentityInventoryError
+from .native_legacy_consumers import require_single_legacy_counter
+from .issuing_observation import freeze_native_value
 from .permission_compat import PermissionCompatibilityError, saved_row_has_permission
 from .worker_transaction import WorkerTransactionError, owned_worker_transaction
 
@@ -63,6 +65,25 @@ def _icv(value):
     text = str(value)
     _counter(text)
     return text
+
+
+def _require_current_issuer_records(runtime, owner, scope):
+    """Compare captured issuer projections to current locking ORM reads.
+
+    A prior invoice SELECT may have opened an older REPEATABLE-READ view. The
+    scope's ordinary drift observations alone cannot upgrade that view. Include
+    a delegated device's link/flag as well as the actual signing owner and route.
+    """
+    for (doctype, name), observed in scope.records.items():
+        if doctype not in ('Company', 'ZATCA Multiple Setting'):
+            raise ChainRegistrationError('registration_issuer_snapshot_changed')
+        current = _saved(runtime,doctype,name,owner.actor)
+        has_field = getattr(getattr(current,'meta',None),'has_field',None)
+        present = frozenset(field for field in observed.values if (
+            has_field(field) if callable(has_field) else hasattr(current,field)))
+        if (present != observed.fields_present or any(freeze_native_value(current.get(field)) !=
+                freeze_native_value(value) for field,value in observed.values.items())):
+            raise ChainRegistrationError('registration_issuer_snapshot_changed')
 
 
 def _legacy_anchor(runtime, owner, source, counter_name):
@@ -147,6 +168,7 @@ def _review_legacy_registration(doctype, invoice_name, counter_name, file_id, *,
                 translate=translate,invoice_doc=source) as scope:
             scope.require_production_configuration()
             selected = _saved(runtime,scope.owner.doctype,scope.owner.name,owner.actor,write=True)
+            _require_current_issuer_records(runtime,owner,scope)
             material = scope.signing_material()
             source, unit, value = _legacy_anchor(runtime,owner,source,counter_name)
             scope.bind_prepared_invoice(source)
@@ -166,6 +188,7 @@ def _review_legacy_registration(doctype, invoice_name, counter_name, file_id, *,
             if (certificate.der_sha256,certificate.public_key_sha256) != (
                     material.certificate_der_sha256,material.public_key_sha256):
                 raise ChainRegistrationError('registration_certificate_review')
+            require_single_legacy_counter(runtime,owner,selected,material.public_key_sha256,unit,counter_name)
             scope.confirm_current()
             payload = encode_registration_payload(xml,reason)
             route = material.route

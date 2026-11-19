@@ -67,6 +67,16 @@ current locking aggregates/joins, including duplicates below the tail. This is
 not complete XML/PIH/rotated-consumer history or proof of drained workers. See
 [NATIVE_LEGACY_TAIL.md](NATIVE_LEGACY_TAIL.md).
 
+The same inactive review now inventories known copied-key/declared-unit owners
+and Company-key delegates transitively, plus the current saved counter catalog
+under normal READ ACL and shared range locks. Another known Production-purpose
+counter holds without a maximum/zero inference; test-purpose rows stay separate.
+Saved pointers expose known retired logical token aliases. Captured issuer/
+routing records are checked against current locking ORM reads before material
+admission, covering demonstrated token/environment/delegate-flag drift under an
+older read view. No unattributed history, drained-fleet or activation proof is
+inferred. See [NATIVE_LEGACY_CONSUMERS.md](NATIVE_LEGACY_CONSUMERS.md).
+
 Latest XML qualification:691 local cases across6 suites in4.72s,138 private SQL
 cases across4 suites in21.63s, and20,751 across the fixed81 issuer-binding suites
 in114.45s. The earlier100 synthetic UI cases remain
@@ -103,6 +113,17 @@ private SQL cases across2 suites in10.50s. Logs:
 The above fixed81 result belongs to d3ee480; it was not rerun for this targeted
 administrative extension. Manifest232 local/68 private suites was not run in full.
 Full canonical/runtime, installed15/16 and authentic SDK acceptance remain open.
+
+Latest known-consumer qualification:224 local cases across7 suites in1.66s,
+224 private SQL cases across6 suites in34.50s, and20,751 across the fixed81
+issuer-binding suites in112.15s. Sets overlap. Logs:
+`/tmp/zatca-axis2-consumers-local-final.log`,
+`/tmp/zatca-axis2-consumers-private-final.log`,
+`/tmp/zatca-axis2-consumers-regression-final.log`.
+Manifest233 local/69 private suites was not run in full. These are private
+framework/SQL/crypto fixtures; no installed ERP, live state, actual authority
+acceptance, complete historical census or cutover/drain/activation is claimed.
+The original financial comparison remains91/117/32; no reference was changed.
 
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; frozen print/master information

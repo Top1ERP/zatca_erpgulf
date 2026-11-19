@@ -48,6 +48,8 @@ class OwnerIdentity:
     declared_units: tuple
     unparsed_fields: tuple
     has_material_or_history: bool
+    legacy_unit: str = ''
+    counter_reference: str | None = None
 
 
 @dataclass(frozen=True, repr=False)
@@ -88,6 +90,22 @@ def _material(record, environments):
         if not parsed:
             unparsed.append(name)
     return tuple(sorted(keys)), tuple(sorted(units)), tuple(unparsed)
+
+
+def _legacy_unit(record):
+    """Observe the old Production-purpose allocator's exact token/name hash.
+
+    This is a logical legacy counter alias, NOT a stable native EGS identity.
+    Keep saved-token whitespace/encoding and the device's old own-field rule;
+    even company-key delegates historically used a setting counter alias.
+    """
+    if record.doctype == 'Company':
+        value = record.get('custom_basic_auth_from_production') or record.name
+        prefix = 'company:'
+    else:
+        value = record.get('custom_final_auth_csid') or record.get('custom_basic_auth_from_csid') or record.name
+        prefix = 'setting:'
+    return prefix + hashlib.sha256(value.encode()).hexdigest()[:24]
 
 
 def require_range_isolation(owner):
@@ -174,14 +192,16 @@ def collect_identity_inventory(runtime, owner):
                 if field != 'custom_csr_config') or record.get(NATIVE_OWNER_MARKER) not in (None, '')
                 or record.get('custom_zatca_icv_counter') not in (None, '')
                 or record.get('custom_pih') not in (None, '', INITIAL_PREVIOUS_HASH))
+            counter = record.get('custom_zatca_icv_counter')
+            counter = None if counter in (None, '') else saved_form_name(counter)
             observations.append(OwnerIdentity(doctype, name, environment, linked, delegates, keys, units,
-                unparsed, has_material_or_history))
+                unparsed, has_material_or_history, _legacy_unit(record), counter))
         _owned(owner)
         encoded = json.dumps([[row.doctype, row.name, row.environment, row.linked_company,
             row.delegates_to_company, row.public_keys, row.declared_units, row.unparsed_fields,
-            row.has_material_or_history]
+            row.has_material_or_history, row.legacy_unit, row.counter_reference]
             for row in observations], ensure_ascii=False, separators=(',', ':')).encode()
-        return IdentityInventory(tuple(observations), hashlib.sha256(b'zatca-owner-inventory/v1\0' + encoded).hexdigest())
+        return IdentityInventory(tuple(observations), hashlib.sha256(b'zatca-owner-inventory/v2\0' + encoded).hexdigest())
     except IdentityInventoryError as error:
         code = error.code
     except Exception:

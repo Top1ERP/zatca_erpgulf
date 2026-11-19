@@ -202,6 +202,34 @@ def test_v16_acl_signature_is_quiet_without_a_typeerror_retry(case):
     assert len(calls) == 3 and all(call[-1] is False for call in calls)
 
 
+@pytest.mark.parametrize('kind,final,compliance,production', [
+    ('Company', None, None, None), ('Company', None, 'IGNORED-CHECK', 'PROD'),
+    ('Company', None, None, ' PROD '), ('ZATCA Multiple Setting', None, None, None),
+    ('ZATCA Multiple Setting', None, 'CHECK', None), ('ZATCA Multiple Setting', 'FINAL', 'CHECK', 'IGNORED')])
+def test_reported_legacy_alias_matches_the_actual_old_allocator_reader(monkeypatch, kind, final, compliance, production):
+    from zatca_erpgulf.zatca_erpgulf import icv
+    company = Document(doctype='Company', name='ROOT', custom_basic_auth_from_production=production)
+    setting = Document(doctype='ZATCA Multiple Setting', name='DEVICE', custom_final_auth_csid=final,
+        custom_basic_auth_from_csid=compliance)
+    source = Document(doctype='Sales Invoice', name='SOURCE', company='ROOT',
+        custom_zatca_pos_name=None if kind == 'Company' else 'DEVICE')
+    docs = {('Company', 'ROOT'): company, ('ZATCA Multiple Setting', 'DEVICE'): setting}
+    runtime = SimpleNamespace(get_doc=lambda dt, name: docs[dt, name])
+    monkeypatch.setattr(icv, 'frappe', runtime)
+    selected = company if kind == 'Company' else setting
+    assert inventory._legacy_unit(selected) == icv._issuing_unit(source, 'Production')
+
+
+def test_public_inventory_v2_retains_counter_reference_and_changes_when_that_reference_changes(case):
+    c = case
+    c.company.custom_zatca_icv_counter = 'COUNTER-OLD'
+    before = inventory.collect_identity_inventory(c.runtime, c.owner)
+    assert before.declaring(c.identity)[0].counter_reference == 'COUNTER-OLD'
+    c.company.custom_zatca_icv_counter = 'COUNTER-CURRENT'
+    after = inventory.collect_identity_inventory(c.runtime, c.owner)
+    assert before.sha256 != after.sha256
+
+
 @pytest.mark.parametrize('fault', ['READ-COMMITTED', 'READ-UNCOMMITTED', 'missing_isolation',
     'engine', 'missing_table', 'stale_orm'])
 def test_range_lock_assumptions_and_current_read_binding_are_required(case, fault):

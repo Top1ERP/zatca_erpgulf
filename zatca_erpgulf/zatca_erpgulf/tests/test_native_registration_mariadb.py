@@ -18,7 +18,8 @@ from zatca_erpgulf.zatca_erpgulf.invoice_xml_core import INITIAL_PREVIOUS_HASH
 from zatca_erpgulf.zatca_erpgulf.issuing_attempt import issuing_attempt
 from zatca_erpgulf.zatca_erpgulf.native_preparation import native_preparation, PreparedRequestHandoff
 from zatca_erpgulf.zatca_erpgulf.tests.test_credential_selection import Document
-from zatca_erpgulf.zatca_erpgulf.tests.test_issuing_attempt import boundary, materials, setup
+from zatca_erpgulf.zatca_erpgulf.tests.test_issuing_attempt import boundary, materials, setup, materials as fresh_materials
+from zatca_erpgulf.zatca_erpgulf.native_identity_inventory import OBSERVED_FIELDS
 from zatca_erpgulf.zatca_erpgulf.tests.test_native_dispatch import signed_build
 from zatca_erpgulf.zatca_erpgulf.tests.test_native_preparation import registration as chain_values
 from zatca_erpgulf.zatca_erpgulf.tests.test_native_owned_pipeline_mariadb import OwnedDatabase, Runtime
@@ -33,6 +34,11 @@ REASON='Reviewed last generated original and counter; pending cutover acceptance
 @pytest.fixture
 def legacy(boundary,materials,monkeypatch,connections,tables,tmp_path,request):
     b=boundary
+    # Each case represents independent units. Reusing module keys across saved
+    # owner rows would be an actual alias/counter conflict, not independent data.
+    materials=fresh_materials.__wrapped__()
+    for doc,material in zip((b.company,b.linked,b.device),materials):
+        doc.custom_certificate=material.text;doc.custom_private_key=material.pem
     parameters=getattr(request,'param',('company',0))
     kind,index=parameters[:2]
     value=parameters[2] if len(parameters)>2 else '27'
@@ -88,7 +94,8 @@ def legacy(boundary,materials,monkeypatch,connections,tables,tmp_path,request):
     with connection.cursor() as cursor:
         cursor.execute('CREATE TABLE IF NOT EXISTS `tabSingles` (`doctype` VARCHAR(140),`field` VARCHAR(140),`value` LONGTEXT,PRIMARY KEY(doctype,field)) ENGINE=InnoDB')
         cursor.executemany('INSERT IGNORE INTO `tabSingles` VALUES (%s,%s,%s)',control_rows(NAMESPACE))
-        columns={'Company':{'custom_pih':'VARCHAR(140)'},'ZATCA Multiple Setting':{'custom_pih':'VARCHAR(140)'},
+        columns={'Company':{key:'LONGTEXT' for key in OBSERVED_FIELDS},
+            'ZATCA Multiple Setting':{key:'LONGTEXT' for key in OBSERVED_FIELDS},
             'Sales Invoice':{'company':'VARCHAR(140)','docstatus':'INT','custom_uuid':'VARCHAR(140)',
                 'custom_zatca_icv':'VARCHAR(140)','custom_zatca_issuing_unit':'VARCHAR(140)'},
             'File':{key:('INT' if key=='is_private' else 'VARCHAR(140)') for key in (
@@ -109,7 +116,8 @@ def legacy(boundary,materials,monkeypatch,connections,tables,tmp_path,request):
             assert name=={'abbr':'TC'};name=b.company.name
         suffix=' FOR UPDATE NOWAIT' if kwargs.get('for_update') else ''
         row=runtime.db.sql('SELECT * FROM `tab'+doctype+'` WHERE name=%s'+suffix,(name,),as_dict=True)[0]
-        return Document(**(vars(prototypes[doctype,name])|dict(row)))
+        prototype=prototypes.get((doctype,name))
+        return Document(**((vars(prototype) if prototype is not None else {'doctype':doctype})|dict(row)))
     runtime.get_doc=saved
     def change(document,key,value):
         setattr(document,key,value)
@@ -125,7 +133,7 @@ def legacy(boundary,materials,monkeypatch,connections,tables,tmp_path,request):
             **options)
     return SimpleNamespace(b=b,runtime=runtime,database=database,source=source,selected=selected,counter=counter,
         file_doc=file_doc,path=path,xml=xml,review=review,connection=connection,connections=connections,change=change,
-        prototypes=prototypes)
+        prototypes=prototypes,materials=materials)
 
 
 @pytest.mark.parametrize('legacy',[(kind,index,'27',source_kind,validation_type)
@@ -166,7 +174,7 @@ def test_missing_or_inconsistent_evidence_never_falls_back_to_genesis(legacy,fau
     elif fault=='public_file':t.change(t.file_doc,'is_private',0)
     elif fault=='foreign_file':t.change(t.file_doc,'attached_to_name','ANOTHER')
     elif fault=='draft':t.change(t.source,'docstatus',0)
-    else:t.selected.custom_zatca_icv_counter='ANOTHER'
+    else:t.change(t.selected,'custom_zatca_icv_counter','ANOTHER')
     with pytest.raises(registration.ChainRegistrationError) as failed:
         t.review()
     codes={'role':'registration_manager_required','owner_write':'registration_source_permission',
@@ -290,10 +298,10 @@ def test_a_new_reason_or_fingerprint_does_not_overwrite_an_existing_review(legac
 
 def test_current_credential_rotation_does_not_silently_adopt_an_old_certificate(legacy,materials):
     t=legacy;material=materials[1]
-    t.selected.custom_certificate=material.text;t.selected.custom_private_key=material.pem
+    t.change(t.selected,'custom_certificate',material.text);t.change(t.selected,'custom_private_key',material.pem)
     token=base64.b64encode(material.text.encode())
     field='custom_final_auth_csid' if t.selected.doctype=='ZATCA Multiple Setting' else 'custom_basic_auth_from_production'
-    setattr(t.selected,field,base64.b64encode(token+b':TEST-ONLY-SECRET').decode())
+    t.change(t.selected,field,base64.b64encode(token+b':TEST-ONLY-SECRET').decode())
     with pytest.raises(registration.ChainRegistrationError,match='registration_certificate_review'):
         t.review()
     assert t.database.commits==0
@@ -365,7 +373,7 @@ def test_a_later_generated_invoice_requires_a_new_explicit_review(legacy,materia
         cursor.execute('INSERT INTO `tabSales Invoice` (name,company,docstatus,custom_uuid,custom_zatca_icv,custom_zatca_issuing_unit) '
             'VALUES (%s,%s,1,%s,%s,%s)',(next_source.name,next_source.company,next_source.custom_uuid,'28',next_source.custom_zatca_issuing_unit))
     t.connection.commit()
-    chain=chain_values(t.b,t.selected,materials[0])
+    chain=chain_values(t.b,t.selected,t.materials[0])
     chain.update(last_icv='27',previous_hash=t.selected.custom_pih)
     t.b.frappe=t.runtime
     with pytest.raises(PreparedRequestHandoff) as ready:
