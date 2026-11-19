@@ -895,3 +895,4 @@ This owner has a native ZATCA unit. Rename or deletion requires a reviewed ident
 Native ZATCA Issuing Unit,وحدة إصدار زاتكا الجديدة
 Native ZATCA onboarding could not be confirmed. Reload the saved settings and review the retained attempt before another request; no automatic retry was performed.,تعذر تأكيد خطوة الربط مع زاتكا. أعد تحميل الإعدادات المحفوظة وراجع المحاولة المسجلة قبل تنفيذ طلب آخر؛ لم تتم إعادة المحاولة تلقائيًا.
 The native ZATCA unit remains inactive until its reviewed activation is completed.,تبقى وحدة زاتكا الجديدة غير مفعلة حتى استكمال مراجعة تفعيلها.
+The native ZATCA invoice operation needs review. Check its saved issuance and response before retrying; no automatic replacement was performed.,تحتاج عملية فاتورة زاتكا إلى مراجعة. تحقق من سجل الإصدار والرد المحفوظ قبل إعادة المحاولة؛ لم تُستبدل الفاتورة تلقائيًا.

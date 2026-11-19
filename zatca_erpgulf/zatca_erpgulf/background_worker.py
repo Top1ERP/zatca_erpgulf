@@ -10,6 +10,7 @@ import frappe
 from .deferred_submission import is_invoice_submission_deferred
 from .existing_xml_submission import ExistingXmlSubmissionError
 from .issuing_attempt import IssuingAttemptError
+from .native_provider import process_native_saved_source
 from frappe.utils import add_to_date, cint, now_datetime
 
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
@@ -90,7 +91,9 @@ not provide a cross-worker lock or make remote submissions transactional.
                         if commit_per_invoice:
                             frappe.db.commit()
                         continue
-                submit_callback(invoice, bypass_background_check=True)
+                native=process_native_saved_source(invoice,runtime=frappe,translate=getattr(frappe,'_',lambda text:text),intent='scheduled')
+                if native is None:
+                    submit_callback(invoice, bypass_background_check=True)
                 if commit_per_invoice:
                     frappe.db.commit()
             except (ExistingXmlSubmissionError, IssuingAttemptError) as error:

@@ -628,6 +628,11 @@ def zatca_call(
         )
     if maybe_defer_invoice_submission('POS Invoice', invoice_number, runtime=frappe, translate=_):
         return
+    from .native_provider import maybe_process_native_invoice
+    native = maybe_process_native_invoice('POS Invoice', invoice_number, runtime=frappe, translate=_,
+        build=lambda locked: zatca_call(locked.name))
+    if native is not None:
+        return native
     try:
 
         if not frappe.db.exists("POS Invoice", invoice_number):
@@ -1510,6 +1515,11 @@ def resubmit_invoices_pos(invoice_numbers, bypass_background_check=False):
             if (
                 pos_invoice_doc.docstatus == 1
             ):  # Check if the invoice is already submitted
+                from .native_provider import process_native_saved_source
+                native=process_native_saved_source(pos_invoice_doc,runtime=frappe,translate=_,intent='manual')
+                if native is not None:
+                    results[invoice_number]=native
+                    continue
                 # Call the zatca_background_on_submit function
                 zatca_background_on_submit(
                     pos_invoice_doc, bypass_background_check=True
@@ -1517,7 +1527,7 @@ def resubmit_invoices_pos(invoice_numbers, bypass_background_check=False):
 
             # elif company_doc.custom_submit_or_not == 1:
             elif (
-                sales_invoice_doc.docstatus == 0
+                pos_invoice_doc.docstatus == 0
                 and company_doc.custom_submit_or_not == 1
                 and get_alias_value("customer_b2c", customer_doc, 0) == 1
             ):

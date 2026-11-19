@@ -897,6 +897,11 @@ def zatca_call(
         )
     if maybe_defer_invoice_submission('Sales Invoice', invoice_number, runtime=frappe, translate=_):
         return
+    from .native_provider import maybe_process_native_invoice
+    native = maybe_process_native_invoice('Sales Invoice', invoice_number, runtime=frappe, translate=_,
+        build=lambda locked: zatca_call(locked.name))
+    if native is not None:
+        return native
     try:
         if not frappe.db.exists("Sales Invoice", invoice_number):
             frappe.throw(_("Invoice Number is NOT Valid: " + str(invoice_number)))
@@ -2407,6 +2412,11 @@ def resubmit_invoices(invoice_numbers, bypass_background_check=False):
             if (
                 sales_invoice_doc.docstatus == 1
             ):  # Check if the invoice is already submitted
+                from .native_provider import process_native_saved_source
+                native=process_native_saved_source(sales_invoice_doc,runtime=frappe,translate=_,intent='manual')
+                if native is not None:
+                    results[invoice_number]=native
+                    continue
                 # Call the zatca_background_on_submit function
                 zatca_background_on_submit(
                     sales_invoice_doc, bypass_background_check=True

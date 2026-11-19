@@ -16,8 +16,11 @@ site/actor and avoids the framework's migration-mode inline fallback. Rollback,
 partial registration and retained contexts cannot release a job. Queue invocation
 failure is explicitly unknown, because a worker might already be running.
 
-The worker reloads permissions/phase/status and then still calls legacy processing.
-This is not a durable outbox or distributed lock. The background draft worker
+The worker reloads permissions/phase/status. Registered native owners now enter
+the owned facade before legacy status-only skipping; unmarked owners retain
+legacy processing. Native scheduled/manual submitted collections share that
+policy, as described in [NATIVE_PROVIDER.md](NATIVE_PROVIDER.md). This is not a
+durable outbox. The background draft worker
 skips its old second immediate send when the hook registered a deferred submission.
 Two intra-company hook paths update output fields within the enclosing transaction,
 without save hooks or an early accounting commit.
@@ -34,8 +37,10 @@ The fixed-table DispatchStore stages encrypted request + next local chain head i
 one caller-owned transaction, reads exact originals, reserves fenced attempts,
 retains immutable receipts and records current/stale assessments with compare
 checks. The owned services described below call it in explicit transactions.
-The public worker has not yet adopted those services; source-only schemas and
-private repository tests are not an installed native dispatcher.
+The six generators and submitted worker/manual/scheduled paths now adopt those
+services conditionally for native registrations. Existing-XML admission,
+publication, activation and whole canonical runtime qualification are still open;
+these private tests are not an installed native dispatcher.
 
 The explicit storage initializer, worker key-check probe and unique declared EGS
 reservation are now described in [NATIVE_STORAGE.md](NATIVE_STORAGE.md). They do
@@ -313,14 +318,16 @@ UUID/POS metadata/ICV guards, the final HTTP fence and its Compliance caller.
    FINAL_READY still inactive. Complete unit-identity inventory, namespace/bootstrap,
    legacy-worker draining and activation are still open.
    No Company/source/schema operation is to be executed on a working site here.
-4. Adopt the coordinator across all six production generators and four existing-
-   XML wrappers/manual/batch/worker paths together. Do not activate one path and
+4. Complete adoption across all existing-XML/draft/publication paths and qualify
+   the whole runtime together. Six production generators and submitted manual/
+   worker/scheduled paths now use the facade described in NATIVE_PROVIDER.md.
+   Do not activate one path and
    leave another allocating through the legacy counter. External XML needs its
    own source/file/chain admission and cannot consume a freshly proposed random
    native UUID. Unverified extensions must stop before transport. Batch/hold
    generation now reaches the request handoff in the eight native API adapters
-   without the legacy queue/File/save branch. The public provider must still
-   select prepare-only versus dispatch according to Company scheduling, and local
+   without the legacy queue/File/save branch. The provider now selects prepare-only
+   versus dispatch according to Company scheduling. Local
    Simplified publication must not wait for Reporting success.
 5. Complete cancellation/printing/recovery/rename decisions and aggregated translated
    operator outcomes. Then freeze the workstream2 qualification. Installed5,

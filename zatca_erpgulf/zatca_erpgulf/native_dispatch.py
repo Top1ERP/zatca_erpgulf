@@ -103,6 +103,9 @@ def _business_tables(runtime,source):
 
 
 def _check_chain(chain,scope,material):
+    marker=scope.owner.values.get('custom_zatca_native_chain')
+    if marker not in (None,'') and marker!=chain['record_id']:
+        raise NativeDispatchError('native_chain_marker_review')
     if (chain['owner_doctype'],chain['owner_name'])!=(scope.owner.doctype,scope.owner.name):
         raise NativeDispatchError('native_chain_owner')
     if chain['environment']!=material.route.environment or chain['seller_tax_id']!=scope.company.get('tax_id'):
@@ -295,15 +298,13 @@ def _prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build,reject
             # instead of mixing an earlier read snapshot with later metadata.
             locked=runtime.get_doc(doctype,invoice_name,for_update=True)
             scope.bind_prepared_invoice(locked)
+            from .native_delivery import confirm_delivery_policy,require_no_legacy_artifact
+            confirm_delivery_policy(scope,owner)
             latest=repository.latest_issuance(chain['record_id'],doctype,invoice_name)
             previous=None
             if rejection is not None:
                 previous,old_original=_rejected_original(repository,chain,latest,locked,rejection)
                 _require_retained_binding(previous,chain,scope,material,doctype,invoice_name,check_source=False)
-                # These compatibility fields are cleared atomically only when
-                # the new custody/version/source identity is committed.
-                from .native_projection import _status_columns
-                _status_columns(owner.database,doctype,'Not Submitted','')
             elif latest is not None:
                 header,original=repository.open_issuance(latest['record_id'])
                 _require_retained_binding(header,chain,scope,material,doctype,invoice_name)
@@ -311,6 +312,12 @@ def _prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build,reject
                 return RetainedNativeIssuance(latest['record_id'],latest['state'],True,doctype,invoice_name)
             else:
                 _require_new_source(locked)
+                require_no_legacy_artifact(owner,locked)
+            # Pending is a local generation result, not acceptance. Normalize
+            # empty imported status fields so scheduled discovery can find the
+            # same committed original without generating another identity.
+            from .native_projection import _status_columns
+            _status_columns(owner.database,doctype,'Not Submitted','')
             _require_source_output_capacity(owner.database,doctype,str(int(chain['last_icv'])+1))
             tables=_business_tables(runtime,locked)
             proposed_uuid=str(uuid4())
@@ -332,11 +339,9 @@ def _prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build,reject
                 _require_corrected_artifact(previous,old_original,header,packet)
             repository.stage_issuance(chain,header,packet.request_bytes,
                 actor=owner.actor,occurred_at=occurred_at)
-            reset=',custom_zatca_status=%s,custom_zatca_full_response=%s' if previous is not None else ''
-            output=(packet.invoice_uuid,packet.icv,'egs:'+chain['record_id'])
-            if previous is not None:output+=('Not Submitted','')
+            output=(packet.invoice_uuid,packet.icv,'egs:'+chain['record_id'],'Not Submitted','')
             owner.database.sql('UPDATE '+SOURCE_TABLES[doctype]+
-                ' SET custom_uuid=%s,custom_zatca_icv=%s,custom_zatca_issuing_unit=%s'+reset+' WHERE name=%s',
+                ' SET custom_uuid=%s,custom_zatca_icv=%s,custom_zatca_issuing_unit=%s,custom_zatca_status=%s,custom_zatca_full_response=%s WHERE name=%s',
                 (*output,invoice_name))
             _changed_once(owner.database)
             owner.database.sql('UPDATE '+OWNER_TABLES[scope.owner.doctype]+' SET custom_pih=%s WHERE name=%s',
@@ -371,6 +376,8 @@ def reserve_saved_issuance(doctype,invoice_name,*,runtime,translate,supersedes_a
             _check_chain(chain,scope,material)
             locked=runtime.get_doc(doctype,invoice_name,for_update=True)
             scope.bind_prepared_invoice(locked)
+            from .native_delivery import confirm_delivery_policy
+            confirm_delivery_policy(scope,owner,dispatch=True)
             latest=repository.latest_issuance(chain['record_id'],doctype,invoice_name)
             if latest is None:raise NativeDispatchError('native_original_required')
             issuance=repository.lock_issuance(chain,latest['record_id'])
@@ -504,7 +511,7 @@ def dispatch_saved_invoice(doctype, invoice_name, *, runtime, translate, build, 
     Each service owns and commits its separate transaction. The response is
     retained before assessment, and no legacy source-reset handler runs here.
     Accepted source status is projected after receipt assessment. QR/XML reading
-    is separate; File publication and public worker adoption remain open.
+    is separate; File publication and complete runtime qualification remain open.
     """
     retained=read_retained_invoice(doctype,invoice_name,runtime=runtime)
     if retained is not None and retained.accepted:

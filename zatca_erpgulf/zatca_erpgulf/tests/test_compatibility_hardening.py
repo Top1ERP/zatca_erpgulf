@@ -522,6 +522,9 @@ class TestXmlSignAndTaxCompatibility(unittest.TestCase):
         with ExitStack() as stack:
             stack.enter_context(patch.object(sign_invoice.frappe, 'session', SimpleNamespace(user='TEST-OPERATOR')))
             stack.enter_context(patch.object(sign_invoice.frappe, 'has_permission', source_permission))
+            # Explicit old schema: this branch has neither advance nor native
+            # issuing-unit metadata and must never initialize a Frappe site.
+            stack.enter_context(patch.object(sign_invoice.frappe, 'get_meta', return_value=_Meta()))
             # This branch test stops before signing; the replacement is explicit.
             signer = stack.enter_context(patch.object(sign_invoice, 'digital_signature'))
             stack.enter_context(

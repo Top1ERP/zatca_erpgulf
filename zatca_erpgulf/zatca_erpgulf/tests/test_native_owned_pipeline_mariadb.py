@@ -239,14 +239,18 @@ def test_native_sales_and_pos_keep_one_chain_through_committed_mocked_dispatch(
             # The accepted receipt survives a local source-column failure. A
             # later ordinary call repairs only bookkeeping, without current
             # signing material, another HTTP call or another ICV allocation.
+            status_columns = native_projection._status_columns
+            def fail_acceptance_columns(database,doctype,status,text):
+                if status=='Not Submitted':
+                    return status_columns(database,doctype,status,text)
+                raise native_dispatch.NativeDispatchError('native_projection_capacity')
             with monkeypatch.context() as patch:
-                patch.setattr(native_projection, '_status_columns', Mock(side_effect=
-                    native_dispatch.NativeDispatchError('native_projection_capacity')))
+                patch.setattr(native_projection, '_status_columns', fail_acceptance_columns)
                 with pytest.raises(native_dispatch.NativeDispatchReview) as failed:
                     dispatch()
             assert failed.value.code == 'native_source_projection_incomplete'
             assert failed.value.invoked and failed.value.receipt_retained
-            assert get_doc(source.doctype, source.name).custom_zatca_status is None
+            assert get_doc(source.doctype, source.name).custom_zatca_status == 'Not Submitted'
             before = adapter.send.call_count
             key_before = selected_owner.custom_private_key
             selected_owner.custom_private_key = 'INVALID-KEY-MUST-NOT-BE-READ'

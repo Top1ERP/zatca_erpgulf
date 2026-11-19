@@ -197,28 +197,34 @@ def reject_submit_hook_transport(runtime, translate):
 def execute_queued_invoice(doctype, invoice_name):
     """Internal queue target, not RPC; fresh saved permissions/settings each job.
 
-    This first handoff stage still calls legacy preparation/persistence. Durable
-    artifact/attempt fencing and the remaining worker lifecycle are workstream2
-    prerequisites before release; do not label queue deduplication that service.
+    Native registrations enter the owned provider before status-only skipping;
+    unmarked owners retain legacy processing. The fixed native builder bypasses
+    the old Background early-return because delivery policy owns that decision.
     """
     import frappe
     from frappe import _
     if doctype not in DOCTYPES or not isinstance(invoice_name, str) or not invoice_name:
         _review(frappe, _, 'deferred_source_identity')
-    def process(source):
+    def process(source, *, native=False):
         if doctype == 'Sales Invoice':
             from .sign_invoice import _process_submitted_invoice
         else:
             from .pos_sign import _process_submitted_invoice
-        return _process_submitted_invoice(source)
-    return _execute_saved_invoice(doctype, invoice_name, runtime=frappe, translate=_, process=process)
+        return _process_submitted_invoice(source,bypass_background_check=True) if native else _process_submitted_invoice(source)
+    return _execute_saved_invoice(doctype, invoice_name, runtime=frappe, translate=_, process=process,
+        native_process=lambda source:process(source,native=True))
 
 
-def _execute_saved_invoice(doctype, invoice_name, *, runtime, translate, process):
+def _execute_saved_invoice(doctype, invoice_name, *, runtime, translate, process, native_process=None):
     """Internal worker policy; the public queue target supplies its fixed process."""
     source, company = _require_source(runtime, translate, doctype, invoice_name)
     if not is_zatca_invoice_enabled(company) or resolve_zatca_phase(company) != PHASE_2_VALUE:
         return {'status':'SKIPPED', 'reason':'company_policy_changed'}
+    from .native_provider import maybe_process_native_invoice
+    native=maybe_process_native_invoice(doctype,invoice_name,runtime=runtime,translate=translate,
+        build=process if native_process is None else native_process,intent='submit',source=source)
+    if native is not None:
+        return native
     if source.get('custom_zatca_status') in ('REPORTED','CLEARED'):
         return {'status':'SKIPPED', 'reason':'already_completed'}
     return process(source)

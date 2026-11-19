@@ -49,6 +49,8 @@ def coordinator(boundary, materials, monkeypatch):
     state = SimpleNamespace(active=False, committed=False, rolled_back=False)
     def sql(statement, values=(), **kwargs):
         if 'information_schema.columns' in statement:
+            if values[-2:]==('custom_zatca_status','custom_zatca_full_response'):
+                return [dict(fieldname=name,kind='text',max_chars=65535,max_bytes=65535) for name in values[-2:]]
             return [dict(fieldname=name, kind='varchar', max_chars=140, declaration='varchar(140)')
                 for name in ('custom_uuid', 'custom_zatca_icv', 'custom_zatca_issuing_unit')]
         return [{'changed': 1}]
@@ -127,7 +129,8 @@ def test_exact_native_handoff_is_stored_before_source_outputs_and_commit(coordin
     assert saved_chain is c.chain
     assert header['artifact_sha256'] == hashlib.sha256(original).hexdigest()
     assert header['source_name'] == source.name and header['icv'] == '1'
-    assert c.worker.database.sql.call_count == 5
+    source_updates=[call for call in c.worker.database.sql.call_args_list if call.args[0].startswith('UPDATE `tab'+source.doctype+'`')]
+    assert len(source_updates)==1 and source_updates[0].args[1][-3:]==('Not Submitted','',source.name)
     assert c.state.committed and not c.state.rolled_back
     b.request.assert_not_called()
     b.frappe.db.commit.assert_not_called()
@@ -466,8 +469,12 @@ def test_missing_or_insufficient_output_columns_stop_before_build_or_staging(coo
         rows[0]['max_chars'] = 35
     elif fault == 'unit_short':
         rows[2]['max_chars'] = 39
-    c.worker.database.sql.side_effect = None
-    c.worker.database.sql.return_value = rows
+    original_sql = c.worker.database.sql.side_effect
+    def schema(statement,values=(),**kwargs):
+        if 'information_schema.columns' in statement and values[-2:]!=('custom_zatca_status','custom_zatca_full_response'):
+            return rows
+        return original_sql(statement,values,**kwargs)
+    c.worker.database.sql.side_effect = schema
     build = Mock()
     with pytest.raises(dispatch.NativeDispatchError) as caught:
         dispatch.prepare_saved_invoice('Sales Invoice', 'SI', runtime=c.b.frappe,

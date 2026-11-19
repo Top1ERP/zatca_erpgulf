@@ -2,57 +2,47 @@
 
 ## Current: workstream2 in progress
 
-Workstream1 closed at44fdd50. The clean detached qualification with its retry-UUID
-fixture correction passed39,003 across205 local suites. Workstream2 now has owned
-native generation/ICV/PIH, encrypted originals/receipts, committed attempt fencing,
-response assessment,303 fallback, retained reads and cached accepted recovery.
-Its new accepted-status projector, XML/QR reader and explicit corrected-rejection
-versioning are described in [WORKSTREAM_2_RUNTIME_DESIGN.md](WORKSTREAM_2_RUNTIME_DESIGN.md).
-The corrected-version backend deliberately refuses an unchanged issue clock;
-canonical builder/operator clock adoption is still open.
-Eight native Reporting/Clearance API adapters now hand off inside owned preparation
-before legacy File/realtime/batch paths. Outside that context they retain their
-existing behavior. The fixed issuer-binding follow-up passes20,750 cases;49
-private SQL cases exercise actual adapters with the synthetic signing builder.
-Legacy continuity now has an owned staging service: it checks the last generated
-source/counter/private XML, retains encrypted evidence and stages an inactive
-review. Explicit rereview preserves the older evidence and the current slot
-atomically. This does not activate a native chain, retire legacy counters, infer
-NEW_EGS genesis or complete registration/cutover.
-Initial native enrollment now commits a fresh key, exact public CSR and inactive
-encrypted intent atomically. The existing CSR entry uses this service only with
-the explicit native rollout setting. Saved native owners cannot fall back to
-legacy credential/issuance writers or have protected state overwritten by stale
-ordinary forms. CSR_READY does not authorize issuance, certificate adoption or
-counter genesis. The fenced initial Compliance/Final-CSID service now reserves
-before transport, retains encrypted responses before material projection and
-recovers committed results without another request. Existing CSID buttons select
-it only for the explicit native rollout/owner marker. FINAL_READY remains inactive
-and cannot issue through legacy generation/transport. Known native key/auth copies
-are also fenced, even when a copied owner has no marker. Registration/activation,
-and complete identity inventory remain open.
-The explicit source-only storage initializer and authenticated worker key probe
-are now implemented; normal workers still cannot bootstrap themselves. Initial
-CSR custody reserves a unique local environment/taxpayer/serial identity, and
-legacy guards check known unit declarations even with a fresh key. See
-[NATIVE_STORAGE.md](NATIVE_STORAGE.md). Complete legacy inventory, reviewed
-activation and installed bootstrap acceptance remain open; no chain was activated.
-Storage/identity follow-up passes166 focused local,188 private SQL and the fixed
-issuer-binding profile20,750. Its manifest225 local/63 private suites was not run
-in full. Results/limits are in NATIVE_STORAGE.md; financial references are unchanged.
-The frozen81-suite issuer-binding follow-up passes20,750; focused enrollment
-coverage passes153 local and157 private InnoDB cases. Counts overlap. No runtime
-site/worker/schema operation or authority request occurred; no finance reference
-was changed. Detailed custody/unsupported-profile/activation limits are recorded
-in the runtime design.
+Workstream1 closed at44fdd50. Its detached source qualification passed39,003
+across205 local suites; installed ERP15/16 and authentic SDK acceptance remain
+later gates. Workstream2 has owned UUID/ICV/PIH generation, encrypted originals/
+receipts, committed attempt fences, endpoint-specific assessment,303 fallback,
+verified retained reads, status recovery and explicit corrected-version storage.
 
-Public worker/manual/batch adoption, registration/bootstrap and reviewed legacy
-continuity, File/print/UI publication and source/owner lifecycle guards remain.
-Workstream2 is not closed and no transition to3 is claimed. Installed15/16,
-financial review, authentic crypto/SDK and a specifically approved fictional
-rehearsal remain their own later gates. No live app/site/schema/service change or
-authority API request. Original240 financial comparison remains91/117/32; no
-financial reference expectations were rebaselined.
+The six production generators now enter the native facade for registered owners.
+The committed worker, submitted scheduled collection and submitted manual Sales/
+POS collections use the same policy. Simplified Batches/Background entry prepares
+only; scheduled dispatch requires fresh current windows; Standard remains
+immediate. Current policy is checked under shared master locks before generation
+and attempt commits. A raw success status cannot bypass receipt custody. Known
+rejected/unknown originals cannot be blindly resent or replaced. See
+[NATIVE_PROVIDER.md](NATIVE_PROVIDER.md) for callsites, outcomes and limits.
+
+Initial CSR/key custody and fenced Compliance/Final-CSID response admission are
+implemented. FINAL_READY remains inactive. The source-only initializer creates
+an authenticated namespace only on empty installed native storage, without
+creating/changing a site key. Declared environment/taxpayer/serial reservation
+and native registry guards prevent a fresh owner/key from reusing a known unit.
+Legacy review retains immutable last-generated positive-counter evidence and
+explicit supersession, but does not activate or retire a legacy issuer. See
+[NATIVE_STORAGE.md](NATIVE_STORAGE.md) and
+[WORKSTREAM_2_RUNTIME_DESIGN.md](WORKSTREAM_2_RUNTIME_DESIGN.md).
+
+Latest provider qualification:314 focused local cases across5 suites,188 private
+SQL cases across6 suites, and20,751 across the fixed81-suite issuer-binding
+profile. These sets overlap. Manifest227 local/64 private suites was not run in
+full. Private active registration is fixture input; generation uses the actual
+six entries with a synthetic metadata/signing builder. This is not installed
+Frappe/ERP, complete canonical financial/XSD/SDK or genuine authority acceptance.
+No financial reference was changed; original240 comparison remains91/117/32.
+
+Still open in2: complete identity/legacy-consumer inventory and reviewed activation/
+drain; four existing-XML admission paths; File/QR/print/UI publication; explicit
+unchanged retry and corrected-clock/operator adoption; draft-origin handoff and
+source lifecycle decisions; whole runtime qualification. The handoff is not a
+durable outbox. Do not announce3 or installation from these narrower checks.
+Installed15/16, financial review, authentic SDK and the specifically approved
+fictional rehearsal retain their later gates. No live app/site/schema/service
+operation, chain activation or authority API request was performed.
 
 ## Workstream1 local closure snapshot
 

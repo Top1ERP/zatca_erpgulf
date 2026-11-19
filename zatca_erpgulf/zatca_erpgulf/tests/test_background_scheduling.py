@@ -19,6 +19,18 @@ WORKERS = (
 )
 
 
+def test_background_collection_uses_native_processing_before_its_legacy_callback(worker_boundary,monkeypatch):
+    b=worker_boundary
+    b.company('NATIVE');b.company('LEGACY')
+    native=b.invoice('Sales Invoice','NATIVE-ONE','NATIVE')
+    legacy=b.invoice('Sales Invoice','LEGACY-ONE','LEGACY')
+    owned=Mock(side_effect=lambda source,**kwargs:{'status':'PREPARED','accepted':False} if source.name==native.name else None)
+    monkeypatch.setattr(background_worker,'process_native_saved_source',owned)
+    background_worker.run_pending_background_invoices('Sales Invoice',b.callback)
+    assert owned.call_count==2 and all(call.kwargs['intent']=='scheduled' for call in owned.call_args_list)
+    b.callback.assert_called_once_with(legacy,bypass_background_check=True)
+
+
 @pytest.mark.parametrize("value, expected", [
     ("9:05:42", time(9, 5, 42)),
     (" 09:05:42 ", time(9, 5, 42)),

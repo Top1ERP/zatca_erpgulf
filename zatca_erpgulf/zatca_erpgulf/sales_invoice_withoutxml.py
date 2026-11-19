@@ -160,6 +160,11 @@ def zatca_call_withoutxml(
         )
     if maybe_defer_invoice_submission('Sales Invoice', invoice_number, runtime=frappe, translate=_):
         return
+    from .native_provider import maybe_process_native_invoice
+    native = maybe_process_native_invoice('Sales Invoice', invoice_number, runtime=frappe, translate=_,
+        build=lambda locked: zatca_call_withoutxml(locked.name))
+    if native is not None:
+        return native
     try:
         if not frappe.db.exists(SALES_INVOICE, invoice_number):
             frappe.throw(_("Invoice Number is NOT Valid: " + str(invoice_number)))

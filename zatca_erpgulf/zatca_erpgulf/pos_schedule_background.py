@@ -100,6 +100,11 @@ def zatca_call_pos_without_xml_background(
         )
     if maybe_defer_invoice_submission('POS Invoice', invoice_number, runtime=frappe, translate=_):
         return
+    from .native_provider import maybe_process_native_invoice
+    native = maybe_process_native_invoice('POS Invoice', invoice_number, runtime=frappe, translate=_,
+        build=lambda locked: zatca_call_pos_without_xml_background(locked.name))
+    if native is not None:
+        return native
     try:
 
         if not frappe.db.exists(POS_INVOICE, invoice_number):
