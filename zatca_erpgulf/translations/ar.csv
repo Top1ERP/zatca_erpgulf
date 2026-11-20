@@ -906,3 +906,5 @@ Refresh issued ZATCA document,تحديث عرض مستند زاتكا الصاد
 Issued ZATCA QR code,رمز QR لمستند زاتكا الصادر
 Issued ZATCA document,مستند زاتكا الصادر
 ZATCA Phase-2,زاتكا - المرحلة الثانية
+The native draft transaction needs review. Processing stopped because its transaction or isolated rollback could not be confirmed.,تحتاج معاملة الفاتورة المسودة إلى مراجعة. توقفت المعالجة لتعذر تأكيد المعاملة أو التراجع المعزول عنها.
+"The draft invoice could not be submitted safely. Review its saved data, issuing-unit settings and local transaction before retrying.",تعذر ترحيل الفاتورة المسودة بأمان. راجع بياناتها المحفوظة وإعدادات وحدة الإصدار والمعاملة المحلية قبل إعادة المحاولة.

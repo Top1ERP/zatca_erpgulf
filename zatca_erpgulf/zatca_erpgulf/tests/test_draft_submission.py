@@ -92,6 +92,11 @@ def test_invalid_origin_cannot_call_erp_submit(boundary,change):
 @pytest.mark.parametrize('module,doctype,name',[(sign_invoice,'Sales Invoice','resubmit_invoices'),
     (pos_sign,'POS Invoice','resubmit_invoices_pos')])
 def test_actual_manual_draft_collection_retains_manual_origin(entry,monkeypatch,module,doctype,name):
+    from contextlib import nullcontext
+    from zatca_erpgulf.zatca_erpgulf import native_draft_transaction
+    # This test owns collection/origin control flow; private SQL qualifies the
+    # actual borrowed ERP transaction with native-shaped saved documents.
+    monkeypatch.setattr(native_draft_transaction,'protect_native_draft',lambda *args,**kwargs:nullcontext())
     e=entry;e.docs.pop((e.source.doctype,e.source.name));e.source.doctype=doctype;e.source.docstatus=0
     e.docs[doctype,e.source.name]=e.source;e.company.custom_submit_or_not=1
     monkeypatch.setattr(module,'frappe',e.runtime)
@@ -124,6 +129,10 @@ def test_actual_scheduled_draft_collection_retains_scheduled_origin(worker_bound
 @pytest.mark.parametrize('native',[True,False])
 def test_actual_sales_external_id_background_hook_defers_only_native_owner_after_parent_validation(
         parent_boundary,monkeypatch,operation,native):
+    from contextlib import nullcontext
+    from zatca_erpgulf.zatca_erpgulf import native_draft_transaction
+    # Actual parent validation/branch selection, independent of private storage.
+    monkeypatch.setattr(native_draft_transaction,'protect_native_draft',lambda *args,**kwargs:nullcontext())
     from types import SimpleNamespace
     from zatca_erpgulf.zatca_erpgulf.tests.test_background_scheduling import parent_invoice
     from zatca_erpgulf.zatca_erpgulf.tests.test_deferred_submission import Callbacks

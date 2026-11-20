@@ -39,6 +39,7 @@ class Callbacks:
 def handoff(case,monkeypatch):
     c=case;use_native_source(c,monkeypatch)
     c.runtime.flags={};c.runtime.enqueue=Mock();c.runtime.get_roles=lambda user:['System Manager']
+    c.database.value_cache={}
     for name in CALLBACKS:setattr(c.database,name,Callbacks())
     c.original_commit=c.database.commit;c.original_rollback=c.database.rollback
     def commit():

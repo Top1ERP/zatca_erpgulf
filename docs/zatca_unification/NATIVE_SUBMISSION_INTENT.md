@@ -85,7 +85,7 @@ This does not qualify installed Frappe15/16 callback/schema behavior, real finan
 builders, authentic signed XML/QR/SDK, restart supervision or authority acceptance.
 
 Still open in workstream2: explicit resolution of a started/uncertain handoff;
-full canonical draft/batch rollback and callback isolation; native PREPARED discovery beyond
+installed/whole canonical draft rollback and mixed batch coordination; native PREPARED discovery beyond
 the older legacy collector horizon; complete legacy history/drain and activation;
 explicit unchanged retry and corrected-clock/operator adoption; source cancel/
 delete/rename; frozen master/print and File/external-print compatibility; whole

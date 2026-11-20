@@ -85,5 +85,18 @@ def resolve_submission_operation(runtime, doctype, name):
 
 def submit_draft(document, *, runtime, translate, operation):
     """Call the unchanged ERP submit lifecycle inside the fixed operation scope."""
-    with draft_submission_origin(document, runtime=runtime, translate=translate, operation=operation):
-        return document.submit()
+    from .native_draft_transaction import protect_native_draft, NativeDraftTransactionError
+    failed = None
+    try:
+        with draft_submission_origin(document, runtime=runtime, translate=translate, operation=operation):
+            with protect_native_draft(document,runtime=runtime):
+                return document.submit()
+    except NativeDraftTransactionError as error:
+        failed = error.code, error.fatal
+    # A contextmanager may attach the original ERP exception while unwinding.
+    # Publish a fresh static boundary error, never that private child context.
+    review = NativeDraftTransactionError(failed[0],fatal=failed[1])
+    runtime.log_error(title='ZATCA native draft transaction review',message=review.code)
+    review.diagnostic_logged = True
+    runtime.throw(translate(review.template),exc=review)
+    raise review

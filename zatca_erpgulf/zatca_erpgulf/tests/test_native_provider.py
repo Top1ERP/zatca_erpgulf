@@ -151,6 +151,10 @@ def test_manual_collection_returns_the_owned_outcome_without_calling_legacy_resu
 
 
 def test_pos_manual_draft_uses_its_own_document_when_authorized_for_submission(entry,monkeypatch):
+    from contextlib import nullcontext
+    from zatca_erpgulf.zatca_erpgulf import native_draft_transaction
+    # Collection identity only; actual savepoint ownership has private SQL tests.
+    monkeypatch.setattr(native_draft_transaction,'protect_native_draft',lambda *args,**kwargs:nullcontext())
     from zatca_erpgulf.zatca_erpgulf import pos_sign
     e=entry;e.docs.pop((e.source.doctype,e.source.name));e.source.doctype='POS Invoice';e.source.docstatus=0
     e.docs['POS Invoice',e.source.name]=e.source;e.source.submit=Mock();e.company.custom_submit_or_not=1

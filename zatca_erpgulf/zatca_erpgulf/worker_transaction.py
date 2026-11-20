@@ -85,8 +85,11 @@ class WorkerTransaction:
         if self.state!='NEW' or OWNED_WORKER.get() is not self:
             raise WorkerTransactionError('worker_transaction_lifetime')
         from .deferred_submission import HOOK
+        from .native_draft_transaction import CURRENT as DRAFT_TRANSACTION
         if HOOK.get() is not None:
             raise WorkerTransactionError('worker_transaction_submit_context')
+        if DRAFT_TRANSACTION.get() is not None:
+            raise WorkerTransactionError('worker_transaction_draft_context')
         db=self.database
         if (type(getattr(db,'transaction_writes',None)) is not int or db.transaction_writes!=0
                 or getattr(db,'auto_commit_on_many_writes',0) not in (0,False)

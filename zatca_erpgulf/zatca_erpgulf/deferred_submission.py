@@ -170,6 +170,16 @@ def maybe_defer_invoice_submission(doctype, invoice_name, *, runtime, translate)
         if native_intent is not None:
             native_intent.closed=True
 
+    from .native_draft_transaction import bind_deferred_registration
+    try:
+        publication_guard=bind_deferred_registration(runtime,doctype,invoice_name,cancel_registration,
+            native=native_intent is not None,
+            active=lambda:registration['armed'] and not registration['cancelled']
+                and native_intent is not None and not native_intent.closed)
+    except Exception:
+        cancel_registration()
+        raise
+
     def finalize_native_intent():
         if registration['cancelled']:
             return
@@ -177,6 +187,8 @@ def maybe_defer_invoice_submission(doctype, invoice_name, *, runtime, translate)
             cancel_registration()
             _review(runtime,translate,'deferred_early_commit')
         try:
+            if publication_guard is not None:
+                publication_guard()
             native_intent.finalize(translate=translate)
         except Exception:
             failed=True
@@ -200,6 +212,8 @@ def maybe_defer_invoice_submission(doctype, invoice_name, *, runtime, translate)
         if native_intent is not None:
             try:
                 from .submission_intent import METHOD as INTENT_METHOD
+                if publication_guard is not None:
+                    publication_guard()
                 native_intent.require_owner()
                 if not native_intent.finalized:
                     raise DeferredSubmissionError('deferred_unfinalized_intent')
@@ -270,7 +284,8 @@ def maybe_defer_native_invoice_submission(doctype, invoice_name, *, runtime, tra
 
 def reject_submit_hook_transport(runtime, translate):
     """An extension bypassing entry deferral still cannot enter native HTTP."""
-    if HOOK.get() is not None:
+    from .native_draft_transaction import CURRENT as DRAFT_TRANSACTION
+    if HOOK.get() is not None or DRAFT_TRANSACTION.get() is not None:
         _review(runtime, translate, 'deferred_inline_transport')
 
 

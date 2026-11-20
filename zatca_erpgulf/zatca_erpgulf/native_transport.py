@@ -95,6 +95,8 @@ def invoke_saved_request(invocation, *, runtime):
     transfer framing and TLS records are not an authority receipt archive.
     Budget checks cannot interrupt DNS/native reads or enforce a hard wall limit.
     """
+    from .deferred_submission import reject_submit_hook_transport
+    reject_submit_hook_transport(runtime,lambda message:message)
     _validate(invocation)
     if (runtime.local.site != invocation.site or runtime.session.user != invocation.actor):
         raise NativeTransportError('native_transport_owner_changed')

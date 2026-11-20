@@ -12,7 +12,9 @@ call one `submit_draft` helper around the ordinary ERP `Document.submit()`.
 Their existing Company auto-submit option, B2C tests and ERP validators stay in
 place. A private synchronous scope retains only site, original actor, exact saved
 doctype/name and the server-selected manual/scheduled operation. It stores no
-Document, credentials or caller-selected method and owns no commit/rollback.
+Document, credentials or caller-selected method. The later
+[borrowed draft isolation](NATIVE_DRAFT_ISOLATION.md) owns only a private local
+savepoint and operation callbacks, never enclosing ERP commit/rollback.
 A nested identical scope preserves its outer lifetime; a conflicting, cross-source,
 actor/site-changed or retained closed scope cannot select another operation.
 
@@ -70,8 +72,9 @@ competing mocked manual timeout leaving OUTCOME_UNKNOWN. The fixture replaces ER
 submit itself and canonical financial metadata/signing inputs; it is not installed
 ERP accounting, CA/SDK acceptance, genuine HTTP delivery or process supervision.
 
-Whole canonical runtime qualification and batch error/rollback/callback isolation
-remain open, particularly uncommitted POS collection transactions. The older
+Borrowed native draft rollback/callback isolation is now adopted in the shared
+helper; whole canonical/installed accounting, physical File cleanup and mixed
+legacy/native submitted-invoice coordination remain open. The older
 collector still has its24-hour discovery horizon and established commit behavior;
 later native PREPARED discovery, started/uncertain handoff resolution, explicit
 retry/corrected-clock adoption, source cancel/delete/rename, frozen publication,

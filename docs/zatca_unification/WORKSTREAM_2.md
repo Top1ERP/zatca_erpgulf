@@ -113,3 +113,10 @@ exact pre-transport scheduled window skip may wait with a new future claim fence
 uncertain/rejected originals and other policy/source failures remain review.
 Canonical batch rollback/callback isolation and installed behavior remain open:
 [NATIVE_DRAFT_SUBMISSION.md](NATIVE_DRAFT_SUBMISSION.md).
+
+Selected native drafts now use a borrowed savepoint and owned callback suffixes
+to cancel their handoff and confirm local rollback before a collector continues.
+Lost parent provenance stops the batch. Wider post-hook native/legacy transport
+and owned-worker entry are fenced. This does not qualify installed GL/File or
+complete mixed submitted-invoice batches:
+[NATIVE_DRAFT_ISOLATION.md](NATIVE_DRAFT_ISOLATION.md).

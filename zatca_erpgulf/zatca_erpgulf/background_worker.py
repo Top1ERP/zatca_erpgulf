@@ -9,6 +9,7 @@ import frappe
 
 from .deferred_submission import is_invoice_submission_deferred
 from .draft_submission import submit_draft
+from .native_draft_transaction import NativeDraftTransactionError
 from .existing_xml_submission import ExistingXmlSubmissionError
 from .issuing_attempt import IssuingAttemptError
 from .native_provider import process_native_saved_source
@@ -98,6 +99,12 @@ not provide a cross-worker lock or make remote submissions transactional.
                     submit_callback(invoice, bypass_background_check=True)
                 if commit_per_invoice:
                     frappe.db.commit()
+            except NativeDraftTransactionError as error:
+                if not error.diagnostic_logged:
+                    frappe.log_error(title='ZATCA native draft transaction review',message=error.code)
+                    error.diagnostic_logged=True
+                if error.fatal:
+                    raise
             except (ExistingXmlSubmissionError, IssuingAttemptError) as error:
                 # The canonical pre-request review already owns its diagnostic.
                 if not error.diagnostic_logged:
@@ -107,6 +114,8 @@ not provide a cross-worker lock or make remote submissions transactional.
                     title=f"ZATCA background: {doctype} {row['name']}",
                     message=frappe.get_traceback(),
                 )
+    except NativeDraftTransactionError:
+        raise  # The framework owns the enclosing rollback; never swallow this.
     except Exception:
         frappe.log_error(
             title="ZATCA Background Job Error", message=frappe.get_traceback()

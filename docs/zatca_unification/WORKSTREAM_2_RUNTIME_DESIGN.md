@@ -912,3 +912,22 @@ need dedicated qualification, particularly with uncommitted POS parent writes.
 Do not claim these gates from identifier/context tests or add a speculative
 rollback that discards another operation's writes. See
 [NATIVE_DRAFT_SUBMISSION.md](NATIVE_DRAFT_SUBMISSION.md).
+
+## Borrowed ERP draft rollback and callback ownership
+
+Selected Phase2 native draft submit now has a pinned borrowed savepoint boundary.
+Current source/children observation, InnoDB catalog admission, callback prefix
+identity, session transaction counters and a first commit fence precede submit.
+Only an armed uncancelled native registration permits normal completion. A normal
+failure cancels retained request closures and confirms local rollback plus
+operation-only rollback callbacks before restoring parent callback prefixes/write
+counter. No whole-parent commit/rollback is performed by this helper.
+
+Lost ownership/epoch/savepoint or callback/cleanup provenance stops both collector
+catch layers. Native/legacy transport and owned-worker entry are also denied
+through this wider scope after the hook itself closes. Static English diagnostics
+and fresh translated boundary errors avoid returning private child context.
+Private SQL covers the actual Sales/POS collector with a failing middle source and
+prior diagnostic writes. These are synthetic ERP/ledger/signing doubles; whole
+installed GL/File, mixed submitted/legacy batches and runtime remain open. Details:
+[NATIVE_DRAFT_ISOLATION.md](NATIVE_DRAFT_ISOLATION.md).

@@ -193,10 +193,38 @@ and financial signing inputs remain explicit fixture doubles. No installed ERP,
 authority acceptance or full batch/rollback/runtime qualification is inferred.
 The original financial comparison91/117/32 and live source hashes remain unchanged.
 
+Selected enabled Phase2 native draft submission now uses a borrowed savepoint,
+current locked source/child and normal READ/WRITE checks, typed fiscal comparison,
+InnoDB catalog admission and pinned parent callback/connection/transaction epoch.
+Normal failure cancels only its handoff and confirms local rollback/cleanup before
+restoring earlier callbacks and the parent's write count. Missing/cancelled handoff
+cannot pass as success. Lost transaction/callback ownership stops both collector
+catch layers. Native and shared legacy transport fences span the wider draft
+scope, and owned workers cannot start inside it. Fresh static errors preserve
+English diagnostics and translated display without private child context. See
+[NATIVE_DRAFT_ISOLATION.md](NATIVE_DRAFT_ISOLATION.md).
+
+Latest draft-isolation qualification:444 local cases across9 suites in2.06s,
+176 private SQL cases across5 suites in14.19s, and20,751 across the fixed81
+issuer-binding suites in121.35s. Sets overlap. Logs:
+`/tmp/zatca-axis2-draft-isolation-local-final.log`,
+`/tmp/zatca-axis2-draft-isolation-private-final.log`,
+`/tmp/zatca-axis2-draft-isolation-regression-final.log`.
+Manifest237 local/72 private suites was not run in full. The private matrix
+includes actual Sales/POS collector control flow with synthetic ERP submit/ledger
+and signing inputs, preserved earlier SQL/diagnostics/callbacks and rejected
+stale permission/owner snapshots. SQL failure during admission before a savepoint
+is a fatal boundary, not an ordinary swallowed collector error. Installed GL/File,
+full mixed-batch and whole canonical runtime acceptance remain open. No live
+source/schema/service, installed site or authority operation occurred. Read-only
+source checks retain the prior HEAD/tooltip/customer-address hashes; no financial
+reference was changed and the original comparison remains91/117/32.
+
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; frozen print/master information
 and File/external-print compatibility; explicit unchanged retry and
-corrected-clock/operator adoption; canonical draft/batch rollback and callback isolation;
+corrected-clock/operator adoption; installed GL/File and complete mixed legacy/native
+submitted-invoice batch coordination;
 source lifecycle decisions; started/uncertain intent resolution, later native
 PREPARED discovery and whole runtime qualification. The new durable handoff is
 not complete crash/delivery recovery. Do not announce3 or installation from these narrower checks.
