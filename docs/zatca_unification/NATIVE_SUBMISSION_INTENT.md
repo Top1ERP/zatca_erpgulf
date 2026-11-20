@@ -34,7 +34,7 @@ precheck uses no gap lock; concurrent unrelated first invoices must not deadlock
 solely because this table starts empty. The unique index arbitrates source races.
 Existing records cannot be silently overwritten/rearmed.
 
-A clean owned worker authenticates READY and the original enabled User before
+A clean owned worker authenticates READY/WAITING and the original enabled User before
 committing a RUNNING fence. A retry under Administrator cannot upgrade a stored
 ordinary actor. The fixed native provider rechecks current ACL, Company policy,
 fiscal observation and issuer chain; the same binding is checked again under the
@@ -54,13 +54,19 @@ the fix, rather than relying on a no-write logger mock.
 
 ## Queue loss and uncertain work
 
-The internal five-minute scheduler discovers at most100 authenticated READY
+The internal five-minute scheduler discovers at most100 authenticated READY/WAITING
 records, independently of invoice age. Normal submission still enqueues promptly
 after commit; this cron interval adds no wait to the interactive path. Discovery
 requires System Manager, an enabled native rollout and enabled original Users.
-It authenticates all selected headers before switching queue identity, enqueues
+It authenticates all selected headers before holding disabled-account rows or
+switching queue identity, enqueues
 only the fixed method/record ID, and restores session/permission/cache state even
 when enqueue fails. The eventual worker repeats actor/account checks.
+
+WAITING is restricted to the exact pre-transport scheduled window result and
+receives a fresh fenced policy check later. It never authorizes unknown delivery
+replay; retained uncertain/rejected originals take precedence over window policy.
+See [NATIVE_DRAFT_SUBMISSION.md](NATIVE_DRAFT_SUBMISSION.md).
 
 RUNNING, REVIEW, COMPLETE and STAGED are not automatically rediscovered. A process
 crash after the RUNNING commit, an unknown claim/finish commit acknowledgment or a
@@ -79,7 +85,7 @@ This does not qualify installed Frappe15/16 callback/schema behavior, real finan
 builders, authentic signed XML/QR/SDK, restart supervision or authority acceptance.
 
 Still open in workstream2: explicit resolution of a started/uncertain handoff;
-draft scheduled/manual operation propagation; native PREPARED discovery beyond
+full canonical draft/batch rollback and callback isolation; native PREPARED discovery beyond
 the older legacy collector horizon; complete legacy history/drain and activation;
 explicit unchanged retry and corrected-clock/operator adoption; source cancel/
 delete/rename; frozen master/print and File/external-print compatibility; whole

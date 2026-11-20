@@ -171,10 +171,32 @@ Frappe15/16 and complete financial/SDK/runtime acceptance remain separate gates.
 The original financial comparison91/117/32 is unchanged. Read-only checks confirm
 the installed HEAD, sole dirty tooltip and customer-address hashes unchanged.
 
+Manual/Scheduled Sales/POS draft callers now retain their fixed operation across
+the ordinary ERP submit hook and authenticated native parent intent. Normal
+submit policy remains unchanged. The native Sales external-ID Background early
+return now registers that handoff after its existing parent validators. Exact
+pre-transport scheduled window skips may enter WAITING and receive fresh fenced
+checks later, without generation/ICV advancement during the wait. Retained
+uncertain/rejected originals take precedence over the window. Discovery holds
+disabled original accounts without rewriting source/header identity. See
+[NATIVE_DRAFT_SUBMISSION.md](NATIVE_DRAFT_SUBMISSION.md).
+
+Latest draft-origin qualification:573 local cases across11 suites in1.87s,
+176 private SQL cases across5 suites in12.47s, and20,751 across the fixed81
+issuer-binding suites in116.94s. Sets overlap. Logs:
+`/tmp/zatca-axis2-draft-origin-local-final.log`,
+`/tmp/zatca-axis2-draft-origin-private-final.log`,
+`/tmp/zatca-axis2-draft-origin-regression-final.log`.
+Manifest236 local/71 private suites was not run in full. Actual parent control
+flow and actual private custody are exercised separately; ERP submit/accounting
+and financial signing inputs remain explicit fixture doubles. No installed ERP,
+authority acceptance or full batch/rollback/runtime qualification is inferred.
+The original financial comparison91/117/32 and live source hashes remain unchanged.
+
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; frozen print/master information
 and File/external-print compatibility; explicit unchanged retry and
-corrected-clock/operator adoption; draft-origin handoff and
+corrected-clock/operator adoption; canonical draft/batch rollback and callback isolation;
 source lifecycle decisions; started/uncertain intent resolution, later native
 PREPARED discovery and whole runtime qualification. The new durable handoff is
 not complete crash/delivery recovery. Do not announce3 or installation from these narrower checks.

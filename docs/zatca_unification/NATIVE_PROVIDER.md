@@ -135,12 +135,13 @@ compatibility/frozen master and print data (first Desk/transient-print adoption
 is described in [NATIVE_PUBLICATION.md](NATIVE_PUBLICATION.md), with authenticated
 collection updates in [PUBLICATION_COLLECTION_STATE.md](PUBLICATION_COLLECTION_STATE.md));
 explicit unchanged retry and corrected-clock adoption; source cancel/delete/rename
-decisions; and whole runtime qualification. Submitted manual
-and scheduled adoption do not close draft-origin handoff: a scheduled/manual ERP
-draft submission still defers through its ordinary submit intent first. The
+decisions; and whole runtime qualification. Manual and scheduled draft callers
+now preserve their fixed operation through the parent intent; exact pre-transport
+closed-window checks may wait, with uncertain originals retaining priority. See
+[NATIVE_DRAFT_SUBMISSION.md](NATIVE_DRAFT_SUBMISSION.md). The
 older submitted-invoice collector still has its24-hour horizon. The later
 [durable native submission intent](NATIVE_SUBMISSION_INTENT.md) replaces native
-submit-hook callback-only handoff and adds age-independent READY discovery;
+submit-hook callback-only handoff and adds age-independent READY/WAITING discovery;
 started/uncertain recovery and later PREPARED discovery are still open.
 Installed/dummy-site rehearsals
 retain their specific authorization gates. Workstream2 is not closed.

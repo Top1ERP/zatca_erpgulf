@@ -104,5 +104,12 @@ Selected native submit hooks now stage a separate authenticated submission inten
 in the parent ERP transaction and seal its final source/actor/chain binding before
 commit. Identifier-only after-commit enqueue and bounded READY recovery use a
 fixed worker; RUNNING/REVIEW never authorize automatic retry. Unmarked legacy
-handoff is unchanged. This is not complete started/crash/draft/PREPARED discovery
+handoff is unchanged. This is not complete started/crash/PREPARED discovery
 or installed lifecycle acceptance: [NATIVE_SUBMISSION_INTENT.md](NATIVE_SUBMISSION_INTENT.md).
+
+Manual/Scheduled draft origins now enter that header through one scoped ERP submit
+helper. The native Sales external-ID Background early return is covered. Only an
+exact pre-transport scheduled window skip may wait with a new future claim fence;
+uncertain/rejected originals and other policy/source failures remain review.
+Canonical batch rollback/callback isolation and installed behavior remain open:
+[NATIVE_DRAFT_SUBMISSION.md](NATIVE_DRAFT_SUBMISSION.md).

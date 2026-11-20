@@ -11,7 +11,7 @@
   {"fieldname":"source_doctype","label":"Source Type","fieldtype":"Data","read_only":1,"reqd":1},
   {"fieldname":"source_name","label":"Source Name","fieldtype":"Data","read_only":1,"reqd":1},
   {"fieldname":"actor","label":"Original Actor","fieldtype":"Data","read_only":1,"reqd":1},
-  {"fieldname":"state","label":"Intent State","fieldtype":"Select","options":"STAGED\nREADY\nRUNNING\nCOMPLETE\nREVIEW","default":"STAGED","read_only":1,"reqd":1,"search_index":1},
+  {"fieldname":"state","label":"Intent State","fieldtype":"Select","options":"STAGED\nREADY\nWAITING\nRUNNING\nCOMPLETE\nREVIEW","default":"STAGED","read_only":1,"reqd":1,"search_index":1},
   {"fieldname":"state_version","label":"State Version","fieldtype":"Int","default":"0","read_only":1,"reqd":1},
   {"fieldname":"fence_token","label":"Worker Fence","fieldtype":"Data","read_only":1},
   {"fieldname":"started_at_utc","label":"Started At UTC","fieldtype":"Datetime","read_only":1},

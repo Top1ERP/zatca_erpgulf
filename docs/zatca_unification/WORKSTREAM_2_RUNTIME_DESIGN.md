@@ -885,3 +885,30 @@ RUNNING/REVIEW are held, not reclaimed, because durable handoff alone cannot
 establish an unknown native transport outcome. Draft-operation propagation and
 later PREPARED dispatch remain separate work. Detailed behavior and acceptance
 limits: [NATIVE_SUBMISSION_INTENT.md](NATIVE_SUBMISSION_INTENT.md).
+
+## Fixed draft operation propagation and scheduled waiting
+
+The manual Sales/POS and shared scheduled draft callers now share a narrow
+site/actor/source operation scope around ordinary ERP submit. Selected native
+handoff copies manual/scheduled into its authenticated header; ordinary submit
+and unmarked legacy queue policy remain unchanged. A retained or cross-context
+scope cannot authorize another source. The native Sales external-ID Background
+parent return now enters that same deferral after its existing validation.
+
+A scheduled closed-window result is explicitly distinguished before preparation/
+reservation/transport. Only that exact enabled Background result may persist as
+WAITING. Future claims use new fences and repeat source/actor/policy checks;
+rejected/uncertain originals are inspected before window policy, not hidden as a
+wait. Discovery orders READY/WAITING by modification, authenticates the full
+bounded batch before state changes and moves disabled original accounts to a
+review hold without mutating source or immutable original actor/header.
+
+Local tests exercise the actual parent branch with a storage double; private SQL
+exercises the actual bridge/storage/provider with ERP-submit and signing-input
+doubles. Their composition does not certify installed ERP accounting or full
+canonical runtime. The old collector catches per-invoice errors and retains its
+Sales/POS commit distinction: batch rollback and callback cleanup ownership still
+need dedicated qualification, particularly with uncommitted POS parent writes.
+Do not claim these gates from identifier/context tests or add a speculative
+rollback that discards another operation's writes. See
+[NATIVE_DRAFT_SUBMISSION.md](NATIVE_DRAFT_SUBMISSION.md).

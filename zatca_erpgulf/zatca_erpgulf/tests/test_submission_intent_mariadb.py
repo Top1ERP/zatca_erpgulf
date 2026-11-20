@@ -321,3 +321,168 @@ def test_worker_review_does_not_leave_framework_error_log_writes_between_owned_t
     assert c.execute()['status']=='REVIEW'
     assert c.rows()[0]['result_code']=='native_operation_review' and c.database.transaction_writes==0
     assert not writes and not c.built and not c.sent and c.head()=='0'
+
+
+def submit_fixture_draft(c,monkeypatch,operation,*,early_native_branch=False):
+    """Actual collection callers; only ERP submit itself is a transaction double."""
+    import inspect
+    from datetime import datetime
+    from zatca_erpgulf.zatca_erpgulf import background_worker,sign_invoice,pos_sign
+    c.database.sql('UPDATE `tab'+c.source.doctype+'` SET docstatus=0,custom_zatca_status=%s WHERE name=%s',
+        ('Not Submitted',c.source.name))
+    c.original_commit();c.source.docstatus=0;c.company.custom_submit_or_not=1
+    original=c.runtime.get_doc
+    submits=[]
+    def get_doc(dt,name,**kwargs):
+        doc=original(dt,name,**kwargs)
+        if dt==c.source.doctype:
+            def submit():
+                assert doc.docstatus==0
+                submits.append(name)
+                c.database.sql('UPDATE `tab'+dt+'` SET docstatus=1 WHERE name=%s',(name,))
+                doc.docstatus=1
+                with deferred.invoice_submit_hook(dt,doc,runtime=c.runtime,translate=str):
+                    if early_native_branch:
+                        assert deferred.maybe_defer_native_invoice_submission(dt,name,runtime=c.runtime,translate=str)
+                    else:
+                        c.run()  # Actual native entry must defer before its builder.
+                return doc
+            doc.submit=submit;doc.reload=lambda:doc
+        return doc
+    monkeypatch.setattr(c.runtime,'get_doc',get_doc)
+    alias=lambda group,doc,default:doc.get('custom_b2c',default)
+    before=c.database.commits
+    if operation=='manual':
+        module=sign_invoice if c.source.doctype=='Sales Invoice' else pos_sign
+        monkeypatch.setattr(module,'get_alias_value',alias)
+        function=module.resubmit_invoices if c.source.doctype=='Sales Invoice' else module.resubmit_invoices_pos
+        inspect.unwrap(function)([c.source.name])
+    else:
+        monkeypatch.setattr(background_worker,'frappe',c.runtime)
+        monkeypatch.setattr(background_worker,'get_alias_value',alias)
+        monkeypatch.setattr(background_worker,'now_datetime',lambda:datetime(2026,11,20,10))
+        c.runtime.get_all=Mock(return_value=[{'name':c.source.name}])
+        callback=Mock()
+        background_worker.run_pending_background_invoices(c.source.doctype,callback,commit_per_invoice=False)
+        callback.assert_not_called()
+    assert submits==[c.source.name] and c.database.commits==before
+    assert c.rows()[0]['state']=='STAGED' and c.head()=='0' and not c.built and not c.sent
+    c.runtime.enqueue.assert_not_called()
+
+
+@pytest.mark.parametrize('case',[(route,kind,method,True) for route,kind in
+    ((0,'company'),(0,'device'),(0,'linked'),(1,'company'),(1,'device'),(1,'linked'))
+    for method in ('Batches','Background')],indirect=True)
+def test_actual_manual_draft_origins_dispatch_after_commit_even_with_a_prepare_only_default(handoff,monkeypatch):
+    import json
+    c=handoff;submit_fixture_draft(c,monkeypatch,'manual');c.database.commit()
+    assert json.loads(c.rows()[0]['intent_header'])['intent']=='manual'
+    assert c.execute()['status']=='COMPLETE' and c.rows()[0]['result_code']=='accepted'
+    assert c.head()=='1' and len(c.built)==1 and len(c.sent)==1
+    assert c.execute()['status']=='COMPLETE' and len(c.sent)==1
+    c.b.request.assert_not_called()
+
+
+@pytest.mark.parametrize('case',[(0,'company','Background',True),(1,'device','Background',True),
+    (0,'linked','Background',True),(1,'linked','Background',True)],indirect=True)
+def test_actual_scheduled_draft_waits_for_window_then_uses_one_original_and_one_mocked_request(handoff,monkeypatch):
+    from datetime import datetime
+    from zatca_erpgulf.zatca_erpgulf import native_delivery
+    import json
+    c=handoff;submit_fixture_draft(c,monkeypatch,'scheduled');c.database.commit()
+    before=c.rows()[0];header=before['intent_header'];cipher=before['intent_ciphertext']
+    assert json.loads(header)['intent']=='scheduled'
+    monkeypatch.setattr(native_delivery,'now_datetime',lambda:datetime(2026,11,20,13))
+    assert c.execute()['status']=='WAITING' and c.rows()[0]['result_code']=='outside_company_window'
+    first_fence=c.rows()[0]['fence_token']
+    assert c.execute()['status']=='WAITING' and c.rows()[0]['fence_token']!=first_fence
+    assert not c.built and not c.sent and c.head()=='0'
+    assert worker.rediscover_ready_intents(runtime=c.runtime)==1
+    assert c.runtime.enqueue.call_args.kwargs['record_id']==before['record_id']
+    assert c.rows()[0]['intent_header']==header and c.rows()[0]['intent_ciphertext']==cipher
+    monkeypatch.setattr(native_delivery,'now_datetime',lambda:datetime(2026,11,21,10))
+    assert c.execute()['status']=='COMPLETE' and c.head()=='1' and len(c.built)==1 and len(c.sent)==1
+    assert c.execute()['status']=='COMPLETE' and len(c.sent)==1
+
+
+@pytest.mark.parametrize('case',[(0,'company','Background',True)],indirect=True)
+@pytest.mark.parametrize('change',['phase','method','mode','permission','money','disabled_user'])
+def test_waiting_schedule_rechecks_policy_source_and_actor_instead_of_replaying(handoff,monkeypatch,change):
+    from datetime import datetime
+    from zatca_erpgulf.zatca_erpgulf import native_delivery
+    c=handoff;submit_fixture_draft(c,monkeypatch,'scheduled');c.database.commit()
+    monkeypatch.setattr(native_delivery,'now_datetime',lambda:datetime(2026,11,20,13))
+    assert c.execute()['status']=='WAITING'
+    if change=='phase':c.company.custom_phase_1_or_2='Phase-1'
+    elif change=='method':c.change('UPDATE `tabCompany` SET custom_send_invoice_to_zatca=%s WHERE name=%s',('Batches',c.company.name))
+    elif change=='mode':c.runtime.conf['zatca_native_dispatch']=0
+    elif change=='permission':c.runtime.has_permission=lambda *args,**kwargs:False
+    elif change=='money':c.change('UPDATE `tab'+c.source.doctype+'` SET grand_total=114 WHERE name=%s',(c.source.name,))
+    else:c.change('UPDATE `tabUser` SET enabled=0 WHERE name=%s',(c.runtime.session.user,))
+    assert c.execute()['status']=='REVIEW' and not c.built and not c.sent and c.head()=='0'
+    assert worker.rediscover_ready_intents(runtime=c.runtime)==0
+
+
+@pytest.mark.parametrize('case',[(0,'company','Background',True)],indirect=True)
+def test_waiting_intent_cannot_hide_an_unknown_native_attempt_from_a_separate_manual_operation(handoff,monkeypatch):
+    from datetime import datetime
+    from requests.exceptions import ReadTimeout
+    from zatca_erpgulf.zatca_erpgulf import native_delivery
+    c=handoff;submit_fixture_draft(c,monkeypatch,'scheduled');c.database.commit()
+    monkeypatch.setattr(native_delivery,'now_datetime',lambda:datetime(2026,11,20,13))
+    assert c.execute()['status']=='WAITING'
+    c.adapter.send.side_effect=ReadTimeout('SYNTHETIC UNKNOWN RESPONSE')
+    with pytest.raises(native_provider.NativeProviderError) as failed:
+        native_provider.maybe_process_native_invoice(c.source.doctype,c.source.name,runtime=c.runtime,
+            translate=str,build=lambda source:c.run(),intent='manual')
+    assert failed.value.code=='native_transport_outcome_unknown'
+    from zatca_erpgulf.zatca_erpgulf.native_dispatch import read_retained_invoice
+    retained=read_retained_invoice(c.source.doctype,c.source.name,runtime=c.runtime)
+    assert retained.state=='OUTCOME_UNKNOWN' and not retained.accepted
+    calls=c.adapter.send.call_count
+    assert c.head()=='1' and calls==1
+    assert c.execute()['status']=='REVIEW' and c.rows()[0]['result_code']=='native_operation_review'
+    assert c.adapter.send.call_count==calls and c.head()=='1' and len(c.built)==1
+
+
+@pytest.mark.parametrize('case',[(0,'company','Background',True)],indirect=True)
+def test_waiting_claim_uses_a_new_fence_and_rejects_a_late_previous_finish(handoff,monkeypatch):
+    from datetime import datetime
+    from zatca_erpgulf.zatca_erpgulf import native_delivery
+    c=handoff;submit_fixture_draft(c,monkeypatch,'scheduled');c.database.commit()
+    monkeypatch.setattr(native_delivery,'now_datetime',lambda:datetime(2026,11,20,13))
+    assert c.execute()['status']=='WAITING'
+    old=c.rows()[0]['fence_token']
+    header,fence,state=worker._claim(c.runtime,c.rows()[0]['record_id'])
+    assert state=='RUNNING' and fence!=old
+    with pytest.raises(intent.SubmissionIntentError,match='completion_fence'):
+        worker._finish(c.runtime,header,old,'COMPLETE','accepted')
+    assert c.execute()['status']=='RUNNING' and not c.sent and c.head()=='0'
+
+
+@pytest.mark.parametrize('case',[(0,'company','Background',True)],indirect=True)
+def test_discovery_holds_disabled_waiting_actor_without_changing_authenticated_origin(handoff,monkeypatch):
+    from datetime import datetime
+    from zatca_erpgulf.zatca_erpgulf import native_delivery
+    c=handoff;submit_fixture_draft(c,monkeypatch,'scheduled');c.database.commit()
+    monkeypatch.setattr(native_delivery,'now_datetime',lambda:datetime(2026,11,20,13))
+    assert c.execute()['status']=='WAITING'
+    before=c.rows()[0];actor=c.runtime.session.user
+    c.change('UPDATE `tabUser` SET enabled=0 WHERE name=%s',(actor,))
+    c.runtime.set_user('Administrator');c.runtime.enqueue.reset_mock()
+    assert worker.rediscover_ready_intents(runtime=c.runtime)==0
+    row=c.rows()[0]
+    assert row['state']=='REVIEW' and row['result_code']=='actor_disabled' and row['modified_by']=='Administrator'
+    assert row['actor']==actor and row['intent_header']==before['intent_header'] and row['intent_ciphertext']==before['intent_ciphertext']
+    c.runtime.enqueue.assert_not_called();assert c.head()=='0' and not c.built and not c.sent
+
+
+@pytest.mark.parametrize('case',[(0,'device','Background',True)],indirect=True)
+@pytest.mark.parametrize('operation',['manual','scheduled'])
+def test_native_early_background_return_uses_actual_parent_custody_and_original_operation(handoff,monkeypatch,operation):
+    import json
+    c=handoff;submit_fixture_draft(c,monkeypatch,operation,early_native_branch=True)
+    c.database.commit()
+    assert json.loads(c.rows()[0]['intent_header'])['intent']==operation
+    assert c.execute()['status']=='COMPLETE' and c.rows()[0]['result_code']=='accepted'
+    assert c.head()=='1' and len(c.built)==1 and len(c.sent)==1

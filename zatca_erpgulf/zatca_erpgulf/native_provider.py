@@ -125,18 +125,24 @@ def _run_selected(doctype,invoice_name,*,runtime,translate,build,intent,source,c
         return _result(doctype,invoice_name,value)
     if not native_mode_enabled(runtime):
         raise NativeProviderError('native_provider_rollout_disabled')
+    if retained is not None and retained.state!='PREPARED':
+        # A closed schedule cannot hide an already uncertain/rejected original
+        # behind a harmless waiting result. Ordinary processing never retries it.
+        return {'status':'ERROR' if retained.state=='REJECTED' else 'REVIEW','accepted':False,
+            'source_doctype':doctype,'source_name':invoice_name,'issuance_id':retained.issuance_id,
+            'state':retained.state,'reused':True}
     customer=runtime.get_doc('Customer',source.customer)
     _permitted(runtime,customer)
     original_xml=retained.original_xml if retained is not None and retained.state=='PREPARED' else None
     decision=delivery_decision(company,customer,intent,original_xml=original_xml)
     if decision.action=='SKIP':
-        return {'status':'SKIPPED','accepted':False,'reason':'company_policy_changed'}
-    if retained is not None and (decision.action=='PREPARE' or retained.state!='PREPARED'):
-        if retained.state=='PREPARED':
-            return _result(doctype,invoice_name,RetainedNativeIssuance(retained.issuance_id,retained.state,True,doctype,invoice_name))
-        return {'status':'ERROR' if retained.state=='REJECTED' else 'REVIEW','accepted':False,
-            'source_doctype':doctype,'source_name':invoice_name,'issuance_id':retained.issuance_id,
-            'state':retained.state,'reused':True}
+        # This branch precedes preparation/reservation/transport. Only a still
+        # enabled Background schedule outside its current window may wait; other
+        # policy changes remain a review and cannot authorize automatic replay.
+        reason='outside_company_window' if intent=='scheduled' and decision.method=='Background' else 'company_policy_changed'
+        return {'status':'SKIPPED','accepted':False,'reason':reason}
+    if retained is not None and decision.action=='PREPARE':
+        return _result(doctype,invoice_name,RetainedNativeIssuance(retained.issuance_id,retained.state,True,doctype,invoice_name))
     # Bind ordinary retained dispatch as well as attached-XML admission to the
     # exact version supplying its classification; no newer version can replace it.
     if retained is not None and not expected:

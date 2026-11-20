@@ -93,7 +93,7 @@ def open_intent(owner,record_id,*,lock=False):
     if len(rows)!=1:
         raise SubmissionIntentError('submission_intent_missing')
     row=rows[0]
-    if row['state'] not in ('READY','RUNNING','COMPLETE','REVIEW'):
+    if row['state'] not in ('READY','WAITING','RUNNING','COMPLETE','REVIEW'):
         raise SubmissionIntentError('submission_intent_unfinalized')
     if any(type(row[key]) is not str or not 0<len(row[key])<=8192 for key in ('intent_header','intent_ciphertext')):
         raise SubmissionIntentError('submission_intent_envelope')

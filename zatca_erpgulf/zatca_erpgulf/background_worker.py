@@ -8,6 +8,7 @@ No schedule restrictions are added to explicit manual or batch submissions.
 import frappe
 
 from .deferred_submission import is_invoice_submission_deferred
+from .draft_submission import submit_draft
 from .existing_xml_submission import ExistingXmlSubmissionError
 from .issuing_attempt import IssuingAttemptError
 from .native_provider import process_native_saved_source
@@ -80,7 +81,8 @@ not provide a cross-worker lock or make remote submissions transactional.
                     customer = frappe.get_doc("Customer", invoice.customer)
                     if not cint(get_alias_value("customer_b2c", customer, 0)):
                         continue
-                    invoice.submit()
+                    submit_draft(invoice,runtime=frappe,translate=getattr(frappe,'_',lambda text:text),
+                        operation='scheduled')
                     invoice.reload()
                     if is_invoice_submission_deferred(frappe, doctype, invoice.name):
                         if commit_per_invoice:

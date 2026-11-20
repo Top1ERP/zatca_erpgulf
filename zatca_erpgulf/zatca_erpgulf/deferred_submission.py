@@ -149,10 +149,12 @@ def maybe_defer_invoice_submission(doctype, invoice_name, *, runtime, translate)
         from .native_provider import _selection
         if _selection(runtime,doctype,invoice_name,_source) is not None:
             from .submission_intent import ParentIntent
+            from .draft_submission import resolve_submission_operation
             before_commit=getattr(runtime.db,'before_commit',None)
             if not callable(getattr(before_commit,'add',None)):
                 raise DeferredSubmissionError('deferred_before_commit_callback')
-            native_intent=ParentIntent(runtime,doctype,invoice_name)
+            native_intent=ParentIntent(runtime,doctype,invoice_name,
+                intent=resolve_submission_operation(runtime,doctype,invoice_name))
     except Exception:
         failed=True
     else:
@@ -238,6 +240,32 @@ def maybe_defer_invoice_submission(doctype, invoice_name, *, runtime, translate)
     if failed:
         _review(runtime, translate, 'deferred_callback_registration')
     return True
+
+
+def maybe_defer_native_invoice_submission(doctype, invoice_name, *, runtime, translate):
+    """Cover an early native hook return without changing legacy queue policy.
+
+    The Sales external-ID Background branch otherwise returns before reaching a
+    generator's shared deferral. Outside the ERP hook this helper is inert.
+    """
+    current = HOOK.get()
+    if current is None:
+        return False
+    if (current.closed or (current.site,current.doctype,current.invoice_name)
+            != (_site(runtime),doctype,invoice_name)):
+        _review(runtime,translate,'deferred_hook_context')
+    try:
+        from .native_provider import _selection
+        selected = _selection(runtime,doctype,invoice_name,None)
+    except Exception:
+        failed = True
+    else:
+        failed = False
+    if failed:
+        _review(runtime,translate,'deferred_native_background_selection')
+    if selected is None:
+        return False
+    return maybe_defer_invoice_submission(doctype,invoice_name,runtime=runtime,translate=translate)
 
 
 def reject_submit_hook_transport(runtime, translate):

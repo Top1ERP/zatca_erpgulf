@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "draft_submission",
     "submission_intent",
     "native_legacy_artifact_probe",
     "native_legacy_consumers",

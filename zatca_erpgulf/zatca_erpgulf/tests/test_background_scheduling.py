@@ -97,6 +97,7 @@ def worker_boundary(monkeypatch):
     docs["Customer", "B2B"] = Document(custom_b2c=0)
     callback = Mock()
     fake_frappe = SimpleNamespace(
+        local=SimpleNamespace(site='fictional.invalid'),session=SimpleNamespace(user='operator'),
         get_all=Mock(return_value=rows),
         get_doc=Mock(side_effect=lambda dt, name: docs[dt, name]),
         db=SimpleNamespace(commit=Mock()),

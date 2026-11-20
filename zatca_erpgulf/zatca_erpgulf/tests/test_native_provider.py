@@ -158,3 +158,28 @@ def test_pos_manual_draft_uses_its_own_document_when_authorized_for_submission(e
     monkeypatch.setattr(pos_sign,'get_alias_value',lambda group,doc,default:doc.get('b2c',default))
     inspect.unwrap(pos_sign.resubmit_invoices_pos)([e.source.name])
     e.source.submit.assert_called_once()
+
+
+@pytest.mark.parametrize('method,enabled,phase,reason',[('Background',1,'Phase-2','outside_company_window'),
+    ('Batches',1,'Phase-2','company_policy_changed'),('Background',0,'Phase-2','company_policy_changed'),
+    ('Background',1,'Phase-1','company_policy_changed')])
+def test_only_current_enabled_background_window_skip_is_identified_as_safe_wait(entry,monkeypatch,method,enabled,phase,reason):
+    from datetime import datetime
+    e=entry;e.company.custom_send_invoice_to_zatca=method;e.company.custom_zatca_invoice_enabled=enabled
+    e.company.custom_phase_1_or_2=phase;e.company.custom_start_time='09:00:00';e.company.custom_end_time='11:00:00'
+    monkeypatch.setattr(delivery,'now_datetime',lambda:datetime(2026,11,20,13))
+    assert e.run('scheduled')=={'status':'SKIPPED','accepted':False,'reason':reason}
+    e.prepare.assert_not_called();e.dispatch.assert_not_called()
+
+
+@pytest.mark.parametrize('state',['REJECTED','DISPATCHING','OUTCOME_UNKNOWN','REVIEW_REQUIRED'])
+def test_uncertain_or_rejected_retained_original_is_not_hidden_by_a_closed_schedule(entry,monkeypatch,state):
+    from datetime import datetime
+    e=entry;e.company.custom_send_invoice_to_zatca='Background'
+    e.company.custom_start_time='09:00:00';e.company.custom_end_time='11:00:00'
+    e.read.return_value=RetainedNativeView('ISSUANCE','ATTEMPT',state,'RETAINED_ORIGINAL',False,0,False,b'PRIVATE',None)
+    monkeypatch.setattr(delivery,'now_datetime',lambda:datetime(2026,11,20,13))
+    result=e.run('scheduled')
+    assert result['status']==('ERROR' if state=='REJECTED' else 'REVIEW') and result['state']==state
+    assert 'reason' not in result
+    e.prepare.assert_not_called();e.dispatch.assert_not_called()

@@ -28,16 +28,16 @@ def _claim(runtime,record_id):
         row,header=open_intent(owner,record_id,lock=True)
         if owner.actor!=header['actor']:
             raise SubmissionIntentError('submission_intent_actor_changed')
-        if row['state']!='READY':
+        if row['state'] not in ('READY','WAITING'):
             return header,None,row['state']
         if not _enabled(owner,header['actor']):
-            owner.database.sql('UPDATE '+TABLE+' SET state=%s,result_code=%s,state_version=state_version+1 WHERE name=%s',
+            owner.database.sql('UPDATE '+TABLE+' SET state=%s,result_code=%s,modified=UTC_TIMESTAMP(6),state_version=state_version+1 WHERE name=%s',
                 ('REVIEW','actor_disabled',record_id))
             owner.commit()
             return header,None,'REVIEW'
         fence=str(uuid4())
-        owner.database.sql('UPDATE '+TABLE+' SET state=%s,fence_token=%s,started_at_utc=UTC_TIMESTAMP(6),'
-            'state_version=state_version+1 WHERE name=%s AND state=%s',('RUNNING',fence,record_id,'READY'))
+        owner.database.sql('UPDATE '+TABLE+' SET state=%s,fence_token=%s,modified=UTC_TIMESTAMP(6),started_at_utc=UTC_TIMESTAMP(6),'
+            'state_version=state_version+1 WHERE name=%s AND state=%s',('RUNNING',fence,record_id,row['state']))
         if owner.database.sql('SELECT ROW_COUNT() AS affected',as_dict=True)[0]['affected']!=1:
             raise SubmissionIntentError('submission_intent_claim_changed')
         owner.commit()
@@ -45,11 +45,13 @@ def _claim(runtime,record_id):
 
 
 def _finish(runtime,header,fence,state,code):
+    if state not in ('COMPLETE','REVIEW','WAITING'):
+        raise SubmissionIntentError('submission_intent_finish_state')
     with owned_worker_transaction(runtime) as owner:
         row,current=open_intent(owner,header['record_id'],lock=True)
         if (current!=header or owner.actor!=header['actor'] or row['state']!='RUNNING' or row['fence_token']!=fence):
             raise SubmissionIntentError('submission_intent_completion_fence')
-        owner.database.sql('UPDATE '+TABLE+' SET state=%s,result_code=%s,finished_at_utc=UTC_TIMESTAMP(6),'
+        owner.database.sql('UPDATE '+TABLE+' SET state=%s,result_code=%s,modified=UTC_TIMESTAMP(6),finished_at_utc=UTC_TIMESTAMP(6),'
             'state_version=state_version+1 WHERE name=%s AND state=%s AND fence_token=%s',
             (state,code,header['record_id'],'RUNNING',fence))
         if owner.database.sql('SELECT ROW_COUNT() AS affected',as_dict=True)[0]['affected']!=1:
@@ -86,6 +88,12 @@ def run_submission_intent(record_id,*,runtime,translate,build):
         done=status=='PREPARED' or status=='SUCCESS' and result.get('accepted') is True
         code='prepared' if status=='PREPARED' else 'accepted' if done else 'native_operation_review'
         state='COMPLETE' if done else 'REVIEW'
+        if (header['intent']=='scheduled' and type(result) is dict
+                and result.get('accepted') is False
+                and result=={'status':'SKIPPED','accepted':False,'reason':'outside_company_window'}):
+            # The provider returned before generation/reservation/transport.
+            # This is a fresh scheduled policy check, never an unknown retry.
+            state,code='WAITING','outside_company_window'
     except Exception:
         # Raw framework/signing/HTTP child text may contain private data. Native
         # custody owns delivery outcome; a generic exception is never rejection.
@@ -139,7 +147,7 @@ def _queue_as_actor(runtime,actor):
 
 
 def rediscover_ready_intents(*,runtime):
-    """Bounded READY queue recovery with no invoice-age horizon or transport.
+    """Bounded READY/WAITING recovery without an invoice-age horizon or transport.
 
     Authenticated actors are reloaded before enqueue. RUNNING/REVIEW and later
     Background/Batches dispatch are separate operator/discovery lifecycle work.
@@ -150,12 +158,29 @@ def rediscover_ready_intents(*,runtime):
     with owned_worker_transaction(runtime) as owner:
         if 'System Manager' not in runtime.get_roles(owner.actor):
             raise SubmissionIntentError('submission_intent_recovery_access')
-        rows=owner.database.sql('SELECT record_id FROM '+TABLE+' WHERE state=%s '
-            'ORDER BY creation,name LIMIT 100 LOCK IN SHARE MODE NOWAIT',('READY',),as_dict=True)
+        rows=owner.database.sql('SELECT record_id FROM '+TABLE+' WHERE state IN (%s,%s) '
+            'ORDER BY modified,name LIMIT 100 LOCK IN SHARE MODE NOWAIT',('READY','WAITING'),as_dict=True)
         headers=[]
+        disabled=[]
         for row in rows:
-            record,header=open_intent(owner,row['record_id'])
-            if record['state']=='READY' and _enabled(owner,header['actor']):headers.append(header)
+            record,header=open_intent(owner,row['record_id'],lock=True)
+            if record['state'] in ('READY','WAITING'):
+                if _enabled(owner,header['actor']):
+                    headers.append(header)
+                else:
+                    disabled.append(header['record_id'])
+        # Authenticate the entire bounded batch before changing any state. A
+        # disabled actor must not occupy a discoverable slot forever and starve
+        # later work. This administrative hold changes no source or authority
+        # outcome, and never changes the immutable original actor/header.
+        for record_id in disabled:
+            owner.database.sql('UPDATE '+TABLE+' SET state=%s,result_code=%s,modified=UTC_TIMESTAMP(6),'
+                'modified_by=%s,state_version=state_version+1 WHERE name=%s AND state IN (%s,%s)',
+                ('REVIEW','actor_disabled',owner.actor,record_id,'READY','WAITING'))
+            if owner.database.sql('SELECT ROW_COUNT() AS affected',as_dict=True)[0]['affected']!=1:
+                raise SubmissionIntentError('submission_intent_disabled_hold_changed')
+        if disabled:
+            owner.commit()
     count=0
     for header in headers:
         with _queue_as_actor(runtime,header['actor']):

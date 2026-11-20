@@ -131,3 +131,21 @@ def test_processing_error_is_redacted_and_unknown_claim_commit_is_not_compensate
     finish.reset_mock()
     with pytest.raises(RuntimeError):worker.run_submission_intent(h['record_id'],runtime=object(),translate=str,build=Mock())
     finish.assert_not_called()
+
+
+@pytest.mark.parametrize('operation,skipped,state,code',[
+    ('scheduled',{'status':'SKIPPED','accepted':False,'reason':'outside_company_window'},'WAITING','outside_company_window'),
+    ('submit',{'status':'SKIPPED','accepted':False,'reason':'outside_company_window'},'REVIEW','native_operation_review'),
+    ('manual',{'status':'SKIPPED','accepted':False,'reason':'outside_company_window'},'REVIEW','native_operation_review'),
+    ('scheduled',{'status':'SKIPPED','accepted':False,'reason':'company_policy_changed'},'REVIEW','native_operation_review'),
+    ('scheduled',{'status':'SKIPPED','accepted':0,'reason':'outside_company_window'},'REVIEW','native_operation_review'),
+    ('scheduled',{'status':'UNKNOWN','accepted':False,'reason':'outside_company_window'},'REVIEW','native_operation_review'),
+    ('scheduled',{'status':'SKIPPED','accepted':False,'reason':'outside_company_window','extra':True},'REVIEW','native_operation_review')])
+def test_only_exact_pretransport_scheduled_window_skip_can_wait(monkeypatch,operation,skipped,state,code):
+    h=header();h['intent']=operation;runtime=object()
+    monkeypatch.setattr(worker,'_claim',lambda *args:(h,'fence','RUNNING'))
+    monkeypatch.setattr(worker,'_process',lambda *args:skipped)
+    finish=Mock();monkeypatch.setattr(worker,'_finish',finish)
+    result=worker.run_submission_intent(h['record_id'],runtime=runtime,translate=str,build=Mock())
+    assert result['status']==state
+    finish.assert_called_once_with(runtime,h,'fence',state,code)

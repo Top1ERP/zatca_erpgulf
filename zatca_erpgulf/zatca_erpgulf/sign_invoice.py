@@ -1914,6 +1914,9 @@ def _process_submitted_invoice(doc, _method=None, bypass_background_check=False)
                     and get_alias_value("customer_b2c", customer_doc, 0) == 1
                     and not bypass_background_check
                 ):
+                    from .deferred_submission import maybe_defer_native_invoice_submission
+                    maybe_defer_native_invoice_submission(
+                        'Sales Invoice',invoice_number,runtime=frappe,translate=_)
                     return
                 if is_gpos_installed and sales_invoice_doc.custom_xml:
                     # Set the custom XML field
@@ -2394,10 +2397,10 @@ def run_automatic_zatca_onboarding_checks(company_name: str):
 
 @frappe.whitelist()
 def resubmit_invoices(invoice_numbers, bypass_background_check=False):
-    """
-    Resubmit invoices where custom_zatca_full_response contains 'RemoteDisconnected'.
-    If the invoice is already submitted, call `zatca_background_on_submit`.
-    Otherwise, submit the invoice.
+    """Process saved invoices or authorized B2C drafts as an explicit manual action.
+
+    Submitted native invoices use owned custody. Drafts retain manual intent
+    through the ordinary ERP submit hook and its committed native handoff.
     """
     if isinstance(invoice_numbers, str):
         invoice_numbers = frappe.parse_json(invoice_numbers)
@@ -2428,11 +2431,8 @@ def resubmit_invoices(invoice_numbers, bypass_background_check=False):
                 and company_doc.custom_submit_or_not == 1
                 and get_alias_value("customer_b2c", customer_doc, 0) == 1
             ):
-                # Submit the invoice
-                sales_invoice_doc.submit()
-                # zatca_background_on_submit(
-                #     sales_invoice_doc, bypass_background_check=True
-                # )
+                from .draft_submission import submit_draft
+                submit_draft(sales_invoice_doc,runtime=frappe,translate=_,operation='manual')
 
         except (DeclaredVatError, ExistingXmlSubmissionError):
             raise
