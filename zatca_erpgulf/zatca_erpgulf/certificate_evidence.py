@@ -80,7 +80,7 @@ def parse_public_certificate_text(text):
     return certificate, der
 
 
-def inspect_embedded_certificate(content):
+def _embedded_certificate_material(content):
     """Observe one certificate inside the canonical UBL signature location.
 
     Refuse alternate/nested signatures, duplicate IDs and unrelated certificates.
@@ -122,6 +122,10 @@ def inspect_embedded_certificate(content):
         raise ArtifactEvidenceError("certificate_value")
     certificate, der = parse_public_certificate_text(text)
     raw_text = text.encode("ascii")
+    return certificate, der, raw_text
+
+
+def _public_evidence(certificate, der, raw_text):
     try:
         public_key = certificate.public_key().public_bytes(
             serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo,
@@ -134,3 +138,27 @@ def inspect_embedded_certificate(content):
         hashlib.sha256(der).hexdigest(), hashlib.sha256(public_key).hexdigest(),
         hashlib.sha256(raw_text).hexdigest(), len(der),
     )
+
+
+def inspect_embedded_certificate(content):
+    """Observe one structurally located certificate; never verify its signature."""
+    return _public_evidence(*_embedded_certificate_material(content))
+
+
+def inspect_embedded_certificate_declarations(content):
+    """Fingerprint and hashed unit claims only; no CA/ancestry/environment proof.
+
+    An old counter's purpose does not identify its gateway. Check declarations
+    conservatively in every namespace. Missing/malformed claims cannot conceal
+    an independently parseable public key; they do not establish disjoint units.
+    """
+    from .credential_identity import claimed_egs_identity_key
+    certificate, der, raw_text = _embedded_certificate_material(content)
+    evidence = _public_evidence(certificate, der, raw_text)
+    units = set()
+    for environment in ('Sandbox', 'Simulation', 'Production'):
+        try:
+            units.add(claimed_egs_identity_key(certificate,environment))
+        except Exception:
+            continue
+    return evidence,tuple(sorted(units))

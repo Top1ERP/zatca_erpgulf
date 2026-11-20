@@ -14,6 +14,7 @@ from .dispatch_store import _fingerprint
 from .native_identity_inventory import collect_identity_inventory, require_range_engines, _owned
 from .permission_compat import saved_row_has_permission
 from .saved_form_source import saved_form_name
+from .native_legacy_artifact_probe import probe_unattributed_counter_artifacts
 
 
 MAX_COUNTERS = 4096
@@ -28,6 +29,9 @@ class LegacyConsumerInventory:
     production_counters: tuple
     other_purpose_counters: tuple
     unattributed_counters: int
+    historical_probed: int = 0
+    historical_unresolved: int = 0
+    historical_unprobed: int = 0
 
     def __reduce_ex__(self, protocol):
         raise TypeError('registration_consumer_inventory_not_serializable')
@@ -121,6 +125,9 @@ def require_single_legacy_counter(runtime, owner, selected, public_key_sha256, u
         raise ChainRegistrationError('registration_consumer_counter_ambiguous')
     if any(record.get('environment') not in ('Production', 'Compliance', 'Debug') for record in matched.values()):
         raise ChainRegistrationError('registration_consumer_counter_purpose')
+    historical = probe_unattributed_counter_artifacts(runtime,owner,
+        tuple(record for name,record in counters.items() if name not in matched),family)
     _owned(owner)
     return LegacyConsumerInventory(identity.sha256, tuple((row.doctype, row.name) for row in family),
-        production, tuple(sorted(set(matched) - set(production))), len(counters) - len(matched))
+        production, tuple(sorted(set(matched) - set(production))), len(counters) - len(matched),
+        historical.probed,historical.unresolved,historical.unprobed)

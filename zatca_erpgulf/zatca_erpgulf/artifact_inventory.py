@@ -29,7 +29,7 @@ from zatca_erpgulf.zatca_erpgulf.counter_inventory import read_invoice_counter_e
 from zatca_erpgulf.zatca_erpgulf.history_evidence import inspect_stored_response
 
 
-def _read_local_attachment(file_doc, doctype, invoice_name, *, runtime=None):
+def _read_local_attachment(file_doc, doctype, invoice_name, *, runtime=None, max_bytes=None):
     """Read bounded exact bytes only from this invoice's private local folder."""
     if (
         file_doc.get("attached_to_doctype") != doctype
@@ -54,15 +54,23 @@ def _read_local_attachment(file_doc, doctype, invoice_name, *, runtime=None):
         or any(c in filename for c in ("/", "\\", "\x00"))
     ):
         raise ArtifactEvidenceError("attachment_path")
-    return _read_private_xml(filename) if runtime is None else _read_private_xml(filename, runtime=runtime)
+    options = {}
+    if runtime is not None:
+        options['runtime'] = runtime
+    if max_bytes is not None:
+        options['max_bytes'] = max_bytes
+    return _read_private_xml(filename, **options)
 
 
-def _read_private_xml(filename, *, source="attachment", missing_ok=False, runtime=None):
+def _read_private_xml(filename, *, source="attachment", missing_ok=False, runtime=None, max_bytes=None):
     """Read bounded exact bytes without following a leaf symlink.
 
     Callers validate a single basename and supply an internal, static source
     label. Missing optional generated files are not evidence of non-issuance.
     """
+    limit = MAX_XML_BYTES if max_bytes is None else max_bytes
+    if type(limit) is not int or not 0 < limit <= MAX_XML_BYTES:
+        raise ArtifactEvidenceError('xml_size')
     if (
         not isinstance(filename, str) or not filename or filename in (".", "..")
         or any(c in filename for c in ("/", "\\", "\x00"))
@@ -85,17 +93,17 @@ def _read_private_xml(filename, *, source="attachment", missing_ok=False, runtim
             info = os.fstat(fd)
             if not stat.S_ISREG(info.st_mode):
                 raise ArtifactEvidenceError(f"{source}_file_type")
-            if not 0 < info.st_size <= MAX_XML_BYTES:
+            if not 0 < info.st_size <= limit:
                 raise ArtifactEvidenceError("xml_size")
             with os.fdopen(fd, "rb", closefd=False) as handle:
-                content = handle.read(MAX_XML_BYTES + 1)
+                content = handle.read(limit + 1)
         finally:
             os.close(fd)
     except ArtifactEvidenceError:
         raise
     except (OSError, ValueError):
         raise ArtifactEvidenceError(f"{source}_read") from None
-    if not content or len(content) > MAX_XML_BYTES:
+    if not content or len(content) > limit:
         raise ArtifactEvidenceError("xml_size")
     return content
 

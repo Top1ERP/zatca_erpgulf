@@ -92,3 +92,10 @@ known Production counter holds without maximum/zero inference. Captured issuer
 records are also compared with current locking reads before material admission.
 This is not full unattributed history, drain or activation:
 [NATIVE_LEGACY_CONSUMERS.md](NATIVE_LEGACY_CONSUMERS.md).
+
+Otherwise unattributed counter references now have a bounded attached-XML probe.
+Saved source/File permissions and current identity binding precede public-key/
+declared-unit comparisons. Potential overlap holds; missing/over-budget evidence
+is unresolved, and infrastructure failures abort review. No complete history,
+cryptographic trust, drain or activation is inferred:
+[NATIVE_LEGACY_ARTIFACT_PROBE.md](NATIVE_LEGACY_ARTIFACT_PROBE.md).

@@ -29,6 +29,8 @@ def case(monkeypatch):
     def sql(statement, values=(), *, as_dict=True):
         if 'information_schema.tables' in statement:
             return [{'table_name': 'tabZATCA ICV Counter', 'engine': 'InnoDB'}]
+        if statement.startswith('SELECT name FROM'):
+            return []  # Unattributed historical reference is missing in this policy double.
         assert 'FORCE INDEX (PRIMARY)' in statement and 'LOCK IN SHARE MODE NOWAIT' in statement
         assert values == (consumers.MAX_COUNTERS + 1,)
         return [dict(vars(records[name])) for name in sorted(records)]

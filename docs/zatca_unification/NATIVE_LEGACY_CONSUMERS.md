@@ -59,6 +59,13 @@ negative inventory, not a stored credential epoch or activation approval. Exact
 review recovery reruns all checks; future activation must revalidate/fence under
 its own cutover transaction and prove old-worker drain separately.
 
+Those references now also receive a bounded attached-XML contradiction probe:
+[NATIVE_LEGACY_ARTIFACT_PROBE.md](NATIVE_LEGACY_ARTIFACT_PROBE.md). Overlapping
+embedded keys/declared unit identities hold review even when current tokens and
+pointers no longer identify the counter. Missing/unreadable/over-budget evidence
+stays unresolved, and unrelated declarations cannot certify independent history.
+SQL/ORM/owner failures abort the parent instead of being swallowed as missing data.
+
 ## Current issuer observations
 
 Before signing-material admission, the review now compares every captured

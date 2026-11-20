@@ -847,3 +847,21 @@ The actual review/private fixture matrix now uses independent fresh test keys an
 persisted mutation rows; it must not hide real cross-case copied-key conflicts.
 See [NATIVE_LEGACY_CONSUMERS.md](NATIVE_LEGACY_CONSUMERS.md) for coverage and the
 still-open full historical/installed/drain/activation gates.
+
+## Historical attached declarations behind unattributed counters
+
+The current inactive review now probes otherwise unattributed saved counter
+references through current permission-checked Source/Company/File reads and
+bounded private attached XML. Overlapping embedded public keys or declared full
+unit identities hold review without a counter merge or certified ancestry claim.
+Missing/denied/invalid evidence stays unresolved. The probe caps counters/files/
+successful XML bytes, charges bytes before parsing and records unprobed states;
+the shared file reader preserves its old default while supporting a lower cap.
+
+SQL/ORM/engine/owner failures propagate so a possible database rollback cannot
+discard locks and then continue to commit as a mere optional-file miss. Tests
+exercise actual review, deliberately untrusted fixture signatures, a changed
+archived File URL after its earlier ORM view and byte-budget edge cases. Existing
+certificate fingerprint semantics/envelopes and financial/signing algorithms are
+unchanged. No full cryptographic history, installed or cutover/drain closure:
+[NATIVE_LEGACY_ARTIFACT_PROBE.md](NATIVE_LEGACY_ARTIFACT_PROBE.md).

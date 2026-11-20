@@ -1,4 +1,4 @@
-# Implementation status — 2026-11-19
+# Implementation status — 2026-11-20
 
 ## Current: workstream2 in progress
 
@@ -77,6 +77,17 @@ admission, covering demonstrated token/environment/delegate-flag drift under an
 older read view. No unattributed history, drained-fleet or activation proof is
 inferred. See [NATIVE_LEGACY_CONSUMERS.md](NATIVE_LEGACY_CONSUMERS.md).
 
+The same review now probes a bounded subset of otherwise unattributed old
+counter references through saved Source/Company/File permissions and attached
+private XML. Overlapping public keys/declared unit identities hold review, even
+after current token aliases/pointers disappear. Missing/unsafe/over-budget bodies
+remain unresolved/unprobed; inspectable declarations cannot certify historical
+independence, remote acceptance or cutover readiness. Infrastructure failures
+abort the parent instead of swallowing a possible lost transaction. Shared
+certificate fingerprints/default file-reader behavior remain compatible; no
+signing/hash/money/reference algorithm changed. See
+[NATIVE_LEGACY_ARTIFACT_PROBE.md](NATIVE_LEGACY_ARTIFACT_PROBE.md).
+
 Latest XML qualification:691 local cases across6 suites in4.72s,138 private SQL
 cases across4 suites in21.63s, and20,751 across the fixed81 issuer-binding suites
 in114.45s. The earlier100 synthetic UI cases remain
@@ -124,6 +135,18 @@ Manifest233 local/69 private suites was not run in full. These are private
 framework/SQL/crypto fixtures; no installed ERP, live state, actual authority
 acceptance, complete historical census or cutover/drain/activation is claimed.
 The original financial comparison remains91/117/32; no reference was changed.
+
+Latest historical probe qualification:334 local cases across7 suites in2.77s,
+206 private SQL cases across5 suites in32.46s, and20,751 across the fixed81
+issuer-binding suites in117.81s. Sets overlap. Logs:
+`/tmp/zatca-axis2-history-probe-local-final.log`,
+`/tmp/zatca-axis2-history-probe-private-final.log`,
+`/tmp/zatca-axis2-history-probe-regression-final.log`.
+Manifest234 local/70 private suites was not run in full. Synthetic historical
+declarations may hold an inactive review; no verified signature/authority/complete
+ancestry or installed acceptance follows. Read-only installed-source checks retain
+the previous HEAD/dirty-tooltip/customer-address hashes. No live change or
+authority request occurred; the financial reference remains unchanged.
 
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; frozen print/master information
