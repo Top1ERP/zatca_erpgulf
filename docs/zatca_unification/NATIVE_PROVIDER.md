@@ -138,8 +138,11 @@ explicit unchanged retry and corrected-clock adoption; source cancel/delete/rena
 decisions; and whole runtime qualification. Submitted manual
 and scheduled adoption do not close draft-origin handoff: a scheduled/manual ERP
 draft submission still defers through its ordinary submit intent first. The
-existing24-hour discovery horizon and non-durable queue handoff are unchanged;
-there is no outbox/restart-delivery guarantee. Installed/dummy-site rehearsals
+older submitted-invoice collector still has its24-hour horizon. The later
+[durable native submission intent](NATIVE_SUBMISSION_INTENT.md) replaces native
+submit-hook callback-only handoff and adds age-independent READY discovery;
+started/uncertain recovery and later PREPARED discovery are still open.
+Installed/dummy-site rehearsals
 retain their specific authorization gates. Workstream2 is not closed.
 
 The four existing-XML wrapper/API pairs now use exact private attached-original

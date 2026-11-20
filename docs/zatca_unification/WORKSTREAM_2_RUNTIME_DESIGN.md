@@ -9,8 +9,9 @@ closing workstream2 or proposing installation.
 
 The existing submit-hook validators still run in their original order. A scoped
 hook marker intercepts all six production generators and four existing-XML
-wrappers before identity allocation/file extraction, registering a callback only
-after the ERP transaction commits. The final13 native HTTP fences reject a
+wrappers before identity allocation/file extraction, registering callbacks in the
+ERP transaction and queuing only after commit. Selected native owners now also
+stage/finalize a durable intent as described below. The final13 native HTTP fences reject a
 bypassing extension inside the hook. The callback queues identifiers only, checks
 site/actor and avoids the framework's migration-mode inline fallback. Rollback,
 partial registration and retained contexts cannot release a job. Queue invocation
@@ -19,14 +20,15 @@ failure is explicitly unknown, because a worker might already be running.
 The worker reloads permissions/phase/status. Registered native owners now enter
 the owned facade before legacy status-only skipping; unmarked owners retain
 legacy processing. Native scheduled/manual submitted collections share that
-policy, as described in [NATIVE_PROVIDER.md](NATIVE_PROVIDER.md). This is not a
-durable outbox. The background draft worker
+policy, as described in [NATIVE_PROVIDER.md](NATIVE_PROVIDER.md). The later native
+intent provides durable READY discovery, with started/uncertain delivery recovery
+still open. The background draft worker
 skips its old second immediate send when the hook registered a deferred submission.
 Two intra-company hook paths update output fields within the enclosing transaction,
 without save hooks or an early accounting commit.
 
-Five source-only DocTypes declare protected metadata views: Dispatch Control,
-Issuing Chain, Issuance, Dispatch Attempt and Onboarding Attempt. Their shared
+Six source-only DocTypes declare protected metadata views: Dispatch Control,
+Issuing Chain, Issuance, Dispatch Attempt, Onboarding Attempt and Submission Intent. Their shared
 controller denies generic write/delete/rename; roles have read only. Invoice
 payloads contain no credentials; issued CSID secrets occur only in their distinct
 encrypted onboarding-response custody. No site has these schemas installed by the agent. The
@@ -865,3 +867,21 @@ archived File URL after its earlier ORM view and byte-budget edge cases. Existin
 certificate fingerprint semantics/envelopes and financial/signing algorithms are
 unchanged. No full cryptographic history, installed or cutover/drain closure:
 [NATIVE_LEGACY_ARTIFACT_PROBE.md](NATIVE_LEGACY_ARTIFACT_PROBE.md).
+
+## Durable committed native ERP handoff
+
+Selected native submit-hook entries now borrow their ERP transaction to stage an
+intent, finalize an authenticated fiscal source/actor/chain binding before commit,
+and enqueue only its ID after commit. The separate read-only service DocType and
+cipher kind cannot be installed or activated by an ordinary worker. Legacy
+unmarked hooks retain their existing callback. No new signing or financial rule
+is introduced.
+
+The fixed owned worker claims READY with an enabled original actor and persistent
+RUNNING fence. Generation and reservation recheck the bound fiscal source/chain
+under their actual locks. Bounded System Manager discovery has no invoice-age
+horizon, enqueues under authenticated original actors and restores session state.
+RUNNING/REVIEW are held, not reclaimed, because durable handoff alone cannot
+establish an unknown native transport outcome. Draft-operation propagation and
+later PREPARED dispatch remain separate work. Detailed behavior and acceptance
+limits: [NATIVE_SUBMISSION_INTENT.md](NATIVE_SUBMISSION_INTENT.md).

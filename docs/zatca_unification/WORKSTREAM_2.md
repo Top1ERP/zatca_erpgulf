@@ -99,3 +99,10 @@ declared-unit comparisons. Potential overlap holds; missing/over-budget evidence
 is unresolved, and infrastructure failures abort review. No complete history,
 cryptographic trust, drain or activation is inferred:
 [NATIVE_LEGACY_ARTIFACT_PROBE.md](NATIVE_LEGACY_ARTIFACT_PROBE.md).
+
+Selected native submit hooks now stage a separate authenticated submission intent
+in the parent ERP transaction and seal its final source/actor/chain binding before
+commit. Identifier-only after-commit enqueue and bounded READY recovery use a
+fixed worker; RUNNING/REVIEW never authorize automatic retry. Unmarked legacy
+handoff is unchanged. This is not complete started/crash/draft/PREPARED discovery
+or installed lifecycle acceptance: [NATIVE_SUBMISSION_INTENT.md](NATIVE_SUBMISSION_INTENT.md).

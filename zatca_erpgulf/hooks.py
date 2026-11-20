@@ -237,6 +237,9 @@ override_doctype_dashboards = {
 # schedule for every 10 minutes every day 24 hours
 scheduler_events = {
     "cron": {
+        "*/5 * * * *": [
+            "zatca_erpgulf.zatca_erpgulf.submission_intent_worker.recover_submission_intents"
+        ],
         "*/30 * * * *": [
             "zatca_erpgulf.zatca_erpgulf.scheduler_event.submit_invoices_to_zatca_background_process"
         ]

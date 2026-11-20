@@ -1,0 +1,31 @@
+{
+ "actions": [],
+ "autoname": "field:record_id",
+ "creation": "2026-11-20 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": ["record_id", "source_key", "source_doctype", "source_name", "actor", "state", "state_version", "fence_token", "started_at_utc", "finished_at_utc", "result_code", "intent_header", "intent_ciphertext"],
+ "fields": [
+  {"fieldname":"record_id","label":"Record ID","fieldtype":"Data","read_only":1,"reqd":1,"unique":1},
+  {"fieldname":"source_key","label":"Source Key","fieldtype":"Data","read_only":1,"reqd":1,"unique":1},
+  {"fieldname":"source_doctype","label":"Source Type","fieldtype":"Data","read_only":1,"reqd":1},
+  {"fieldname":"source_name","label":"Source Name","fieldtype":"Data","read_only":1,"reqd":1},
+  {"fieldname":"actor","label":"Original Actor","fieldtype":"Data","read_only":1,"reqd":1},
+  {"fieldname":"state","label":"Intent State","fieldtype":"Select","options":"STAGED\nREADY\nRUNNING\nCOMPLETE\nREVIEW","default":"STAGED","read_only":1,"reqd":1,"search_index":1},
+  {"fieldname":"state_version","label":"State Version","fieldtype":"Int","default":"0","read_only":1,"reqd":1},
+  {"fieldname":"fence_token","label":"Worker Fence","fieldtype":"Data","read_only":1},
+  {"fieldname":"started_at_utc","label":"Started At UTC","fieldtype":"Datetime","read_only":1},
+  {"fieldname":"finished_at_utc","label":"Finished At UTC","fieldtype":"Datetime","read_only":1},
+  {"fieldname":"result_code","label":"Result Code","fieldtype":"Data","read_only":1},
+  {"fieldname":"intent_header","label":"Authenticated Intent Header","fieldtype":"Long Text","read_only":1,"hidden":1,"no_copy":1,"print_hide":1},
+  {"fieldname":"intent_ciphertext","label":"Intent Custody","fieldtype":"Long Text","read_only":1,"hidden":1,"no_copy":1,"print_hide":1}
+ ],
+ "module": "Zatca Erpgulf",
+ "name": "ZATCA Submission Intent",
+ "owner": "Administrator",
+ "permissions": [{"role":"System Manager","read":1}],
+ "allow_import": 0,
+ "allow_rename": 0,
+ "sort_field": "creation",
+ "sort_order": "ASC"
+}

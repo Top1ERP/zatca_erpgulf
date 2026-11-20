@@ -309,6 +309,8 @@ def _prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build,reject
             # instead of mixing an earlier read snapshot with later metadata.
             locked=runtime.get_doc(doctype,invoice_name,for_update=True)
             scope.bind_prepared_invoice(locked)
+            from .submission_intent import require_bound_source
+            require_bound_source(runtime,locked,chain['record_id'])
             from .native_delivery import confirm_delivery_policy,require_no_legacy_artifact
             confirm_delivery_policy(scope,owner)
             latest=repository.latest_issuance(chain['record_id'],doctype,invoice_name)
@@ -387,6 +389,8 @@ def reserve_saved_issuance(doctype,invoice_name,*,runtime,translate,supersedes_a
             _check_chain(chain,scope,material)
             locked=runtime.get_doc(doctype,invoice_name,for_update=True)
             scope.bind_prepared_invoice(locked)
+            from .submission_intent import require_bound_source
+            require_bound_source(runtime,locked,chain['record_id'])
             from .native_delivery import confirm_delivery_policy
             confirm_delivery_policy(scope,owner,dispatch=True)
             latest=repository.latest_issuance(chain['record_id'],doctype,invoice_name)

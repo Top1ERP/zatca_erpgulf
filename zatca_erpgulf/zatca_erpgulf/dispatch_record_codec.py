@@ -24,7 +24,7 @@ VERSION = 'v1'
 MAX_PAYLOAD_BYTES = 16 * 1024 * 1024
 MAX_HEADER_BYTES = 32 * 1024
 KINDS = frozenset(('artifact', 'receipt', 'chain-registration', 'chain-onboarding',
-                   'onboarding-request', 'onboarding-response', 'storage-probe', 'publication-source'))
+                   'onboarding-request', 'onboarding-response', 'storage-probe', 'publication-source', 'submission-intent'))
 
 
 class DispatchRecordError(RuntimeError):

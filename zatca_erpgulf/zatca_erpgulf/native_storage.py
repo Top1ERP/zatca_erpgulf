@@ -16,7 +16,8 @@ from .dispatch_storage_context import (
 from .worker_transaction import _owned_transaction
 
 
-TABLES = ('tabZATCA Issuing Chain', 'tabZATCA Issuance', 'tabZATCA Dispatch Attempt', 'tabZATCA Onboarding Attempt')
+TABLES = ('tabZATCA Issuing Chain', 'tabZATCA Issuance', 'tabZATCA Dispatch Attempt', 'tabZATCA Onboarding Attempt',
+    'tabZATCA Submission Intent')
 
 
 class NativeStorageError(RuntimeError):

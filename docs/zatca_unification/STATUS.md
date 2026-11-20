@@ -148,12 +148,36 @@ ancestry or installed acceptance follows. Read-only installed-source checks reta
 the previous HEAD/dirty-tooltip/customer-address hashes. No live change or
 authority request occurred; the financial reference remains unchanged.
 
+Selected native submit hooks now persist a STAGED intent in the ERP transaction,
+seal the final fiscal source/actor/chain binding before commit, and enqueue only
+its authenticated record ID after commit. A fixed owned worker and bounded READY
+discovery preserve the original enabled actor; RUNNING/REVIEW never authorize
+automatic replay. The worker records its static English review in the intent,
+avoiding an Error Log insert between owned transactions. This fixes a demonstrated
+private SQL failure that a no-write logging mock could not expose. Legacy
+unmarked handoff is unchanged. See
+[NATIVE_SUBMISSION_INTENT.md](NATIVE_SUBMISSION_INTENT.md).
+
+Latest committed-handoff qualification:340 local cases across8 suites in1.40s,
+149 private SQL cases across5 suites in10.92s, and20,751 across the fixed81
+issuer-binding suites in113.90s. Sets overlap. Logs:
+`/tmp/zatca-axis2-intent-local-final.log`,
+`/tmp/zatca-axis2-intent-private-final.log`,
+`/tmp/zatca-axis2-intent-regression-final.log`.
+Manifest235 local/71 private suites was not run in full. The private case matrix
+uses preseeded active registration, synthetic signing/source/transaction doubles
+and mocked HTTP, including identical-byte Standard303 fallback. Installed
+Frappe15/16 and complete financial/SDK/runtime acceptance remain separate gates.
+The original financial comparison91/117/32 is unchanged. Read-only checks confirm
+the installed HEAD, sole dirty tooltip and customer-address hashes unchanged.
+
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; frozen print/master information
 and File/external-print compatibility; explicit unchanged retry and
 corrected-clock/operator adoption; draft-origin handoff and
-source lifecycle decisions; whole runtime qualification. The handoff is not a
-durable outbox. Do not announce3 or installation from these narrower checks.
+source lifecycle decisions; started/uncertain intent resolution, later native
+PREPARED discovery and whole runtime qualification. The new durable handoff is
+not complete crash/delivery recovery. Do not announce3 or installation from these narrower checks.
 Installed15/16, financial review, authentic SDK and the specifically approved
 fictional rehearsal retain their later gates. No live app/site/schema/service
 operation, chain activation or authority API request was performed.

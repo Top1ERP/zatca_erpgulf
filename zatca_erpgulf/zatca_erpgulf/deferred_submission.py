@@ -1,8 +1,9 @@
 """Defer native Phase2 submit-hook transport until the ERP transaction commits.
 
-No connection/queue lookup happens while registering. The callback queues only
-saved source identifiers, never a Document or credentials. This is not a durable
-outbox, distributed invoice lock, receipt journal or delivery guarantee.
+Native selections stage an authenticated durable intent in the parent ERP
+transaction; only before-commit finalization makes it discoverable. Unmarked
+legacy selections keep their existing identifier-only callback. Queue delivery
+is never a receipt or remote acceptance guarantee.
 """
 
 from contextlib import contextmanager
@@ -143,12 +144,45 @@ def maybe_defer_invoice_submission(doctype, invoice_name, *, runtime, translate)
     after_rollback = getattr(runtime.db, 'after_rollback', None)
     if not callable(getattr(after_commit, 'add', None)) or not callable(getattr(after_rollback, 'add', None)):
         _review(runtime, translate, 'deferred_transaction_callbacks')
+    native_intent = None
+    try:
+        from .native_provider import _selection
+        if _selection(runtime,doctype,invoice_name,_source) is not None:
+            from .submission_intent import ParentIntent
+            before_commit=getattr(runtime.db,'before_commit',None)
+            if not callable(getattr(before_commit,'add',None)):
+                raise DeferredSubmissionError('deferred_before_commit_callback')
+            native_intent=ParentIntent(runtime,doctype,invoice_name)
+    except Exception:
+        failed=True
+    else:
+        failed=False
+    if failed:
+        _review(runtime,translate,'deferred_durable_intent_registration')
     pending.add(key)
     registration = {'armed':False, 'cancelled':False}
 
     def cancel_registration():
         registration['cancelled'] = True
         pending.discard(key)
+        if native_intent is not None:
+            native_intent.closed=True
+
+    def finalize_native_intent():
+        if registration['cancelled']:
+            return
+        if not registration['armed'] or not current.closed:
+            cancel_registration()
+            _review(runtime,translate,'deferred_early_commit')
+        try:
+            native_intent.finalize(translate=translate)
+        except Exception:
+            failed=True
+        else:
+            failed=False
+        if failed:
+            cancel_registration()
+            _review(runtime,translate,'deferred_durable_intent_finalization')
 
     def enqueue_committed_source():
         if registration['cancelled']:
@@ -158,9 +192,25 @@ def maybe_defer_invoice_submission(doctype, invoice_name, *, runtime, translate)
             _review(runtime, translate, 'deferred_early_commit')
         pending.discard(key)
         if _site(runtime) != current.site or runtime.session.user != actor:
-            _review(runtime, translate, 'deferred_site_or_actor_changed')
+            _review(runtime, translate, 'deferred_site_or_actor_changed',queue_started=native_intent is not None)
         if getattr(getattr(getattr(runtime, 'local', None), 'flags', None), 'in_migrate', False):
-            _review(runtime, translate, 'deferred_migration_context')
+            _review(runtime, translate, 'deferred_migration_context',queue_started=native_intent is not None)
+        if native_intent is not None:
+            try:
+                from .submission_intent import METHOD as INTENT_METHOD
+                native_intent.require_owner()
+                if not native_intent.finalized:
+                    raise DeferredSubmissionError('deferred_unfinalized_intent')
+                runtime.enqueue(INTENT_METHOD,queue='long',timeout=900,is_async=True,now=False,enqueue_after_commit=False,
+                    job_id='zatca-intent-'+native_intent.record_id,deduplicate=True,record_id=native_intent.record_id)
+            except Exception:
+                failed=True
+            else:
+                failed=False
+            native_intent.closed=True
+            if failed:
+                _review(runtime,translate,'deferred_queue_outcome_unknown',queue_started=True)
+            return
         # Queue IDs reduce duplicate queue entries only. They are not a lease.
         digest = hashlib.sha256((doctype+'\0'+invoice_name).encode()).hexdigest()
         try:
@@ -175,6 +225,8 @@ def maybe_defer_invoice_submission(doctype, invoice_name, *, runtime, translate)
             _review(runtime, translate, 'deferred_queue_outcome_unknown', queue_started=True)
 
     try:
+        if native_intent is not None:
+            before_commit.add(finalize_native_intent)
         after_commit.add(enqueue_committed_source)
         after_rollback.add(cancel_registration)
         registration['armed'] = True

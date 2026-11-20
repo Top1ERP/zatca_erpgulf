@@ -9,7 +9,8 @@ import pytest
 
 from zatca_erpgulf.zatca_erpgulf import service_owned_record as records
 
-NAMES=('ZATCA Dispatch Control','ZATCA Issuing Chain','ZATCA Issuance','ZATCA Dispatch Attempt','ZATCA Onboarding Attempt')
+NAMES=('ZATCA Dispatch Control','ZATCA Issuing Chain','ZATCA Issuance','ZATCA Dispatch Attempt','ZATCA Onboarding Attempt',
+    'ZATCA Submission Intent')
 ROOT=Path(__file__).resolve().parents[1]/'doctype'
 
 
