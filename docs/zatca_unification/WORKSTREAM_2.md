@@ -175,3 +175,9 @@ rechecked before reservation. Unknowns remain excluded from automatic discovery,
 and no invoice identity/bytes are regenerated. Matching late-current acceptance
 can satisfy the queued request without another send:
 [EXACT_RETRY_OPERATOR.md](EXACT_RETRY_OPERATOR.md).
+
+New initial draft/collection stages now retain authenticated source/actor custody
+before before-commit finalization. Normal workers still refuse STAGED; an explicit
+unissued retirement may close a verified stopped stage without generation, source
+changes or transport. Old NULL envelopes remain held and no history is backfilled:
+[AUTHENTICATED_STAGED_REQUESTS.md](AUTHENTICATED_STAGED_REQUESTS.md).

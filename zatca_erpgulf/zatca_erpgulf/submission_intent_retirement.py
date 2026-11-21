@@ -14,14 +14,14 @@ from .dispatch_record_codec import _identifier,encode_record_header
 from .native_invoice_lifecycle import SOURCE_TABLES,require_lifecycle_storage
 from .native_provider import _permitted
 from .submission_intent import (
-    ParentIntent,TABLE,SubmissionIntentError,RETIREMENT_BODY,open_intent,validate_header,
+    ParentIntent,TABLE,SubmissionIntentError,RETIREMENT_BODY,open_intent,request_header_bytes,
 )
 from .worker_transaction import owned_worker_transaction
 
 
 REVIEW = 'This request could not be retired safely. Review its current worker claim and saved issuance history. No invoice was deleted, regenerated or sent.'
 SUCCESS = 'The unissued request was retired and its history was retained. Normal invoice permissions and cancellation or deletion checks still apply. This is not ZATCA acceptance.'
-STATES = ('READY','WAITING','RUNNING','REVIEW')
+STATES = ('STAGED','READY','WAITING','RUNNING','REVIEW')
 
 
 class IntentRetirementError(RuntimeError):
@@ -60,10 +60,12 @@ def retire_unissued_intent(record_id,expected_state,expected_fence,*,runtime):
     with owned_worker_transaction(runtime) as owner:
         if 'System Manager' not in runtime.get_roles(owner.actor):
             raise IntentRetirementError('intent_retirement_access')
-        row,header=open_intent(owner,record_id)
+        row,header=open_intent(owner,record_id,allow_staged=True)
         retired=row['state']=='RETIRED'
         if not retired and (row['state']!=expected_state or row['fence_token']!=expected_fence):
             raise IntentRetirementError('intent_retirement_claim_changed')
+        if expected_state=='STAGED' and expected_fence is not None:
+            raise IntentRetirementError('intent_retirement_staged_fence')
         if not retired and header.get('expected_issuance_id') is not None:
             # A retained header that previously observed an original cannot
             # turn lost custody into evidence that no document ever existed.
@@ -78,7 +80,10 @@ def retire_unissued_intent(record_id,expected_state,expected_fence,*,runtime):
         source=runtime.get_doc(dt,name,for_update=True)
         company=runtime.get_doc('Company',source.company)
         _permitted(runtime,source,write=True);_permitted(runtime,company)
-        if (source.doctype,source.name)!=(dt,name) or source.company!=header['company']:
+        # A draft stage binds source/actor, not final Company/fiscal data. Read
+        # the current saved Company and enforce its ordinary ACL independently.
+        if ((source.doctype,source.name)!=(dt,name)
+                or 'company' in header and source.company!=header['company']):
             raise IntentRetirementError('intent_retirement_source_review')
         if retired:
             # Idempotent status still requires normal saved-source ACLs. A
@@ -90,13 +95,13 @@ def retire_unissued_intent(record_id,expected_state,expected_fence,*,runtime):
         issued=query('SELECT name FROM `tabZATCA Issuance` WHERE source_name=%s AND source_doctype=%s '
             'LIMIT 1 LOCK IN SHARE MODE NOWAIT',(name,dt))
         if issued:raise IntentRetirementError('intent_retirement_issued')
-        locked,current=open_intent(owner,record_id,lock=True)
+        locked,current=open_intent(owner,record_id,lock=True,allow_staged=True)
         if current!=header or locked['state']!=expected_state or locked['fence_token']!=expected_fence:
             raise IntentRetirementError('intent_retirement_claim_changed')
         if expected_state=='RUNNING' and expected_fence is None:
             raise IntentRetirementError('intent_retirement_missing_fence')
         stamp=owner.utc_now()
-        proof=dict(record_id=record_id,intent_sha256=hashlib.sha256(validate_header(header)).hexdigest(),
+        proof=dict(record_id=record_id,intent_sha256=hashlib.sha256(request_header_bytes(header)).hexdigest(),
             retired_by=owner.actor,retired_at_utc=stamp.strftime('%Y-%m-%dT%H:%M:%S.%f'),
             prior_state=expected_state,prior_fence=expected_fence,reason='unissued_request_retired')
         encoded=encode_record_header(proof)

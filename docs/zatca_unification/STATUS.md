@@ -407,12 +407,39 @@ ERP15/16 or genuine SDK/authority acceptance. Original240 financial comparison
 remains91 identical/117 review/32 blocked. No live source/site/schema/service,
 authority request or actual invoice retry was performed.
 
+New draft stages now seal source/actor custody in a distinct non-executable
+submission-stage domain. New collection/recovery/retry stages retain their full
+protected header immediately. Both before-commit finalizers authenticate initial
+custody before promotion; ordinary worker/discovery still refuse STAGED. Explicit
+unissued retirement now admits authenticated stopped stages with no claim, saved
+marker or issued/expected original. It preserves the initial envelope and seals
+the prior-stage audit in the same retirement slot; old finalizers cannot promote
+it afterward. Old NULL envelopes stay held without backfill or guessed identity.
+Details: [AUTHENTICATED_STAGED_REQUESTS.md](AUTHENTICATED_STAGED_REQUESTS.md).
+
+Latest stage qualification:753 local cases across25 reviewed suites in3.45s,
+546 private SQL cases across15 suites in54.67s,96 synthetic English/Arabic UI cases
+across3 scripts, and20,751 across fixed81 issuer-binding suites in117.13s. Sets
+overlap. Logs: `/tmp/zatca-axis2-stage-local-final.log`,
+`/tmp/zatca-axis2-stage-private-final.log`,
+`/tmp/zatca-axis2-stage-request-ui-final.log`,
+`/tmp/zatca-axis2-stage-retry-ui-final.log`,
+`/tmp/zatca-axis2-stage-prepared-ui-final.log`,
+`/tmp/zatca-axis2-stage-regression-final.log`.
+Manifest245 local/80 private suites was not run in full. The new suites add21
+local and32 private cases; these overlap the totals above. No schema column or
+financial fixture changed; original240 comparison remains91/117/32. Private ERP/
+signing/HTTP inputs remain doubles, not installed ERP15/16, GL/File/SDK or genuine
+authority acceptance. Read-only checks confirm live HEAD/tooltip/customer-address
+hashes unchanged. No live site/service, actual invoice action or authority request
+was performed. Installed and dummy-company rehearsals retain their separate gates.
+
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; frozen print/master information
 and File/external-print compatibility; remaining late/superseded retry review and
 corrected-clock/operator adoption; installed GL/File and complete mixed legacy/native
 submitted-invoice batch coordination;
-issued-source transitions and remaining unknown/late/unsealed intent resolution, complete
+issued-source transitions and remaining unknown/late/historical unsealed intent resolution, complete
 remaining first-send migration/admission cases and whole runtime qualification.
 The new durable handoff is
 not complete crash/delivery recovery. Do not announce3 or installation from these narrower checks.

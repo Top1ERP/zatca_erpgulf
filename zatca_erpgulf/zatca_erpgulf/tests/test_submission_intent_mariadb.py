@@ -90,7 +90,7 @@ def handoff(case,monkeypatch):
 def test_parent_commit_and_worker_use_durable_ids_one_native_original_and_mocked_transport(handoff):
     c=handoff;before=c.database.commits;c.register()
     staged=c.rows()[0]
-    assert staged['state']=='STAGED' and staged['intent_header'] is None and c.head()=='0'
+    assert staged['state']=='STAGED' and staged['intent_header'] and staged['intent_ciphertext'] and c.head()=='0'
     assert c.database.commits==before and not c.sent and not c.built
     c.runtime.enqueue.assert_not_called()
     # ERP writes after the original submit hook are part of the final fiscal bind.
@@ -124,7 +124,7 @@ def test_early_commit_cannot_finalize_or_discover_half_finished_hook(handoff):
         deferred.maybe_defer_invoice_submission(c.source.doctype,c.source.name,runtime=c.runtime,translate=str)
         with pytest.raises(deferred.DeferredSubmissionError):c.database.commit()
     # Even a caller incorrectly catching the error and committing cannot make
-    # the unsealed STAGED row eligible for authenticated READY discovery.
+    # the authenticated but unfinalized STAGED row eligible for READY discovery.
     c.database.commit();assert c.rows()[0]['state']=='STAGED'
     with owned_worker_transaction(c.runtime) as owner:
         with pytest.raises(intent.SubmissionIntentError,match='unfinalized'):intent.open_intent(owner,c.rows()[0]['record_id'])

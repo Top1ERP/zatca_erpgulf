@@ -32,6 +32,9 @@ COLLECTION_FIELDS = ('request_kind','active_key','expected_issuance_id')
 RETRY_FIELDS = ('retry_attempt_id','retry_fence_token')
 COLLECTION_BODY = b'zatca-submitted-collection/v1'
 RETRY_BODY = b'zatca-explicit-exact-retry/v1'
+STAGE_BODY = b'zatca-unfinalized-source-request/v1'
+STAGE_FIELDS = ('record_id','source_key','source_doctype','source_name','actor',
+    'intent','created_at_utc','request_kind')
 CURRENT = ContextVar('zatca_submission_intent',default=None)
 
 
@@ -124,15 +127,37 @@ def collection_active_key(header):
 
 
 def envelope_kind(header):
+    if header.get('request_kind')=='submit-stage-v1':return 'submission-stage'
     if header.get('request_kind')=='retry-v1':return 'retry-intent'
     return 'collection-intent' if 'request_kind' in header else 'submission-intent'
 
 
 def envelope_body(header):
+    if header.get('request_kind')=='submit-stage-v1':return STAGE_BODY
     return RETRY_BODY if header.get('request_kind')=='retry-v1' else COLLECTION_BODY if 'request_kind' in header else BODY
 
 
-def open_intent(owner,record_id,*,lock=False):
+def validate_stage_header(header):
+    """Bind the initial source/actor only; never claim final fiscal authority."""
+    if type(header) is not dict or set(header)!=set(STAGE_FIELDS):
+        raise SubmissionIntentError('submission_stage_header')
+    _identifier(header['record_id']);saved_form_name(header['actor'])
+    if (header['request_kind']!='submit-stage-v1' or header['actor']=='Guest'
+            or header['intent'] not in ('submit','scheduled','manual')
+            or header['source_key']!=source_key(header['source_doctype'],header['source_name'])):
+        raise SubmissionIntentError('submission_stage_binding')
+    try:clock=datetime.strptime(header['created_at_utc'],'%Y-%m-%dT%H:%M:%S.%f')
+    except (ValueError,TypeError):raise SubmissionIntentError('submission_stage_clock') from None
+    if clock.strftime('%Y-%m-%dT%H:%M:%S.%f')!=header['created_at_utc']:
+        raise SubmissionIntentError('submission_stage_clock')
+    return encode_record_header(header)
+
+
+def request_header_bytes(header):
+    return validate_stage_header(header) if header.get('request_kind')=='submit-stage-v1' else validate_header(header)
+
+
+def open_intent(owner,record_id,*,lock=False,allow_staged=False):
     _identifier(record_id);owner.require_owner()
     rows=owner.database.sql('SELECT record_id,source_key,source_doctype,source_name,actor,state,fence_token,'
         'active_key,expected_issuance_id,operation,retry_attempt_id,retry_fence_token,'
@@ -145,19 +170,24 @@ def open_intent(owner,record_id,*,lock=False):
     if len(rows)!=1:
         raise SubmissionIntentError('submission_intent_missing')
     row=rows[0]
-    if row['state'] not in ('READY','WAITING','RUNNING','COMPLETE','REVIEW','RETIRED'):
+    if row['state'] not in ('READY','WAITING','RUNNING','COMPLETE','REVIEW','RETIRED') and not (allow_staged and row['state']=='STAGED'):
         raise SubmissionIntentError('submission_intent_unfinalized')
+    if row['state']=='STAGED' and row['fence_token'] is not None:
+        raise SubmissionIntentError('submission_stage_claim_forbidden')
     if any(type(row[key]) is not str or not 0<len(row[key])<=8192 for key in ('intent_header','intent_ciphertext')):
         raise SubmissionIntentError('submission_intent_envelope')
     header=dict(decode_record_header(row['intent_header'].encode()))
-    encoded=validate_header(header)
+    stage=header.get('request_kind')=='submit-stage-v1'
+    if stage and row['state'] not in ('STAGED','RETIRED'):
+        raise SubmissionIntentError('submission_stage_execution_forbidden')
+    encoded=request_header_bytes(header)
     if any(row[key]!=header[key] for key in ('record_id','source_key','source_doctype','source_name','actor')) or header['record_id']!=record_id:
         raise SubmissionIntentError('submission_intent_index_binding')
-    collection='request_kind' in header
+    collection='request_kind' in header and not stage
     if collection:
         if (row['expected_issuance_id']!=header['expected_issuance_id'] or row['operation']!=header['intent']
                 or row['active_key'] not in (None,header['active_key'])
-                or row['state'] in ('READY','WAITING','RUNNING') and row['active_key']!=header['active_key']):
+                or row['state'] in ('STAGED','READY','WAITING','RUNNING') and row['active_key']!=header['active_key']):
             raise SubmissionIntentError('submission_intent_collection_index')
     elif any(row[key] is not None for key in ('active_key','expected_issuance_id','operation')):
         raise SubmissionIntentError('submission_intent_collection_index')
@@ -186,10 +216,13 @@ def open_retirement(owner,row,header):
     if set(proof)!={'record_id','intent_sha256','retired_by','retired_at_utc','prior_state','prior_fence','reason'}:
         raise SubmissionIntentError('submission_intent_resolution_header')
     if (proof['record_id']!=header['record_id'] or proof['reason']!='unissued_request_retired'
-            or proof['intent_sha256']!=hashlib.sha256(validate_header(header)).hexdigest()
-            or proof['prior_state'] not in ('READY','WAITING','RUNNING','REVIEW')
+            or proof['intent_sha256']!=hashlib.sha256(request_header_bytes(header)).hexdigest()
+            or proof['prior_state'] not in ('STAGED','READY','WAITING','RUNNING','REVIEW')
             or proof['prior_fence']!=row['fence_token'] or row['active_key'] is not None):
         raise SubmissionIntentError('submission_intent_retirement_binding')
+    if ((header.get('request_kind')=='submit-stage-v1' and proof['prior_state']!='STAGED')
+            or proof['prior_state']=='STAGED' and proof['prior_fence'] is not None):
+        raise SubmissionIntentError('submission_stage_retirement_binding')
     saved_form_name(proof['retired_by'])
     if proof['retired_by']=='Guest':raise SubmissionIntentError('submission_intent_retirement_actor')
     if proof['prior_state']=='RUNNING' and proof['prior_fence'] is None:
@@ -319,9 +352,16 @@ class ParentIntent:
             raise SubmissionIntentError('submission_intent_existing_review')
         stamp=datetime.now(timezone.utc).replace(tzinfo=None)
         self.created=stamp.strftime('%Y-%m-%dT%H:%M:%S.%f')
+        self.stage_header=dict(record_id=self.record_id,source_key=source_key(*self.source),
+            source_doctype=self.source[0],source_name=self.source[1],actor=self.actor,intent=self.intent,
+            created_at_utc=self.created,request_kind='submit-stage-v1')
+        encoded=validate_stage_header(self.stage_header)
+        sealed=self.cipher.seal(self.record_id,'submission-stage',encoded,STAGE_BODY)
         self.sql('INSERT INTO '+TABLE+' (name,record_id,source_key,source_doctype,source_name,actor,state,'
-            'state_version,owner,modified_by,creation,modified,docstatus) VALUES (%s,%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,0)',
-            (self.record_id,self.record_id,source_key(*self.source),*self.source,self.actor,'STAGED',self.actor,self.actor,stamp,stamp))
+            'intent_header,intent_ciphertext,state_version,owner,modified_by,creation,modified,docstatus) '
+            'VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,0)',
+            (self.record_id,self.record_id,source_key(*self.source),*self.source,self.actor,'STAGED',
+             encoded.decode(),sealed,self.actor,self.actor,stamp,stamp))
 
     def require_owner(self):
         from .worker_transaction import current_database
@@ -343,6 +383,9 @@ class ParentIntent:
         self.require_owner()
         if self.finalized:
             raise SubmissionIntentError('submission_intent_already_finalized')
+        row,initial=open_intent(self,self.record_id,lock=True,allow_staged=True)
+        if row['state']!='STAGED' or initial!=self.stage_header:
+            raise SubmissionIntentError('submission_stage_changed')
         source,company=_require_source(self.runtime,translate,*self.source)
         if (not is_zatca_invoice_enabled(company) or resolve_zatca_phase(company)!=PHASE_2_VALUE
                 or _selection(self.runtime,*self.source,source) is None):

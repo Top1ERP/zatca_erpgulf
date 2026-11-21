@@ -1061,3 +1061,13 @@ a prior remote invocation. No new generation or automatic unknown replay occurs.
 Current matched acceptance racing the command resolves without another send;
 303 Reporting continuity uses its existing saved fallback evidence. Details:
 [EXACT_RETRY_OPERATOR.md](EXACT_RETRY_OPERATOR.md).
+
+Initial requests now retain authenticated STAGED custody before finalization.
+Draft stage headers deliberately omit fiscal/Company/chain authority and use a
+separate submission-stage domain. Collection/retry stages retain their complete
+header in the existing domain. Both finalizers authenticate the initial envelope
+before promotion; ordinary workers still reject STAGED. Explicit unissued
+retirement now admits verified unclaimed stages, retaining the initial envelope
+and recording its prior state. Old NULL envelopes remain held. No source/financial
+repair, migration or installed action is performed:
+[AUTHENTICATED_STAGED_REQUESTS.md](AUTHENTICATED_STAGED_REQUESTS.md).

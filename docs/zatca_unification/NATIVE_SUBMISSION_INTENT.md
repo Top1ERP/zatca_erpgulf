@@ -25,7 +25,11 @@ and a separate `submission-intent` AEAD domain. No credential, Document, builder
 site override or actor override enters queue arguments. Only the intent ID is
 queued, after commit. Parent rollback removes the row. An early commit while the
 hook is open cannot finalize it. An incorrectly caught error may leave STAGED;
-that unsealed state is deliberately not eligible for discovery or execution.
+that unfinished state is deliberately not eligible for discovery or execution.
+New stages now have separate authenticated source/actor custody, which the final
+callback verifies before replacing it with the unchanged complete v1 envelope.
+Only explicit unissued retirement may resolve a verified stopped stage; old NULL
+envelopes stay held. See [AUTHENTICATED_STAGED_REQUESTS.md](AUTHENTICATED_STAGED_REQUESTS.md).
 
 Submitted native collections now share this worker/store through a separate
 collection command domain and nullable active slot, leaving these original v1

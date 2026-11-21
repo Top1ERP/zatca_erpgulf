@@ -31,10 +31,10 @@ function setup(lang, state = "READY") {
 }
 
 for (const lang of ["en", "ar"]) {
-    for (const state of ["READY", "WAITING", "RUNNING", "REVIEW"]) {
+    for (const state of ["STAGED", "READY", "WAITING", "RUNNING", "REVIEW"]) {
         const c = setup(lang, state); c.refresh();
         const label = c.t("Reconcile Saved Result");
-        if (["READY", "WAITING"].includes(state)) assert.equal(c.buttons.has(label), false);
+        if (["STAGED", "READY", "WAITING"].includes(state)) assert.equal(c.buttons.has(label), false);
         else {
             c.buttons.get(label)(); assert.ok(c.confirmation); c.confirm();
             assert.equal(c.calls.length, 1);
@@ -46,7 +46,7 @@ for (const lang of ["en", "ar"]) {
         }
         count++;
     }
-    for (const state of ["READY", "WAITING", "RUNNING", "REVIEW"]) {
+    for (const state of ["STAGED", "READY", "WAITING", "RUNNING", "REVIEW"]) {
         const c = setup(lang, state); c.refresh();
         assert.equal(c.calls.length, 0); c.click();
         assert.ok(c.confirmation); assert.equal(c.calls.length, 0); c.confirm();
@@ -60,7 +60,7 @@ for (const lang of ["en", "ar"]) {
         assert.deepEqual(c.messages, ["TRANSLATED RESULT"]); assert.equal(c.reloads, 1);
         c.frm.doc.state = "RETIRED"; c.refresh(); assert.equal(c.buttons.size, 0); count++;
     }
-    for (const state of ["STAGED", "COMPLETE", "RETIRED", "UNKNOWN"]) {
+    for (const state of ["COMPLETE", "RETIRED", "UNKNOWN"]) {
         const c = setup(lang, state); c.refresh(); assert.equal(c.buttons.size, 0); count++;
     }
     for (const cause of ["new", "role", "dirty", "navigate-before-confirm", "navigate-after-call"]) {

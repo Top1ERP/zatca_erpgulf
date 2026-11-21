@@ -7,7 +7,9 @@ and the seven-workstream sequence remain unchanged.
 ## Operator workflow
 
 The readonly ZATCA Submission Intent form offers **Retire Unissued Request** to
-System Managers for READY, WAITING, RUNNING and REVIEW. The normal DocType JS
+System Managers for authenticated STAGED, READY, WAITING, RUNNING and REVIEW. Old
+unsealed STAGED records remain held; see
+[AUTHENTICATED_STAGED_REQUESTS.md](AUTHENTICATED_STAGED_REQUESTS.md). The normal DocType JS
 path is used; local Frappe15 desk/form/meta.py loads that file without a global
 asset hook. Confirmation captures record identity/state/fence, avoids dirty/
 navigated forms and sends only those identifiers to a fixed POST method. One

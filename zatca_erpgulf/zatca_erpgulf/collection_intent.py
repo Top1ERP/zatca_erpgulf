@@ -159,13 +159,18 @@ class CollectionIntent(ParentIntent):
 
     def insert(self,*,noop_duplicate):
         stamp=datetime.strptime(self.created,'%Y-%m-%dT%H:%M:%S.%f')
+        # A failed before-commit callback may be incorrectly caught by its
+        # caller. Preserve authenticated custody of that non-executable stage.
+        encoded=validate_header(self.header)
+        cipher=self.cipher.seal(self.record_id,envelope_kind(self.header),encoded,envelope_body(self.header))
         self.sql('INSERT INTO '+TABLE+' (name,record_id,source_key,source_doctype,source_name,actor,active_key,'
-            'expected_issuance_id,operation,retry_attempt_id,retry_fence_token,state,state_version,owner,modified_by,creation,modified,docstatus) '
-            'VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,0)'+
+            'expected_issuance_id,operation,retry_attempt_id,retry_fence_token,state,intent_header,intent_ciphertext,'
+            'state_version,owner,modified_by,creation,modified,docstatus) '
+            'VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,0)'+
             (' ON DUPLICATE KEY UPDATE name=name' if noop_duplicate else ''),
             (self.record_id,self.record_id,self.header['source_key'],*self.source,self.actor,self.slot,
              self.header['expected_issuance_id'],self.intent,self.header.get('retry_attempt_id'),self.header.get('retry_fence_token'),
-             'STAGED',self.actor,self.actor,stamp,stamp))
+             'STAGED',encoded.decode(),cipher,self.actor,self.actor,stamp,stamp))
 
     def finalize(self,*,translate):
         self.require_owner()
@@ -176,6 +181,9 @@ class CollectionIntent(ParentIntent):
             raise SubmissionIntentError('collection_source_changed_before_commit')
         if self.reused:return
         if self.finalized:raise SubmissionIntentError('collection_already_finalized')
+        row,staged=open_intent(self,self.record_id,lock=True,allow_staged=True)
+        if row['state']!='STAGED' or staged!=self.header:
+            raise SubmissionIntentError('collection_stage_changed')
         encoded=validate_header(self.header)
         cipher=self.cipher.seal(self.record_id,envelope_kind(self.header),encoded,envelope_body(self.header))
         self.sql('UPDATE '+TABLE+' SET state=%s,state_version=1,intent_header=%s,intent_ciphertext=%s '

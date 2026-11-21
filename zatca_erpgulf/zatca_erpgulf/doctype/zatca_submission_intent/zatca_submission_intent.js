@@ -3,7 +3,7 @@ frappe.ui.form.on("ZATCA Submission Intent", {
     refresh(frm) {
         const actions = [
             {
-                label: "Retire Unissued Request", states: ["READY", "WAITING", "RUNNING", "REVIEW"],
+                label: "Retire Unissued Request", states: ["STAGED", "READY", "WAITING", "RUNNING", "REVIEW"],
                 confirmation: "Retire this local request only if no invoice was generated? Its history will remain, and an issued document cannot be retired here.",
                 method: "zatca_erpgulf.zatca_erpgulf.submission_intent_retirement.retire_request", terminal: "RETIRED"
             },
