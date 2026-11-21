@@ -40,6 +40,12 @@ the same canonical current view may select the authenticated older matching
 receipt. This request reconciliation can then complete from it without transport;
 it does not independently adopt an arbitrary superseded response.
 
+For [correction-v1 requests](CORRECTED_PREPARATION_COMMAND.md), an expected rejected
+predecessor may be satisfied by its exact authenticated current linked version.
+Consecutive source version, same source/Company/chain and approved old rejection/
+fence/history are required in addition to the current fiscal/view/ACL checks. This
+does not waive ordinary expected-version checks for other request kinds.
+
 ## Canonical readers and interrupted assessment
 
 The retained-view implementation was extracted into read_retained_in_transaction;

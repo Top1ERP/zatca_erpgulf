@@ -302,12 +302,14 @@ UUID/POS metadata/ICV guards, the final HTTP fence and its Compliance caller.
    in the private pipeline. Match the current source issuance identity before
    projecting a historical receipt; do not introduce Frappe File callbacks into
    the strict read-only preparation transaction.
-2. Complete corrected-clock adoption by the canonical builders/operator operation.
-   The explicit backend versioning service below requires a matched retained400,
-   source write access and current chain lock; it links the new version, retains
-   the old one and uses the current local tail. Unknown/auth/technical/duplicate
-   review outcomes never grant replacement or counter rewind. Do not add an
-   automatic ERP posting date/time change to make the builder pass its check.
+2. Corrected-clock and durable operator source adoption is implemented in
+   [CORRECTED_PREPARATION_COMMAND.md](CORRECTED_PREPARATION_COMMAND.md). It requires
+   matched400/coherent history, current source approval and a fenced owned worker;
+   it links an unsent new version and retains the old one/current generated tail.
+   Complete the whole canonical mixed-runtime matrix and later installed/SDK
+   gates; narrower fixture success does not close them. Unknown/auth/technical/
+   duplicate review alone never grants replacement or counter rewind. ERP posting
+   date/time is not automatically changed.
 3. Complete server-owned registration/bootstrap and cutover admission. A validated
    initial Final-CSID outcome must bind a genuinely new server-owned onboarding
    intent; missing history/token/PIH is insufficient. Existing installations need
@@ -1091,3 +1093,11 @@ preparation ticket to both Sales/POS metadata. Final custody verifies that exact
 clock before committing the linked PREPARED version. Posting fields and normal/
 Debug/Compliance paths remain unchanged. Desk/durable correction adoption remains
 open: [CORRECTION_HISTORY_AND_CLOCK.md](CORRECTION_HISTORY_AND_CLOCK.md).
+
+That operator is now adopted as correction-v1 in the existing store/callback/
+worker lifecycle, with its own AEAD body and exact rejected attempt/fence indexes.
+Current fiscal approval and actual generation claim/policy/rejection checks remain
+separate. It prepares linked unsent custody only, without automatic origin/send
+authority. Worker resume and the existing explicit request reconciliation verify
+the exact current linked version and old rejection before local completion:
+[CORRECTED_PREPARATION_COMMAND.md](CORRECTED_PREPARATION_COMMAND.md).

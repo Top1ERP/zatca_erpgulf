@@ -229,7 +229,7 @@ def prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build):
 
 
 def prepare_corrected_rejection(doctype,invoice_name,*,runtime,translate,build,
-                                rejected_issuance_id,rejected_attempt_id,use_current_issue_time=False):
+                                rejected_issuance_id,rejected_attempt_id,use_current_issue_time=False,rejected_fence_token=None):
     """Explicit new local version after an exact retained validation rejection.
 
     No submission or business-data edit is performed. The canonical builder
@@ -242,25 +242,32 @@ def prepare_corrected_rejection(doctype,invoice_name,*,runtime,translate,build,
     from .dispatch_store import _identifier
     _identifier(rejected_issuance_id)
     _identifier(rejected_attempt_id)
+    if rejected_fence_token is not None:_identifier(rejected_fence_token)
     return _prepare_saved_invoice(doctype,invoice_name,runtime=runtime,translate=translate,build=build,
-        rejection=(rejected_issuance_id,rejected_attempt_id),use_current_issue_time=use_current_issue_time)
+        rejection=(rejected_issuance_id,rejected_attempt_id),use_current_issue_time=use_current_issue_time,
+        rejected_fence_token=rejected_fence_token)
+
+
+def _require_correction_policy(runtime,source,company,actor):
+    """Policy over caller-supplied current locked records; no transaction control."""
+    from .native_onboarding import native_mode_enabled
+    from .zatca_runtime import is_zatca_invoice_enabled,resolve_zatca_phase,PHASE_2_VALUE
+    if not native_mode_enabled(runtime) or 'System Manager' not in runtime.get_roles(actor):
+        raise NativeDispatchError('native_corrected_clock_access')
+    _require_access(runtime,source,company,actor)
+    if not is_zatca_invoice_enabled(company) or resolve_zatca_phase(company)!=PHASE_2_VALUE:
+        raise NativeDispatchError('native_corrected_clock_company_policy')
 
 
 def _require_current_correction_policy(runtime,owner,source):
-    """Explicit current-clock generation remains a permissioned native action."""
-    from .native_onboarding import native_mode_enabled
+    """Acquire the owned shared master read, then use the common policy."""
     from .issuing_reads import read_issuing_doc
-    from .zatca_runtime import is_zatca_invoice_enabled,resolve_zatca_phase,PHASE_2_VALUE
-    if not native_mode_enabled(runtime) or 'System Manager' not in runtime.get_roles(owner.actor):
-        raise NativeDispatchError('native_corrected_clock_access')
     with owner.preparing(frozenset(('tabCompany',))):
         company=read_issuing_doc(runtime,'Company',source.company,for_update=True)
-        _require_access(runtime,source,company,owner.actor)
-        if not is_zatca_invoice_enabled(company) or resolve_zatca_phase(company)!=PHASE_2_VALUE:
-            raise NativeDispatchError('native_corrected_clock_company_policy')
+        _require_correction_policy(runtime,source,company,owner.actor)
 
 
-def _rejected_original(repository,chain,latest,source,rejection):
+def _rejected_original(repository,chain,latest,source,rejection,*,expected_fence=None):
     if latest is not None and any(latest.get(key) is not None for key in ('late_acceptance_header','late_acceptance_ciphertext')):
         raise NativeDispatchError('native_corrected_late_acceptance_review')
     if (latest is None or latest['record_id']!=rejection[0] or latest['state']!='REJECTED'
@@ -277,6 +284,8 @@ def _rejected_original(repository,chain,latest,source,rejection):
             or source.get('custom_zatca_status') in ('REPORTED','CLEARED')):
         raise NativeDispatchError('native_source_issuance_outputs_review')
     receipt,body=repository.open_receipt(rejection[1])
+    if expected_fence is not None and receipt['fence_token']!=expected_fence:
+        raise NativeDispatchError('native_corrected_rejection_fence')
     fallback=repository.open_clearance_fallback(latest) if header['endpoint']!=receipt['endpoint'] else None
     assessment=assess_native_receipt(header,original,receipt,body,fallback_receipt=fallback)
     if receipt['http_status']!=400 or assessment.outcome!='VALIDATION_REJECTED':
@@ -308,7 +317,7 @@ def _require_corrected_artifact(previous,original,header,packet,*,replacement_ti
         raise NativeDispatchError('native_corrected_reporting_date_review')
 
 
-def _prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build,rejection=None,use_current_issue_time=False):
+def _prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build,rejection=None,use_current_issue_time=False,rejected_fence_token=None):
     if doctype not in SOURCE_TABLES or type(invoice_name) is not str or not invoice_name:
         raise NativeDispatchError('native_source_identity')
     if not callable(build):raise NativeDispatchError('native_build_callback')
@@ -341,7 +350,7 @@ def _prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build,reject
             latest=repository.latest_issuance(chain['record_id'],doctype,invoice_name)
             previous=None;replacement_timestamp=None
             if rejection is not None:
-                previous,old_original=_rejected_original(repository,chain,latest,locked,rejection)
+                previous,old_original=_rejected_original(repository,chain,latest,locked,rejection,expected_fence=rejected_fence_token)
                 _require_retained_binding(previous,chain,scope,material,doctype,invoice_name,check_source=False)
                 if use_current_issue_time:
                     _require_current_correction_policy(runtime,owner,locked)

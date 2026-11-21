@@ -195,3 +195,10 @@ acceptance. An opt-in server XML clock is adopted by both Sales/POS metadata
 adapters without changing ERP posting fields. Linked PREPARED custody remains
 unsent; Desk/durable correction commands still need adoption:
 [CORRECTION_HISTORY_AND_CLOCK.md](CORRECTION_HISTORY_AND_CLOCK.md).
+
+The fixed **Prepare Corrected XML** operator now stages a distinct authenticated
+command through the shared store/worker. It approves current saved fiscal data and
+the exact rejected version/attempt/fence, prepares only after commit, and never
+authorizes delivery. Stopped work reuses or explicitly reconciles only verified
+linked current custody; no second version is blindly generated:
+[CORRECTED_PREPARATION_COMMAND.md](CORRECTED_PREPARATION_COMMAND.md).

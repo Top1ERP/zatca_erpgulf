@@ -109,9 +109,10 @@ class CollectionIntent(ParentIntent):
 
     def require_collection_schema(self):
         rows=self.sql('SELECT column_name,character_maximum_length AS size,is_nullable FROM information_schema.columns '
-            'WHERE table_schema=DATABASE() AND table_name=%s AND column_name IN (%s,%s,%s,%s,%s)',
-            ('tabZATCA Submission Intent','active_key','expected_issuance_id','operation','retry_attempt_id','retry_fence_token'))
-        if (len(rows)!=5 or any(type(row['size']) is not int or row['size']<140 or row['is_nullable']!='YES' for row in rows)):
+            'WHERE table_schema=DATABASE() AND table_name=%s AND column_name IN (%s,%s,%s,%s,%s,%s,%s)',
+            ('tabZATCA Submission Intent','active_key','expected_issuance_id','operation','retry_attempt_id','retry_fence_token',
+             'rejected_attempt_id','rejected_fence_token'))
+        if (len(rows)!=7 or any(type(row['size']) is not int or row['size']<140 or row['is_nullable']!='YES' for row in rows)):
             raise SubmissionIntentError('collection_schema_review')
         rows=self.sql('SELECT index_name,non_unique,GROUP_CONCAT(column_name ORDER BY seq_in_index) AS columns_used '
             'FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name=%s '
@@ -164,12 +165,14 @@ class CollectionIntent(ParentIntent):
         encoded=validate_header(self.header)
         cipher=self.cipher.seal(self.record_id,envelope_kind(self.header),encoded,envelope_body(self.header))
         self.sql('INSERT INTO '+TABLE+' (name,record_id,source_key,source_doctype,source_name,actor,active_key,'
-            'expected_issuance_id,operation,retry_attempt_id,retry_fence_token,state,intent_header,intent_ciphertext,'
+            'expected_issuance_id,operation,retry_attempt_id,retry_fence_token,rejected_attempt_id,rejected_fence_token,'
+            'state,intent_header,intent_ciphertext,'
             'state_version,owner,modified_by,creation,modified,docstatus) '
-            'VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,0)'+
+            'VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,0)'+
             (' ON DUPLICATE KEY UPDATE name=name' if noop_duplicate else ''),
             (self.record_id,self.record_id,self.header['source_key'],*self.source,self.actor,self.slot,
              self.header['expected_issuance_id'],self.intent,self.header.get('retry_attempt_id'),self.header.get('retry_fence_token'),
+             self.header.get('rejected_attempt_id'),self.header.get('rejected_fence_token'),
              'STAGED',encoded.decode(),cipher,self.actor,self.actor,stamp,stamp))
 
     def finalize(self,*,translate):

@@ -30,8 +30,11 @@ FIELDS = ('record_id','source_key','source_doctype','source_name','company','act
     'intent','source_sha256','created_at_utc')
 COLLECTION_FIELDS = ('request_kind','active_key','expected_issuance_id')
 RETRY_FIELDS = ('retry_attempt_id','retry_fence_token')
+CORRECTION_FIELDS = ('rejected_attempt_id','rejected_fence_token')
+ATTEMPT_KINDS = {'retry-v1':('retry',RETRY_FIELDS),'correction-v1':('correction',CORRECTION_FIELDS)}
 COLLECTION_BODY = b'zatca-submitted-collection/v1'
 RETRY_BODY = b'zatca-explicit-exact-retry/v1'
+CORRECTION_BODY = b'zatca-explicit-corrected-preparation/v1'
 STAGE_BODY = b'zatca-unfinalized-source-request/v1'
 STAGE_FIELDS = ('record_id','source_key','source_doctype','source_name','actor',
     'intent','created_at_utc','request_kind')
@@ -75,11 +78,12 @@ def _chain(runtime,source,company):
 
 
 def validate_header(header):
-    if type(header) is not dict or set(header) not in (set(FIELDS),set(FIELDS+COLLECTION_FIELDS),set(FIELDS+COLLECTION_FIELDS+RETRY_FIELDS)):
+    if type(header) is not dict or set(header) not in (set(FIELDS),set(FIELDS+COLLECTION_FIELDS),
+            set(FIELDS+COLLECTION_FIELDS+RETRY_FIELDS),set(FIELDS+COLLECTION_FIELDS+CORRECTION_FIELDS)):
         raise SubmissionIntentError('submission_intent_header')
     _identifier(header['record_id']);_identifier(header['chain'])
     for key in ('company','actor'):saved_form_name(header[key])
-    if header['actor']=='Guest' or header['intent'] not in ('submit','scheduled','manual','recovery','retry'):
+    if header['actor']=='Guest' or header['intent'] not in ('submit','scheduled','manual','recovery','retry','correction'):
         raise SubmissionIntentError('submission_intent_actor_or_operation')
     base_key=source_key(header['source_doctype'],header['source_name'])
     collection='request_kind' in header
@@ -87,19 +91,22 @@ def validate_header(header):
     if expected_key!=header['source_key']:
         raise SubmissionIntentError('submission_intent_source_binding')
     if collection:
-        retry='retry_attempt_id' in header
-        if (retry and (header['request_kind']!='retry-v1' or header['intent']!='retry')
-                or not retry and (header['request_kind']!='collection-v1' or header['intent'] not in ('manual','scheduled','recovery'))):
+        attempted=ATTEMPT_KINDS.get(header['request_kind'])
+        if attempted is not None:
+            operation,fields=attempted
+            if header['intent']!=operation or set(header)!=set(FIELDS+COLLECTION_FIELDS+fields):
+                raise SubmissionIntentError('submission_intent_collection_kind')
+            for field in fields:_identifier(header[field])
+        elif (header['request_kind']!='collection-v1' or set(header)!=set(FIELDS+COLLECTION_FIELDS)
+                or header['intent'] not in ('manual','scheduled','recovery')):
             raise SubmissionIntentError('submission_intent_collection_kind')
-        if retry:
-            _identifier(header['retry_attempt_id']);_identifier(header['retry_fence_token'])
         if header['expected_issuance_id'] is not None:
             _identifier(header['expected_issuance_id'])
         if header['active_key']!=collection_active_key(header):
             raise SubmissionIntentError('submission_intent_active_binding')
-        if header['intent'] in ('recovery','retry') and header['expected_issuance_id'] is None:
+        if header['intent'] in ('recovery','retry','correction') and header['expected_issuance_id'] is None:
             raise SubmissionIntentError('submission_intent_recovery_version')
-    elif header['intent'] in ('recovery','retry'):
+    elif header['intent'] in ('recovery','retry','correction'):
         raise SubmissionIntentError('submission_intent_recovery_kind')
     _fingerprint(header['source_sha256'])
     try:
@@ -119,21 +126,24 @@ def collection_active_key(header):
     values=[source_key(header['source_doctype'],header['source_name'])]
     values.extend(header[key] for key in ('company','actor','chain','intent','source_sha256'))
     values.append(header['expected_issuance_id'] or '')
-    retry=header.get('request_kind')=='retry-v1'
-    if retry:values.extend(header[field] for field in RETRY_FIELDS)
+    kind=header.get('request_kind')
+    attempted=ATTEMPT_KINDS.get(kind)
+    if attempted is not None:values.extend(header[field] for field in attempted[1])
     if any(type(value) is not str or '\0' in value for value in values):
         raise SubmissionIntentError('submission_intent_active_binding')
-    return hashlib.sha256((('retry-v1\0' if retry else 'collection-v1\0')+'\0'.join(values)).encode()).hexdigest()
+    return hashlib.sha256(((kind+'\0' if attempted is not None else 'collection-v1\0')+'\0'.join(values)).encode()).hexdigest()
 
 
 def envelope_kind(header):
     if header.get('request_kind')=='submit-stage-v1':return 'submission-stage'
     if header.get('request_kind')=='retry-v1':return 'retry-intent'
+    if header.get('request_kind')=='correction-v1':return 'correction-intent'
     return 'collection-intent' if 'request_kind' in header else 'submission-intent'
 
 
 def envelope_body(header):
     if header.get('request_kind')=='submit-stage-v1':return STAGE_BODY
+    if header.get('request_kind')=='correction-v1':return CORRECTION_BODY
     return RETRY_BODY if header.get('request_kind')=='retry-v1' else COLLECTION_BODY if 'request_kind' in header else BODY
 
 
@@ -160,7 +170,7 @@ def request_header_bytes(header):
 def open_intent(owner,record_id,*,lock=False,allow_staged=False):
     _identifier(record_id);owner.require_owner()
     rows=owner.database.sql('SELECT record_id,source_key,source_doctype,source_name,actor,state,fence_token,'
-        'active_key,expected_issuance_id,operation,retry_attempt_id,retry_fence_token,'
+        'active_key,expected_issuance_id,operation,retry_attempt_id,retry_fence_token,rejected_attempt_id,rejected_fence_token,'
         'SUBSTRING(resolution_header,1,8193) AS resolution_header,'
         'SUBSTRING(resolution_ciphertext,1,8193) AS resolution_ciphertext,'
         'SUBSTRING(intent_header,1,8193) AS intent_header,SUBSTRING(intent_ciphertext,1,8193) AS intent_ciphertext '
@@ -191,11 +201,9 @@ def open_intent(owner,record_id,*,lock=False,allow_staged=False):
             raise SubmissionIntentError('submission_intent_collection_index')
     elif any(row[key] is not None for key in ('active_key','expected_issuance_id','operation')):
         raise SubmissionIntentError('submission_intent_collection_index')
-    if header.get('request_kind')=='retry-v1':
-        if any(row[field]!=header[field] for field in RETRY_FIELDS):
-            raise SubmissionIntentError('submission_intent_retry_index')
-    elif any(row[field] is not None for field in RETRY_FIELDS):
-        raise SubmissionIntentError('submission_intent_retry_index')
+    for kind,(_operation,fields) in ATTEMPT_KINDS.items():
+        if any(row[field]!=(header[field] if header.get('request_kind')==kind else None) for field in fields):
+            raise SubmissionIntentError('submission_intent_attempt_index')
     if owner.cipher.open(record_id,envelope_kind(header),encoded,row['intent_ciphertext'])!=envelope_body(header):
         raise SubmissionIntentError('submission_intent_integrity')
     if row['state']=='RETIRED':
@@ -327,7 +335,7 @@ class ParentIntent:
         self.finalized=False;self.closed=False
         self.require_owner()
         saved_form_name(self.actor)
-        if self.actor == 'Guest' or intent not in ('submit','scheduled','manual','recovery','retry'):
+        if self.actor == 'Guest' or intent not in ('submit','scheduled','manual','recovery','retry','correction'):
             raise SubmissionIntentError('submission_intent_actor_or_operation')
         rows=self.sql('SELECT DATABASE() AS db_name',())
         if len(rows)!=1 or rows[0].get('db_name')!=self.db_name:

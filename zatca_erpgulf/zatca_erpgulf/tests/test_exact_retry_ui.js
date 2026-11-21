@@ -46,7 +46,8 @@ for (const lang of ["en", "ar"]) {
         assert.deepEqual(c.routes, [["Form", "ZATCA Submission Intent", "REQUEST"]]); count++;
     }
     for (const outcome of ["REPORTING_MATCHED", "CLEARANCE_MATCHED", "VALIDATION_REJECTED", "CLEARANCE_DISABLED", "UNCONFIRMED"]) {
-        const c = setup(lang, "RESPONSE_RETAINED", outcome); c.refresh(); assert.equal(c.buttons.size, 0); count++;
+        const c = setup(lang, "RESPONSE_RETAINED", outcome); c.refresh();
+        assert.equal(c.buttons.has(c.t("Request Exact Retry")), false); count++;
     }
     for (const reason of ["role", "new", "dirty", "navigation-before", "navigation-after", "review"]) {
         const c = setup(lang, "OUTCOME_UNKNOWN");

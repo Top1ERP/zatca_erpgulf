@@ -498,10 +498,48 @@ HEAD/tooltip/customer-address hashes remain unchanged. No authority API, live
 site/service or actual invoice action occurred; only the public guideline was
 read. Installed and actual dummy-company gates retain separate authorization.
 
+The corrected-version operator is now adopted as **Prepare Corrected XML** on
+retained rejected Attempts. It stages a distinct correction-v1 authenticated
+command in the shared intent store/callback/worker lifecycle, binding approved
+current fiscal data and rejected version/attempt/fence. Registration/finalization
+and actual owned generation repeat policy, source and history checks. The worker
+prepares linked local custody only, with no automatic origin/delivery authority.
+Prior headers/AAD/active-slot hashes remain unchanged with NULL new indexes.
+Details: [CORRECTED_PREPARATION_COMMAND.md](CORRECTED_PREPARATION_COMMAND.md).
+
+Worker resume and explicit **Reconcile Saved Result** now verify the exact current
+linked version and the old protected rejection/fence/history before satisfying
+that request. Unknown/in-flight/contradictory links remain held. Lost creation
+acknowledgement retains custody/head and permits explicit reconciliation without
+compensation or a second issue. Shared current correction policy was factored
+between owned and already-locked borrowed contexts; no parent transaction/read-
+view capability is manufactured. Both attempt actions share their UI confirmation/
+result path with English diagnostics and English/Arabic display.
+
+Latest correction-command qualification:1,222 local cases across32 reviewed suites
+in5.77s,620 private SQL cases across18 suites in65.72s,164 synthetic English/Arabic
+UI cases across5 scripts, and20,751 across fixed81 issuer-binding suites in115.89s.
+Sets overlap. Logs: `/tmp/zatca-axis2-correction-command-local-final.log`,
+`/tmp/zatca-axis2-correction-command-private-final.log`,
+`/tmp/zatca-axis2-correction-command-ui-final.log`,
+`/tmp/zatca-axis2-correction-command-late-ui-final.log`,
+`/tmp/zatca-axis2-correction-command-request-ui-final.log`,
+`/tmp/zatca-axis2-correction-command-retry-ui-final.log`,
+`/tmp/zatca-axis2-correction-command-prepared-ui-final.log`,
+`/tmp/zatca-axis2-correction-command-regression-final.log`.
+Manifest249 local/83 private suites was not run in full. New suites add16 local/
+27 private cases, included above. New rejected_attempt_id/rejected_fence_token
+fields are nullable readonly source declarations only, not installed migration.
+ERP financial/signing/HTTP inputs remain doubles on fixture-owned Unix SQL, not
+installed GL/File/SDK or authority acceptance. No financial reference changed;
+original240 comparison remains91/117/32. No live source/site/schema/service or
+authority API/actual invoice action occurred. Installed and actual dummy-company
+rehearsals remain separately gated. Workstream2 is not complete.
+
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; frozen print/master information
 and File/external-print compatibility; remaining late/superseded retry review and
-durable corrected-version operator adoption; installed GL/File and complete mixed legacy/native
+wider rejected/corrected historical transitions; installed GL/File and complete mixed legacy/native
 submitted-invoice batch coordination;
 issued-source transitions and remaining unknown/late/historical unsealed intent resolution, complete
 remaining first-send migration/admission cases and whole runtime qualification.

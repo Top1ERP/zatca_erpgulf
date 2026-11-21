@@ -66,9 +66,13 @@ def reconcile_saved_result(record_id,expected_state,expected_fence,*,runtime):
                 or fiscal_sha(source)!=header['source_sha256']):
             raise IntentReconciliationError('intent_reconciliation_source_changed')
         view=read_retained_in_transaction(dt,name,runtime=runtime,owner=owner,require_current_source=True)
-        if (view is None or view.chain_id!=header['chain']
-                or header.get('expected_issuance_id') not in (None,view.issuance_id)):
+        if view is None or view.chain_id!=header['chain']:
             raise IntentReconciliationError('intent_reconciliation_original_changed')
+        if header.get('expected_issuance_id') not in (None,view.issuance_id):
+            if header.get('request_kind')!='correction-v1':
+                raise IntentReconciliationError('intent_reconciliation_original_changed')
+            from .corrected_preparation import require_corrected_result
+            require_corrected_result(repository,chain,view,header)
         if not repeated and view.state=='REVIEW_REQUIRED' and view.attempt_id is not None:
             # A process may have durably captured its response and stopped
             # before assessment. Stage that same canonical assessment locally;

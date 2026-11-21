@@ -4,7 +4,7 @@
  "creation": "2026-11-20 00:00:00.000000",
  "doctype": "DocType",
  "engine": "InnoDB",
- "field_order": ["record_id", "source_key", "source_doctype", "source_name", "actor", "active_key", "expected_issuance_id", "operation", "retry_attempt_id", "retry_fence_token", "state", "state_version", "fence_token", "started_at_utc", "finished_at_utc", "result_code", "intent_header", "intent_ciphertext", "resolution_header", "resolution_ciphertext"],
+ "field_order": ["record_id", "source_key", "source_doctype", "source_name", "actor", "active_key", "expected_issuance_id", "operation", "retry_attempt_id", "retry_fence_token", "rejected_attempt_id", "rejected_fence_token", "state", "state_version", "fence_token", "started_at_utc", "finished_at_utc", "result_code", "intent_header", "intent_ciphertext", "resolution_header", "resolution_ciphertext"],
  "fields": [
   {"fieldname":"record_id","label":"Record ID","fieldtype":"Data","read_only":1,"reqd":1,"unique":1},
   {"fieldname":"source_key","label":"Source Key","fieldtype":"Data","read_only":1,"reqd":1,"unique":1},
@@ -16,6 +16,8 @@
   {"fieldname":"operation","label":"Collection Operation","fieldtype":"Data","read_only":1},
   {"fieldname":"retry_attempt_id","label":"Approved Prior Attempt","fieldtype":"Data","read_only":1,"search_index":1},
   {"fieldname":"retry_fence_token","label":"Approved Prior Attempt Fence","fieldtype":"Data","read_only":1,"search_index":1},
+  {"fieldname":"rejected_attempt_id","label":"Approved Rejected Attempt","fieldtype":"Data","read_only":1,"search_index":1},
+  {"fieldname":"rejected_fence_token","label":"Approved Rejected Attempt Fence","fieldtype":"Data","read_only":1,"search_index":1},
   {"fieldname":"state","label":"Intent State","fieldtype":"Select","options":"STAGED\nREADY\nWAITING\nRUNNING\nCOMPLETE\nREVIEW\nRETIRED","default":"STAGED","read_only":1,"reqd":1,"search_index":1},
   {"fieldname":"state_version","label":"State Version","fieldtype":"Int","default":"0","read_only":1,"reqd":1},
   {"fieldname":"fence_token","label":"Worker Fence","fieldtype":"Data","read_only":1},

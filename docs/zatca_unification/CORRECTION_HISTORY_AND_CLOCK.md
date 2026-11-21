@@ -1,5 +1,9 @@
 # Corrected-version history and explicit XML clock adoption
 
+The subsequent [durable corrected-preparation command](CORRECTED_PREPARATION_COMMAND.md)
+now adopts the Desk/worker workflow left open by this backend package. Its
+separate approval, no-send and saved-result recovery boundaries apply.
+
 Workstream2 source development,2026-11-21. Development and verification remain
 offline in the isolated worktree. No authority API, live site/schema, actual ERP
 invoice or service was changed. Installed ERP15/16 and actual dummy-company
