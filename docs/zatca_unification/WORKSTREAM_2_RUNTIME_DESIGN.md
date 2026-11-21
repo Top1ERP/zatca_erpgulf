@@ -6,6 +6,12 @@ observations, changed public keys and explicit unresolved/unprobed limits. It
 changes no stored registration envelope or active flag and cannot replace fresh
 crypto/history/drain evidence: [NATIVE_LEGACY_HISTORY.md](NATIVE_LEGACY_HISTORY.md).
 
+The same review now separates full current literal-unit slot counts from bounded
+older-XML coverage. Two integer-only locking aggregates see fresh committed rows
+behind an older ORM snapshot; binary identity filtering avoids collation merging.
+Above the document budget, only the verified anchor is reused while all remaining
+known positions stay unprobed. Full counts/exact gaps are not an activation grant.
+
 This document records implementation decisions, not completed runtime adoption.
 The old uninstalled nested staging models remain deferred; adding another isolated
 model is not sufficient. Finish the worker/provider integration below before

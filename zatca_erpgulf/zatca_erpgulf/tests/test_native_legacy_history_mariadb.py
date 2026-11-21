@@ -4,6 +4,7 @@ import base64
 import hashlib
 import os
 from uuid import uuid4
+from unittest.mock import Mock
 
 from lxml import etree
 import pytest
@@ -11,6 +12,7 @@ import pytest
 from zatca_erpgulf.zatca_erpgulf import native_legacy_history as history
 from zatca_erpgulf.zatca_erpgulf.artifact_evidence import NS
 from zatca_erpgulf.zatca_erpgulf.invoice_xml_core import INITIAL_PREVIOUS_HASH
+from zatca_erpgulf.zatca_erpgulf.worker_transaction import owned_worker_transaction
 from zatca_erpgulf.zatca_erpgulf.tests.test_native_registration_mariadb import (
     legacy, boundary, materials, isolated_server, connections, tables,
 )
@@ -99,7 +101,9 @@ def test_missing_conflicting_rotated_or_limited_evidence_is_visible_without_repa
         t.connection.commit()
     reviewed = t.review(expected_xml_sha256=checksum); result = reviewed.history
     assert not reviewed.active and t.database.commits == 1
-    if fault == 'source-limit': assert not result.source_scan_complete and result.missing_positions is None
+    if fault == 'source-limit':
+        assert not result.source_scan_complete and result.missing_positions == '0'
+        assert result.known_positions == '3' and result.unprobed_sources == 2 and result.tail_match is True
     elif fault == 'wrong-pih': assert result.genesis_match is False
     elif fault == 'broken-link': assert result.broken_links == 1
     elif fault == 'rotated-key': assert result.rotated_key_sources == 1
@@ -130,3 +134,50 @@ def test_reused_anchor_rechecks_changed_historical_files_instead_of_caching_a_gr
     current = t.review(expected_xml_sha256=checksum)
     assert current.reused and current.record_id == first.record_id and not current.active
     assert current.history.genesis_match is False and t.database.commits == 1
+
+
+@pytest.mark.parametrize('legacy', [('company', 0, '3000')], indirect=True)
+def test_more_than_two_thousand_positions_are_counted_exactly_without_loading_older_xml(legacy, monkeypatch):
+    t = legacy; rows = []
+    for index in range(1, 2058):
+        rows.append(('CENSUS-'+str(uuid4()), t.source.company, 2 if index % 5 == 0 else 1,
+            str(uuid4()), str(index), t.source.custom_zatca_issuing_unit))
+    with t.connection.cursor() as cursor:
+        for doctype, subset in (('Sales Invoice', rows[::2]), ('POS Invoice', rows[1::2])):
+            cursor.executemany('INSERT INTO `tab'+doctype+'` (name,company,docstatus,custom_uuid,custom_zatca_icv,'
+                'custom_zatca_issuing_unit) VALUES (%s,%s,%s,%s,%s,%s)', subset)
+        cursor.execute('INSERT INTO `tabPOS Invoice` (name,company,docstatus,custom_uuid,custom_zatca_icv,'
+            'custom_zatca_issuing_unit) VALUES (%s,%s,0,%s,%s,%s)',
+            ('INDEPENDENT-'+str(uuid4()), t.source.company, str(uuid4()), '9999', 'INDEPENDENT-UNIT'))
+        cursor.execute('INSERT INTO `tabPOS Invoice` (name,company,docstatus,custom_uuid,custom_zatca_icv,'
+            'custom_zatca_issuing_unit) VALUES (%s,%s,1,%s,%s,%s)',
+            ('DIFFERENT-CASE-'+str(uuid4()), t.source.company, str(uuid4()), '2999',
+                t.source.custom_zatca_issuing_unit.upper()))
+    t.connection.commit()
+    older = Mock(side_effect=AssertionError('No older XML/body scan above the budget'))
+    monkeypatch.setattr(history, '_older_xml', older)
+    reviewed = t.review(); result = reviewed.history
+    assert result.known_positions == '2058' and result.missing_positions == '942'
+    assert result.sources_seen == result.inspected_sources == 1 and result.unprobed_sources == 2057
+    assert not result.source_scan_complete and result.tail_match is True and result.genesis_match is None
+    assert result.xml_bytes == 0 and not reviewed.active
+    older.assert_not_called(); t.b.request.assert_not_called()
+    assert t.runtime.get_doc(t.counter.doctype, t.counter.name).last_issued_icv == '3000'
+
+
+def test_locked_census_sees_a_commit_hidden_from_an_older_repeatable_read_snapshot(legacy):
+    t = legacy
+    with owned_worker_transaction(t.runtime) as owner:
+        stale = owner.database.sql('SELECT COUNT(*) AS slot_count FROM `tabPOS Invoice` '
+            'WHERE custom_zatca_issuing_unit=%s', (t.source.custom_zatca_issuing_unit,), as_dict=True)
+        assert stale == [{'slot_count': 0}]
+        peer = t.connections()
+        with peer.cursor() as cursor:
+            cursor.execute('INSERT INTO `tabPOS Invoice` (name,company,docstatus,custom_uuid,custom_zatca_icv,'
+                'custom_zatca_issuing_unit) VALUES (%s,%s,1,%s,%s,%s)',
+                ('FRESH-'+str(uuid4()), t.source.company, str(uuid4()), '26', t.source.custom_zatca_issuing_unit))
+        peer.commit()
+        assert owner.database.sql('SELECT COUNT(*) AS slot_count FROM `tabPOS Invoice` '
+            'WHERE custom_zatca_issuing_unit=%s', (t.source.custom_zatca_issuing_unit,), as_dict=True) == stale
+        assert history._count_slots(owner, t.source.custom_zatca_issuing_unit) == 2
+    assert t.database.commits == 0

@@ -637,6 +637,29 @@ actual invoice or authority API operation occurred. Full unattributed/rotated/
 large-history inventory, authenticated cutover/drain and installed/SDK gates
 remain open. An inactive proposal with incomplete history stays inactive.
 
+The inactive history review now counts every literal-unit known position through
+two current locking aggregates, independently of the1024-position older-document
+budget. Integer-only shape/count checks reject drift and no binary unit identity
+is merged by DB collation. Above that budget the verified anchor is retained,
+known_positions/missing_positions remain exact strings and unprobed_sources
+includes all remaining positions; no older body/XML is loaded or scan completion
+inferred. Registration envelopes, active flags, counters, UUID/PIH and financial
+outputs are unchanged. Details: [NATIVE_LEGACY_HISTORY.md](NATIVE_LEGACY_HISTORY.md).
+
+Latest census qualification:403 local cases across10 suites in1.97s and175 private
+cases across5 suites in31.31s.17 added local/2 added private cases are included.
+Logs: `/tmp/zatca-axis2-history-census-local-final2.log`,
+`/tmp/zatca-axis2-history-census-private-final.log`. Both the first and final sets
+passed; final coverage adds binary unit matching/case-different-unit evidence.
+The actual large case has2058 known positions below tail3000,942 missing and2057
+unprobed, with no older XML reads. A separate peer-commit case proves the locking
+COUNT sees rows hidden by an older ordinary RR snapshot. These are fixture SQL/
+ERP/XML observations, not installed performance/SDK/authority acceptance. No UI/
+financial reference changed; original240 remains91/117/32. The unchanged manifest
+253 local/87 private was not run in full. No live app/site/schema/service, actual
+invoice or authority API operation occurred. Paged/durable XML capture, rotated/
+unattributed history, cutover/drain and installed acceptance remain open.
+
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; remaining Letter Head/custom/direct-master/other print information
 and File/external-print compatibility; remaining late/superseded retry review and

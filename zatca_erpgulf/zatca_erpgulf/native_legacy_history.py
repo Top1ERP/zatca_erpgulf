@@ -38,6 +38,7 @@ class LegacyHistoryInventory:
     tail_match: bool | None
     rotated_key_sources: int
     xml_bytes: int
+    known_positions: str | None = None
 
     def __reduce_ex__(self, protocol):
         raise TypeError('registration_history_inventory_not_serializable')
@@ -110,7 +111,8 @@ def _older_xml(runtime, owner, row, seller_tax_id, budget):
     return selected
 
 
-def summarize_history(rows, observations, *, complete, attempted, tail_icv, tail_digest, public_key, xml_bytes):
+def summarize_history(rows, observations, *, complete, attempted, tail_icv, tail_digest, public_key, xml_bytes,
+        known_positions=None):
     """Pure declaration arithmetic; no overall 'safe to activate' boolean."""
     slots = {int(row['icv']): (row['doctype'], row['name']) for row in rows}
     if len(slots) != len(rows):
@@ -127,12 +129,38 @@ def summarize_history(rows, observations, *, complete, attempted, tail_icv, tail
     genesis = None if 1 not in known else known[1][0].previous_hash == INITIAL_PREVIOUS_HASH
     tail = known.get(int(tail_icv))
     tail_match = None if tail is None else tail[0].invoice_digest == tail_digest
-    missing = str(int(tail_icv)-len(slots)) if complete else None
+    total = len(slots) if complete and known_positions is None else known_positions
+    if total is not None and (type(total) is not int or total < len(slots)
+            or (complete and total != len(slots))):
+        raise ChainRegistrationError('registration_history_count_changed')
+    missing = str(int(tail_icv)-total) if total is not None else None
     if missing is not None and int(missing) < 0:
         raise ChainRegistrationError('registration_history_tail_range')
     return LegacyHistoryInventory(len(rows), complete, len(attempted), len(attempted)-len(known),
-        len(rows)-len(attempted), missing, matched, broken, genesis, tail_match,
-        sum(key != public_key for _evidence, key in known.values()), xml_bytes)
+        (len(rows) if total is None else total)-len(attempted), missing, matched, broken, genesis, tail_match,
+        sum(key != public_key for _evidence, key in known.values()), xml_bytes,
+        None if total is None else str(total))
+
+
+def _count_slots(owner, unit):
+    """Current aggregate census after the parent's canonical/unique-tail audit.
+
+    An older ordinary ORM SELECT can hold an RR snapshot. LOCK IN SHARE MODE
+    is mandatory even for COUNT; the count never comes from that old snapshot.
+    This does not grant permission to read older invoice bodies or their XML.
+    """
+    total = 0
+    for table in SOURCE_TABLES.values():
+        _owned(owner)
+        rows = owner.database.sql('SELECT COUNT(*) AS slot_count FROM '+table+
+            ' WHERE custom_zatca_issuing_unit=%s AND BINARY custom_zatca_issuing_unit=BINARY %s '
+            'LOCK IN SHARE MODE NOWAIT', (unit, unit), as_dict=True)
+        _owned(owner)
+        if (len(rows) != 1 or type(rows[0].get('slot_count')) is not int
+                or rows[0]['slot_count'] < 0):
+            raise ChainRegistrationError('registration_history_count_shape')
+        total += rows[0]['slot_count']
+    return total
 
 
 def inspect_known_legacy_history(runtime, owner, source, unit, anchor, public_key):
@@ -144,27 +172,34 @@ def inspect_known_legacy_history(runtime, owner, source, unit, anchor, public_ke
     is transient; future activation must recheck and authenticate its own proof.
     """
     require_range_isolation(owner)
+    total = _count_slots(owner, unit)
+    # Preserve the existing File/storage guard even when only a count fits.
+    owner.database.sql('SELECT name FROM `tabFile` LIMIT 0', as_dict=True)
+    require_range_engines(owner, ('tabSales Invoice', 'tabPOS Invoice', 'tabFile'))
+    identity = (source.doctype, source.name)
+    if total > MAX_SOURCES:
+        # Keep the already-verified anchor as evidence. Counting all slots is
+        # independent of the bounded older-document/XML scan and its budget.
+        return summarize_history([dict(doctype=source.doctype, name=source.name, icv=str(anchor.icv))],
+            {identity: (anchor, public_key)}, complete=False, attempted={identity},
+            tail_icv=str(anchor.icv), tail_digest=anchor.invoice_digest, public_key=public_key,
+            xml_bytes=0, known_positions=total)
     rows = []
     for doctype, table in SOURCE_TABLES.items():
         _owned(owner)
         found = owner.database.sql('SELECT name,company,docstatus,custom_uuid,'
             'SUBSTRING(CAST(custom_zatca_icv AS CHAR),1,65) AS icv,custom_zatca_issuing_unit AS unit '
-            'FROM '+table+' WHERE custom_zatca_issuing_unit=%s ORDER BY name LIMIT %s '
-            'LOCK IN SHARE MODE NOWAIT', (unit, MAX_SOURCES+1), as_dict=True)
+            'FROM '+table+' WHERE custom_zatca_issuing_unit=%s AND BINARY custom_zatca_issuing_unit=BINARY %s '
+            'ORDER BY name LIMIT %s LOCK IN SHARE MODE NOWAIT', (unit, unit, MAX_SOURCES+1), as_dict=True)
         rows.extend(dict(row, doctype=doctype) for row in found)
         _owned(owner)
-    # Open File metadata before verifying storage; no DDL or schema repair.
-    owner.database.sql('SELECT name FROM `tabFile` LIMIT 0', as_dict=True)
-    require_range_engines(owner, ('tabSales Invoice', 'tabPOS Invoice', 'tabFile'))
     for row in rows:
         _counter(row['icv']); _identifier(row['custom_uuid'])
         if (row['company'] != source.company or row['docstatus'] not in (1, 2) or row['unit'] != unit
                 or int(row['icv']) > anchor.icv):
             raise ChainRegistrationError('registration_history_source_changed')
-    if len(rows) > MAX_SOURCES:
-        return summarize_history(rows[:MAX_SOURCES], {}, complete=False, attempted=set(),
-            tail_icv=str(anchor.icv), tail_digest=anchor.invoice_digest, public_key=public_key, xml_bytes=0)
-    identity = (source.doctype, source.name)
+    if len(rows) != total:
+        raise ChainRegistrationError('registration_history_count_changed')
     if not any((row['doctype'], row['name'], row['icv'], row['custom_uuid']) == (
             *identity, str(anchor.icv), anchor.uuid) for row in rows):
         raise ChainRegistrationError('registration_history_anchor_missing')
@@ -180,4 +215,5 @@ def inspect_known_legacy_history(runtime, owner, source, unit, anchor, public_ke
         observations[key] = _older_xml(runtime, owner, row, anchor.seller_tax_id, budget)
     _owned(owner)
     return summarize_history(rows, observations, complete=True, attempted=attempted,
-        tail_icv=str(anchor.icv), tail_digest=anchor.invoice_digest, public_key=public_key, xml_bytes=budget.read)
+        tail_icv=str(anchor.icv), tail_digest=anchor.invoice_digest, public_key=public_key,
+        xml_bytes=budget.read, known_positions=total)

@@ -91,7 +91,10 @@ slots within and between Sales/POS, using current locking aggregates/joins so an
 older ORM snapshot cannot hide a newly committed duplicate. Gaps are not a zero
 seed or a reason to renumber. Bounded known-unit XML/PIH observations now accompany
 actual inactive review/reuse: [NATIVE_LEGACY_HISTORY.md](NATIVE_LEGACY_HISTORY.md).
-Archived/rotated/large-history census, crypto evidence, drain and activation remain open.
+Current integer-only aggregates now census all literal-unit saved positions even
+above the older-XML budget. Exact missing positions and total unprobed evidence
+remain visible; no partial scan is promoted to activation or acceptance.
+Archived/rotated/large-history XML inventory, crypto evidence, drain and activation remain open.
 
 Known owner/delegate/declared-unit consumer closure and a permission-checked,
 current locked counter catalog are now adopted in that inactive review. Another

@@ -2,12 +2,15 @@
 
 from dataclasses import FrozenInstanceError, replace
 import pickle
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
 from zatca_erpgulf.zatca_erpgulf import native_legacy_history as history
 from zatca_erpgulf.zatca_erpgulf.artifact_evidence import ArtifactEvidence
 from zatca_erpgulf.zatca_erpgulf.chain_registration import ChainRegistrationError
+from zatca_erpgulf.zatca_erpgulf.native_identity_inventory import IdentityInventoryError
 from zatca_erpgulf.zatca_erpgulf.invoice_xml_core import INITIAL_PREVIOUS_HASH
 
 
@@ -82,3 +85,55 @@ def test_duplicate_position_never_makes_negative_missing_history():
     rows, obs = records(); rows.append(dict(doctype='POS Invoice', name='DUPLICATE', icv='3'))
     with pytest.raises(ChainRegistrationError, match='registration_history_duplicate_slot'):
         summary(rows, obs)
+
+
+def test_exact_full_count_is_independent_of_bounded_xml_coverage():
+    rows, obs = records((9007199254740993,))
+    result = summary(rows, obs, complete=False, known_positions=2000)
+    assert result.known_positions == '2000' and result.sources_seen == 1
+    assert result.missing_positions == '9007199254738993'
+    assert result.unprobed_sources == 1999 and not result.source_scan_complete
+    assert result.tail_match is True and result.genesis_match is None
+
+
+@pytest.mark.parametrize('total', [True, 2.0, '3', -1, 2, 4])
+def test_an_invalid_or_inconsistent_census_never_becomes_a_complete_report(total):
+    rows, obs = records()
+    with pytest.raises(ChainRegistrationError, match='registration_history_count_changed'):
+        summary(rows, obs, known_positions=total)
+
+
+def count_owner(rows):
+    owner = SimpleNamespace(owner_current=Mock(return_value=True))
+    def sql(statement, values, *, as_dict):
+        assert statement.startswith('SELECT COUNT(*) AS slot_count FROM `tab')
+        assert 'LOCK IN SHARE MODE NOWAIT' in statement and 'LIMIT' not in statement
+        assert 'BINARY custom_zatca_issuing_unit=BINARY %s' in statement
+        assert values == ('KNOWN-UNIT', 'KNOWN-UNIT') and as_dict is True
+        return rows
+    owner.database = SimpleNamespace(sql=Mock(side_effect=sql))
+    return owner
+
+
+@pytest.mark.parametrize('rows', [[], [{}, {}], [{}], [{'slot_count': None}], [{'slot_count': True}],
+    [{'slot_count': 1.0}], [{'slot_count': '1'}], [{'slot_count': -1}]])
+def test_aggregate_shape_errors_are_review_not_zero_or_rounding(rows):
+    with pytest.raises(ChainRegistrationError, match='registration_history_count_shape'):
+        history._count_slots(count_owner(rows), 'KNOWN-UNIT')
+
+
+def test_count_uses_both_current_fixed_source_tables():
+    owner = count_owner([{'slot_count': 2}])
+    assert history._count_slots(owner, 'KNOWN-UNIT') == 4
+    queries = [call.args[0] for call in owner.database.sql.call_args_list]
+    assert len(queries) == 2 and '`tabSales Invoice`' in queries[0] and '`tabPOS Invoice`' in queries[1]
+
+
+def test_changed_transaction_owner_after_first_count_stops_the_second_query():
+    owner = count_owner([{'slot_count': 1}]); original = owner.database.sql.side_effect
+    def changed(*args, **kwargs):
+        result = original(*args, **kwargs); owner.owner_current.return_value = False
+        return result
+    owner.database.sql.side_effect = changed
+    with pytest.raises(IdentityInventoryError): history._count_slots(owner, 'KNOWN-UNIT')
+    assert owner.database.sql.call_count == 1
