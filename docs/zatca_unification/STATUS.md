@@ -344,14 +344,46 @@ original240 comparison remains91 identical/117 review/32 blocked. Live source HE
 tooltip/customer-address hashes remain unchanged. No live site/service/schema,
 authority request or actual invoice operation was performed.
 
+New originals now retain encrypted generation origin in the same atomic insert
+as exact request custody and chain advancement. Original actor/operation, delivery
+decision/method/classification and optional durable request header/fence reference
+come from server contexts. New internal recovery commands require the exact saved
+version and resume DISPATCH under that original enabled actor, including immediate
+Standard, Simplified Live and explicit manual origins. Current ACL/method/window
+checks remain mandatory. Deferred Background retains a distinct fresh scheduler
+authorization; Batches PREPARE stays manual. One shared discovery/worker path is
+used, with per-actor commits and pinned site/key/physical DB before restoration.
+Details: [ISSUANCE_ORIGIN_RECOVERY.md](ISSUANCE_ORIGIN_RECOVERY.md).
+
+Intentional development compatibility change: automatic Background discovery now
+also requires protected origin. Existing NULL-origin or changed-policy originals
+need explicit manual recovery; no actor is guessed from owner/modified_by and no
+origin is backfilled. New nullable origin fields are source declarations only.
+Normal publication does not require origin; original artifact header/AAD, XML/
+request/receipt bytes and all financial fixtures remain unchanged.
+
+Latest origin qualification:850 local cases across23 suites in3.82s,492 private
+SQL cases across13 suites in54.34s,64 synthetic English/Arabic UI cases across2
+scripts, and20,751 across fixed81 issuer-binding suites in124.47s. Sets overlap.
+Logs: `/tmp/zatca-axis2-origin-local-final.log`,
+`/tmp/zatca-axis2-origin-private-final.log`,
+`/tmp/zatca-axis2-origin-ui-final.log`,
+`/tmp/zatca-axis2-origin-request-ui-final.log`,
+`/tmp/zatca-axis2-origin-regression-final.log`.
+Manifest243 local/78 private suites was not run in full. Private registrations,
+ERP/financial metadata, signing and HTTP remain fixtures/doubles; this is not
+installed ERP15/16 or genuine SDK/authority acceptance. Original240 financial
+comparison stays91 identical/117 review/32 blocked. No live source/site/schema,
+worker/service, authority API or actual invoice operation was changed or invoked.
+
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; frozen print/master information
 and File/external-print compatibility; explicit unchanged retry and
 corrected-clock/operator adoption; installed GL/File and complete mixed legacy/native
 submitted-invoice batch coordination;
 issued-source transitions and remaining unknown/late/unsealed intent resolution, complete
-automatic Standard/non-Background recovery with authenticated origin/actor policy
-and whole runtime qualification. The new durable handoff is
+remaining first-send migration/admission cases and whole runtime qualification.
+The new durable handoff is
 not complete crash/delivery recovery. Do not announce3 or installation from these narrower checks.
 Installed15/16, financial review, authentic SDK and the specifically approved
 fictional rehearsal retain their later gates. No live app/site/schema/service

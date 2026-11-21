@@ -74,7 +74,7 @@ def validate_header(header):
         raise SubmissionIntentError('submission_intent_header')
     _identifier(header['record_id']);_identifier(header['chain'])
     for key in ('company','actor'):saved_form_name(header[key])
-    if header['actor']=='Guest' or header['intent'] not in ('submit','scheduled','manual'):
+    if header['actor']=='Guest' or header['intent'] not in ('submit','scheduled','manual','recovery'):
         raise SubmissionIntentError('submission_intent_actor_or_operation')
     base_key=source_key(header['source_doctype'],header['source_name'])
     collection='request_kind' in header
@@ -82,12 +82,16 @@ def validate_header(header):
     if expected_key!=header['source_key']:
         raise SubmissionIntentError('submission_intent_source_binding')
     if collection:
-        if header['request_kind']!='collection-v1' or header['intent'] not in ('manual','scheduled'):
+        if header['request_kind']!='collection-v1' or header['intent'] not in ('manual','scheduled','recovery'):
             raise SubmissionIntentError('submission_intent_collection_kind')
         if header['expected_issuance_id'] is not None:
             _identifier(header['expected_issuance_id'])
         if header['active_key']!=collection_active_key(header):
             raise SubmissionIntentError('submission_intent_active_binding')
+        if header['intent']=='recovery' and header['expected_issuance_id'] is None:
+            raise SubmissionIntentError('submission_intent_recovery_version')
+    elif header['intent']=='recovery':
+        raise SubmissionIntentError('submission_intent_recovery_kind')
     _fingerprint(header['source_sha256'])
     try:
         value=datetime.strptime(header['created_at_utc'],'%Y-%m-%dT%H:%M:%S.%f')
@@ -272,7 +276,7 @@ class ParentIntent:
         self.finalized=False;self.closed=False
         self.require_owner()
         saved_form_name(self.actor)
-        if self.actor == 'Guest' or intent not in ('submit','scheduled','manual'):
+        if self.actor == 'Guest' or intent not in ('submit','scheduled','manual','recovery'):
             raise SubmissionIntentError('submission_intent_actor_or_operation')
         rows=self.sql('SELECT DATABASE() AS db_name',())
         if len(rows)!=1 or rows[0].get('db_name')!=self.db_name:

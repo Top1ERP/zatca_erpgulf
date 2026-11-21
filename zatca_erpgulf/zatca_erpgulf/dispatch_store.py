@@ -638,7 +638,7 @@ class DispatchStore:
             (issuance['chain'],issuance['source_doctype'],issuance['source_name']))
         return len(rows)==1 and rows[0]['name']==issuance['record_id']
 
-    def stage_issuance(self, chain, header, exact_request_bytes, *, actor, occurred_at, publication_sha256=None):
+    def stage_issuance(self, chain, header, exact_request_bytes, *, actor, occurred_at, publication_sha256=None,generation_origin=None):
         """One local generation: store original + head; never remote acceptance.
 
         This method does not decide initial enrollment, validate signed XML,
@@ -680,7 +680,16 @@ class DispatchStore:
                 evidence=encode_record_header(dict(profile=PROFILE,source_sha256=header['source_sha256'],
                     publication_sha256=publication_sha256))
                 publication=self._cipher.seal(header['record_id'],'publication-source',encoded,evidence)
-            values=dict(header,artifact_ciphertext=encrypted,publication_ciphertext=publication,
+            origin=None;origin_indexes=dict(origin_actor=None,origin_action=None,origin_method=None)
+            if generation_origin is not None:
+                from .issuance_origin import validate_origin
+                evidence=validate_origin(generation_origin)
+                if (generation_origin['actor']!=actor
+                        or generation_origin['created_at_utc']!=occurred_at.strftime('%Y-%m-%dT%H:%M:%S.%f')):
+                    raise DispatchStoreError('dispatch_origin_server_binding')
+                origin=self._cipher.seal(header['record_id'],'issuance-origin',encoded,evidence)
+                origin_indexes=dict(origin_actor=actor,origin_action=generation_origin['action'],origin_method=generation_origin['method'])
+            values=dict(header,artifact_ciphertext=encrypted,publication_ciphertext=publication,origin_ciphertext=origin,**origin_indexes,
                 state='PREPARED',state_version=0,active_attempt=None)
             values.update(name=header['record_id'],owner=actor,modified_by=actor,creation=occurred_at,modified=occurred_at,docstatus=0)
             columns=tuple(values)
@@ -715,6 +724,27 @@ class DispatchStore:
             if hashlib.sha256(opened).hexdigest()!=row['artifact_sha256']:
                 raise DispatchStoreError('dispatch_request_digest')
             return MappingProxyType(row),opened
+
+    def open_origin(self,header):
+        """NULL means unrecorded origin, never an automatic send authorization."""
+        from .issuance_origin import validate_origin
+        with self._operation():
+            encoded=_flat_header(dict(header),ARTIFACT_FIELDS)
+            rows=self._sql('SELECT origin_actor,origin_action,origin_method,SUBSTRING(origin_ciphertext,1,8193) AS origin_ciphertext '
+                'FROM '+TABLE_ISSUANCE+' WHERE name=%s LOCK IN SHARE MODE NOWAIT',(header['record_id'],))
+            if len(rows)!=1:raise DispatchStoreError('dispatch_origin_missing')
+            row=rows[0]
+            if row['origin_ciphertext'] is None:
+                if any(row[field] is not None for field in ('origin_actor','origin_action','origin_method')):
+                    raise DispatchStoreError('dispatch_origin_missing')
+                return None
+            if type(row['origin_ciphertext']) is not str or not 0<len(row['origin_ciphertext'])<=8192:
+                raise DispatchStoreError('dispatch_origin_envelope')
+            origin=dict(decode_record_header(self._cipher.open(header['record_id'],'issuance-origin',encoded,row['origin_ciphertext'])))
+            validate_origin(origin)
+            if any(row['origin_'+field]!=origin[field] for field in ('actor','action','method')):
+                raise DispatchStoreError('dispatch_origin_index')
+            return origin
 
     def open_publication(self, header):
         """Optional immutable generation-time projection; never backfill history.

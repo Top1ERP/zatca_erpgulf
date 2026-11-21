@@ -29,7 +29,11 @@
   "state",
   "replaces_issuance",
   "active_attempt",
-  "state_version"
+  "state_version",
+  "origin_actor",
+  "origin_action",
+  "origin_method",
+  "origin_ciphertext"
  ],
  "fields": [
   {
@@ -227,6 +231,45 @@
    "read_only": 1,
    "reqd": 1,
    "default": "0"
+  },
+  {
+   "fieldname": "origin_actor",
+   "fieldtype": "Data",
+   "label": "Generation Actor",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "origin_action",
+   "fieldtype": "Data",
+   "label": "Generation Action",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "origin_method",
+   "fieldtype": "Data",
+   "label": "Generation Method",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "origin_ciphertext",
+   "fieldtype": "Long Text",
+   "label": "Encrypted Generation Origin",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1
   }
  ],
  "index_web_pages_for_search": 0,

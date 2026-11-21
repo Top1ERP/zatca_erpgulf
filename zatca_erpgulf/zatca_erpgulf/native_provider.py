@@ -116,7 +116,8 @@ def _run(doctype,invoice_name,*,runtime,translate,build,intent,source,expected_i
 def _run_selected(doctype,invoice_name,*,runtime,translate,build,intent,source,company,expected_issuance_id=None):
     if not is_zatca_invoice_enabled(company) or resolve_zatca_phase(company)!=PHASE_2_VALUE:
         return {'status':'SKIPPED','accepted':False,'reason':'company_policy_changed'}
-    retained=read_retained_invoice(doctype,invoice_name,runtime=runtime)
+    retained=read_retained_invoice(doctype,invoice_name,runtime=runtime,
+        **({'require_origin':True} if intent=='recovery' else {}))
     if expected_issuance_id is not None and (retained is None or retained.issuance_id!=expected_issuance_id):
         raise NativeProviderError('native_expected_issuance_changed')
     expected={} if expected_issuance_id is None else {'expected_issuance_id':expected_issuance_id}
@@ -131,15 +132,28 @@ def _run_selected(doctype,invoice_name,*,runtime,translate,build,intent,source,c
         return {'status':'ERROR' if retained.state=='REJECTED' else 'REVIEW','accepted':False,
             'source_doctype':doctype,'source_name':invoice_name,'issuance_id':retained.issuance_id,
             'state':retained.state,'reused':True}
+    effective_intent=intent
+    origin=None
+    if intent=='recovery':
+        if (retained is None or expected_issuance_id is None or retained.attempt_id is not None
+                or retained.generation_origin is None):
+            raise NativeProviderError('native_recovery_origin_required')
+        origin=retained.generation_origin
+        if origin['actor']!=runtime.session.user or origin['action']!='DISPATCH':
+            raise NativeProviderError('native_recovery_actor_or_authorization')
+        effective_intent=origin['intent']
     customer=runtime.get_doc('Customer',source.customer)
     _permitted(runtime,customer)
     original_xml=retained.original_xml if retained is not None and retained.state=='PREPARED' else None
-    decision=delivery_decision(company,customer,intent,original_xml=original_xml)
+    decision=delivery_decision(company,customer,effective_intent,original_xml=original_xml)
+    if origin is not None and (decision.method!=origin['method'] or decision.simplified!=origin['simplified']
+            or decision.action=='PREPARE'):
+        raise NativeProviderError('native_recovery_policy_changed')
     if decision.action=='SKIP':
         # This branch precedes preparation/reservation/transport. Only a still
         # enabled Background schedule outside its current window may wait; other
         # policy changes remain a review and cannot authorize automatic replay.
-        reason='outside_company_window' if intent=='scheduled' and decision.method=='Background' else 'company_policy_changed'
+        reason='outside_company_window' if effective_intent=='scheduled' and decision.method=='Background' else 'company_policy_changed'
         return {'status':'SKIPPED','accepted':False,'reason':reason}
     if retained is not None and decision.action=='PREPARE':
         return _result(doctype,invoice_name,RetainedNativeIssuance(retained.issuance_id,retained.state,True,doctype,invoice_name))
@@ -147,7 +161,7 @@ def _run_selected(doctype,invoice_name,*,runtime,translate,build,intent,source,c
     # exact version supplying its classification; no newer version can replace it.
     if retained is not None and not expected:
         expected={'expected_issuance_id':retained.issuance_id}
-    with native_delivery(runtime,source,intent,decision,original_xml=original_xml):
+    with native_delivery(runtime,source,effective_intent,decision,original_xml=original_xml):
         operation=prepare_saved_invoice if decision.action=='PREPARE' else dispatch_saved_invoice
         value=operation(doctype,invoice_name,runtime=runtime,translate=translate,build=build,**expected)
     return _result(doctype,invoice_name,value)

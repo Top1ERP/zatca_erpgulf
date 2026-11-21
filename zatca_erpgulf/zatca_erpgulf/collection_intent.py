@@ -65,7 +65,9 @@ class CollectionIntent(ParentIntent):
     """A separate command slot, leaving original v1 submit custody unchanged."""
     def __init__(self,runtime,doctype,name,*,intent,expected_issuance_id=None):
         self.bind_parent(runtime,doctype,name,intent=intent)
-        if intent not in ('manual','scheduled'):raise SubmissionIntentError('collection_operation')
+        if intent not in ('manual','scheduled','recovery'):raise SubmissionIntentError('collection_operation')
+        if intent=='recovery' and expected_issuance_id is None:
+            raise SubmissionIntentError('collection_recovery_version')
         self.expected_input=expected_issuance_id
         if expected_issuance_id is not None:_identifier(expected_issuance_id)
         self.reused=False;self.state='STAGED';self.blocked=False

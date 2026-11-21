@@ -74,6 +74,7 @@ class RetainedNativeView:
     publication_sha256: str | None = field(default=None, repr=False)
     render_source_sha256: str | None = field(default=None, repr=False)
     invoice_hash: str | None = field(default=None, repr=False)
+    generation_origin: dict | None = field(default=None,repr=False)
 
     def __reduce_ex__(self, protocol):
         raise TypeError('retained_native_view_not_serializable')
@@ -350,8 +351,10 @@ def _prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build,reject
             if previous is not None:
                 header['replaces_issuance']=previous['record_id']
                 _require_corrected_artifact(previous,old_original,header,packet)
+            from .issuance_origin import capture_origin
+            origin=capture_origin(runtime,locked,chain_id=chain['record_id'],occurred_at=occurred_at)
             repository.stage_issuance(chain,header,packet.request_bytes,
-                actor=owner.actor,occurred_at=occurred_at,publication_sha256=packet.publication_sha256)
+                actor=owner.actor,occurred_at=occurred_at,publication_sha256=packet.publication_sha256,generation_origin=origin)
             output=(packet.invoice_uuid,packet.icv,'egs:'+chain['record_id'],'Not Submitted','')
             owner.database.sql('UPDATE '+SOURCE_TABLES[doctype]+
                 ' SET custom_uuid=%s,custom_zatca_icv=%s,custom_zatca_issuing_unit=%s,custom_zatca_status=%s,custom_zatca_full_response=%s WHERE name=%s',
@@ -479,7 +482,7 @@ def assess_retained_in_transaction(repository,chain,issuance,*,attempt_id,reques
     return assessment,current
 
 
-def read_retained_invoice(doctype,invoice_name,*,runtime,require_current_source=False):
+def read_retained_invoice(doctype,invoice_name,*,runtime,require_current_source=False,require_origin=False):
     """Read exact native custody using saved-source read ACL, not signing keys.
 
     No artifact generation, key/route/certificate lookup, source repair, current
@@ -492,10 +495,10 @@ def read_retained_invoice(doctype,invoice_name,*,runtime,require_current_source=
         raise NativeDispatchError('native_source_identity')
     with owned_worker_transaction(runtime) as owner:
         return read_retained_in_transaction(doctype,invoice_name,runtime=runtime,owner=owner,
-            require_current_source=require_current_source)
+            require_current_source=require_current_source,require_origin=require_origin)
 
 
-def read_retained_in_transaction(doctype,invoice_name,*,runtime,owner,require_current_source=False):
+def read_retained_in_transaction(doctype,invoice_name,*,runtime,owner,require_current_source=False,require_origin=False):
     """Use the canonical custody/receipt reader inside an already owned scope.
 
     This internal seam retains the same ACL, current source/projection, latest
@@ -554,9 +557,18 @@ def read_retained_in_transaction(doctype,invoice_name,*,runtime,owner,require_cu
             raise NativeDispatchError('native_retained_acceptance_review')
         outcome=assessment.outcome;warnings=assessment.warning_count;has_warnings=assessment.has_warnings
         returned=assessment.returned_xml
+    origin=None
+    if require_origin:
+        from .issuance_origin import verify_origin_request
+        from .issuance_candidate import _invoice_classification
+        origin=repository.open_origin(header)
+        if origin is not None:
+            if origin['simplified']!=_invoice_classification(xml)[1].startswith('02'):
+                raise NativeDispatchError('native_origin_classification')
+            verify_origin_request(owner,origin,header)
     return RetainedNativeView(saved['record_id'],saved['active_attempt'],saved['state'],outcome,
         accepted,warnings,has_warnings,xml,returned,header['source_sha256'],
-        header['invoice_uuid'],header['icv'],header['chain'],publication,render_source,header['invoice_hash'])
+        header['invoice_uuid'],header['icv'],header['chain'],publication,render_source,header['invoice_hash'],origin)
 
 
 def _project_source_status(doctype, invoice_name, *, runtime, readonly_cache=False, expected_issuance_id=None):

@@ -1023,3 +1023,23 @@ queue handoff, and a race to existing acceptance resolves without another send.
 This supports Standard and non-Background manual recovery without silently
 changing automatic origin/actor policy, which remains open. Details:
 [PREPARED_ORIGINAL_RECOVERY.md](PREPARED_ORIGINAL_RECOVERY.md).
+
+## Origin-backed automatic first-send recovery
+
+Canonical generation now inserts an optional protected origin capsule and three
+authenticated selector indexes with the original and chain advancement. Delivery
+actor/action/operation/method/classification and an optional original request
+header/fence reference come from server contexts. The existing artifact header/
+AAD, XML/request bytes and financial snapshot remain unchanged.
+
+The shared prepared-discovery service now selects authenticated untouched origins,
+checks enabled original senders/current ACL and method, and stages the same fixed
+collection worker. Internal recovery commands require an existing exact version;
+the worker verifies origin and repeats the original operation under current master
+locks. Immediate sends retain the original actor; deferred Background is a distinct
+current scheduler operation. Batches PREPARE never becomes automatic. Per-candidate
+staging commits under that actor before restoring scheduler state, while site/key/
+DB/physical connection remain pinned. No commit-unknown compensation or authority
+transport occurs in discovery. Missing origin now holds old native records for
+explicit manual action; no origin is backfilled from ERP owner fields. Details:
+[ISSUANCE_ORIGIN_RECOVERY.md](ISSUANCE_ORIGIN_RECOVERY.md).

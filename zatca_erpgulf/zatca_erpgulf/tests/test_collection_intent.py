@@ -34,6 +34,15 @@ def test_collection_envelope_cannot_be_opened_as_an_original_submit_request():
     with pytest.raises(DispatchRecordError):cipher.open(h['record_id'],'submission-intent',raw,envelope)
 
 
+def test_recovery_command_requires_a_collection_slot_and_exact_existing_version():
+    h=collection_header();h['intent']='recovery';h['active_key']=intent.collection_active_key(h)
+    intent.validate_header(h)
+    h['expected_issuance_id']=None;h['active_key']=intent.collection_active_key(h)
+    with pytest.raises(intent.SubmissionIntentError):intent.validate_header(h)
+    original=header();original['intent']='recovery'
+    with pytest.raises(intent.SubmissionIntentError):intent.validate_header(original)
+
+
 def test_localproxy_identity_is_not_physical_connection_identity():
     first,second=object(),object();local=SimpleNamespace(db=first)
     proxy=LocalProxy(lambda:local.db);runtime=SimpleNamespace(local=local,db=proxy)

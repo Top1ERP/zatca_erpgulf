@@ -157,6 +157,14 @@ changing automatic schedule/actor policy. It never rebuilds or retries uncertain
 custody. Automatic non-Background recovery remains open:
 [PREPARED_ORIGINAL_RECOVERY.md](PREPARED_ORIGINAL_RECOVERY.md).
 
+Origin-backed automatic first-send recovery is now adopted for newly captured
+DISPATCH originals, preserving the original enabled actor/operation and current
+method/window checks. Deferred Background has its existing distinct schedule
+authorization; Batches PREPARE stays manual. NULL-origin old records no longer
+receive current-policy-only automatic discovery, and retain explicit manual
+recovery. No original header/XML/AAD or financial reference changed:
+[ISSUANCE_ORIGIN_RECOVERY.md](ISSUANCE_ORIGIN_RECOVERY.md).
+
 The four existing-XML wrapper/API pairs now use exact private attached-original
 admission and the same owned facade. Retained PREPARED classification is frozen
 from authenticated XML through the shared policy recheck, and version expectations

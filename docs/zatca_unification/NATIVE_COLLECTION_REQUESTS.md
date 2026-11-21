@@ -100,3 +100,15 @@ source cancellation/deletion/rename, full legacy history/drain and activation,
 frozen master/print/File compatibility, whole canonical mixed-batch runtime and
 installed accounting/filesystem qualification. Workstream2 is not closed; no
 workstream3 transition, live installation or pilot is authorized by this bundle.
+
+## Subsequent origin-backed discovery
+
+[Generation-origin recovery](ISSUANCE_ORIGIN_RECOVERY.md) supersedes the earlier
+Background-only candidate admission and one-actor batch staging described above.
+New DISPATCH originals resume their captured enabled actor/operation, while
+deferred Background has its separate scheduler authority. Each command commits
+under its own actor before scheduler restoration. Both cases require protected
+origin; NULL-origin historical originals now need explicit manual action. Original
+v1 submit and collection header fields/AAD remain unchanged; the internal recovery
+operation additionally requires an existing exact version. No installed migration,
+authority request or financial reference change was performed.

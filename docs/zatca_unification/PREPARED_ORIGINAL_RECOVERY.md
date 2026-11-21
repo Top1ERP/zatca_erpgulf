@@ -76,7 +76,13 @@ financial metadata/signing and HTTP remain doubles. No financial reference chang
 the original240 comparison remains91 identical/117 review/32 blocked.
 
 Still open in2: automatic first-send recovery outside Background with origin/actor
-binding, unknown/late/unsealed handoff resolution and exact retry operator paths,
+binding for old originals without evidence, unknown/late/unsealed handoff resolution and exact retry operator paths,
 corrected-clock/rejection adoption, historical inventory/drain and actual chain
 activation, frozen print master/File consumers, whole canonical mixed runtime,
 and installed lifecycle/GL/File qualification. Workstream2 is not complete.
+
+The subsequent [origin-backed discovery](ISSUANCE_ORIGIN_RECOVERY.md) now supplies
+automatic first-send recovery for newly captured DISPATCH origins under their
+original enabled actor. It also requires origin for deferred Background discovery;
+old NULL-origin rows retain this explicit manual action. No authority, installed
+schema or live policy was changed by either development bundle.

@@ -92,7 +92,7 @@ def run_submission_intent(record_id,*,runtime,translate,build):
         done=status=='PREPARED' or status=='SUCCESS' and result.get('accepted') is True
         code='prepared' if status=='PREPARED' else 'accepted' if done else 'native_operation_review'
         state='COMPLETE' if done else 'REVIEW'
-        if (header['intent']=='scheduled' and type(result) is dict
+        if (header['intent'] in ('scheduled','recovery') and type(result) is dict
                 and result.get('accepted') is False
                 and result=={'status':'SKIPPED','accepted':False,'reason':'outside_company_window'}):
             # The provider returned before generation/reservation/transport.

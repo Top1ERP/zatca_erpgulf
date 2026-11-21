@@ -157,3 +157,13 @@ Standard and Simplified Live/Batches/Background without a second build, while
 unknown/rejected/in-flight states remain held. Background automatic discovery is
 unchanged; automatic non-Background recovery/origin policy remains open:
 [PREPARED_ORIGINAL_RECOVERY.md](PREPARED_ORIGINAL_RECOVERY.md).
+
+New canonical originals now retain authenticated generation origin in their
+atomic insertion. First-send discovery resumes a captured DISPATCH under its
+original enabled actor/operation, including Standard and Simplified Live/manual
+origins; deferred Background retains its distinct scheduler authorization.
+Missing origin, changed policy, disabled/lost-access senders and uncertain attempts
+do not grant automatic dispatch. This supersedes the earlier current-policy-only
+Background admission for NULL-origin native rows, which now need explicit manual
+recovery. No legacy/live migration or backfill was performed:
+[ISSUANCE_ORIGIN_RECOVERY.md](ISSUANCE_ORIGIN_RECOVERY.md).
