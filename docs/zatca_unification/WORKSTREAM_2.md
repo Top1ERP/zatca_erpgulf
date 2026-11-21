@@ -132,6 +132,13 @@ installed schema/GL/File, complete recovery or activation:
 Sales/POS cancellation, deletion and rename/merge now retain saved native issuance
 and queued-source identities through a borrowed current-lock guard, even after
 source output erasure or a phase/rollout change. UUID alone remains insufficient.
-A hold does not assert acceptance; explicit reviewed request retirement and
-installed lifecycle acceptance remain open:
+A hold does not assert acceptance; installed lifecycle acceptance remains open:
 [NATIVE_INVOICE_LIFECYCLE.md](NATIVE_INVOICE_LIFECYCLE.md).
+
+Explicit unissued request retirement now uses a fixed permissioned Desk/POST
+action. It preserves authenticated history and excludes resumed old workers under
+generation/reservation source locks. All bounded requests need valid retirement
+proof before an unissued source passes the retention guard. Issued/expected
+originals and uncertain delivery remain held; no counter rewind, replay or remote
+acceptance is inferred:
+[NATIVE_UNISSUED_RETIREMENT.md](NATIVE_UNISSUED_RETIREMENT.md).

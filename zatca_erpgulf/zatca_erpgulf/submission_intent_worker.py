@@ -62,7 +62,7 @@ def _finish(runtime,header,fence,state,code):
         owner.commit()
 
 
-def _process(runtime,translate,header,build):
+def _process(runtime,translate,header,build,fence):
     # This worker owns the persistent review boundary. The ordinary facade and
     # deferred source reviewer insert Error Log rows outside owned transactions;
     # using those wrappers here would dirty the connection before _finish. Use
@@ -71,7 +71,7 @@ def _process(runtime,translate,header,build):
     from .native_provider import _run
     source=runtime.get_doc(header['source_doctype'],header['source_name'])
     company=runtime.get_doc('Company',source.company)
-    with execution_context(runtime,header):
+    with execution_context(runtime,header,fence):
         require_bound_source(runtime,source,_chain(runtime,source,company))
         result=_run(source.doctype,source.name,runtime=runtime,translate=translate,
             build=build,intent=header['intent'],source=source,
@@ -87,7 +87,7 @@ def run_submission_intent(record_id,*,runtime,translate,build):
     if fence is None:
         return {'status':state,'intent_id':record_id}
     try:
-        result=_process(runtime,translate,header,build)
+        result=_process(runtime,translate,header,build,fence)
         status=result.get('status')
         done=status=='PREPARED' or status=='SUCCESS' and result.get('accepted') is True
         code='prepared' if status=='PREPARED' else 'accepted' if done else 'native_operation_review'

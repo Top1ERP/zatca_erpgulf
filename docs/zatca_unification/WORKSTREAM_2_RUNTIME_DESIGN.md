@@ -968,6 +968,25 @@ This is negative retention evidence, never a claim of authenticated acceptance.
 Phase/rollout changes and cleared output fields do not erase immutable identities.
 No commit/rollback, request retirement, counter rewind or history deletion occurs.
 Full physical source_name indexes and InnoDB are checked without migration; the
-Submission Intent source declaration adds its search index. Explicit reviewed
-request retirement and installed lifecycle qualification remain open. See
+Submission Intent source declaration adds its search index. Installed lifecycle
+qualification remains open. See
 [NATIVE_INVOICE_LIFECYCLE.md](NATIVE_INVOICE_LIFECYCLE.md).
+
+## Explicit unissued request retirement
+
+A fixed System-Manager/source-permission Desk action now retires authenticated
+READY/WAITING/RUNNING/REVIEW requests only when source locking and current native
+history prove no generated or expected original. An independent authenticated
+retirement capsule binds original header hash, prior fence/state, reviewing actor
+and server time. Atomic state/proof storage is read back before commit; unknown
+commit acknowledgement is never compensated. Original request history remains.
+
+Worker execution now rechecks its committed RUNNING fence/header under generation
+and reservation source locks, retaining a shared request lock through commit.
+Paused old workers cannot generate/reserve after retirement, and stale completion
+cannot overwrite it. A source without issuance/egs marker can pass the ordinary
+retention guard only when all bounded request history verifies as RETIRED. This
+borrows the parent transaction without taking over ERP commit/rollback. No queued
+resend, ICV/PIH rewind or accepted outcome is implied. Custody-backed started-work
+reconciliation and installed acceptance remain open. Details:
+[NATIVE_UNISSUED_RETIREMENT.md](NATIVE_UNISSUED_RETIREMENT.md).

@@ -45,7 +45,9 @@ committing a RUNNING fence. A retry under Administrator cannot upgrade a stored
 ordinary actor. The fixed native provider rechecks current ACL, Company policy,
 fiscal observation and issuer chain; the same binding is checked again under the
 actual generation and dispatch reservation source/chain locks. A lost native
-selection cannot fall back to legacy transport. PREPARED or explicit receipt-backed
+selection cannot fall back to legacy transport. The committed RUNNING fence/header
+is now authenticated under generation/reservation source locks, stopping retired
+workers before generation or reservation. PREPARED or explicit receipt-backed
 SUCCESS completes the handoff. Other outcomes require review. COMPLETE here is
 local handoff completion, not necessarily reporting/clearance acceptance.
 
@@ -74,7 +76,7 @@ receives a fresh fenced policy check later. It never authorizes unknown delivery
 replay; retained uncertain/rejected originals take precedence over window policy.
 See [NATIVE_DRAFT_SUBMISSION.md](NATIVE_DRAFT_SUBMISSION.md).
 
-RUNNING, REVIEW, COMPLETE and STAGED are not automatically rediscovered. A process
+RUNNING, REVIEW, COMPLETE, RETIRED and STAGED are not automatically rediscovered. A process
 crash after the RUNNING commit, an unknown claim/finish commit acknowledgment or a
 failed finish fence does not authorize another send. Native artifact/attempt
 custody and explicit operator recovery must resolve these states. A committed
@@ -90,7 +92,11 @@ bytes through the established Reporting fallback; this is not an unknown retry.
 This does not qualify installed Frappe15/16 callback/schema behavior, real financial
 builders, authentic signed XML/QR/SDK, restart supervision or authority acceptance.
 
-Still open in workstream2: explicit resolution of a started/uncertain handoff;
+Explicit unissued retirement now supplies authenticated terminal proof and stale
+worker exclusion, without touching any issued original:
+[NATIVE_UNISSUED_RETIREMENT.md](NATIVE_UNISSUED_RETIREMENT.md).
+
+Still open in workstream2: custody-backed resolution of a started/uncertain handoff;
 installed/whole canonical draft rollback and mixed batch coordination; native PREPARED discovery beyond
 the older legacy collector horizon; complete legacy history/drain and activation;
 explicit unchanged retry and corrected-clock/operator adoption; source cancel/

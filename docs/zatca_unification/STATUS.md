@@ -249,8 +249,8 @@ remain unchanged. No financial reference was changed; comparison91/117/32 remain
 Native Sales/POS cancellation, deletion and rename/merge now retain source
 identities when saved issuance/request history exists, even if source output
 fields were erased or current phase/rollout changed. Unissued UUID-only sources
-keep normal ERP checks. A hold explicitly does not assert authority acceptance;
-reviewed retirement of queued requests is not implemented. The guard borrows its
+keep normal ERP checks. A hold explicitly does not assert authority acceptance.
+The subsequent explicit unissued retirement service is described below. The guard borrows its
 current transaction, verifies InnoDB/index/physical connection ownership and never
 commits or rewinds a counter. See
 [NATIVE_INVOICE_LIFECYCLE.md](NATIVE_INVOICE_LIFECYCLE.md).
@@ -266,12 +266,35 @@ source_name search index remains a source-only schema change; no installed DDL,
 source invoice or live service was changed. Original financial comparison91/117/32
 and installed-source hashes remain unchanged.
 
+Explicit unissued retirement now uses a System-Manager/source-ACL Desk/POST action
+with expected current state/fence, shared source-lock exclusion and independent
+authenticated terminal proof. No generated/expected original may be retired. The
+worker rechecks its committed fence under generation/reservation locks so an old
+paused job cannot generate after retirement. Only all-authenticated bounded
+RETIRED request history can release an otherwise unissued source to ordinary ERP
+lifecycle checks. It never rewinds ICV/PIH or retries a send. Details:
+[NATIVE_UNISSUED_RETIREMENT.md](NATIVE_UNISSUED_RETIREMENT.md).
+
+Latest retirement qualification:543 local cases across14 suites in2.94s,
+264 private SQL cases across7 suites in17.97s,26 synthetic English/Arabic Desk VM
+cases, and20,751 across fixed81 issuer-binding suites in121.99s. Sets overlap.
+Logs: `/tmp/zatca-axis2-retirement-local-final.log`,
+`/tmp/zatca-axis2-retirement-private-final.log`,
+`/tmp/zatca-axis2-retirement-ui-final.log`,
+`/tmp/zatca-axis2-retirement-regression-frozen.log`.
+Manifest240 local/75 private suites was not run in full. New retirement columns/
+terminal state remain source-only; installed ERP15/16, accounting/filesystem and
+authentic signing/SDK acceptance remain separate gates. No financial fixture was
+changed; original240 comparison remains91 identical/117 review/32 blocked. Live
+source HEAD/tooltip/customer-address hashes remain unchanged. No authority call,
+site/schema/service change or actual invoice retirement was performed.
+
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; frozen print/master information
 and File/external-print compatibility; explicit unchanged retry and
 corrected-clock/operator adoption; installed GL/File and complete mixed legacy/native
 submitted-invoice batch coordination;
-reviewed source/request lifecycle transitions; started/uncertain intent resolution, complete
+issued-source transitions and custody-backed started/uncertain intent resolution, complete
 Standard/non-Background recovery and whole runtime qualification. The new durable handoff is
 not complete crash/delivery recovery. Do not announce3 or installation from these narrower checks.
 Installed15/16, financial review, authentic SDK and the specifically approved

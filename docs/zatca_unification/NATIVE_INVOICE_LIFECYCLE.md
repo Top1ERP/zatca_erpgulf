@@ -20,15 +20,16 @@ validators remain in order after this guard. No generic permission bypass is add
 | --- | --- |
 | No issuance/request/egs marker; UUID only | Continue normal ERP validators |
 | Any issuance, including PREPARED, rejected or unknown | Hold destructive action for reviewed transition |
-| Any queued/historical submission request, including STAGED/REVIEW | Hold source identity for reviewed transition |
+| Any queued/historical submission request, including STAGED/REVIEW | Hold unless all bounded requests have authenticated unissued retirement proofs |
 | Persisted egs marker with missing/corrupt custody | Hold for review |
 | Missing/unverifiable transactional storage or owner binding | Hold for review |
 | Installation without native owner schema and no native source hint | Preserve older hooks |
 
 This is intentionally more conservative than the previous status-only native
-cancellation check. It also holds queued but unissued invoices until a reviewed
-request-retirement transition exists. Such a transition is **not** implemented
-by this bundle. A hold never claims that ZATCA accepted the invoice. UUID presence,
+cancellation check. Queued but unissued invoices need explicit request retirement;
+the subsequent [retirement service](NATIVE_UNISSUED_RETIREMENT.md) supplies that
+transition with authenticated proofs and old-worker fencing. A hold never claims
+that ZATCA accepted the invoice. UUID presence,
 an edited display status and an unverified state/index row cannot certify receipt.
 Legacy status and framework links/accounting restrictions are not removed.
 
@@ -76,7 +77,7 @@ request rollback, older RR views, merge targets, row contention, missing indexes
 and actual Werkzeug LocalProxy replacement. HTTP/signing/accounting remain explicit
 doubles. This is neither an actual invoice cancellation nor a site migration.
 
-Workstream2 remains open: reviewed request retirement/source transitions,
+Workstream2 remains open: issued-source transitions and custody-backed reconciliation,
 whole-runtime and installed lifecycle/GL/File acceptance, started/uncertain intent
 resolution, unchanged retry/corrected-clock operator adoption, full historical
 inventory/drain and activation, Standard/non-Background recovery and frozen print

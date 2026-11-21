@@ -49,7 +49,7 @@ def test_intent_envelope_cannot_be_opened_as_another_payload_kind(kind):
 def test_execution_binding_rejects_fiscal_source_or_context_drift(change):
     doc=Source(**invoice());h=header(doc)
     runtime=SimpleNamespace(local=SimpleNamespace(site='fictional.invalid'),session=SimpleNamespace(user=h['actor']))
-    with intent.execution_context(runtime,h):
+    with intent.execution_context(runtime,h,str(uuid4())):
         intent.require_bound_source(runtime,doc,h['chain'])
         chain=h['chain']
         if change=='money':doc.grand_total=Decimal('114.99')

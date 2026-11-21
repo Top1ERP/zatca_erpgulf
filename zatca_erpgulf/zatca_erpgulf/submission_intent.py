@@ -23,6 +23,8 @@ from .saved_form_source import saved_form_name
 TABLE = '`tabZATCA Submission Intent`'
 METHOD = 'zatca_erpgulf.zatca_erpgulf.submission_intent_worker.execute_submission_intent'
 BODY = b'zatca-committed-erp-handoff/v1'
+RETIREMENT_FIELDS = ('retirement_header','retirement_ciphertext')
+RETIREMENT_BODY = b'zatca-unissued-request-retirement/v1'
 FIELDS = ('record_id','source_key','source_doctype','source_name','company','actor','chain',
     'intent','source_sha256','created_at_utc')
 COLLECTION_FIELDS = ('request_kind','active_key','expected_issuance_id')
@@ -116,6 +118,8 @@ def open_intent(owner,record_id,*,lock=False):
     _identifier(record_id);owner.require_owner()
     rows=owner.database.sql('SELECT record_id,source_key,source_doctype,source_name,actor,state,fence_token,'
         'active_key,expected_issuance_id,operation,'
+        'SUBSTRING(retirement_header,1,8193) AS retirement_header,'
+        'SUBSTRING(retirement_ciphertext,1,8193) AS retirement_ciphertext,'
         'SUBSTRING(intent_header,1,8193) AS intent_header,SUBSTRING(intent_ciphertext,1,8193) AS intent_ciphertext '
         'FROM '+TABLE+' WHERE name=%s'+(' FOR UPDATE NOWAIT' if lock else ' LOCK IN SHARE MODE NOWAIT'),
         (record_id,),as_dict=True)
@@ -123,7 +127,7 @@ def open_intent(owner,record_id,*,lock=False):
     if len(rows)!=1:
         raise SubmissionIntentError('submission_intent_missing')
     row=rows[0]
-    if row['state'] not in ('READY','WAITING','RUNNING','COMPLETE','REVIEW'):
+    if row['state'] not in ('READY','WAITING','RUNNING','COMPLETE','REVIEW','RETIRED'):
         raise SubmissionIntentError('submission_intent_unfinalized')
     if any(type(row[key]) is not str or not 0<len(row[key])<=8192 for key in ('intent_header','intent_ciphertext')):
         raise SubmissionIntentError('submission_intent_envelope')
@@ -141,7 +145,40 @@ def open_intent(owner,record_id,*,lock=False):
         raise SubmissionIntentError('submission_intent_collection_index')
     if owner.cipher.open(record_id,envelope_kind(header),encoded,row['intent_ciphertext'])!=(COLLECTION_BODY if collection else BODY):
         raise SubmissionIntentError('submission_intent_integrity')
+    if row['state']=='RETIRED':
+        open_retirement(owner,row,header)
+    elif any(row[field] is not None for field in RETIREMENT_FIELDS):
+        raise SubmissionIntentError('submission_intent_retirement_state')
     return row,header
+
+
+def open_retirement(owner,row,header):
+    """Authenticate negative local retirement evidence, never remote acceptance."""
+    for field in RETIREMENT_FIELDS:
+        if type(row[field]) is not str or not 0<len(row[field])<=8192:
+            raise SubmissionIntentError('submission_intent_retirement_envelope')
+    proof=dict(decode_record_header(row['retirement_header'].encode()))
+    if set(proof)!={'record_id','intent_sha256','retired_by','retired_at_utc','prior_state','prior_fence','reason'}:
+        raise SubmissionIntentError('submission_intent_retirement_header')
+    if (proof['record_id']!=header['record_id'] or proof['reason']!='unissued_request_retired'
+            or proof['intent_sha256']!=hashlib.sha256(validate_header(header)).hexdigest()
+            or proof['prior_state'] not in ('READY','WAITING','RUNNING','REVIEW')
+            or proof['prior_fence']!=row['fence_token'] or row['active_key'] is not None):
+        raise SubmissionIntentError('submission_intent_retirement_binding')
+    saved_form_name(proof['retired_by'])
+    if proof['retired_by']=='Guest':raise SubmissionIntentError('submission_intent_retirement_actor')
+    if proof['prior_state']=='RUNNING' and proof['prior_fence'] is None:
+        raise SubmissionIntentError('submission_intent_retirement_fence')
+    if proof['prior_fence'] is not None:_identifier(proof['prior_fence'])
+    try:clock=datetime.strptime(proof['retired_at_utc'],'%Y-%m-%dT%H:%M:%S.%f')
+    except (ValueError,TypeError):raise SubmissionIntentError('submission_intent_retirement_clock') from None
+    if clock.strftime('%Y-%m-%dT%H:%M:%S.%f')!=proof['retired_at_utc']:
+        raise SubmissionIntentError('submission_intent_retirement_clock')
+    encoded=encode_record_header(proof)
+    if owner.cipher.open(header['record_id'],'intent-retirement',encoded,row['retirement_ciphertext'])!=RETIREMENT_BODY:
+        raise SubmissionIntentError('submission_intent_retirement_integrity')
+    owner.require_owner()
+    return proof
 
 
 def require_intent_schema(owner):
@@ -162,7 +199,7 @@ def require_intent_schema(owner):
     columns = {row['column_name']: row for row in rows}
     required = dict.fromkeys(('name','record_id','source_key','source_doctype','source_name',
         'actor','state','fence_token','result_code','owner','modified_by'),140)
-    required.update(intent_header=8192,intent_ciphertext=8192)
+    required.update(intent_header=8192,intent_ciphertext=8192,retirement_header=8192,retirement_ciphertext=8192)
     for name, length in required.items():
         row = columns.get(name)
         if (row is None or row['data_type'] not in ('char','varchar','text','mediumtext','longtext')
@@ -268,22 +305,24 @@ class _Execution:
     site: str
     actor: str
     header: dict
+    fence: str
     closed: bool=False
 
     def __reduce_ex__(self,protocol):raise TypeError('submission_intent_context_not_serializable')
 
 
 @contextmanager
-def execution_context(runtime,header):
+def execution_context(runtime,header,fence):
     if CURRENT.get() is not None or runtime.session.user!=header['actor']:
         raise SubmissionIntentError('submission_intent_execution_context')
     validate_header(header)
-    current=_Execution(runtime.local.site,runtime.session.user,header);token=CURRENT.set(current)
+    _identifier(fence)
+    current=_Execution(runtime.local.site,runtime.session.user,header,fence);token=CURRENT.set(current)
     try:yield
     finally:current.closed=True;CURRENT.reset(token)
 
 
-def require_bound_source(runtime,source,chain_id):
+def require_bound_source(runtime,source,chain_id,*,owner=None):
     current=CURRENT.get()
     if current is None:return
     h=current.header
@@ -291,3 +330,11 @@ def require_bound_source(runtime,source,chain_id):
             or (source.doctype,source.name)!=(h['source_doctype'],h['source_name'])
             or source.company!=h['company'] or chain_id!=h['chain'] or fiscal_sha(source)!=h['source_sha256']):
         raise SubmissionIntentError('submission_intent_source_changed')
+    if owner is not None:
+        # A resumed worker must prove its claim while holding the same source
+        # lock as generation/reservation. Retirement takes that lock too. A
+        # shared request lock lasts through the owned commit, so revocation
+        # cannot slip between this check and artifact/attempt persistence.
+        row,header=open_intent(owner,h['record_id'])
+        if header!=h or row['state']!='RUNNING' or row['fence_token']!=current.fence:
+            raise SubmissionIntentError('submission_intent_execution_fence')

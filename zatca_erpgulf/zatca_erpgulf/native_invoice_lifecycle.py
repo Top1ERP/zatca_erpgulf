@@ -29,6 +29,23 @@ class NativeInvoiceLifecycleError(RuntimeError):
         super().__init__(message)
 
 
+def require_lifecycle_storage(query, table):
+    """Shared destructive/retirement admission; no DDL or broad history scan."""
+    for name in (table, 'tabZATCA Issuance', 'tabZATCA Submission Intent'):
+        query('SELECT name FROM `' + name + '` LIMIT 0')
+    engines = query('SELECT table_name,engine FROM information_schema.tables '
+        'WHERE table_schema=DATABASE() AND table_name IN (%s,%s,%s)',
+        (table, 'tabZATCA Issuance', 'tabZATCA Submission Intent'))
+    if len(engines) != 3 or any(row['engine'] != 'InnoDB' for row in engines):
+        raise NativeInvoiceLifecycleError('native_lifecycle_storage')
+    indexes = query('SELECT DISTINCT table_name FROM information_schema.statistics '
+        'WHERE table_schema=DATABASE() AND table_name IN (%s,%s) '
+        'AND seq_in_index=1 AND column_name=%s AND sub_part IS NULL',
+        ('tabZATCA Issuance', 'tabZATCA Submission Intent', 'source_name'))
+    if {row['table_name'] for row in indexes} != {'tabZATCA Issuance', 'tabZATCA Submission Intent'}:
+        raise NativeInvoiceLifecycleError('native_lifecycle_history_index')
+
+
 def inspect_source_lifecycle(doc, *, runtime, method=None, old=None, new=None, merge=False):
     """Current locked negative evidence only; never assert remote acceptance.
 
@@ -74,19 +91,7 @@ def inspect_source_lifecycle(doc, *, runtime, method=None, old=None, new=None, m
         raise NativeInvoiceLifecycleError('native_lifecycle_database')
     # Open metadata locks first. Physical schema is inspected, never installed
     # or repaired by a destructive source hook. Missing custody is not zero history.
-    for name in (table, 'tabZATCA Issuance', 'tabZATCA Submission Intent'):
-        query('SELECT name FROM `' + name + '` LIMIT 0')
-    engines = query('SELECT table_name,engine FROM information_schema.tables '
-        'WHERE table_schema=DATABASE() AND table_name IN (%s,%s,%s)',
-        (table, 'tabZATCA Issuance', 'tabZATCA Submission Intent'))
-    if len(engines) != 3 or any(row['engine'] != 'InnoDB' for row in engines):
-        raise NativeInvoiceLifecycleError('native_lifecycle_storage')
-    indexes = query('SELECT DISTINCT table_name FROM information_schema.statistics '
-        'WHERE table_schema=DATABASE() AND table_name IN (%s,%s) '
-        'AND seq_in_index=1 AND column_name=%s AND sub_part IS NULL',
-        ('tabZATCA Issuance', 'tabZATCA Submission Intent', 'source_name'))
-    if {row['table_name'] for row in indexes} != {'tabZATCA Issuance', 'tabZATCA Submission Intent'}:
-        raise NativeInvoiceLifecycleError('native_lifecycle_history_index')
+    require_lifecycle_storage(query, table)
     field = ('custom_zatca_issuing_unit' if runtime.get_meta(doc.doctype).has_field('custom_zatca_issuing_unit') else 'name')
     names = [(doc.name, True)]
     if method == 'before_rename' and merge:
@@ -106,11 +111,17 @@ def inspect_source_lifecycle(doc, *, runtime, method=None, old=None, new=None, m
         marker = source[0]['marker'] if field != 'name' else None
         if type(marker) is str and marker.startswith('egs:'):
             raise NativeInvoiceLifecycleError('native_lifecycle_saved_marker')
-        for history in ('tabZATCA Issuance', 'tabZATCA Submission Intent'):
-            found = query('SELECT name FROM `' + history + '` WHERE source_name=%s '
-                'AND source_doctype=%s LIMIT 1 LOCK IN SHARE MODE NOWAIT', (name, doc.doctype))
-            if found:
+        found = query('SELECT name FROM `tabZATCA Issuance` WHERE source_name=%s '
+            'AND source_doctype=%s LIMIT 1 LOCK IN SHARE MODE NOWAIT', (name, doc.doctype))
+        if found:
+            raise NativeInvoiceLifecycleError('native_lifecycle_retained_history')
+        requests = query('SELECT name,state FROM `tabZATCA Submission Intent` WHERE source_name=%s '
+            'AND source_doctype=%s LIMIT 101 LOCK IN SHARE MODE NOWAIT', (name, doc.doctype))
+        if requests:
+            if len(requests)>100 or any(row['state']!='RETIRED' for row in requests):
                 raise NativeInvoiceLifecycleError('native_lifecycle_retained_history')
+            from .submission_intent_retirement import require_retired_requests
+            require_retired_requests(runtime,doc.doctype,name,requests)
 
 
 def protect_native_invoice_lifecycle(doc, method=None, old=None, new=None, merge=False):
