@@ -22,6 +22,7 @@ from .permission_compat import saved_row_has_permission
 MAX_SOURCES = 1024
 MAX_FILES_PER_SOURCE = 4
 MAX_XML_BYTES = 16 * 1024 * 1024
+MAX_PAGE_SOURCES = 64
 
 
 @dataclass(frozen=True, repr=False)
@@ -48,6 +49,20 @@ class LegacyHistoryInventory:
 class _Budget:
     remaining: int
     read: int = 0
+
+
+@dataclass(frozen=True, repr=False)
+class LegacyHistoryPage:
+    review_id: str
+    after_icv: str
+    through_icv: str
+    next_after_icv: str | None
+    remaining_sources: int
+    boundary_unresolved: bool
+    inventory: LegacyHistoryInventory
+
+    def __reduce_ex__(self, protocol):
+        raise TypeError('registration_history_page_not_serializable')
 
 
 def _readable(runtime, owner, document):
@@ -142,7 +157,7 @@ def summarize_history(rows, observations, *, complete, attempted, tail_icv, tail
         None if total is None else str(total))
 
 
-def _count_slots(owner, unit):
+def _count_slots(owner, unit, *, after_icv=None):
     """Current aggregate census after the parent's canonical/unique-tail audit.
 
     An older ordinary ORM SELECT can hold an RR snapshot. LOCK IN SHARE MODE
@@ -150,17 +165,97 @@ def _count_slots(owner, unit):
     This does not grant permission to read older invoice bodies or their XML.
     """
     total = 0
+    if after_icv is not None:
+        _counter(after_icv, zero=True)
     for table in SOURCE_TABLES.values():
         _owned(owner)
+        suffix = '' if after_icv is None else 'AND CAST(custom_zatca_icv AS DECIMAL(65,0))>CAST(%s AS DECIMAL(65,0)) '
+        values = (unit, unit) if after_icv is None else (unit, unit, after_icv)
         rows = owner.database.sql('SELECT COUNT(*) AS slot_count FROM '+table+
             ' WHERE custom_zatca_issuing_unit=%s AND BINARY custom_zatca_issuing_unit=BINARY %s '
-            'LOCK IN SHARE MODE NOWAIT', (unit, unit), as_dict=True)
+            +suffix+'LOCK IN SHARE MODE NOWAIT', values, as_dict=True)
         _owned(owner)
         if (len(rows) != 1 or type(rows[0].get('slot_count')) is not int
                 or rows[0]['slot_count'] < 0):
             raise ChainRegistrationError('registration_history_count_shape')
         total += rows[0]['slot_count']
     return total
+
+
+def _validate_history_rows(rows, source, unit, anchor):
+    for row in rows:
+        _counter(row['icv']); _identifier(row['custom_uuid'])
+        if (row['company'] != source.company or row['docstatus'] not in (1, 2) or row['unit'] != unit
+                or int(row['icv']) > anchor.icv):
+            raise ChainRegistrationError('registration_history_source_changed')
+
+
+def _page_rows(owner, unit, after_icv, *, boundary=False):
+    """Numeric keyset order across both fixed tables, never OFFSET or floats."""
+    _counter(after_icv, zero=True)
+    rows = []
+    comparison = '=' if boundary else '>'
+    limit = 2 if boundary else MAX_PAGE_SOURCES+1
+    for doctype, table in SOURCE_TABLES.items():
+        _owned(owner)
+        found = owner.database.sql('SELECT name,company,docstatus,custom_uuid,'
+            'SUBSTRING(CAST(custom_zatca_icv AS CHAR),1,65) AS icv,custom_zatca_issuing_unit AS unit '
+            'FROM '+table+' WHERE custom_zatca_issuing_unit=%s AND BINARY custom_zatca_issuing_unit=BINARY %s '
+            'AND CAST(custom_zatca_icv AS DECIMAL(65,0))'+comparison+'CAST(%s AS DECIMAL(65,0)) '
+            'ORDER BY CAST(custom_zatca_icv AS DECIMAL(65,0)),name LIMIT %s LOCK IN SHARE MODE NOWAIT',
+            (unit, unit, after_icv, limit), as_dict=True)
+        rows.extend(dict(row, doctype=doctype) for row in found)
+        _owned(owner)
+    return sorted(rows, key=lambda row: int(row['icv']))
+
+
+def inspect_known_legacy_page(runtime, owner, source, unit, anchor, public_key, *, review_id, after_icv):
+    """Read one suffix page after the caller authenticates an unchanged review.
+
+    A returned cursor is a partial read position, never cumulative completion or
+    captured historical custody. Read the actual boundary XML again; callers
+    cannot provide a previous digest. Missing/changed files remain visible.
+    """
+    _identifier(review_id); start = _counter(after_icv, zero=True)
+    if start > anchor.icv:
+        raise ChainRegistrationError('registration_history_cursor_range')
+    require_range_isolation(owner)
+    total = _count_slots(owner, unit)
+    owner.database.sql('SELECT name FROM `tabFile` LIMIT 0', as_dict=True)
+    require_range_engines(owner, ('tabSales Invoice', 'tabPOS Invoice', 'tabFile'))
+    budget = _Budget(MAX_XML_BYTES)
+    rows, observations, attempted = [], {}, set()
+    identity = (source.doctype, source.name)
+
+    def observe(row):
+        key = row['doctype'], row['name']
+        attempted.add(key)
+        observations[key] = ((anchor, public_key) if key == identity else
+            _older_xml(runtime, owner, row, anchor.seller_tax_id, budget))
+        rows.append(row)
+        return observations[key]
+
+    boundary_unresolved = False
+    if start:
+        boundary = _page_rows(owner, unit, after_icv, boundary=True)
+        _validate_history_rows(boundary, source, unit, anchor)
+        if len(boundary) != 1:
+            raise ChainRegistrationError('registration_history_cursor_missing')
+        boundary_unresolved = observe(boundary[0]) is None
+    found = _page_rows(owner, unit, after_icv)
+    _validate_history_rows(found, source, unit, anchor)
+    through = after_icv
+    for row in found[:MAX_PAGE_SOURCES]:
+        if budget.remaining <= 0:
+            break
+        observe(row); through = row['icv']
+    remaining = _count_slots(owner, unit, after_icv=through)
+    inventory = summarize_history(rows, observations, complete=(start == 0 and len(rows) == total),
+        attempted=attempted, tail_icv=str(anchor.icv), tail_digest=anchor.invoice_digest,
+        public_key=public_key, xml_bytes=budget.read, known_positions=total)
+    _owned(owner)
+    return LegacyHistoryPage(review_id, after_icv, through,
+        through if remaining and through != after_icv else None, remaining, boundary_unresolved, inventory)
 
 
 def inspect_known_legacy_history(runtime, owner, source, unit, anchor, public_key):
@@ -193,11 +288,7 @@ def inspect_known_legacy_history(runtime, owner, source, unit, anchor, public_ke
             'ORDER BY name LIMIT %s LOCK IN SHARE MODE NOWAIT', (unit, unit, MAX_SOURCES+1), as_dict=True)
         rows.extend(dict(row, doctype=doctype) for row in found)
         _owned(owner)
-    for row in rows:
-        _counter(row['icv']); _identifier(row['custom_uuid'])
-        if (row['company'] != source.company or row['docstatus'] not in (1, 2) or row['unit'] != unit
-                or int(row['icv']) > anchor.icv):
-            raise ChainRegistrationError('registration_history_source_changed')
+    _validate_history_rows(rows, source, unit, anchor)
     if len(rows) != total:
         raise ChainRegistrationError('registration_history_count_changed')
     if not any((row['doctype'], row['name'], row['icv'], row['custom_uuid']) == (

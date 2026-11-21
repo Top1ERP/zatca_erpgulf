@@ -25,7 +25,9 @@ from .native_preparation import source_observation_sha256
 from .native_legacy_tail import require_unambiguous_saved_tail
 from .native_identity_inventory import IdentityInventoryError
 from .native_legacy_consumers import require_single_legacy_counter
-from .native_legacy_history import inspect_known_legacy_history, LegacyHistoryInventory
+from .native_legacy_history import (
+    inspect_known_legacy_history, LegacyHistoryInventory, inspect_known_legacy_page, LegacyHistoryPage,
+)
 from .issuing_observation import freeze_native_value
 from .permission_compat import PermissionCompatibilityError, saved_row_has_permission
 from .worker_transaction import WorkerTransactionError, owned_worker_transaction
@@ -38,6 +40,7 @@ class LegacyRegistrationReview:
     reused: bool
     active: bool = False
     history: LegacyHistoryInventory | None = None
+    history_page: LegacyHistoryPage | None = None
 
 
 def _name(value):
@@ -119,7 +122,8 @@ def _legacy_anchor(runtime, owner, source, counter_name):
 
 
 def review_legacy_registration(doctype, invoice_name, counter_name, file_id, *,
-                              runtime, translate, reason, expected_xml_sha256, supersedes_review_id=None):
+                              runtime, translate, reason, expected_xml_sha256, supersedes_review_id=None,
+                              history_review_id=None, history_page_after=None):
     """Stage one exact reviewed anchor, preserving both existing systems.
 
     Internal service only, no RPC/worker hook or caller-supplied approval flag.
@@ -127,12 +131,16 @@ def review_legacy_registration(doctype, invoice_name, counter_name, file_id, *,
     credential-owner READ+WRITE. A caller provides the hash of the file they
     reviewed, not XML bytes, credentials, a counter seed or a namespace/key.
     Missing or inconsistent evidence stops; it never creates a NEW_EGS record.
+    With both history_review_id and history_page_after, read one partial page
+    of an unchanged existing inactive review. Paging cannot create/supersede a
+    review or persist a cumulative history approval; no commit is performed.
     """
     uncertain = False
     try:
         return _review_legacy_registration(doctype,invoice_name,counter_name,file_id,runtime=runtime,
             translate=translate,reason=reason,expected_xml_sha256=expected_xml_sha256,
-            supersedes_review_id=supersedes_review_id)
+            supersedes_review_id=supersedes_review_id,history_review_id=history_review_id,
+            history_page_after=history_page_after)
     except (ChainRegistrationError,DispatchRecordError,DispatchStoreError,NativeDispatchError,
             ArtifactEvidenceError,IssuingAttemptError,IdentityInventoryError) as error:
         code = error.code
@@ -148,7 +156,8 @@ def review_legacy_registration(doctype, invoice_name, counter_name, file_id, *,
 
 
 def _review_legacy_registration(doctype, invoice_name, counter_name, file_id, *,
-                               runtime, translate, reason, expected_xml_sha256, supersedes_review_id):
+                               runtime, translate, reason, expected_xml_sha256, supersedes_review_id,
+                               history_review_id, history_page_after):
     if ACTIVE.get() is not None:
         raise ChainRegistrationError('registration_issuing_context_active')
     if doctype not in SOURCE_TABLES:
@@ -158,6 +167,11 @@ def _review_legacy_registration(doctype, invoice_name, counter_name, file_id, *,
     _fingerprint(expected_xml_sha256)
     if supersedes_review_id is not None:
         _identifier(supersedes_review_id)
+    paging = history_page_after is not None or history_review_id is not None
+    if paging:
+        _identifier(history_review_id); _counter(history_page_after, zero=True)
+        if supersedes_review_id is not None:
+            raise ChainRegistrationError('registration_history_page_supersedes')
     text = reason_bytes(reason)
     with owned_worker_transaction(runtime) as owner:
         roles = runtime.get_roles(owner.actor)
@@ -191,7 +205,8 @@ def _review_legacy_registration(doctype, invoice_name, counter_name, file_id, *,
                     material.certificate_der_sha256,material.public_key_sha256):
                 raise ChainRegistrationError('registration_certificate_review')
             require_single_legacy_counter(runtime,owner,selected,material.public_key_sha256,unit,counter_name)
-            history = inspect_known_legacy_history(runtime,owner,source,unit,observed,material.public_key_sha256)
+            history = (None if paging else
+                inspect_known_legacy_history(runtime,owner,source,unit,observed,material.public_key_sha256))
             scope.confirm_current()
             payload = encode_registration_payload(xml,reason)
             route = material.route
@@ -228,6 +243,8 @@ def _review_legacy_registration(doctype, invoice_name, counter_name, file_id, *,
             repository = DispatchStore(owner.database,storage_namespace=owner.storage_namespace,
                 cipher=owner.cipher,owner_check=owner.owner_current)
             existing = repository.reviewed_chain_for_owner(header['owner_key'])
+            if paging and (existing is None or existing['record_id'] != history_review_id):
+                raise ChainRegistrationError('registration_history_review_changed')
             if existing is not None:
                 if (existing['active'] != 0 or existing['state_version'] != 0 or existing['active_owner_key'] is not None
                         or existing['tail_issuance'] is not None or existing['active_attempt'] is not None):
@@ -240,6 +257,11 @@ def _review_legacy_registration(doctype, invoice_name, counter_name, file_id, *,
                     and old_xml == xml and old_reason == reason and existing['last_icv'] == value
                     and existing['previous_hash'] == observed.invoice_digest)
                 if unchanged:
+                    if paging:
+                        page = inspect_known_legacy_page(runtime,owner,source,unit,observed,material.public_key_sha256,
+                            review_id=history_review_id,after_icv=history_page_after)
+                        scope.confirm_current()
+                        return LegacyRegistrationReview(existing['record_id'],value,True,history_page=page)
                     return LegacyRegistrationReview(existing['record_id'],value,True,history=history)
                 if supersedes_review_id != existing['record_id']:
                     raise ChainRegistrationError('registration_review_changed')

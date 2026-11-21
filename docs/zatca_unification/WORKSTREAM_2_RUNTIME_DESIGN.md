@@ -12,6 +12,13 @@ behind an older ORM snapshot; binary identity filtering avoids collation merging
 Above the document budget, only the verified anchor is reused while all remaining
 known positions stay unprobed. Full counts/exact gaps are not an activation grant.
 
+An explicit history_review_id/history_page_after mode now resumes bounded numeric
+page reads only against an unchanged authenticated current inactive proposal.
+The real boundary XML is reread, so callers cannot supply a previous digest or
+silently bridge missing positions. No record/commit or cumulative completion is
+introduced. Durable historical custody/coverage and activation remain open:
+[NATIVE_HISTORY_PAGES.md](NATIVE_HISTORY_PAGES.md).
+
 This document records implementation decisions, not completed runtime adoption.
 The old uninstalled nested staging models remain deferred; adding another isolated
 model is not sufficient. Finish the worker/provider integration below before

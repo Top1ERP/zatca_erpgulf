@@ -111,3 +111,8 @@ The count does not fill missing XML or permit activation.
 Final extension logs/counts are recorded in STATUS.md. The stored registration
 format, source/financial data, UUID/ICV/PIH and public/UI contracts are unchanged.
 The one new known_positions string exists only in the transient internal inventory.
+
+The same internal service now supports unchanged-review-bound64-source keyset
+page reads, with fresh boundary XML and explicit remaining/unresolved coverage:
+[NATIVE_HISTORY_PAGES.md](NATIVE_HISTORY_PAGES.md). This resumes reads; durable
+authenticated cumulative page/byte custody and activation remain open.

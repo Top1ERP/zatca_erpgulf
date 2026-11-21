@@ -96,6 +96,12 @@ above the older-XML budget. Exact missing positions and total unprobed evidence
 remain visible; no partial scan is promoted to activation or acceptance.
 Archived/rotated/large-history XML inventory, crypto evidence, drain and activation remain open.
 
+The actual internal review now also has a saved-review-bound numeric XML page
+mode.64-source pages reread the actual cursor boundary under current permissions;
+last-page/suffix exhaustion is not cumulative completion. No review creation,
+superseding, commit or issuance occurs: [NATIVE_HISTORY_PAGES.md](NATIVE_HISTORY_PAGES.md).
+Durable authenticated historical page/byte capture and coverage remain open.
+
 Known owner/delegate/declared-unit consumer closure and a permission-checked,
 current locked counter catalog are now adopted in that inactive review. Another
 known Production counter holds without maximum/zero inference. Captured issuer

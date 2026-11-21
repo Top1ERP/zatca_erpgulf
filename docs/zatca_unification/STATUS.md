@@ -660,6 +660,33 @@ financial reference changed; original240 remains91/117/32. The unchanged manifes
 invoice or authority API operation occurred. Paged/durable XML capture, rotated/
 unattributed history, cutover/drain and installed acceptance remain open.
 
+The actual internal legacy review now supports history_review_id/history_page_after
+partial reads only against its unchanged authenticated current inactive proposal.
+Numeric64-source keyset pages merge Sales/POS without float/OFFSET and reread the
+actual boundary XML under current READ permission. Missing/gap/range/reason/role/
+review binding failures cannot bootstrap/supersede a proposal. Fresh contradictory
+or unreadable boundaries remain visible; no previous digest is caller-supplied.
+Page mode returns reused/inactive without normal full-file inspection or commit.
+Details: [NATIVE_HISTORY_PAGES.md](NATIVE_HISTORY_PAGES.md).
+
+Latest page qualification:414 local cases across11 suites in1.86s and192 private
+cases across6 suites in36.38s. New suites add11 local/17 private, included above.
+Logs: `/tmp/zatca-axis2-history-pages-local-final.log`,
+`/tmp/zatca-axis2-history-pages-private-final.log`. Initial focused97 local/82
+private cases also passed. Tests cover three owner selections, valid repeat/
+continuation, changed/denied/budgeted boundary XML, missing/wrong/current review
+admission and the real64-source limit over81 positions. No UI/financial/golden
+reference changed; original240 remains91/117/32. Manifest254 local/88 private was
+not run in full. Fixture SQL/ERP/signed declarations are not installed/SDK or
+authority acceptance. No live source/site/schema/service, actual invoice or
+authority API operation occurred.
+
+These are partial read positions, not durable page/XML capture or cumulative
+approval. Exhausting one suffix cannot certify previous pages; remaining/unprobed
+coverage and boundary failures stay explicit. Durable authenticated historical
+custody/coverage, rotated/unattributed archives, cutover/drain and activation
+remain open; workstream2 is not closed.
+
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; remaining Letter Head/custom/direct-master/other print information
 and File/external-print compatibility; remaining late/superseded retry review and
