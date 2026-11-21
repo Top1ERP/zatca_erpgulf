@@ -25,6 +25,8 @@ METHOD = 'zatca_erpgulf.zatca_erpgulf.submission_intent_worker.execute_submissio
 BODY = b'zatca-committed-erp-handoff/v1'
 FIELDS = ('record_id','source_key','source_doctype','source_name','company','actor','chain',
     'intent','source_sha256','created_at_utc')
+COLLECTION_FIELDS = ('request_kind','active_key','expected_issuance_id')
+COLLECTION_BODY = b'zatca-submitted-collection/v1'
 CURRENT = ContextVar('zatca_submission_intent',default=None)
 
 
@@ -65,14 +67,24 @@ def _chain(runtime,source,company):
 
 
 def validate_header(header):
-    if type(header) is not dict or set(header)!=set(FIELDS):
+    if type(header) is not dict or set(header) not in (set(FIELDS),set(FIELDS+COLLECTION_FIELDS)):
         raise SubmissionIntentError('submission_intent_header')
     _identifier(header['record_id']);_identifier(header['chain'])
     for key in ('company','actor'):saved_form_name(header[key])
     if header['actor']=='Guest' or header['intent'] not in ('submit','scheduled','manual'):
         raise SubmissionIntentError('submission_intent_actor_or_operation')
-    if source_key(header['source_doctype'],header['source_name'])!=header['source_key']:
+    base_key=source_key(header['source_doctype'],header['source_name'])
+    collection='request_kind' in header
+    expected_key=collection_source_key(header['record_id']) if collection else base_key
+    if expected_key!=header['source_key']:
         raise SubmissionIntentError('submission_intent_source_binding')
+    if collection:
+        if header['request_kind']!='collection-v1' or header['intent'] not in ('manual','scheduled'):
+            raise SubmissionIntentError('submission_intent_collection_kind')
+        if header['expected_issuance_id'] is not None:
+            _identifier(header['expected_issuance_id'])
+        if header['active_key']!=collection_active_key(header):
+            raise SubmissionIntentError('submission_intent_active_binding')
     _fingerprint(header['source_sha256'])
     try:
         value=datetime.strptime(header['created_at_utc'],'%Y-%m-%dT%H:%M:%S.%f')
@@ -83,9 +95,27 @@ def validate_header(header):
     return encode_record_header(header)
 
 
+def collection_source_key(record_id):
+    return hashlib.sha256(('collection\0'+_identifier(record_id)).encode()).hexdigest()
+
+
+def collection_active_key(header):
+    values=[source_key(header['source_doctype'],header['source_name'])]
+    values.extend(header[key] for key in ('company','actor','chain','intent','source_sha256'))
+    values.append(header['expected_issuance_id'] or '')
+    if any(type(value) is not str or '\0' in value for value in values):
+        raise SubmissionIntentError('submission_intent_active_binding')
+    return hashlib.sha256(('collection-v1\0'+'\0'.join(values)).encode()).hexdigest()
+
+
+def envelope_kind(header):
+    return 'collection-intent' if 'request_kind' in header else 'submission-intent'
+
+
 def open_intent(owner,record_id,*,lock=False):
     _identifier(record_id);owner.require_owner()
     rows=owner.database.sql('SELECT record_id,source_key,source_doctype,source_name,actor,state,fence_token,'
+        'active_key,expected_issuance_id,operation,'
         'SUBSTRING(intent_header,1,8193) AS intent_header,SUBSTRING(intent_ciphertext,1,8193) AS intent_ciphertext '
         'FROM '+TABLE+' WHERE name=%s'+(' FOR UPDATE NOWAIT' if lock else ' LOCK IN SHARE MODE NOWAIT'),
         (record_id,),as_dict=True)
@@ -101,7 +131,15 @@ def open_intent(owner,record_id,*,lock=False):
     encoded=validate_header(header)
     if any(row[key]!=header[key] for key in ('record_id','source_key','source_doctype','source_name','actor')) or header['record_id']!=record_id:
         raise SubmissionIntentError('submission_intent_index_binding')
-    if owner.cipher.open(record_id,'submission-intent',encoded,row['intent_ciphertext'])!=BODY:
+    collection='request_kind' in header
+    if collection:
+        if (row['expected_issuance_id']!=header['expected_issuance_id'] or row['operation']!=header['intent']
+                or row['active_key'] not in (None,header['active_key'])
+                or row['state'] in ('READY','WAITING','RUNNING') and row['active_key']!=header['active_key']):
+            raise SubmissionIntentError('submission_intent_collection_index')
+    elif any(row[key] is not None for key in ('active_key','expected_issuance_id','operation')):
+        raise SubmissionIntentError('submission_intent_collection_index')
+    if owner.cipher.open(record_id,envelope_kind(header),encoded,row['intent_ciphertext'])!=(COLLECTION_BODY if collection else BODY):
         raise SubmissionIntentError('submission_intent_integrity')
     return row,header
 
@@ -142,7 +180,13 @@ def require_intent_schema(owner):
 class ParentIntent:
     """Pinned borrowed parent transaction; no ownership of fiscal commit/rollback."""
     def __init__(self,runtime,doctype,name,*,intent='submit'):
-        self.runtime=runtime;self.database=runtime.db;self.site=runtime.local.site;self.actor=runtime.session.user
+        self.bind_parent(runtime,doctype,name,intent=intent)
+        self.stage_initial()
+
+    def bind_parent(self,runtime,doctype,name,*,intent):
+        """Shared borrowed connection/key acquisition, without staging a request."""
+        from .worker_transaction import current_database
+        self.runtime=runtime;self.database=current_database(runtime);self.site=runtime.local.site;self.actor=runtime.session.user
         self.key=runtime.conf.get('encryption_key');self.db_name=runtime.conf.get('db_name')
         self.connection=self.database._conn;self.socket=getattr(self.connection,'_sock',None)
         self.record_id=str(uuid4());self.source=(doctype,name);self.intent=intent
@@ -162,6 +206,8 @@ class ParentIntent:
         self.storage_namespace=values['storage_namespace']
         self.cipher=derive_storage_cipher(self.key,site=self.site,namespace=self.storage_namespace)
         verify_storage_probe(self.cipher,self.storage_namespace,values['storage_key_check'])
+
+    def stage_initial(self):
         # Open table metadata without locking a missing-key gap: unrelated ERP
         # invoices must not deadlock solely because this outbox starts empty.
         # The unique source slot arbitrates a concurrent insert, even when an
@@ -177,8 +223,9 @@ class ParentIntent:
             (self.record_id,self.record_id,source_key(*self.source),*self.source,self.actor,'STAGED',self.actor,self.actor,stamp,stamp))
 
     def require_owner(self):
+        from .worker_transaction import current_database
         r=self.runtime;c=self.connection
-        if (self.closed or r.db is not self.database or r.local.db is not self.database or r.local.site!=self.site
+        if (self.closed or current_database(r) is not self.database or r.local.site!=self.site
                 or r.session.user!=self.actor or r.conf.get('db_name')!=self.db_name or r.conf.get('encryption_key')!=self.key
                 or self.database.db_type!='mariadb' or self.database._conn is not c or c._sock is not self.socket
                 or self.socket is None or not c.open or c.get_autocommit() is not False
@@ -209,6 +256,11 @@ class ParentIntent:
         if self.sql('SELECT ROW_COUNT() AS affected',())[0]['affected']!=1:
             raise SubmissionIntentError('submission_intent_finalize_changed')
         self.finalized=True
+
+    def owner_current(self):
+        try:self.require_owner()
+        except Exception:return False
+        return True
 
 
 @dataclass(repr=False)

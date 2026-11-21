@@ -12,7 +12,7 @@ from uuid import uuid4
 from .submission_intent import (
     TABLE,METHOD,SubmissionIntentError,open_intent,execution_context,require_bound_source,_chain,
 )
-from .worker_transaction import owned_worker_transaction
+from .worker_transaction import owned_worker_transaction,current_database
 
 
 def _enabled(owner,actor):
@@ -56,6 +56,9 @@ def _finish(runtime,header,fence,state,code):
             (state,code,header['record_id'],'RUNNING',fence))
         if owner.database.sql('SELECT ROW_COUNT() AS affected',as_dict=True)[0]['affected']!=1:
             raise SubmissionIntentError('submission_intent_completion_changed')
+        if 'request_kind' in header and state=='COMPLETE':
+            owner.database.sql('UPDATE '+TABLE+' SET active_key=NULL WHERE name=%s AND active_key=%s',
+                (header['record_id'],header['active_key']))
         owner.commit()
 
 
@@ -71,7 +74,8 @@ def _process(runtime,translate,header,build):
     with execution_context(runtime,header):
         require_bound_source(runtime,source,_chain(runtime,source,company))
         result=_run(source.doctype,source.name,runtime=runtime,translate=translate,
-            build=build,intent=header['intent'],source=source)
+            build=build,intent=header['intent'],source=source,
+            **({'expected_issuance_id':header['expected_issuance_id']} if 'request_kind' in header else {}))
     if result is None:
         raise SubmissionIntentError('submission_intent_native_owner_missing')
     return result
@@ -128,13 +132,13 @@ _MISSING=object()
 def _queue_as_actor(runtime,actor):
     """Trusted internal rediscovery only; restore inspected Frappe15/16 state."""
     fields=('cache','form_dict','jenv','role_permissions','new_doc_templates','user_perms')
-    session=runtime.session;local=runtime.local;site=local.site;database=runtime.db
+    session=runtime.session;local=runtime.local;site=local.site;database=current_database(runtime)
     old_user=session.user
     saved_session={name:getattr(session,name,_MISSING) for name in ('user','sid','data')}
     saved_local={name:getattr(local,name,_MISSING) for name in fields}
     try:
         runtime.set_user(actor)
-        if local.site!=site or runtime.db is not database or runtime.session is not session or session.user!=actor:
+        if local.site!=site or current_database(runtime) is not database or runtime.session is not session or session.user!=actor:
             raise SubmissionIntentError('submission_intent_queue_context')
         yield
     finally:
@@ -194,7 +198,10 @@ def rediscover_ready_intents(*,runtime):
 
 def recover_submission_intents():
     import frappe
-    try:return rediscover_ready_intents(runtime=frappe)
+    try:
+        from .prepared_collection import discover_prepared_collections
+        queued=rediscover_ready_intents(runtime=frappe)
+        return queued+discover_prepared_collections(runtime=frappe)
     except Exception as error:
         code=error.code if isinstance(error,SubmissionIntentError) else 'submission_intent_recovery_review'
     frappe.log_error(title='ZATCA durable handoff recovery',message=code)

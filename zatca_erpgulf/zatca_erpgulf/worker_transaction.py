@@ -20,6 +20,21 @@ OWNED_WORKER = ContextVar('zatca_owned_worker_transaction',default=None)
 CALLBACKS = ('before_commit','after_commit','before_rollback','after_rollback')
 
 
+def current_database(runtime):
+    """Resolve Frappe's LocalProxy before comparing physical DB ownership.
+
+    The exported frappe.db may be a LocalProxy; frappe.local.db is the actual
+    current object. Never treat the proxy's stable identity as a connection pin.
+    """
+    from werkzeug.local import LocalProxy
+    database=runtime.db
+    if isinstance(database,LocalProxy):
+        database=database._get_current_object()
+    if database is not runtime.local.db:
+        raise WorkerTransactionError('worker_transaction_database_binding')
+    return database
+
+
 class WorkerTransactionError(RuntimeError):
     def __init__(self,code,*,commit_uncertain=False):
         self.code=code;self.commit_uncertain=commit_uncertain

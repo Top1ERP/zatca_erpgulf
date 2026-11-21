@@ -12,7 +12,7 @@ from .draft_submission import submit_draft
 from .native_draft_transaction import NativeDraftTransactionError
 from .existing_xml_submission import ExistingXmlSubmissionError
 from .issuing_attempt import IssuingAttemptError
-from .native_provider import process_native_saved_source
+from .collection_intent import register_native_collection,CollectionSubmissionError
 from frappe.utils import add_to_date, cint, now_datetime
 
 from zatca_erpgulf.ksa_compliance.field_compat import get_alias_value
@@ -94,12 +94,12 @@ not provide a cross-worker lock or make remote submissions transactional.
                         if commit_per_invoice:
                             frappe.db.commit()
                         continue
-                native=process_native_saved_source(invoice,runtime=frappe,translate=getattr(frappe,'_',lambda text:text),intent='scheduled')
+                native=register_native_collection(invoice,runtime=frappe,translate=getattr(frappe,'_',lambda text:text),intent='scheduled')
                 if native is None:
                     submit_callback(invoice, bypass_background_check=True)
                 if commit_per_invoice:
                     frappe.db.commit()
-            except NativeDraftTransactionError as error:
+            except (NativeDraftTransactionError,CollectionSubmissionError) as error:
                 if not error.diagnostic_logged:
                     frappe.log_error(title='ZATCA native draft transaction review',message=error.code)
                     error.diagnostic_logged=True
@@ -114,7 +114,7 @@ not provide a cross-worker lock or make remote submissions transactional.
                     title=f"ZATCA background: {doctype} {row['name']}",
                     message=frappe.get_traceback(),
                 )
-    except NativeDraftTransactionError:
+    except (NativeDraftTransactionError,CollectionSubmissionError):
         raise  # The framework owns the enclosing rollback; never swallow this.
     except Exception:
         frappe.log_error(

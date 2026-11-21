@@ -135,17 +135,18 @@ def test_deferred_worker_consults_native_custody_before_a_legacy_success_status(
 
 
 @pytest.mark.parametrize('route',ROUTES[:2])
-def test_manual_collection_returns_the_owned_outcome_without_calling_legacy_resubmission(entry,monkeypatch,route):
+def test_manual_collection_returns_deferred_request_without_calling_legacy_resubmission(entry,monkeypatch,route):
+    from zatca_erpgulf.zatca_erpgulf import collection_intent
     e=entry;module,_fn,doctype,_purpose=route
     e.docs.pop((e.source.doctype,e.source.name));e.source.doctype=doctype;e.docs[doctype,e.source.name]=e.source
     monkeypatch.setattr(module,'frappe',e.runtime)
     monkeypatch.setattr(module,'_',lambda text:text)
-    owned=Mock(return_value={'status':'SUCCESS','accepted':True})
-    monkeypatch.setattr(provider,'process_native_saved_source',owned)
+    owned=Mock(return_value={'status':'DEFERRED','accepted':False})
+    monkeypatch.setattr(collection_intent,'register_native_collection',owned)
     legacy=Mock();monkeypatch.setattr(module,'zatca_background_on_submit',legacy)
     function=module.resubmit_invoices if doctype=='Sales Invoice' else module.resubmit_invoices_pos
     result=inspect.unwrap(function)([e.source.name])
-    assert result[e.source.name]['accepted'] is True
+    assert result[e.source.name]['status']=='DEFERRED' and result[e.source.name]['accepted'] is False
     assert owned.call_args.kwargs['intent']=='manual'
     legacy.assert_not_called()
 

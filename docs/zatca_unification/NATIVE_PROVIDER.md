@@ -35,9 +35,12 @@ The deferred worker consults native custody before any legacy status-only skip.
 Its native callback uses the original saved validator/route dispatcher with the
 old Background early-return bypassed: delivery policy now owns that choice.
 The unmarked legacy callback keeps its earlier behavior. Submitted background
-collection entries use the fixed native dispatcher with a scheduled intent;
-eligible unmarked entries retain their original callback. Submitted manual Sales/
-POS collections use an explicit manual intent and return per-invoice outcomes.
+collection entries now stage a fixed scheduled command for execution after
+commit; eligible unmarked entries retain their original callback. Submitted
+manual Sales/POS collections stage an explicit manual command and return
+DEFERRED/accepted=False per invoice. Their fixed worker uses this same provider;
+an earlier draft's ERP writes cannot trigger inline owned dispatch. Details:
+[NATIVE_COLLECTION_REQUESTS.md](NATIVE_COLLECTION_REQUESTS.md).
 The POS draft collection's incorrect Sales-variable reference was also corrected.
 
 ## One policy across generation and dispatch
@@ -139,7 +142,8 @@ decisions; and whole runtime qualification. Manual and scheduled draft callers
 now preserve their fixed operation through the parent intent; exact pre-transport
 closed-window checks may wait, with uncertain originals retaining priority. See
 [NATIVE_DRAFT_SUBMISSION.md](NATIVE_DRAFT_SUBMISSION.md). The
-older submitted-invoice collector still has its24-hour horizon. The later
+older submitted-invoice collector still has its24-hour horizon, while the native
+Background PREPARED discovery is now age-independent. The later
 [durable native submission intent](NATIVE_SUBMISSION_INTENT.md) replaces native
 submit-hook callback-only handoff and adds age-independent READY/WAITING discovery;
 started/uncertain recovery and later PREPARED discovery are still open.

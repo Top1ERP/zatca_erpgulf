@@ -1,4 +1,4 @@
-# Implementation status — 2026-11-20
+# Implementation status — 2026-11-21
 
 ## Current: workstream2 in progress
 
@@ -220,13 +220,39 @@ source/schema/service, installed site or authority operation occurred. Read-only
 source checks retain the prior HEAD/tooltip/customer-address hashes; no financial
 reference was changed and the original comparison remains91/117/32.
 
+Submitted manual Sales/POS and scheduled native collections now stage commands
+in the same store/worker after the enclosing ERP commit, avoiding inline owned
+dispatch against an earlier draft's uncommitted writes. The distinct collection
+envelope binds actor, fiscal source and expected issuance, with a nullable unique
+active slot. Original v1 submit headers remain unchanged. Current uncertain/
+rejected native custody blocks ordinary registration, and DEFERRED is never
+acceptance. Native Background PREPARED discovery has no invoice-age cutoff and
+excludes active scheduled commands. Physical Frappe LocalProxy targets are now
+resolved before parent/savepoint/queue identity checks; direct doubles previously
+hid that compatibility defect. See
+[NATIVE_COLLECTION_REQUESTS.md](NATIVE_COLLECTION_REQUESTS.md).
+
+Latest collection qualification:453 local cases across10 suites in1.68s,
+190 private SQL cases across5 suites in13.57s, and20,751 across the fixed81
+issuer-binding suites in120.24s. Sets overlap. Logs:
+`/tmp/zatca-axis2-collection-local-final.log`,
+`/tmp/zatca-axis2-collection-private-final.log`,
+`/tmp/zatca-axis2-collection-regression-final.log`.
+Manifest238 local/73 private suites was not run in full. Private cases include
+actual mixed manual collection control flow, independent physical RR snapshots,
+actual Werkzeug LocalProxy, unchanged prepared bytes, queue loss and artifact
+creation metadata set to2024. ERP submit/GL, signing inputs and HTTP remain doubles;
+this is not installed ERP15/16 or authentic SDK/authority acceptance. No live
+source/schema/service or authority operation occurred; installed-source hashes
+remain unchanged. No financial reference was changed; comparison91/117/32 remains.
+
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; frozen print/master information
 and File/external-print compatibility; explicit unchanged retry and
 corrected-clock/operator adoption; installed GL/File and complete mixed legacy/native
 submitted-invoice batch coordination;
-source lifecycle decisions; started/uncertain intent resolution, later native
-PREPARED discovery and whole runtime qualification. The new durable handoff is
+source lifecycle decisions; started/uncertain intent resolution, complete
+Standard/non-Background recovery and whole runtime qualification. The new durable handoff is
 not complete crash/delivery recovery. Do not announce3 or installation from these narrower checks.
 Installed15/16, financial review, authentic SDK and the specifically approved
 fictional rehearsal retain their later gates. No live app/site/schema/service

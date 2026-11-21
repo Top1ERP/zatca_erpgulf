@@ -908,3 +908,5 @@ Issued ZATCA document,مستند زاتكا الصادر
 ZATCA Phase-2,زاتكا - المرحلة الثانية
 The native draft transaction needs review. Processing stopped because its transaction or isolated rollback could not be confirmed.,تحتاج معاملة الفاتورة المسودة إلى مراجعة. توقفت المعالجة لتعذر تأكيد المعاملة أو التراجع المعزول عنها.
 "The draft invoice could not be submitted safely. Review its saved data, issuing-unit settings and local transaction before retrying.",تعذر ترحيل الفاتورة المسودة بأمان. راجع بياناتها المحفوظة وإعدادات وحدة الإصدار والمعاملة المحلية قبل إعادة المحاولة.
+The invoice request could not be queued safely. Review the saved invoice and parent transaction before continuing the batch.,تعذر وضع طلب الفاتورة في قائمة الانتظار بأمان. راجع الفاتورة المحفوظة والمعاملة الأصلية قبل متابعة الدفعة.
+"The invoice transaction committed, but queue registration could not be confirmed. Review its saved request and issuance before retrying.",تم حفظ معاملة الفاتورة، لكن تعذر تأكيد تسجيلها في قائمة الانتظار. راجع طلبها ونسخة إصدارها المحفوظين قبل إعادة المحاولة.

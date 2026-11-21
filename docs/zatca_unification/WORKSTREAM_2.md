@@ -120,3 +120,11 @@ Lost parent provenance stops the batch. Wider post-hook native/legacy transport
 and owned-worker entry are fenced. This does not qualify installed GL/File or
 complete mixed submitted-invoice batches:
 [NATIVE_DRAFT_ISOLATION.md](NATIVE_DRAFT_ISOLATION.md).
+
+Native submitted collection entries now stage separate protected commands in the
+same store and fixed worker, with exact expected-version and original-actor
+binding. Native Background PREPARED discovery is age-independent; rejected/
+uncertain states remain held. Borrowed guards now compare the physical target of
+Frappe's LocalProxy, with real proxy/private SQL evidence. None of this qualifies
+installed schema/GL/File, complete recovery or activation:
+[NATIVE_COLLECTION_REQUESTS.md](NATIVE_COLLECTION_REQUESTS.md).

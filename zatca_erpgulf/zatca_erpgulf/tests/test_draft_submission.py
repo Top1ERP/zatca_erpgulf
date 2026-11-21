@@ -120,7 +120,7 @@ def test_actual_scheduled_draft_collection_retains_scheduled_origin(worker_bound
         seen.append(draft.resolve_submission_operation(b.frappe,invoice.doctype,invoice.name))
         invoice.docstatus=1
     invoice.submit=Mock(side_effect=submit)
-    monkeypatch.setattr(background_worker,'process_native_saved_source',lambda *args,**kwargs:None)
+    monkeypatch.setattr(background_worker,'register_native_collection',lambda *args,**kwargs:None)
     background_worker.run_pending_background_invoices(worker[2],b.callback,commit_per_invoice=worker[3])
     assert seen==['scheduled'] and draft.CURRENT.get() is None
 

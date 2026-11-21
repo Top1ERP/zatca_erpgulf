@@ -1515,8 +1515,8 @@ def resubmit_invoices_pos(invoice_numbers, bypass_background_check=False):
             if (
                 pos_invoice_doc.docstatus == 1
             ):  # Check if the invoice is already submitted
-                from .native_provider import process_native_saved_source
-                native=process_native_saved_source(pos_invoice_doc,runtime=frappe,translate=_,intent='manual')
+                from .collection_intent import register_native_collection
+                native=register_native_collection(pos_invoice_doc,runtime=frappe,translate=_,intent='manual')
                 if native is not None:
                     results[invoice_number]=native
                     continue

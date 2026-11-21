@@ -931,3 +931,29 @@ Private SQL covers the actual Sales/POS collector with a failing middle source a
 prior diagnostic writes. These are synthetic ERP/ledger/signing doubles; whole
 installed GL/File, mixed submitted/legacy batches and runtime remain open. Details:
 [NATIVE_DRAFT_ISOLATION.md](NATIVE_DRAFT_ISOLATION.md).
+
+## Submitted native collection commands and existing prepared originals
+
+Manual Sales/POS and shared scheduled submitted collections now register a
+protected after-commit command instead of entering an owned dispatcher against
+pending draft ERP writes/callbacks. The existing intent DocType/worker is reused;
+original v1 submit headers are unchanged. A separate collection cipher/header
+kind authenticates actor, expected original and a nullable unique active slot.
+No-op duplicate INSERT arbitrates the slot using the current engine view rather
+than a missing-key gap read or an older RR snapshot. Unknown/rejected native
+custody blocks normal registration; explicit safe manual recovery creates a new
+record without rewriting an earlier review.
+
+The worker rechecks the expected version and releases only a completed collection
+slot. A Background-only PREPARED discovery uses current alias-aware Company policy,
+normal ACLs, authenticated originals, record/byte/company bounds and exclusion of
+active scheduled commands, without an age cutoff. It owns only its separately
+acquired clean scheduler transaction; no generation or transport runs in discovery.
+Complete Standard/non-Background crash recovery remains open.
+
+Actual local Frappe source inspection exposed LocalProxy-versus-target identity
+comparisons hidden by direct test doubles. A shared current_database helper now
+resolves the actual local DB object in parent/savepoint/queue guards. Private SQL
+uses the real proxy class and independent RR connections; installed ERP15/16
+acceptance remains a separate gate. Details and source-only schema changes:
+[NATIVE_COLLECTION_REQUESTS.md](NATIVE_COLLECTION_REQUESTS.md).

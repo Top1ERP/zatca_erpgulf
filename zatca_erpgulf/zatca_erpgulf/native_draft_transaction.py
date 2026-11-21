@@ -13,7 +13,7 @@ from uuid import uuid4
 
 from .submission_intent import fiscal_sha
 from .permission_compat import saved_row_has_permission
-from .worker_transaction import CALLBACKS
+from .worker_transaction import CALLBACKS,current_database
 from .zatca_runtime import is_zatca_invoice_enabled, resolve_zatca_phase, PHASE_2_VALUE
 
 
@@ -40,7 +40,7 @@ class DraftSavepoint:
 
     def __init__(self, runtime, document):
         self.runtime = runtime
-        self.database = runtime.db
+        self.database = current_database(runtime)
         self.site = runtime.local.site
         self.actor = runtime.session.user
         self.db_name = runtime.conf.get('db_name')
@@ -102,7 +102,7 @@ class DraftSavepoint:
     def require_owner(self):
         r = self.runtime
         c = self.connection
-        if (r.db is not self.database or r.local.db is not self.database or r.local.site != self.site
+        if (current_database(r) is not self.database or r.local.site != self.site
                 or r.session.user != self.actor or r.conf.get('db_name') != self.db_name
                 or r.conf.get('encryption_key') != self.key or self.database.db_type != 'mariadb'
                 or self.database.cur_db_name != self.db_name

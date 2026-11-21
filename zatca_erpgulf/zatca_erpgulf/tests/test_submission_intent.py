@@ -82,6 +82,7 @@ def test_partial_document_cannot_claim_complete_fiscal_binding():
 def test_internal_actor_queue_scope_restores_session_and_permission_caches(fail):
     local=SimpleNamespace(site='fictional.invalid',cache={'original':1},form_dict={'a':1})
     runtime=SimpleNamespace(local=local,db=object(),session=SimpleNamespace(user='Administrator',sid='ORIGINAL',data={'x':1}))
+    local.db=runtime.db
     original_session=vars(runtime.session).copy();original_local=vars(local).copy()
     def set_user(user):
         runtime.session.user=user;runtime.session.sid='';runtime.session.data={}

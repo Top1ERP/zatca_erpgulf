@@ -27,6 +27,12 @@ queued, after commit. Parent rollback removes the row. An early commit while the
 hook is open cannot finalize it. An incorrectly caught error may leave STAGED;
 that unsealed state is deliberately not eligible for discovery or execution.
 
+Submitted native collections now share this worker/store through a separate
+collection command domain and nullable active slot, leaving these original v1
+headers unchanged. An age-independent native Background PREPARED discovery also
+stages those commands. This does not make DEFERRED an acceptance result or resolve
+uncertain sends: [NATIVE_COLLECTION_REQUESTS.md](NATIVE_COLLECTION_REQUESTS.md).
+
 The writer pins the physical connection, socket, actor, site and key/database
 configuration, rejects automatic intermediate commits, and requires InnoDB,
 unique source/record slots and sufficient physical text capacity. A missing-key

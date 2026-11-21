@@ -99,7 +99,7 @@ def _result(doctype,name,value):
             'reused':value.reused_accepted,'source_projected':value.source_projected}
 
 
-def _run(doctype,invoice_name,*,runtime,translate,build,intent,source):
+def _run(doctype,invoice_name,*,runtime,translate,build,intent,source,expected_issuance_id=None):
     if doctype not in ('Sales Invoice','POS Invoice') or type(invoice_name) is not str or not invoice_name or not callable(build):
         raise NativeProviderError('native_provider_source_identity')
     if active_preparation(runtime) is not None:
@@ -110,7 +110,7 @@ def _run(doctype,invoice_name,*,runtime,translate,build,intent,source):
     source,company=selection
     with mute_operation_messages(runtime):
         return _run_selected(doctype,invoice_name,runtime=runtime,translate=translate,build=build,
-            intent=intent,source=source,company=company)
+            intent=intent,source=source,company=company,expected_issuance_id=expected_issuance_id)
 
 
 def _run_selected(doctype,invoice_name,*,runtime,translate,build,intent,source,company,expected_issuance_id=None):
