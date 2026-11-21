@@ -33,6 +33,21 @@ function setup(lang, state = "READY") {
 for (const lang of ["en", "ar"]) {
     for (const state of ["READY", "WAITING", "RUNNING", "REVIEW"]) {
         const c = setup(lang, state); c.refresh();
+        const label = c.t("Reconcile Saved Result");
+        if (["READY", "WAITING"].includes(state)) assert.equal(c.buttons.has(label), false);
+        else {
+            c.buttons.get(label)(); assert.ok(c.confirmation); c.confirm();
+            assert.equal(c.calls.length, 1);
+            assert.equal(c.calls[0].method, "zatca_erpgulf.zatca_erpgulf.submission_intent_reconciliation.reconcile_request");
+            assert.equal(c.calls[0].args.expected_state, state);
+            c.calls[0].callback({message: {status: "COMPLETE", accepted: true, message: "SAVED RESULT"}});
+            assert.deepEqual(c.messages, ["SAVED RESULT"]); assert.equal(c.reloads, 1);
+            c.frm.doc.state = "COMPLETE"; c.refresh(); assert.equal(c.buttons.size, 0);
+        }
+        count++;
+    }
+    for (const state of ["READY", "WAITING", "RUNNING", "REVIEW"]) {
+        const c = setup(lang, state); c.refresh();
         assert.equal(c.calls.length, 0); c.click();
         assert.ok(c.confirmation); assert.equal(c.calls.length, 0); c.confirm();
         assert.equal(c.calls.length, 1);
@@ -68,4 +83,4 @@ for (const lang of ["en", "ar"]) {
         count++;
     }
 }
-console.log("Unissued intent retirement: " + count + " synthetic cases passed");
+console.log("Intent retirement and saved-result reconciliation: " + count + " synthetic cases passed");

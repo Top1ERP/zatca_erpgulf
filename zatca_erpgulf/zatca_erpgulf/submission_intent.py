@@ -23,8 +23,9 @@ from .saved_form_source import saved_form_name
 TABLE = '`tabZATCA Submission Intent`'
 METHOD = 'zatca_erpgulf.zatca_erpgulf.submission_intent_worker.execute_submission_intent'
 BODY = b'zatca-committed-erp-handoff/v1'
-RETIREMENT_FIELDS = ('retirement_header','retirement_ciphertext')
+RESOLUTION_FIELDS = ('resolution_header','resolution_ciphertext')
 RETIREMENT_BODY = b'zatca-unissued-request-retirement/v1'
+RECONCILIATION_BODY = b'zatca-saved-result-reconciliation/v1'
 FIELDS = ('record_id','source_key','source_doctype','source_name','company','actor','chain',
     'intent','source_sha256','created_at_utc')
 COLLECTION_FIELDS = ('request_kind','active_key','expected_issuance_id')
@@ -118,8 +119,8 @@ def open_intent(owner,record_id,*,lock=False):
     _identifier(record_id);owner.require_owner()
     rows=owner.database.sql('SELECT record_id,source_key,source_doctype,source_name,actor,state,fence_token,'
         'active_key,expected_issuance_id,operation,'
-        'SUBSTRING(retirement_header,1,8193) AS retirement_header,'
-        'SUBSTRING(retirement_ciphertext,1,8193) AS retirement_ciphertext,'
+        'SUBSTRING(resolution_header,1,8193) AS resolution_header,'
+        'SUBSTRING(resolution_ciphertext,1,8193) AS resolution_ciphertext,'
         'SUBSTRING(intent_header,1,8193) AS intent_header,SUBSTRING(intent_ciphertext,1,8193) AS intent_ciphertext '
         'FROM '+TABLE+' WHERE name=%s'+(' FOR UPDATE NOWAIT' if lock else ' LOCK IN SHARE MODE NOWAIT'),
         (record_id,),as_dict=True)
@@ -147,19 +148,21 @@ def open_intent(owner,record_id,*,lock=False):
         raise SubmissionIntentError('submission_intent_integrity')
     if row['state']=='RETIRED':
         open_retirement(owner,row,header)
-    elif any(row[field] is not None for field in RETIREMENT_FIELDS):
+    elif row['state']=='COMPLETE' and any(row[field] is not None for field in RESOLUTION_FIELDS):
+        open_reconciliation(owner,row,header)
+    elif any(row[field] is not None for field in RESOLUTION_FIELDS):
         raise SubmissionIntentError('submission_intent_retirement_state')
     return row,header
 
 
 def open_retirement(owner,row,header):
     """Authenticate negative local retirement evidence, never remote acceptance."""
-    for field in RETIREMENT_FIELDS:
+    for field in RESOLUTION_FIELDS:
         if type(row[field]) is not str or not 0<len(row[field])<=8192:
             raise SubmissionIntentError('submission_intent_retirement_envelope')
-    proof=dict(decode_record_header(row['retirement_header'].encode()))
+    proof=dict(decode_record_header(row['resolution_header'].encode()))
     if set(proof)!={'record_id','intent_sha256','retired_by','retired_at_utc','prior_state','prior_fence','reason'}:
-        raise SubmissionIntentError('submission_intent_retirement_header')
+        raise SubmissionIntentError('submission_intent_resolution_header')
     if (proof['record_id']!=header['record_id'] or proof['reason']!='unissued_request_retired'
             or proof['intent_sha256']!=hashlib.sha256(validate_header(header)).hexdigest()
             or proof['prior_state'] not in ('READY','WAITING','RUNNING','REVIEW')
@@ -175,8 +178,47 @@ def open_retirement(owner,row,header):
     if clock.strftime('%Y-%m-%dT%H:%M:%S.%f')!=proof['retired_at_utc']:
         raise SubmissionIntentError('submission_intent_retirement_clock')
     encoded=encode_record_header(proof)
-    if owner.cipher.open(header['record_id'],'intent-retirement',encoded,row['retirement_ciphertext'])!=RETIREMENT_BODY:
+    if owner.cipher.open(header['record_id'],'intent-retirement',encoded,row['resolution_ciphertext'])!=RETIREMENT_BODY:
         raise SubmissionIntentError('submission_intent_retirement_integrity')
+    owner.require_owner()
+    return proof
+
+
+def open_reconciliation(owner,row,header):
+    """Authenticate the operator audit capsule; fresh receipt reads stay separate."""
+    for field in RESOLUTION_FIELDS:
+        if type(row[field]) is not str or not 0<len(row[field])<=8192:
+            raise SubmissionIntentError('submission_intent_reconciliation_envelope')
+    proof=dict(decode_record_header(row['resolution_header'].encode()))
+    if set(proof)!={'record_id','intent_sha256','resolved_by','resolved_at_utc','prior_state','prior_fence',
+            'reason','issuance_id','issuance_state','attempt_id','outcome','original_xml_sha256'}:
+        raise SubmissionIntentError('submission_intent_reconciliation_header')
+    if (proof['record_id']!=header['record_id']
+            or proof['intent_sha256']!=hashlib.sha256(validate_header(header)).hexdigest()
+            or proof['prior_state'] not in ('RUNNING','REVIEW') or proof['prior_fence']!=row['fence_token']
+            or row['active_key'] is not None):
+        raise SubmissionIntentError('submission_intent_reconciliation_binding')
+    _identifier(proof['issuance_id']);_fingerprint(proof['original_xml_sha256'])
+    saved_form_name(proof['resolved_by'])
+    if proof['resolved_by']=='Guest':raise SubmissionIntentError('submission_intent_reconciliation_actor')
+    if proof['prior_state']=='RUNNING' and proof['prior_fence'] is None:
+        raise SubmissionIntentError('submission_intent_reconciliation_fence')
+    if proof['prior_fence'] is not None:_identifier(proof['prior_fence'])
+    if proof['reason']=='reconciled_prepared':
+        valid=(proof['issuance_state']=='PREPARED' and proof['attempt_id'] is None and proof['outcome']=='RETAINED_ORIGINAL')
+    elif proof['reason']=='reconciled_accepted':
+        _identifier(proof['attempt_id'])
+        valid=((proof['issuance_state']=='REPORTED' and proof['outcome'] in ('REPORTING_MATCHED','REPORTING_DUPLICATE_MATCHED'))
+            or (proof['issuance_state']=='CLEARED' and proof['outcome'] in ('CLEARANCE_MATCHED','CLEARANCE_DUPLICATE_MATCHED')))
+    else:valid=False
+    if not valid:raise SubmissionIntentError('submission_intent_reconciliation_outcome')
+    try:clock=datetime.strptime(proof['resolved_at_utc'],'%Y-%m-%dT%H:%M:%S.%f')
+    except (ValueError,TypeError):raise SubmissionIntentError('submission_intent_reconciliation_clock') from None
+    if clock.strftime('%Y-%m-%dT%H:%M:%S.%f')!=proof['resolved_at_utc']:
+        raise SubmissionIntentError('submission_intent_reconciliation_clock')
+    encoded=encode_record_header(proof)
+    if owner.cipher.open(header['record_id'],'intent-reconciliation',encoded,row['resolution_ciphertext'])!=RECONCILIATION_BODY:
+        raise SubmissionIntentError('submission_intent_reconciliation_integrity')
     owner.require_owner()
     return proof
 
@@ -199,7 +241,7 @@ def require_intent_schema(owner):
     columns = {row['column_name']: row for row in rows}
     required = dict.fromkeys(('name','record_id','source_key','source_doctype','source_name',
         'actor','state','fence_token','result_code','owner','modified_by'),140)
-    required.update(intent_header=8192,intent_ciphertext=8192,retirement_header=8192,retirement_ciphertext=8192)
+    required.update(intent_header=8192,intent_ciphertext=8192,resolution_header=8192,resolution_ciphertext=8192)
     for name, length in required.items():
         row = columns.get(name)
         if (row is None or row['data_type'] not in ('char','varchar','text','mediumtext','longtext')

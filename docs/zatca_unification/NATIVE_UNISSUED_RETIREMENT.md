@@ -38,10 +38,15 @@ unreadable/truncated storage. Unknown commit acknowledgement is never compensate
 a later authorized read can identify the retained proof.
 
 Original v1/v2 headers, payloads and financial/XML bytes are unchanged. The DocType
-adds nullable hidden readonly retirement_header/retirement_ciphertext and terminal
+adds nullable hidden readonly resolution_header/resolution_ciphertext and terminal
 RETIRED. No backfill, schema installation or migration occurs. RETIRED requires
 authenticated proof; proof on another state is rejected too. Mutable state labels
 or copied/damaged capsules cannot release a source.
+
+The later [saved-result reconciliation](NATIVE_INTENT_RECONCILIATION.md) bundle
+generalizes these source-only column names from retirement_* to resolution_* so
+both operator actions use one store slot. Existing retirement capsule domain/body/
+header keys stay unchanged; no installed migration or capsule rewrite occurred.
 
 Worker context carries its actual committed claim fence. Under generation and
 attempt-reservation source locks it authenticates the current request and requires

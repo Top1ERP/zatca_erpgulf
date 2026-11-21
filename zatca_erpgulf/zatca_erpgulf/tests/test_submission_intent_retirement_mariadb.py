@@ -46,8 +46,8 @@ def test_explicit_retirement_preserves_header_and_proves_normal_lifecycle_admiss
     result=retire(c,identifier);after=row(c,identifier)
     assert result['status']=='RETIRED' and result['accepted'] is False
     assert after['intent_header']==before['intent_header'] and after['intent_ciphertext']==before['intent_ciphertext']
-    assert after['active_key'] is None and after['retirement_ciphertext']
-    proof=json.loads(after['retirement_header']);assert proof['retired_by']==c.runtime.session.user
+    assert after['active_key'] is None and after['resolution_ciphertext']
+    proof=json.loads(after['resolution_header']);assert proof['retired_by']==c.runtime.session.user
     assert retire(c,identifier)['reused'] and c.head()=='0' and not c.sent and not c.built
     for method in ('before_cancel','on_trash','before_rename'):
         lifecycle_guard.inspect_source_lifecycle(c.source,runtime=c.runtime,method=method)
@@ -107,16 +107,16 @@ def test_any_issuance_blocks_retirement_even_after_marker_erasure(lifecycle,stat
 @pytest.mark.parametrize('tamper',['missing','copied','state','actor','header','cipher','fence'])
 def test_retirement_tampering_never_grants_destructive_permission(lifecycle,tamper):
     c=lifecycle;identifier=prepare(c);retire(c,identifier);saved=row(c,identifier)
-    if tamper=='missing':statement='retirement_ciphertext=NULL';values=()
+    if tamper=='missing':statement='resolution_ciphertext=NULL';values=()
     elif tamper=='copied':
-        proof=json.loads(saved['retirement_header']);proof['record_id']=str(uuid4())
-        statement='retirement_header=%s';values=(json.dumps(proof),)
+        proof=json.loads(saved['resolution_header']);proof['record_id']=str(uuid4())
+        statement='resolution_header=%s';values=(json.dumps(proof),)
     elif tamper=='state':statement='state=%s';values=('READY',)
     elif tamper in ('actor','header'):
-        proof=json.loads(saved['retirement_header']);proof['retired_by' if tamper=='actor' else 'reason']='FORGED'
-        statement='retirement_header=%s';values=(json.dumps(proof),)
+        proof=json.loads(saved['resolution_header']);proof['retired_by' if tamper=='actor' else 'reason']='FORGED'
+        statement='resolution_header=%s';values=(json.dumps(proof),)
     elif tamper=='fence':statement='fence_token=%s';values=(str(uuid4()),)
-    else:statement='retirement_ciphertext=%s';values=('BROKEN',)
+    else:statement='resolution_ciphertext=%s';values=('BROKEN',)
     c.database.sql('UPDATE '+intent.TABLE+' SET '+statement+' WHERE name=%s',(*values,identifier));c.database.commit()
     with pytest.raises(Exception):lifecycle_guard.inspect_source_lifecycle(c.source,runtime=c.runtime)
     with owned_worker_transaction(c.runtime) as owner:
@@ -169,10 +169,10 @@ def test_one_retired_request_does_not_release_a_second_active_source_request(lif
 def test_unreadable_proof_is_detected_before_retirement_commit(lifecycle,monkeypatch):
     c=lifecycle;identifier=prepare(c);original=c.database.sql;commits=c.database.commits
     def truncated(statement,values=(),**kwargs):
-        if statement.startswith('UPDATE '+intent.TABLE) and 'retirement_header=%s' in statement:
+        if statement.startswith('UPDATE '+intent.TABLE) and 'resolution_header=%s' in statement:
             values=(*values[:3],values[3][:10],*values[4:])
         return original(statement,values,**kwargs)
     monkeypatch.setattr(c.database,'sql',truncated)
     with pytest.raises(Exception):retire(c,identifier)
-    assert row(c,identifier)['state']=='READY' and row(c,identifier)['retirement_ciphertext'] is None
+    assert row(c,identifier)['state']=='READY' and row(c,identifier)['resolution_ciphertext'] is None
     assert c.database.commits==commits and c.head()=='0' and not c.sent

@@ -289,12 +289,42 @@ changed; original240 comparison remains91 identical/117 review/32 blocked. Live
 source HEAD/tooltip/customer-address hashes remain unchanged. No authority call,
 site/schema/service change or actual invoice retirement was performed.
 
+Explicit saved-result reconciliation now completes stopped RUNNING/REVIEW
+requests from current canonical original/receipt custody without generation or
+transport. Untouched PREPARED completes locally with accepted=False; matched
+receipt acceptance is required for accepted=True. An interrupted current captured
+response assessment and request proof/state now commit atomically. Missing,
+rejected, unknown/late/superseded or contradictory evidence stays review. The
+original actor/header and exact artifact/UUID/ICV/receipt bytes remain unchanged;
+no invoice projection or financial field is repaired by this action. Details:
+[NATIVE_INTENT_RECONCILIATION.md](NATIVE_INTENT_RECONCILIATION.md).
+
+Both operator actions now share nullable resolution_header/resolution_ciphertext
+instead of the previous source-only retirement_* names, with independent capsule
+domains. Old retirement capsule body/header keys and invoice request headers/AAD
+are unchanged. No installed rename/migration, backfill or capsule rewrite occurred;
+an installed earlier development schema requires separate qualification.
+
+Latest reconciliation qualification:804 local cases across20 suites in3.73s,
+411 private SQL cases across11 suites in44.40s,34 synthetic English/Arabic Desk VM
+cases, and20,751 across fixed81 issuer-binding suites in127.95s. Sets overlap.
+Logs: `/tmp/zatca-axis2-reconcile-local-final.log`,
+`/tmp/zatca-axis2-reconcile-private-final.log`,
+`/tmp/zatca-axis2-reconcile-ui-final.log`,
+`/tmp/zatca-axis2-reconcile-regression-final.log`.
+Manifest241 local/76 private suites was not run in full. Canonical publication,
+existing XML, provider and owned pipeline SQL selections remain green; their
+financial/ERP/signing/HTTP inputs remain doubles. No financial fixture changed;
+original240 comparison remains91 identical/117 review/32 blocked. Live source
+HEAD/tooltip/customer-address hashes remain unchanged. No authority request,
+installed site/schema/service change or actual invoice action occurred.
+
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; frozen print/master information
 and File/external-print compatibility; explicit unchanged retry and
 corrected-clock/operator adoption; installed GL/File and complete mixed legacy/native
 submitted-invoice batch coordination;
-issued-source transitions and custody-backed started/uncertain intent resolution, complete
+issued-source transitions and remaining unknown/late/unsealed intent resolution, complete
 Standard/non-Background recovery and whole runtime qualification. The new durable handoff is
 not complete crash/delivery recovery. Do not announce3 or installation from these narrower checks.
 Installed15/16, financial review, authentic SDK and the specifically approved

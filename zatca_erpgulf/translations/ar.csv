@@ -915,3 +915,8 @@ The invoice request could not be queued safely. Review the saved invoice and par
 The unissued request was retired and its history was retained. Normal invoice permissions and cancellation or deletion checks still apply. This is not ZATCA acceptance.,تم إنهاء الطلب الذي لم ينتج إصدارًا مع الاحتفاظ بسجله. تبقى صلاحيات الفاتورة وفحوص الإلغاء أو الحذف المعتادة مطبقة. هذه النتيجة لا تعني قبول هيئة الزكاة.
 Retire Unissued Request,إنهاء طلب لم يُصدر
 "Retire this local request only if no invoice was generated? Its history will remain, and an issued document cannot be retired here.",هل تريد إنهاء هذا الطلب المحلي إذا لم يُنتج فاتورة؟ سيبقى سجله محفوظًا، ولا يمكن إنهاء مستند صدر فعليًا بهذا الإجراء.
+"The request could not be completed from saved evidence. Review its current worker claim, original document and matching response. Nothing was regenerated or sent.",تعذر إكمال الطلب من الأدلة المحفوظة. راجع حالة العامل الحالية والمستند الأصلي والرد المطابق له. لم تتم إعادة توليد أي مستند أو إرساله.
+The saved original was verified and the request was completed locally. ZATCA acceptance is not confirmed. Nothing was sent.,تم التحقق من المستند الأصلي المحفوظ وإكمال الطلب محليًا. قبول هيئة الزكاة غير مؤكد. لم يتم إرسال أي مستند.
+The saved original and matching response confirm ZATCA acceptance. The request was completed from saved evidence; nothing was sent.,المستند الأصلي والرد المطابق المحفوظان يؤكدان قبول هيئة الزكاة. تم إكمال الطلب من الأدلة المحفوظة دون إرسال أي مستند.
+Reconcile Saved Result,تسوية الطلب من النتيجة المحفوظة
+"Complete this stopped request only from its saved original and matching response, without generating or sending anything?",هل تريد إكمال هذا الطلب المتوقف من مستنده الأصلي والرد المطابق المحفوظين فقط، دون توليد أي مستند أو إرساله؟

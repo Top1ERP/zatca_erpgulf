@@ -102,7 +102,7 @@ def retire_unissued_intent(record_id,expected_state,expected_fence,*,runtime):
         encoded=encode_record_header(proof)
         cipher=owner.cipher.seal(record_id,'intent-retirement',encoded,RETIREMENT_BODY)
         owner.database.sql('UPDATE '+TABLE+' SET state=%s,active_key=NULL,result_code=%s,'
-            'retirement_header=%s,retirement_ciphertext=%s,modified=%s,finished_at_utc=%s,modified_by=%s,'
+            'resolution_header=%s,resolution_ciphertext=%s,modified=%s,finished_at_utc=%s,modified_by=%s,'
             'state_version=state_version+1 WHERE name=%s AND state=%s AND fence_token <=> %s',
             ('RETIRED','unissued_request_retired',encoded.decode(),cipher,stamp,stamp,owner.actor,
              record_id,expected_state,expected_fence))

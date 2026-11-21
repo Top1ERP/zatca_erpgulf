@@ -58,6 +58,9 @@ def coordinator(boundary, materials, monkeypatch):
     worker = SimpleNamespace(database=database, actor=b.frappe.session.user, site=b.frappe.local.site,
         storage_namespace='30000000-0000-4000-8000-000000000001', cipher=object(),
         owner_current=lambda: state.active)
+    def require_owner():
+        assert state.active
+    worker.require_owner=require_owner
     worker.utc_now = lambda: datetime(2026, 11, 17, 9, 0, 0)
     def commit():
         assert state.active

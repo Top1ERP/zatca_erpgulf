@@ -455,19 +455,28 @@ def assess_retained_dispatch(invocation,*,runtime):
             cipher=owner.cipher,owner_check=owner.owner_current)
         chain=repository.lock_recorded_chain(invocation.chain_id,invocation.owner_key)
         issuance=repository.lock_issuance(chain,invocation.issuance_id)
-        header,original=repository.open_issuance(invocation.issuance_id)
-        receipt,body=repository.open_receipt(invocation.attempt_id)
-        if (header['artifact_sha256']!=invocation.request_sha256
-                or receipt['fence_token']!=invocation.fence_token):
-            raise NativeDispatchError('native_observation_request_binding')
-        fallback=None
-        if header['endpoint']!=receipt['endpoint']:
-            fallback=repository.open_clearance_fallback(issuance)
-        assessment=assess_native_receipt(header,original,receipt,body,fallback_receipt=fallback)
-        current=repository.record_assessment(chain,issuance,attempt_id=invocation.attempt_id,
-            fence_token=invocation.fence_token,outcome=assessment.outcome)
+        assessment,current=assess_retained_in_transaction(repository,chain,issuance,
+            attempt_id=invocation.attempt_id,request_sha256=invocation.request_sha256,fence_token=invocation.fence_token)
         owner.commit()
         return assessment,current
+
+
+def assess_retained_in_transaction(repository,chain,issuance,*,attempt_id,request_sha256,fence_token):
+    """Canonical assessment staging on a caller's already owned transaction.
+
+    Only server-loaded encrypted custody is interpreted. The original invocation
+    and explicit stopped-request review supply their own current binding. No
+    commit, source projection, credentials or transport belongs to this helper.
+    """
+    header,original=repository.open_issuance(issuance['record_id'])
+    receipt,body=repository.open_receipt(attempt_id)
+    if header['artifact_sha256']!=request_sha256 or receipt['fence_token']!=fence_token:
+        raise NativeDispatchError('native_observation_request_binding')
+    fallback=repository.open_clearance_fallback(issuance) if header['endpoint']!=receipt['endpoint'] else None
+    assessment=assess_native_receipt(header,original,receipt,body,fallback_receipt=fallback)
+    current=repository.record_assessment(chain,issuance,attempt_id=attempt_id,
+        fence_token=fence_token,outcome=assessment.outcome)
+    return assessment,current
 
 
 def read_retained_invoice(doctype,invoice_name,*,runtime,require_current_source=False):
@@ -482,59 +491,72 @@ def read_retained_invoice(doctype,invoice_name,*,runtime,require_current_source=
     if doctype not in SOURCE_TABLES or type(invoice_name) is not str or not invoice_name:
         raise NativeDispatchError('native_source_identity')
     with owned_worker_transaction(runtime) as owner:
-        source=runtime.get_doc(doctype,invoice_name)
-        company=runtime.get_doc('Company',source.company)
-        _require_access(runtime,source,company,owner.actor,write=False)
-        if require_current_source:
-            # Current shared reads include native child rows, not the earlier
-            # repeatable-read snapshot. Locks end with this read-only scope.
-            with owner.preparing(_business_tables(runtime,source)):
-                source=runtime.get_doc(doctype,invoice_name,for_update=True)
-                company=runtime.get_doc('Company',source.company,for_update=True)
-                _require_access(runtime,source,company,owner.actor,write=False)
-        marker=source.get('custom_zatca_issuing_unit')
-        if type(marker) is not str or not marker.startswith('egs:'):
-            return None
-        value=source.get('custom_zatca_icv')
-        if type(value) not in (int,str):
-            raise NativeDispatchError('native_retained_source_identity')
-        repository=DispatchStore(owner.database,storage_namespace=owner.storage_namespace,
-            cipher=owner.cipher,owner_check=owner.owner_current)
-        saved=repository.find_source_issuance(doctype=doctype,invoice_name=invoice_name,
-            company=source.company,chain_id=marker[4:],invoice_uuid=source.get('custom_uuid'),icv=str(value))
-        header,original=repository.open_issuance(saved['record_id'])
-        publication=None
-        observed_source=None
-        render_source=None
-        if require_current_source:
-            from .issuing_attempt import _source_observation
-            from .publication_source import publication_source_sha256,render_source_sha256
-            observation=_source_observation(source)
-            observed_source=source_observation_sha256((doctype,invoice_name),observation)
-            render_source=render_source_sha256((doctype,invoice_name),observation)
-            publication=repository.open_publication(header)
-            current=(publication_source_sha256((doctype,invoice_name),observation) if publication is not None else
-                observed_source)
-            if source.get('docstatus') != 1 or current!=(publication if publication is not None else header['source_sha256']):
-                raise NativeDispatchError('native_publication_source_review')
-        xml,_evidence=_original(header,original)
-        outcome='RETAINED_ORIGINAL';warnings=0;has_warnings=False;returned=None
-        accepted=saved['state'] in ('REPORTED','CLEARED')
-        if accepted:
-            if not saved['active_attempt']:
-                raise NativeDispatchError('native_retained_acceptance_review')
-            receipt,body=repository.open_receipt(saved['active_attempt'])
-            fallback=repository.open_clearance_fallback(saved) if header['endpoint']!=receipt['endpoint'] else None
-            assessment=assess_native_receipt(header,original,receipt,body,fallback_receipt=fallback)
-            required=('REPORTING_MATCHED','REPORTING_DUPLICATE_MATCHED') if saved['state']=='REPORTED' else (
-                'CLEARANCE_MATCHED','CLEARANCE_DUPLICATE_MATCHED')
-            if assessment.outcome not in required:
-                raise NativeDispatchError('native_retained_acceptance_review')
-            outcome=assessment.outcome;warnings=assessment.warning_count;has_warnings=assessment.has_warnings
-            returned=assessment.returned_xml
-        return RetainedNativeView(saved['record_id'],saved['active_attempt'],saved['state'],outcome,
-            accepted,warnings,has_warnings,xml,returned,header['source_sha256'],
-            header['invoice_uuid'],header['icv'],header['chain'],publication,render_source,header['invoice_hash'])
+        return read_retained_in_transaction(doctype,invoice_name,runtime=runtime,owner=owner,
+            require_current_source=require_current_source)
+
+
+def read_retained_in_transaction(doctype,invoice_name,*,runtime,owner,require_current_source=False):
+    """Use the canonical custody/receipt reader inside an already owned scope.
+
+    This internal seam retains the same ACL, current source/projection, latest
+    version and receipt matching rules; it neither acquires nor ends a transaction.
+    """
+    owner.require_owner()
+    if doctype not in SOURCE_TABLES or type(invoice_name) is not str or not invoice_name:
+        raise NativeDispatchError("native_source_identity")
+    source=runtime.get_doc(doctype,invoice_name)
+    company=runtime.get_doc('Company',source.company)
+    _require_access(runtime,source,company,owner.actor,write=False)
+    if require_current_source:
+        # Current shared reads include native child rows, not the earlier
+        # repeatable-read snapshot. Locks end with this read-only scope.
+        with owner.preparing(_business_tables(runtime,source)):
+            source=runtime.get_doc(doctype,invoice_name,for_update=True)
+            company=runtime.get_doc('Company',source.company,for_update=True)
+            _require_access(runtime,source,company,owner.actor,write=False)
+    marker=source.get('custom_zatca_issuing_unit')
+    if type(marker) is not str or not marker.startswith('egs:'):
+        return None
+    value=source.get('custom_zatca_icv')
+    if type(value) not in (int,str):
+        raise NativeDispatchError('native_retained_source_identity')
+    repository=DispatchStore(owner.database,storage_namespace=owner.storage_namespace,
+        cipher=owner.cipher,owner_check=owner.owner_current)
+    saved=repository.find_source_issuance(doctype=doctype,invoice_name=invoice_name,
+        company=source.company,chain_id=marker[4:],invoice_uuid=source.get('custom_uuid'),icv=str(value))
+    header,original=repository.open_issuance(saved['record_id'])
+    publication=None
+    observed_source=None
+    render_source=None
+    if require_current_source:
+        from .issuing_attempt import _source_observation
+        from .publication_source import publication_source_sha256,render_source_sha256
+        observation=_source_observation(source)
+        observed_source=source_observation_sha256((doctype,invoice_name),observation)
+        render_source=render_source_sha256((doctype,invoice_name),observation)
+        publication=repository.open_publication(header)
+        current=(publication_source_sha256((doctype,invoice_name),observation) if publication is not None else
+            observed_source)
+        if source.get('docstatus') != 1 or current!=(publication if publication is not None else header['source_sha256']):
+            raise NativeDispatchError('native_publication_source_review')
+    xml,_evidence=_original(header,original)
+    outcome='RETAINED_ORIGINAL';warnings=0;has_warnings=False;returned=None
+    accepted=saved['state'] in ('REPORTED','CLEARED')
+    if accepted:
+        if not saved['active_attempt']:
+            raise NativeDispatchError('native_retained_acceptance_review')
+        receipt,body=repository.open_receipt(saved['active_attempt'])
+        fallback=repository.open_clearance_fallback(saved) if header['endpoint']!=receipt['endpoint'] else None
+        assessment=assess_native_receipt(header,original,receipt,body,fallback_receipt=fallback)
+        required=('REPORTING_MATCHED','REPORTING_DUPLICATE_MATCHED') if saved['state']=='REPORTED' else (
+            'CLEARANCE_MATCHED','CLEARANCE_DUPLICATE_MATCHED')
+        if assessment.outcome not in required:
+            raise NativeDispatchError('native_retained_acceptance_review')
+        outcome=assessment.outcome;warnings=assessment.warning_count;has_warnings=assessment.has_warnings
+        returned=assessment.returned_xml
+    return RetainedNativeView(saved['record_id'],saved['active_attempt'],saved['state'],outcome,
+        accepted,warnings,has_warnings,xml,returned,header['source_sha256'],
+        header['invoice_uuid'],header['icv'],header['chain'],publication,render_source,header['invoice_hash'])
 
 
 def _project_source_status(doctype, invoice_name, *, runtime, readonly_cache=False, expected_issuance_id=None):

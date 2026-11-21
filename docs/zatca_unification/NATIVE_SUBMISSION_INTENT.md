@@ -96,6 +96,14 @@ Explicit unissued retirement now supplies authenticated terminal proof and stale
 worker exclusion, without touching any issued original:
 [NATIVE_UNISSUED_RETIREMENT.md](NATIVE_UNISSUED_RETIREMENT.md).
 
+Explicit saved-result reconciliation now completes matching stopped handoffs from
+current canonical custody, including accepted assessment interrupted after receipt
+capture. It never sends or re-signs. Unissued retirement and this positive local
+completion share resolution_header/resolution_ciphertext, with separate capsule
+domains and unchanged original request headers. Unknown/late response adoption and
+unchanged retries remain open:
+[NATIVE_INTENT_RECONCILIATION.md](NATIVE_INTENT_RECONCILIATION.md).
+
 Still open in workstream2: custody-backed resolution of a started/uncertain handoff;
 installed/whole canonical draft rollback and mixed batch coordination; native PREPARED discovery beyond
 the older legacy collector horizon; complete legacy history/drain and activation;

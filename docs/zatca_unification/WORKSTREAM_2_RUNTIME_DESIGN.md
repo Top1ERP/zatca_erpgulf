@@ -990,3 +990,23 @@ borrows the parent transaction without taking over ERP commit/rollback. No queue
 resend, ICV/PIH rewind or accepted outcome is implied. Custody-backed started-work
 reconciliation and installed acceptance remain open. Details:
 [NATIVE_UNISSUED_RETIREMENT.md](NATIVE_UNISSUED_RETIREMENT.md).
+
+## Stopped requests with committed originals or captured responses
+
+The fixed permissioned reconciliation action now reads the same retained-view
+implementation as normal invoice publication and stages the same canonical
+assessment as invocation processing. A current durable response whose assessment
+was interrupted can be classified locally and committed atomically with request
+completion/proof. No source projection, financial change, new artifact, transport
+or queue registration occurs. Prepared completion remains accepted=False;
+accepted completion requires matching retained receipt evidence. Current unknown,
+rejected, late/superseded or contradictory outcomes remain held.
+
+The two operator actions share nullable resolution_header/resolution_ciphertext,
+generalizing the prior source-only retirement column names without rewriting any
+capsule domain/body/header. Canonical owned-reader and assessment wrappers retain
+their original transaction behavior; only their implementations are reused inside
+the explicitly owned operator scope. Proof readback precedes commit and unknown
+commit acknowledgement is never compensated. Separate installed schema/ERP and
+genuine receipt/signature acceptance gates remain. Details:
+[NATIVE_INTENT_RECONCILIATION.md](NATIVE_INTENT_RECONCILIATION.md).

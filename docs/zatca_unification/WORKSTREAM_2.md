@@ -142,3 +142,11 @@ proof before an unissued source passes the retention guard. Issued/expected
 originals and uncertain delivery remain held; no counter rewind, replay or remote
 acceptance is inferred:
 [NATIVE_UNISSUED_RETIREMENT.md](NATIVE_UNISSUED_RETIREMENT.md).
+
+Stopped RUNNING/REVIEW requests can now be completed explicitly from canonical
+current original/receipt custody. Untouched PREPARED is local completion without
+acceptance; matched accepted receipts confirm acceptance. An interrupted current
+receipt assessment and request completion commit together. Unknown/rejected/late
+or contradictory evidence does not authorize completion or transport. Both local
+operator actions use one protected resolution slot; original headers remain:
+[NATIVE_INTENT_RECONCILIATION.md](NATIVE_INTENT_RECONCILIATION.md).

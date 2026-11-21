@@ -43,7 +43,7 @@ def test_retirement_success_does_not_claim_acceptance_or_send_an_extra_popup(mon
 def test_proof_fields_are_hidden_owned_immutable_data_and_retired_is_a_terminal_state():
     path=ROOT/'zatca_erpgulf'/'doctype'/'zatca_submission_intent'/'zatca_submission_intent.json'
     body=json.loads(path.read_text());fields={row['fieldname']:row for row in body['fields']}
-    for name in ('retirement_header','retirement_ciphertext'):
+    for name in ('resolution_header','resolution_ciphertext'):
         assert all(fields[name][flag]==1 for flag in ('read_only','hidden','no_copy','print_hide'))
         assert fields[name]['fieldtype']=='Long Text'
     assert 'RETIRED' in fields['state']['options'].splitlines()
@@ -66,7 +66,7 @@ def test_retirement_uses_its_own_authenticated_domain_without_rewriting_original
     encoded=encode_record_header(proof)
     cipher=DispatchRecordCipher(b'T'*32,site='fictional.invalid',storage_namespace=str(uuid4()))
     owner=SimpleNamespace(cipher=cipher,require_owner=Mock())
-    row=dict(retirement_header=encoded.decode(),retirement_ciphertext=cipher.seal(h['record_id'],kind,encoded,intent.RETIREMENT_BODY),
+    row=dict(resolution_header=encoded.decode(),resolution_ciphertext=cipher.seal(h['record_id'],kind,encoded,intent.RETIREMENT_BODY),
         active_key=None,fence_token=None)
     if kind=='intent-retirement':assert intent.open_retirement(owner,row,h)==proof
     else:
