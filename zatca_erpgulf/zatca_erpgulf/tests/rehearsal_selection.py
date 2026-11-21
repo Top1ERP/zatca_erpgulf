@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "native_print_admission",
     "issued_parties",
     "corrected_preparation",
     "correction_clock",
@@ -215,6 +216,7 @@ LOCAL_SUITES = (
     "zatca_response", "compatibility_hardening",
 )
 PRIVATE_SUITES = (
+    "native_print_admission_mariadb",
     "issued_parties_mariadb",
     "corrected_preparation_mariadb",
     "correction_clock_mariadb",

@@ -62,7 +62,10 @@ The first actual custody-backed Desk/transient-print adapter is documented in
 checklist: [generation-time collection evidence](PUBLICATION_COLLECTION_STATE.md)
 now admits named payment/POS updates; legacy NULL evidence keeps its old full
 comparison. Frozen master/print information, saved File consumers, external print
-engines and pre-issuance native printing still require explicit adoption/acceptance.
+engines still require explicit adoption/acceptance. Named saved native sources
+before worker preparation now have a saved-owner print hold, with Phase1/legacy
+preservation: [NATIVE_PRINT_ADMISSION.md](NATIVE_PRINT_ADMISSION.md). Installed POS/
+print and before-issuance Desk preview behavior remain separate open boundaries.
 
 The four existing-XML wrapper/API pairs now have actual native admission for
 exact private attached originals, version fences and frozen retained type policy:

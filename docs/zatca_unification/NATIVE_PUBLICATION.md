@@ -89,8 +89,9 @@ deliberate display change, not a source/financial edit or new print format.
 Still open: Letter Head/custom direct master reads, other dynamic print values,
 saved File/link and attachment-sidebar consumers; external integrations bypassing
 `before_print`; actual browser/print/PDF/scanning, installed15/16 and authentic SDK
-qualification. A native source before its issuance marker exists still needs its
-handoff/lifecycle print decision. Installed/fictional-site rehearsals require their
+qualification. Named unissued native sources now have an explicit saved-owner
+print hold: [NATIVE_PRINT_ADMISSION.md](NATIVE_PRINT_ADMISSION.md). Desk previews
+before issuance and external bypasses remain open. Installed/fictional-site rehearsals require their
 separate authorization. On-demand views are not File compatibility closure.
 
 ## Evidence

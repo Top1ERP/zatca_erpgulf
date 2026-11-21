@@ -568,6 +568,28 @@ private custody with ERP/signing/HTTP doubles; this is not installed GL/File/SDK
 PDF or authority acceptance. No schema, live app/site/service, actual invoice or
 authority API operation occurred. Installed/dummy-company gates remain separate.
 
+Named saved Phase2 native sources now stop printing before their issuance marker
+exists instead of falling back to a stale legacy QR/File. Admission checks saved
+Company policy and the actual device/delegate certificate owner using the shared
+selector with READ only; processing still requires WRITE. Phase1/disabled/legacy
+printing and already-issued historical custody retain their policy. No request is
+created/promoted/queued and no preparation, source/File/counter write, commit or
+transport runs in print. One Arabic display message is supplied; logs stay English.
+Details: [NATIVE_PRINT_ADMISSION.md](NATIVE_PRINT_ADMISSION.md).
+
+Latest print-admission qualification:603 local cases across14 reviewed suites in
+3.48s and162 private SQL cases across5 suites in25.85s. New suites add26 local/
+10 private cases, included above. Logs:
+`/tmp/zatca-axis2-print-admission-local-final.log`,
+`/tmp/zatca-axis2-print-admission-private-first.log`.
+The passing private first run is final private evidence; no runtime/private-test
+change followed it. Manifest251 local/85 private was not run in full. No UI asset
+or financial/golden reference changed; original240 remains91/117/32. All six native
+entries and STAGED/READY print attempts use fixture SQL with synthetic ERP/build/
+HTTP only. No live source/site/schema/service or authority API was touched.
+Before-issuance Desk preview, later/external print and installed/PDF acceptance
+remain open; this package does not close workstream2 or authorize installation.
+
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; remaining Letter Head/custom/direct-master/other print information
 and File/external-print compatibility; remaining late/superseded retry review and

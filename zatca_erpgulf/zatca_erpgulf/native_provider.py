@@ -51,14 +51,15 @@ def _permitted(runtime,document,*,write=False):
             raise NativeProviderError('native_provider_source_access')
 
 
-def _selection(runtime,doctype,invoice_name,source):
+def _selection(runtime,doctype,invoice_name,source,*,write=True):
+    """Resolve saved ownership; publication needs READ, processing also WRITE."""
     hint=source.get('custom_zatca_issuing_unit') if source is not None else None
     if not (type(hint) is str and hint.startswith('egs:')) and not _schema_available(runtime):
         return None
     source=runtime.get_doc(doctype,invoice_name)
     if source.doctype!=doctype or source.name!=invoice_name:
         raise NativeProviderError('native_provider_source_identity')
-    _permitted(runtime,source,write=True)
+    _permitted(runtime,source,write=write)
     company=runtime.get_doc('Company',source.company)
     _permitted(runtime,company)
     source_marker=source.get('custom_zatca_issuing_unit')

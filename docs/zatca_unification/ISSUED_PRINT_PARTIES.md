@@ -81,7 +81,8 @@ currently usable signing key/rollout setting.
 This is not complete print-master provenance: Letter Head content/scripts,
 arbitrary direct master/address lookups in custom templates, other dynamic link
 titles, external engines, later overriding hooks, saved File/link/sidebar consumers
-and native pre-issuance print admission remain open. Compatible templates should
+remain open. Named saved native sources now also receive an unissued print hold:
+[NATIVE_PRINT_ADMISSION.md](NATIVE_PRINT_ADMISSION.md). Compatible templates should
 consume these frozen fields/projection rather than reload current party masters.
 There is no perpetual render lease after the hook; complete installed/canonical
 HTML/PDF and mixed-runtime qualification is still required before release.

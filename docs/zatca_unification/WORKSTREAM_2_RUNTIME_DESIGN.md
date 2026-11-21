@@ -1108,5 +1108,13 @@ original. The actual before_print hook applies them to supported transient field
 and party titles after fresh current-source/render verification. A typed local
 stamp/observation adapter supports reprint without excluding arbitrary fiscal
 fields or changing stored profiles. No live master fallback fills absent XML buyer
-values. Header/template/direct-read/File/external/pre-issuance gates remain open:
+values. Header/template/direct-read/File/external gates remain open:
 [ISSUED_PRINT_PARTIES.md](ISSUED_PRINT_PARTIES.md).
+
+Named saved native sources without an issuance marker now receive a saved-policy/
+selected-owner print hold before they can fall back to a legacy QR. It uses the
+shared owner selector in READ mode; processing retains WRITE. Phase1/disabled/
+legacy paths and historical custody selection remain unchanged. No preparation,
+request finalization, enqueue or transport occurs in print. Before-issuance Desk
+preview and installed/external print remain open:
+[NATIVE_PRINT_ADMISSION.md](NATIVE_PRINT_ADMISSION.md).
