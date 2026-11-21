@@ -4,6 +4,10 @@ Workstream2, adopted by the internal `review_legacy_registration` service.
 This strengthens the inactive continuity review; it does not activate a chain,
 retire/freeze a legacy issuer or change an existing counter/invoice/PIH.
 
+The parent now also returns a bounded known-source/XML declaration inventory:
+[NATIVE_LEGACY_HISTORY.md](NATIVE_LEGACY_HISTORY.md). This exposes missing positions,
+PIH conflicts and unreadable/rotated evidence; it is not activation or crypto proof.
+
 ## Problem and resulting behavior
 
 A counter can reference invoice27 even though an existing Sales or POS source

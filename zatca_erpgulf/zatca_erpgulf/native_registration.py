@@ -25,6 +25,7 @@ from .native_preparation import source_observation_sha256
 from .native_legacy_tail import require_unambiguous_saved_tail
 from .native_identity_inventory import IdentityInventoryError
 from .native_legacy_consumers import require_single_legacy_counter
+from .native_legacy_history import inspect_known_legacy_history, LegacyHistoryInventory
 from .issuing_observation import freeze_native_value
 from .permission_compat import PermissionCompatibilityError, saved_row_has_permission
 from .worker_transaction import WorkerTransactionError, owned_worker_transaction
@@ -36,6 +37,7 @@ class LegacyRegistrationReview:
     last_icv: str
     reused: bool
     active: bool = False
+    history: LegacyHistoryInventory | None = None
 
 
 def _name(value):
@@ -189,6 +191,7 @@ def _review_legacy_registration(doctype, invoice_name, counter_name, file_id, *,
                     material.certificate_der_sha256,material.public_key_sha256):
                 raise ChainRegistrationError('registration_certificate_review')
             require_single_legacy_counter(runtime,owner,selected,material.public_key_sha256,unit,counter_name)
+            history = inspect_known_legacy_history(runtime,owner,source,unit,observed,material.public_key_sha256)
             scope.confirm_current()
             payload = encode_registration_payload(xml,reason)
             route = material.route
@@ -237,11 +240,11 @@ def _review_legacy_registration(doctype, invoice_name, counter_name, file_id, *,
                     and old_xml == xml and old_reason == reason and existing['last_icv'] == value
                     and existing['previous_hash'] == observed.invoice_digest)
                 if unchanged:
-                    return LegacyRegistrationReview(existing['record_id'],value,True)
+                    return LegacyRegistrationReview(existing['record_id'],value,True,history=history)
                 if supersedes_review_id != existing['record_id']:
                     raise ChainRegistrationError('registration_review_changed')
             elif supersedes_review_id is not None:
                 raise ChainRegistrationError('registration_supersedes_missing')
             reviewed = repository.stage_reviewed_registration(header,payload,supersedes=existing)
             owner.commit()
-            return LegacyRegistrationReview(reviewed['record_id'],value,False)
+            return LegacyRegistrationReview(reviewed['record_id'],value,False,history=history)

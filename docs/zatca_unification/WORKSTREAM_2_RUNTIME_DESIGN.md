@@ -1,5 +1,11 @@
 # Native dispatch integration design — workstream2, active
 
+Known-unit inactive review/reuse now returns a bounded source/XML history report,
+with exact missing-position arithmetic, adjacent declared PIH links, genesis/tail
+observations, changed public keys and explicit unresolved/unprobed limits. It
+changes no stored registration envelope or active flag and cannot replace fresh
+crypto/history/drain evidence: [NATIVE_LEGACY_HISTORY.md](NATIVE_LEGACY_HISTORY.md).
+
 This document records implementation decisions, not completed runtime adoption.
 The old uninstalled nested staging models remain deferred; adding another isolated
 model is not sufficient. Finish the worker/provider integration below before

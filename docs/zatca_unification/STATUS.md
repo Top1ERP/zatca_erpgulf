@@ -615,6 +615,28 @@ acceptance. No live source/site/schema/service or authority endpoint was touched
 This closes the implemented pre-issuance Desk gap, not workstream2 or the later
 external print and application acceptance boundaries.
 
+Actual inactive legacy review/reuse now includes a transient frozen known-unit
+Sales/POS/XML history inventory. It exposes exact missing positions from1, adjacent
+declared PIH conflicts, genesis/tail observations, changed public keys and separate
+unresolved/unprobed/source limits. It reuses the parent's verified anchor without
+another File read; older Source/File READ precedes bytes. No overall acceptance/
+activation boolean, custody/schema change, source/counter repair or transport was
+introduced. Reused anchors recheck old files instead of caching a green report.
+Details: [NATIVE_LEGACY_HISTORY.md](NATIVE_LEGACY_HISTORY.md).
+
+Latest history qualification:386 local cases across10 suites in1.87s and173 private
+cases across5 suites in41.68s. New suites add13 local/17 private, included above.
+Logs: `/tmp/zatca-axis2-history-local-final.log`,
+`/tmp/zatca-axis2-history-private-second.log`. The first private run found a
+single-file/aggregate-limit mismatch, fixed by min(remaining, single-file limit).
+Final private coverage includes cumulative budgets and changed historical files.
+Manifest253 local/87 private was not run in full. No UI or financial/golden
+reference changed; original240 remains91/117/32. Altered signed fixtures test
+declarations only, never crypto validity. No live site/source/schema/service,
+actual invoice or authority API operation occurred. Full unattributed/rotated/
+large-history inventory, authenticated cutover/drain and installed/SDK gates
+remain open. An inactive proposal with incomplete history stays inactive.
+
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; remaining Letter Head/custom/direct-master/other print information
 and File/external-print compatibility; remaining late/superseded retry review and

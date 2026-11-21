@@ -6,8 +6,10 @@ runtime path. Development is still isolated. The installed working baseline is
 not replaced, and no authority API request is authorized.
 
 Workstream1 local source/settings/material contracts are closed against their
-fixed81-suite profile; see [WORKSTREAM_1.md](WORKSTREAM_1.md). Workstream2 is next.
-The separate earlier default-manifest run is not a final green-release claim.
+fixed81-suite profile; see [WORKSTREAM_1.md](WORKSTREAM_1.md).
+Workstream2 is in progress in the isolated development branch; its adopted
+runtime and remaining closure items are in WORKSTREAM_2.md. The separate earlier
+default-manifest run is not a final green-release claim.
 
 The current code has shared financial/type/party/signing/QR composition, selected
 source gates, centralized request ownership and route selection, Compliance

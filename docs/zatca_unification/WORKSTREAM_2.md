@@ -89,7 +89,9 @@ semantics. This is neither a full older-slot/PIH inventory nor activation/drain:
 The same review now checks canonical older saved UUIDs and duplicate ICV/UUID
 slots within and between Sales/POS, using current locking aggregates/joins so an
 older ORM snapshot cannot hide a newly committed duplicate. Gaps are not a zero
-seed or a reason to renumber. Full XML/PIH/rotated-consumer history remains open.
+seed or a reason to renumber. Bounded known-unit XML/PIH observations now accompany
+actual inactive review/reuse: [NATIVE_LEGACY_HISTORY.md](NATIVE_LEGACY_HISTORY.md).
+Archived/rotated/large-history census, crypto evidence, drain and activation remain open.
 
 Known owner/delegate/declared-unit consumer closure and a permission-checked,
 current locked counter catalog are now adopted in that inactive review. Another
