@@ -202,3 +202,10 @@ the exact rejected version/attempt/fence, prepares only after commit, and never
 authorizes delivery. Stopped work reuses or explicitly reconciles only verified
 linked current custody; no second version is blindly generated:
 [CORRECTED_PREPARATION_COMMAND.md](CORRECTED_PREPARATION_COMMAND.md).
+
+The transient print hook now freezes seller/buyer legal/VAT/address fields and
+party link titles from the exact retained XML. Cleared party drift is refused;
+same-object reprint preserves the current saved fiscal/render guard without
+weakening stored profiles. No template, source, amount or counter is rewritten.
+Letter Head/direct custom lookups and other print/File/engine gates remain open:
+[ISSUED_PRINT_PARTIES.md](ISSUED_PRINT_PARTIES.md).

@@ -33,6 +33,15 @@ def custody(c, *, state='PREPARED', indicator='0200000', code='388', fallback=Fa
     node(root, 'cbc', 'IssueDate', '2026-09-27')
     node(root, 'cbc', 'IssueTime', '09:05:42Z')
     root.find(QR_PATH, NS).text = ORIGINAL
+    # QR-only synthetic evidence originally omitted print-party metadata. Add
+    # it here so print policy can require actual names/addresses from custody.
+    for label,name in (('AccountingSupplierParty','Issued seller'),('AccountingCustomerParty','Issued buyer')):
+        party=root.find('cac:'+label+'/cac:Party',NS)
+        node(node(party,'cac','PartyLegalEntity'),'cbc','RegistrationName',name)
+        postal=node(party,'cac','PostalAddress')
+        node(postal,'cbc','StreetName','Issued street')
+        node(postal,'cbc','CityName','Issued city')
+        node(node(postal,'cac','Country'),'cbc','IdentificationCode','SA')
     original_xml = xml_bytes(root)
     header['endpoint'] = 'invoices/clearance/single' if indicator.startswith('01') else 'invoices/reporting/single'
     raw = json.dumps(dict(invoiceHash=header['invoice_hash'], uuid=header['invoice_uuid'],

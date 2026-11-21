@@ -80,7 +80,13 @@ The full rule, compatibility boundaries and latest evidence are in
 [PUBLICATION_COLLECTION_STATE.md](PUBLICATION_COLLECTION_STATE.md). No monetary
 expectation was rebaselined.
 
-Also open: frozen seller/buyer/address/print values versus current master reads;
+Seller/buyer legal/VAT/address fields and their two link titles are now frozen in
+the actual transient print hook from saved XML, with strict same-object reprint
+observation: [ISSUED_PRINT_PARTIES.md](ISSUED_PRINT_PARTIES.md). Missing XML buyer
+VAT/address remains empty rather than read from current masters. This is a
+deliberate display change, not a source/financial edit or new print format.
+
+Still open: Letter Head/custom direct master reads, other dynamic print values,
 saved File/link and attachment-sidebar consumers; external integrations bypassing
 `before_print`; actual browser/print/PDF/scanning, installed15/16 and authentic SDK
 qualification. A native source before its issuance marker exists still needs its

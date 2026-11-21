@@ -24,6 +24,8 @@ from .native_dispatch import NativeDispatchError, read_retained_invoice, SOURCE_
 from .publication_source import render_source_sha256
 from .operation_messages import mute_operation_messages
 from .worker_transaction import WorkerTransactionError
+from .issued_parties import IssuedPartiesError
+from .issued_print import render_input,apply_issued_parties
 
 
 REVIEW = 'The saved ZATCA document cannot be displayed or printed safely. Review its issuance, response and saved invoice data. No document was regenerated or sent.'
@@ -68,7 +70,8 @@ def load_publication(doctype, invoice_name, *, runtime, render_document=None):
     the native observer. No current signing credential is required.
     """
     _identity(doctype, invoice_name)
-    artifact = read_native_artifact(doctype, invoice_name, runtime=runtime, for_publication=True)
+    artifact = read_native_artifact(doctype, invoice_name, runtime=runtime, for_publication=True,
+        **({'for_print':True} if render_document is not None else {}))
     if artifact is None:
         raise NativePublicationError('native_publication_not_native')
     if render_document is not None:
@@ -84,7 +87,8 @@ def load_publication(doctype, invoice_name, *, runtime, render_document=None):
         # Fiscal matching to the issued original happened inside the saved read.
         # The whole supplied render record must now match that current saved
         # observation, including collection fields: no fabricated paid balance.
-        observed = render_source_sha256((doctype, invoice_name), _source_observation(render_document))
+        observed = render_source_sha256((doctype, invoice_name), _source_observation(
+            render_input(render_document,runtime=runtime,issuance_id=artifact.issuance_id)))
         if observed != artifact.render_source_sha256:
             raise NativePublicationError('native_publication_render_changed')
     return artifact, _qr_image(artifact.qr_payload)
@@ -98,7 +102,7 @@ def _reviewed(operation, *, runtime, translate, return_review=False):
             return operation()
     except Exception as error:
         code = error.code if isinstance(error, (NativePublicationError, NativeDispatchError,
-            DispatchStoreError, WorkerTransactionError)) else 'native_publication_unavailable'
+            DispatchStoreError, WorkerTransactionError,IssuedPartiesError)) else 'native_publication_unavailable'
     runtime.log_error(title='Native ZATCA publication review', message=f'{code}: {REVIEW}')
     if return_review:
         return {'status': 'REVIEW', 'message': translate(REVIEW)}
@@ -183,6 +187,7 @@ def before_print(doc, method=None, print_settings=None):
         if type(marker) is not str or not marker.startswith('egs:'):
             return
         artifact, image = load_publication(doc.doctype, doc.name, runtime=frappe, render_document=doc)
+        apply_issued_parties(doc,artifact.issued_parties,runtime=frappe,issuance_id=artifact.issuance_id)
         doc.ksa_einv_qr = image
         doc.custom_zatca_status = artifact.state if artifact.accepted else 'Not Submitted'
     return _reviewed(operation, runtime=frappe, translate=_)

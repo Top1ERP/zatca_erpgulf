@@ -536,8 +536,40 @@ original240 comparison remains91/117/32. No live source/site/schema/service or
 authority API/actual invoice action occurred. Installed and actual dummy-company
 rehearsals remain separately gated. Workstream2 is not complete.
 
+The actual native print hook now freezes supported seller/buyer legal/VAT/address
+fields and their link titles from exact saved XML. Print-only artifact selection
+refuses changed cleared parties despite matching identity/hash metadata. Structured
+immutable names/identification/postal values are available to compatible templates.
+A private object/site/actor/issuance stamp and observation adapter support repeat
+printing without weakening stored fiscal profiles or ignoring arbitrary fields.
+Source link IDs, financial/posting/collection fields and custody/head remain intact.
+Details: [ISSUED_PRINT_PARTIES.md](ISSUED_PRINT_PARTIES.md).
+
+Deliberate display changes for review: issued XML legal names/address order/ISO
+country codes can differ from ERP aliases/formatted masters. Missing XML buyer
+VAT/address stays empty; other ID schemes are not substituted for VAT. No master
+lookup fabricates missing data. Address HTML escapes literal text; other names/IDs
+remain plain data requiring normal escaping in custom HTML templates. Letter Head,
+direct custom master reads, other dynamic titles, later hooks, external/File and
+pre-issuance print admission remain open; this is not full print/workstream2 closure.
+
+Latest party-print qualification:1,246 local cases across33 reviewed suites in4.73s,
+631 private SQL cases across19 suites in71.12s, and20,751 across fixed81
+issuer-binding suites in117.33s. Sets overlap. Logs:
+`/tmp/zatca-axis2-parties-local-final.log`,
+`/tmp/zatca-axis2-parties-private-final.log`,
+`/tmp/zatca-axis2-parties-regression-final.log`.
+Manifest250 local/84 private suites was not run in full. New suites add24 local/
+11 private cases, included above. No UI asset changed or new Node/browser result
+is claimed. Synthetic QR evidence gained missing legal/address metadata only;
+financial/golden references and original240 comparison91/117/32 are unchanged.
+All six native entries and Company/device/delegate owners are exercised through
+private custody with ERP/signing/HTTP doubles; this is not installed GL/File/SDK/
+PDF or authority acceptance. No schema, live app/site/service, actual invoice or
+authority API operation occurred. Installed/dummy-company gates remain separate.
+
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
-drain; frozen print/master information
+drain; remaining Letter Head/custom/direct-master/other print information
 and File/external-print compatibility; remaining late/superseded retry review and
 wider rejected/corrected historical transitions; installed GL/File and complete mixed legacy/native
 submitted-invoice batch coordination;

@@ -13,6 +13,7 @@ from .issuance_candidate import IssuanceContractError, _invoice_classification
 from .issue_timestamp import IssueTimestampError
 from .native_dispatch import NativeDispatchError, read_retained_invoice
 from .qr_xml_contract import QRXMLContractError, _clock, _payload
+from .issued_parties import IssuedParties,extract_issued_parties,IssuedPartiesError
 
 
 @dataclass(frozen=True, repr=False)
@@ -33,12 +34,13 @@ class NativeInvoiceArtifact:
     chain_id: str | None = field(default=None, repr=False)
     publication_sha256: str | None = field(default=None, repr=False)
     render_source_sha256: str | None = field(default=None, repr=False)
+    issued_parties: IssuedParties | None = field(default=None,repr=False)
 
     def __reduce_ex__(self, protocol):
         raise TypeError('native_invoice_artifact_not_serializable')
 
 
-def read_native_artifact(doctype, invoice_name, *, runtime, for_publication=False):
+def read_native_artifact(doctype, invoice_name, *, runtime, for_publication=False,for_print=False):
     """Read ACL and current saved identity are checked by the custody reader.
 
     No current signing key, gateway or phase is consulted. A legacy source
@@ -47,6 +49,7 @@ def read_native_artifact(doctype, invoice_name, *, runtime, for_publication=Fals
     Returned metadata matching remains distinct from workstream6 crypto/SDK
     verification and workstream3 financial reconciliation.
     """
+    if for_print and not for_publication:raise NativeDispatchError('native_print_publication_required')
     view = read_retained_invoice(doctype, invoice_name, runtime=runtime,
         require_current_source=for_publication)
     if view is None:
@@ -54,7 +57,7 @@ def read_native_artifact(doctype, invoice_name, *, runtime, for_publication=Fals
     if for_publication and view.state not in (
             'PREPARED', 'DISPATCHING', 'OUTCOME_UNKNOWN', 'REPORTED', 'CLEARED'):
         raise NativeDispatchError('native_publication_state_review')
-    failed = False
+    failed = False;parties=None
     try:
         _code, indicator = _invoice_classification(view.original_xml)
         original_clock = _clock(view.original_xml)
@@ -73,8 +76,12 @@ def read_native_artifact(doctype, invoice_name, *, runtime, for_publication=Fals
             raise NativeDispatchError('native_standard_publication_unconfirmed')
         if content is not view.original_xml and _clock(content) != original_clock:
             raise NativeDispatchError('native_artifact_returned_clock_mismatch')
+        if for_print:
+            parties=extract_issued_parties(view.original_xml)
+            if content is not view.original_xml and extract_issued_parties(content)!=parties:
+                raise NativeDispatchError('native_artifact_returned_parties_mismatch')
         qr, _length = _payload(content)
-    except (ArtifactEvidenceError, IssuanceContractError, IssueTimestampError, QRXMLContractError):
+    except (ArtifactEvidenceError, IssuanceContractError, IssueTimestampError, QRXMLContractError,IssuedPartiesError):
         failed = True
     if failed:
         raise NativeDispatchError('native_artifact_xml_or_qr_review')
@@ -83,4 +90,4 @@ def read_native_artifact(doctype, invoice_name, *, runtime, for_publication=Fals
     return NativeInvoiceArtifact(view.issuance_id, view.state, kind, view.accepted, content, qr,
         hashlib.sha256(content).hexdigest(), hashlib.sha256(qr.encode('ascii')).hexdigest(),
         *original_clock, view.source_sha256, view.invoice_uuid, view.icv, view.chain_id,
-        view.publication_sha256, view.render_source_sha256)
+        view.publication_sha256, view.render_source_sha256,parties)

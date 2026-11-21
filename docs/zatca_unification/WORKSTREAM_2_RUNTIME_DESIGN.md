@@ -1101,3 +1101,12 @@ separate. It prepares linked unsent custody only, without automatic origin/send
 authority. Worker resume and the existing explicit request reconciliation verify
 the exact current linked version and old rejection before local completion:
 [CORRECTED_PREPARATION_COMMAND.md](CORRECTED_PREPARATION_COMMAND.md).
+
+Native print-only artifact selection now extracts immutable saved seller/buyer
+legal/name/ID/VAT/postal projections and compares selected cleared parties to the
+original. The actual before_print hook applies them to supported transient fields
+and party titles after fresh current-source/render verification. A typed local
+stamp/observation adapter supports reprint without excluding arbitrary fiscal
+fields or changing stored profiles. No live master fallback fills absent XML buyer
+values. Header/template/direct-read/File/external/pre-issuance gates remain open:
+[ISSUED_PRINT_PARTIES.md](ISSUED_PRINT_PARTIES.md).
