@@ -150,3 +150,10 @@ receipt assessment and request completion commit together. Unknown/rejected/late
 or contradictory evidence does not authorize completion or transport. Both local
 operator actions use one protected resolution slot; original headers remain:
 [NATIVE_INTENT_RECONCILIATION.md](NATIVE_INTENT_RECONCILIATION.md).
+
+An explicit **Queue Saved Original** action now registers the existing manual
+version-pinned command from an authenticated untouched PREPARED record. It supports
+Standard and Simplified Live/Batches/Background without a second build, while
+unknown/rejected/in-flight states remain held. Background automatic discovery is
+unchanged; automatic non-Background recovery/origin policy remains open:
+[PREPARED_ORIGINAL_RECOVERY.md](PREPARED_ORIGINAL_RECOVERY.md).

@@ -150,6 +150,13 @@ started/uncertain recovery and later PREPARED discovery are still open.
 Installed/dummy-site rehearsals
 retain their specific authorization gates. Workstream2 is not closed.
 
+Explicit untouched-PREPARED recovery now has its own readonly Issuance form action
+which registers the same manual collection command and fixed worker. It handles
+Standard/non-Background originals by deliberate operator authorization, not by
+changing automatic schedule/actor policy. It never rebuilds or retries uncertain
+custody. Automatic non-Background recovery remains open:
+[PREPARED_ORIGINAL_RECOVERY.md](PREPARED_ORIGINAL_RECOVERY.md).
+
 The four existing-XML wrapper/API pairs now use exact private attached-original
 admission and the same owned facade. Retained PREPARED classification is frozen
 from authenticated XML through the shared policy recheck, and version expectations

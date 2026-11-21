@@ -1010,3 +1010,16 @@ the explicitly owned operator scope. Proof readback precedes commit and unknown
 commit acknowledgement is never compensated. Separate installed schema/ERP and
 genuine receipt/signature acceptance gates remain. Details:
 [NATIVE_INTENT_RECONCILIATION.md](NATIVE_INTENT_RECONCILIATION.md).
+
+## Explicit recovery from a prepared Issuance record
+
+The readonly Issuance form now offers a deliberate manual queue action for an
+untouched PREPARED original. Canonical ACL/current-source/custody admission occurs
+in a clean owned read scope; the subsequent parent transaction borrows the shared
+collection registrar with that exact expected version. The existing fixed worker
+reuses saved bytes and repeats policy, actor, credential/route and outcome checks.
+No builder, new artifact or transport runs in registration. Rollback prevents
+queue handoff, and a race to existing acceptance resolves without another send.
+This supports Standard and non-Background manual recovery without silently
+changing automatic origin/actor policy, which remains open. Details:
+[PREPARED_ORIGINAL_RECOVERY.md](PREPARED_ORIGINAL_RECOVERY.md).

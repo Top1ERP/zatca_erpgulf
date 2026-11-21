@@ -319,13 +319,39 @@ original240 comparison remains91 identical/117 review/32 blocked. Live source
 HEAD/tooltip/customer-address hashes remain unchanged. No authority request,
 installed site/schema/service change or actual invoice action occurred.
 
+Explicit untouched-original recovery now has **Queue Saved Original** on the
+readonly Issuance form. It supports Sales/POS, Standard and Simplified, and all
+Live/Background/Batches manual choices. Canonical current source/custody admission
+precedes the existing version-pinned manual registrar/fixed after-commit worker.
+No builder, counter allocation or transport occurs in registration; existing
+unknown/rejected/in-flight custody is not a retry grant. A race to already accepted
+custody resolves its receipt without another send. This is a fresh explicit manual
+authorization, not automatic actor upgrade or a change to Background discovery.
+Details: [PREPARED_ORIGINAL_RECOVERY.md](PREPARED_ORIGINAL_RECOVERY.md).
+
+Latest prepared-recovery qualification:809 local cases across21 suites in4.77s,
+469 private SQL cases across12 suites in49.76s,64 synthetic English/Arabic UI cases
+across2 scripts, and20,751 across fixed81 issuer-binding suites in124.87s. Sets
+overlap. Logs: `/tmp/zatca-axis2-prepared-recovery-local-final.log`,
+`/tmp/zatca-axis2-prepared-recovery-private-final.log`,
+`/tmp/zatca-axis2-prepared-recovery-ui-final.log`,
+`/tmp/zatca-axis2-prepared-recovery-request-ui-final.log`,
+`/tmp/zatca-axis2-prepared-recovery-regression-final.log`.
+Manifest242 local/77 private suites was not run in full. No schema/legacy scheduler
+or financial builder was changed. Private active registrations, ERP/financial
+metadata, signing and HTTP remain fixtures/doubles. No financial reference changed;
+original240 comparison remains91 identical/117 review/32 blocked. Live source HEAD/
+tooltip/customer-address hashes remain unchanged. No live site/service/schema,
+authority request or actual invoice operation was performed.
+
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; frozen print/master information
 and File/external-print compatibility; explicit unchanged retry and
 corrected-clock/operator adoption; installed GL/File and complete mixed legacy/native
 submitted-invoice batch coordination;
 issued-source transitions and remaining unknown/late/unsealed intent resolution, complete
-Standard/non-Background recovery and whole runtime qualification. The new durable handoff is
+automatic Standard/non-Background recovery with authenticated origin/actor policy
+and whole runtime qualification. The new durable handoff is
 not complete crash/delivery recovery. Do not announce3 or installation from these narrower checks.
 Installed15/16, financial review, authentic SDK and the specifically approved
 fictional rehearsal retain their later gates. No live app/site/schema/service

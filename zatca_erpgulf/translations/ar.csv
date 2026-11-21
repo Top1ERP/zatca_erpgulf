@@ -920,3 +920,9 @@ The saved original was verified and the request was completed locally. ZATCA acc
 The saved original and matching response confirm ZATCA acceptance. The request was completed from saved evidence; nothing was sent.,المستند الأصلي والرد المطابق المحفوظان يؤكدان قبول هيئة الزكاة. تم إكمال الطلب من الأدلة المحفوظة دون إرسال أي مستند.
 Reconcile Saved Result,تسوية الطلب من النتيجة المحفوظة
 "Complete this stopped request only from its saved original and matching response, without generating or sending anything?",هل تريد إكمال هذا الطلب المتوقف من مستنده الأصلي والرد المطابق المحفوظين فقط، دون توليد أي مستند أو إرساله؟
+"The saved original could not be queued safely. Review its current invoice, permissions, issuing settings and delivery history. Nothing was regenerated or sent by this action.",تعذر تسجيل طلب إرسال الأصل المحفوظ بأمان. راجع الفاتورة الحالية والصلاحيات وإعدادات الإصدار وسجل الإرسال. لم تتم إعادة توليد أي مستند أو إرساله بهذا الإجراء.
+"A request for the exact saved original was registered and will be queued after commit. This is not ZATCA acceptance. No XML, UUID or invoice counter was regenerated.",تم تسجيل طلب للأصل المحفوظ نفسه وسيضاف إلى الطابور بعد حفظ المعاملة. هذا لا يعني قبول هيئة الزكاة. لم تتم إعادة إنشاء XML أو UUID أو عداد الفاتورة.
+Queue Saved Original,طلب إرسال الأصل المحفوظ
+Saved Original Request,طلب الأصل المحفوظ
+View Request,عرض الطلب
+Register an explicit manual request to send this exact saved original? No XML or invoice identity will be regenerated. This is not an unknown-outcome retry.,هل تريد تسجيل طلب يدوي لإرسال هذا الأصل المحفوظ نفسه؟ لن تتم إعادة إنشاء XML أو هوية الفاتورة. هذا الإجراء لا يعيد إرسال محاولة مجهولة النتيجة.
