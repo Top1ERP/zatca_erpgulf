@@ -1115,6 +1115,14 @@ Named saved native sources without an issuance marker now receive a saved-policy
 selected-owner print hold before they can fall back to a legacy QR. It uses the
 shared owner selector in READ mode; processing retains WRITE. Phase1/disabled/
 legacy paths and historical custody selection remain unchanged. No preparation,
-request finalization, enqueue or transport occurs in print. Before-issuance Desk
-preview and installed/external print remain open:
+request finalization, enqueue or transport occurs in print. Installed/external
+print remains open:
 [NATIVE_PRINT_ADMISSION.md](NATIVE_PRINT_ADMISSION.md).
+
+The existing Desk preview now classifies saved ownership before attempting custody:
+LEGACY restores the normal QR field; UNISSUED supplies one waiting message without
+an Error Log or issuance/QR/acceptance claim. A newly issued original found behind
+an unmarked form requires an invoice refresh, with no model mutation or old/new
+field mixing. Company/device token guards and strict contradictory-status handling
+protect late reads. No polling/worker/transport is introduced:
+[NATIVE_PREVIEW_ADMISSION.md](NATIVE_PREVIEW_ADMISSION.md).

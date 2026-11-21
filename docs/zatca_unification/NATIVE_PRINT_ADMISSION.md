@@ -65,7 +65,9 @@ This is the fixed application's before_print boundary, not an enforcement layer
 for arbitrary privileged Python/SQL or external engines that bypass it. Owner
 selection is a point-in-time read, not a perpetual render or rollout-change lease.
 It does not invent a historical chain when source markers were manually removed.
-Desk previews before issuance, Letter Head/custom direct master reads, other print
+Desk previews now share this saved-owner decision:
+[NATIVE_PREVIEW_ADMISSION.md](NATIVE_PREVIEW_ADMISSION.md).
+Letter Head/custom direct master reads, other print
 values, later overriding hooks, saved File/sidebar consumers and installed POS/
 HTML/PDF qualification remain open. Do not infer whole print/workstream2 closure.
 

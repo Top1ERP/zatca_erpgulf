@@ -10,6 +10,8 @@ const review = "The saved ZATCA document cannot be displayed or printed safely. 
 const save = "Save or discard invoice changes before viewing the issued ZATCA document.";
 const pending = "Generated document; ZATCA acceptance is not confirmed.";
 const accepted = "ZATCA acceptance is confirmed by the saved response.";
+const unissued = "This invoice uses the native ZATCA issuance path, but no verified saved print document is available yet. Review its saved preparation request and issuing unit, then refresh after preparation. Printing did not generate or send a document.";
+const reload = "The saved invoice now has a ZATCA issued document. Refresh the invoice to view its matching XML and QR code. No document was generated or sent by this view.";
 let count = 0;
 
 function setup(lang, doctype) {
@@ -93,17 +95,16 @@ async function main() {
             assert.equal(b.buttons.size, 0);
             count++;
         }
-        for (const mutation of ["legacy", "dirty", "local", "unknown-dirty"]) {
+        for (const mutation of ["dirty", "local", "unknown-dirty"]) {
             const b = setup(lang, doctype);
-            if (mutation === "legacy") b.frm.doc.custom_zatca_issuing_unit = "LEGACY";
             if (mutation === "dirty") b.dirty = true;
             if (mutation === "local") b.frm.doc.__islocal = true;
             if (mutation === "unknown-dirty") delete b.frm.is_dirty;
             await b.run(); assert.equal(b.calls.length, 0);
-            assert.deepEqual(b.text(), mutation === "legacy" ? [] : [b.t(save)]);
+            assert.deepEqual(b.text(), [b.t(save)]);
             count++;
         }
-        for (const change of ["route", "active-form", "doc-object", "name", "uuid", "icv", "marker", "modified", "dirty"]) {
+        for (const change of ["route", "active-form", "doc-object", "name", "uuid", "icv", "marker", "modified", "dirty", "company", "device"]) {
             const b = setup(lang, doctype), task = b.run();
             if (change === "route") b.route = ["List", doctype];
             if (change === "active-form") b.context.cur_frm = {};
@@ -114,6 +115,8 @@ async function main() {
             if (change === "marker") b.frm.doc.custom_zatca_issuing_unit = "OTHER";
             if (change === "modified") b.frm.doc.modified = "v2";
             if (change === "dirty") b.dirty = true;
+            if (change === "company") b.frm.doc.company = "OTHER";
+            if (change === "device") b.frm.doc.custom_zatca_pos_name = "OTHER";
             b.resolve({ message: b.ready() }); await task;
             assert.equal(b.visible().length, 0);
             assert.equal(b.opened.length, 0);
@@ -141,9 +144,67 @@ async function main() {
         oldResolve({ message: b.ready(false) }); await old;
         assert.deepEqual(b.text(), [b.t(accepted)]); count++;
         b.frm.doc.custom_zatca_issuing_unit = "LEGACY";
-        await b.run();
+        const legacy = b.run(); b.resolve({ message: { status: "LEGACY" } }); await legacy;
         assert.equal(b.frm.fields_dict.ksa_einv_qr.df.hidden, false);
         assert.equal(b.visible().length, 0); count++;
+
+        for (const hidden of [false, true]) for (const dirty of [false, true]) {
+            const c = setup(lang, doctype);
+            c.frm.doc.custom_zatca_issuing_unit = null;
+            c.frm.fields_dict.ksa_einv_qr.df.hidden = hidden; c.dirty = dirty;
+            const original = JSON.stringify(c.frm.doc), task = c.run();
+            assert.equal(c.frm.fields_dict.ksa_einv_qr.df.hidden, true);
+            c.resolve({ message: { status: "LEGACY" } }); await task;
+            assert.equal(c.frm.fields_dict.ksa_einv_qr.df.hidden, hidden);
+            assert.equal(c.buttons.size, 0); assert.deepEqual(c.text(), []);
+            assert.equal(JSON.stringify(c.frm.doc), original); count++;
+        }
+        for (const timing of ["clean", "initial-dirty", "during-read", "after-read"]) {
+            const c = setup(lang, doctype); c.frm.doc.custom_zatca_issuing_unit = null;
+            if (timing === "initial-dirty") c.dirty = true;
+            const original = JSON.stringify(c.frm.doc), task = c.run();
+            if (timing === "during-read") { c.dirty = true; c.onDirty(); }
+            c.resolve({ message: { status: "UNISSUED", message: "IGNORED <script>" } }); await task;
+            assert.deepEqual(c.text(), [c.t(c.dirty ? save : unissued)]);
+            assert.equal(c.visible()[0].body.children.length, 1);
+            assert.equal(c.buttons.size, 1); assert.equal(c.opened.length, 0);
+            if (timing === "after-read") {
+                c.dirty = true; c.onDirty(); assert.deepEqual(c.text(), [c.t(save)]);
+                assert.equal(c.buttons.size, 0);
+            }
+            assert.equal(c.frm.fields_dict.ksa_einv_qr.df.hidden, true);
+            assert.equal(JSON.stringify(c.frm.doc), original); count++;
+        }
+        for (const status of ["LEGACY", "UNISSUED"]) {
+            const c = setup(lang, doctype), task = c.run();
+            c.resolve({ message: status === "LEGACY" ? { status } : { status, message: "IGNORED" } }); await task;
+            assert.deepEqual(c.text(), [c.t(review)]);
+            assert.equal(c.frm.fields_dict.ksa_einv_qr.df.hidden, true); count++;
+        }
+        for (const fault of ["failure", "forged-unissued", "forged-legacy", "newly-issued"]) {
+            const c = setup(lang, doctype); c.frm.doc.custom_zatca_issuing_unit = null;
+            const original = JSON.stringify(c.frm.doc), task = c.run();
+            if (fault === "failure") c.reject(new Error("PRIVATE"));
+            else c.resolve({ message: fault === "newly-issued" ? c.ready(true) :
+                { status: fault === "forged-unissued" ? "UNISSUED" : "LEGACY", message: "IGNORED", qr_data_uri: "PRIVATE" } });
+            await task;
+            assert.deepEqual(c.text(), [c.t(fault === "newly-issued" ? reload : review)]);
+            assert.equal(c.visible()[0].body.children.length, 1);
+            assert.equal(c.buttons.size, 1); assert.equal(c.opened.length, 0);
+            assert.equal(JSON.stringify(c.frm.doc), original); count++;
+        }
+        for (const local of [false, true]) {
+            const c = setup(lang, doctype); c.frm.doc.custom_zatca_issuing_unit = null;
+            if (local) c.frm.doc.__islocal = true; else c.frm.doc.name = null;
+            await c.run(); assert.equal(c.calls.length, 0);
+            assert.equal(c.frm.fields_dict.ksa_einv_qr.df.hidden, false); count++;
+        }
+        const c = setup(lang, doctype); c.frm.doc.custom_zatca_issuing_unit = null;
+        const first = c.run(), resolveFirst = c.resolve, next = c.run();
+        c.resolve({ message: { status: "UNISSUED", message: "IGNORED" } }); await next;
+        resolveFirst({ message: { status: "LEGACY" } }); await first;
+        assert.deepEqual(c.text(), [c.t(unissued)]);
+        assert.equal(c.frm.fields_dict.ksa_einv_qr.df.hidden, true); count++;
     }
     console.log(`${count} native publication UI cases passed (synthetic VM only).`);
 }

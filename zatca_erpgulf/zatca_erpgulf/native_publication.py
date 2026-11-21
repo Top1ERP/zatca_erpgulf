@@ -26,7 +26,7 @@ from .operation_messages import mute_operation_messages
 from .worker_transaction import WorkerTransactionError
 from .issued_parties import IssuedPartiesError
 from .issued_print import render_input,apply_issued_parties
-from .native_provider import _schema_available, _selection
+from .native_provider import _schema_available, _selection, _permitted
 from .zatca_runtime import is_zatca_invoice_enabled, resolve_zatca_phase, PHASE_2_VALUE
 
 
@@ -118,6 +118,18 @@ def _reviewed(operation, *, runtime, translate, return_review=False):
 
 def preview_result(doctype, invoice_name, *, runtime, translate):
     def operation():
+        _identity(doctype, invoice_name)
+        saved = runtime.get_doc(doctype, invoice_name)
+        if (saved.doctype, saved.name) != (doctype, invoice_name):
+            raise NativePublicationError('native_publication_source_identity')
+        # Classification is available without installed native storage/keys on
+        # older or Phase1 sites, but never without saved-source READ permission.
+        _permitted(runtime, saved)
+        marker = saved.get('custom_zatca_issuing_unit')
+        if type(marker) is not str or not marker.startswith('egs:'):
+            if _unissued_native_selected(saved, runtime=runtime):
+                return {'status': 'UNISSUED', 'message': translate(UNISSUED)}
+            return {'status': 'LEGACY'}
         artifact, image = load_publication(doctype, invoice_name, runtime=runtime)
         return {'status': 'READY', 'issuance_id': artifact.issuance_id,
             'state': artifact.state, 'accepted': artifact.accepted,
@@ -138,7 +150,7 @@ def _response(content, content_type, *, filename=None):
 
 @frappe.whitelist(methods=['GET'])
 def preview(doctype, invoice_name):
-    """Identifiers only; Source and Company READ are checked inside custody."""
+    """Identifiers only; saved selection precedes any native custody read."""
     result = preview_result(doctype, invoice_name, runtime=frappe, translate=_)
     # Frappe passes Response through; retain frappe.call's normal message shape
     # while giving QR JSON the same no-store policy as XML downloads.
@@ -176,7 +188,7 @@ def download_original(doctype, invoice_name, issuance_id):
     return xml_response(doctype, invoice_name, issuance_id, original=True, runtime=frappe, translate=_)
 
 
-def _require_legacy_print_selection(saved, *, runtime):
+def _unissued_native_selected(saved, *, runtime):
     """Do not treat the worker's not-yet-issued native source as legacy.
 
     Inspect saved policy before owner resolution so Phase1/disabled sites keep
@@ -185,14 +197,13 @@ def _require_legacy_print_selection(saved, *, runtime):
     this check neither creates a request nor promises that one is queued.
     """
     if not _schema_available(runtime):
-        return
+        return False
     company = runtime.get_doc('Company', saved.company)
     if (company.doctype, company.name) != ('Company', saved.company):
         raise NativePublicationError('native_publication_company_identity')
     if not is_zatca_invoice_enabled(company) or resolve_zatca_phase(company) != PHASE_2_VALUE:
-        return
-    if _selection(runtime, saved.doctype, saved.name, saved, write=False) is not None:
-        raise NativePublicationError('native_publication_unissued', UNISSUED)
+        return False
+    return _selection(runtime, saved.doctype, saved.name, saved, write=False) is not None
 
 
 def before_print(doc, method=None, print_settings=None):
@@ -210,7 +221,8 @@ def before_print(doc, method=None, print_settings=None):
         saved = frappe.get_doc(doc.doctype, doc.name)
         marker = saved.get('custom_zatca_issuing_unit')
         if type(marker) is not str or not marker.startswith('egs:'):
-            _require_legacy_print_selection(saved, runtime=frappe)
+            if _unissued_native_selected(saved, runtime=frappe):
+                raise NativePublicationError('native_publication_unissued', UNISSUED)
             return
         artifact, image = load_publication(doc.doctype, doc.name, runtime=frappe, render_document=doc)
         apply_issued_parties(doc,artifact.issued_parties,runtime=frappe,issuance_id=artifact.issuance_id)

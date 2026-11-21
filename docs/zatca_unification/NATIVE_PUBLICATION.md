@@ -90,8 +90,10 @@ Still open: Letter Head/custom direct master reads, other dynamic print values,
 saved File/link and attachment-sidebar consumers; external integrations bypassing
 `before_print`; actual browser/print/PDF/scanning, installed15/16 and authentic SDK
 qualification. Named unissued native sources now have an explicit saved-owner
-print hold: [NATIVE_PRINT_ADMISSION.md](NATIVE_PRINT_ADMISSION.md). Desk previews
-before issuance and external bypasses remain open. Installed/fictional-site rehearsals require their
+print hold: [NATIVE_PRINT_ADMISSION.md](NATIVE_PRINT_ADMISSION.md). The existing
+Desk preview now shares that saved-owner decision and restores confirmed legacy
+visibility: [NATIVE_PREVIEW_ADMISSION.md](NATIVE_PREVIEW_ADMISSION.md). External
+bypasses remain open. Installed/fictional-site rehearsals require their
 separate authorization. On-demand views are not File compatibility closure.
 
 ## Evidence

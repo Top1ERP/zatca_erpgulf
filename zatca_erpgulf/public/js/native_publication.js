@@ -6,8 +6,11 @@
     const labels = ["Download issued ZATCA XML", "Download original ZATCA XML", "Refresh issued ZATCA document"];
     const review = "The saved ZATCA document cannot be displayed or printed safely. Review its issuance, response and saved invoice data. No document was regenerated or sent.";
     const save = "Save or discard invoice changes before viewing the issued ZATCA document.";
+    const unissued = "This invoice uses the native ZATCA issuance path, but no verified saved print document is available yet. Review its saved preparation request and issuing unit, then refresh after preparation. Printing did not generate or send a document.";
+    const reload = "The saved invoice now has a ZATCA issued document. Refresh the invoice to view its matching XML and QR code. No document was generated or sent by this view.";
     const signature = doc => JSON.stringify([doc.doctype, doc.name, doc.modified,
-        doc.custom_uuid, doc.custom_zatca_icv, doc.custom_zatca_issuing_unit]);
+        doc.custom_uuid, doc.custom_zatca_icv, doc.custom_zatca_issuing_unit,
+        doc.company, doc.custom_zatca_pos_name]);
     const clean = frm => typeof frm.is_dirty === "function" && !frm.is_dirty() && !frm.doc.__islocal;
     function active(frm, token) {
         const route = frappe.get_route();
@@ -16,15 +19,16 @@
             route[1] === token.doc.doctype && route[2] === token.doc.name;
     }
     function clear(frm) {
+        frm.$wrapper.off("dirty.zatca_native_publication");
         const previous = views.get(frm);
         previous?.section?.closest(".native-zatca-publication").remove();
         if (previous?.fieldVisibility !== undefined) frm.toggle_display("ksa_einv_qr", previous.fieldVisibility);
         for (const label of labels) frm.remove_custom_button(__(label), group());
         views.delete(frm);
     }
-    function newToken(frm) {
+    function newToken(frm, native) {
         const field = frm.fields_dict?.ksa_einv_qr;
-        const token = { doc: frm.doc, signature: signature(frm.doc) };
+        const token = { doc: frm.doc, signature: signature(frm.doc), native };
         if (field) {
             token.fieldVisibility = !field.df.hidden;
             frm.toggle_display("ksa_einv_qr", false);
@@ -59,20 +63,23 @@
         clear(frm);
         const marker = frm.doc.custom_zatca_issuing_unit;
         const native = typeof marker === "string" && marker.startsWith("egs:");
-        if (!native) return;
-        // Suppress an old persisted field in this native form. Printing resolves
-        // the normal field server-side; the preview never changes model data.
-        const token = newToken(frm);
+        if (!native && (!frm.doc.name || frm.doc.__islocal)) return;
+        // Until saved-owner classification completes, an unmarked source may
+        // still be native. Restore the legacy field only on a confirmed LEGACY
+        // result; no guessed phase, polling timer or model write is involved.
+        const token = newToken(frm, native);
         views.set(frm, token);
         if (!active(frm, token)) return;
         frm.$wrapper.off("dirty.zatca_native_publication").on("dirty.zatca_native_publication", () => {
             if (views.get(frm) !== token) return;
+            token.dirty = true;
+            if (!token.native) return; // Pending classification may still prove legacy.
             clear(frm);
-            const dirty = newToken(frm);
+            const dirty = newToken(frm, true);
             views.set(frm, dirty);
             section(frm, dirty, __(save));
         });
-        if (!clean(frm)) { section(frm, token, __(save)); return; }
+        if (native && !clean(frm)) { section(frm, token, __(save)); return; }
         frm.add_custom_button(__(labels[2]), () => refresh(frm), group());
         let result;
         try {
@@ -84,8 +91,24 @@
             });
             result = response?.message;
         } catch (error) { result = null; }
-        if (!active(frm, token) || !clean(frm)) return;
+        if (!active(frm, token)) return;
+        if (native && !clean(frm)) return;
+        if (result?.status === "LEGACY" && Object.keys(result).length === 1 && !native) {
+            clear(frm);
+            return;
+        }
+        if (result?.status === "UNISSUED" && Object.keys(result).length === 2 &&
+                typeof result.message === "string" && !native) {
+            token.native = true;
+            section(frm, token, __(!clean(frm) || token.dirty ? save : unissued));
+            return;
+        }
         if (!valid(result)) { section(frm, token, __(review)); return; }
+        token.native = true;
+        if (!clean(frm) || token.dirty) { section(frm, token, __(save)); return; }
+        // Saved custody may have appeared since this unmarked form loaded.
+        // Do not place its QR beside stale form fields or mutate those fields.
+        if (!native) { section(frm, token, __(reload)); return; }
         // Translate display text only; do not localize states or persisted logs.
         const message = result.accepted ? "ZATCA acceptance is confirmed by the saved response." :
             "Generated document; ZATCA acceptance is not confirmed.";

@@ -590,6 +590,31 @@ HTTP only. No live source/site/schema/service or authority API was touched.
 Before-issuance Desk preview, later/external print and installed/PDF acceptance
 remain open; this package does not close workstream2 or authorize installation.
 
+Desk previews now share saved-owner admission before native custody. LEGACY
+restores ordinary field visibility; UNISSUED returns one waiting message without
+QR/issuance/acceptance or an Error Log. Named forms perform one fixed local GET
+per refresh with no polling. Failure holds the old QR hidden. Company/device/
+revision/dirty tokens exclude late mismatched results; newly discovered custody
+behind an unmarked form requires invoice refresh without model writes. Processing
+still needs WRITE, preview READ only. No request/counter/File/commit/transport side
+effect is introduced. Details:
+[NATIVE_PREVIEW_ADMISSION.md](NATIVE_PREVIEW_ADMISSION.md).
+
+Latest preview-admission qualification:620 local cases across15 suites in3.27s,
+172 private cases across6 suites in28.67s,172 native preview VM cases and108 Company
+message VM cases. Logs:
+`/tmp/zatca-axis2-preview-admission-local-final.log`,
+`/tmp/zatca-axis2-preview-admission-private-first.log`,
+`/tmp/zatca-axis2-preview-admission-ui-final.log`,
+`/tmp/zatca-axis2-preview-admission-company-ui.log`.
+New suites add17 local/10 private, included above. The passing private first run
+is final private evidence. Manifest252 local/86 private was not run in full. No
+financial/golden reference changed; original240 remains91/117/32. Fixture SQL and
+synthetic ERP/signing/HTTP do not qualify installed browser/PDF/SDK or authority
+acceptance. No live source/site/schema/service or authority endpoint was touched.
+This closes the implemented pre-issuance Desk gap, not workstream2 or the later
+external print and application acceptance boundaries.
+
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; remaining Letter Head/custom/direct-master/other print information
 and File/external-print compatibility; remaining late/superseded retry review and
