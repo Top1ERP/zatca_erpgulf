@@ -1043,3 +1043,21 @@ DB/physical connection remain pinned. No commit-unknown compensation or authorit
 transport occurs in discovery. Missing origin now holds old native records for
 explicit manual action; no origin is backfilled from ERP owner fields. Details:
 [ISSUANCE_ORIGIN_RECOVERY.md](ISSUANCE_ORIGIN_RECOVERY.md).
+
+## Explicit unchanged retry operator
+
+The Attempt form now registers a deliberate exact retry through the same durable
+command/callback/worker lifecycle. retry-v1 has its own cipher domain and immutable
+prior attempt/fence plus exact version, with matching nullable physical indexes.
+Ordinary submit/collection/recovery shapes cannot claim that authority. Staging,
+before-commit finalization and actual reservation repeat the current gate.
+
+Lease/chain eligibility was factored from existing reservation into one shared
+repository method. The owned retry evidence boundary additionally opens encrypted
+original/receipt custody and reruns the canonical assessor for received technical/
+authentication failures; mutable labels cannot bypass a reservation. Explicit
+expired-unknown retry retains exact invoice bytes/identity and may still duplicate
+a prior remote invocation. No new generation or automatic unknown replay occurs.
+Current matched acceptance racing the command resolves without another send;
+303 Reporting continuity uses its existing saved fallback evidence. Details:
+[EXACT_RETRY_OPERATOR.md](EXACT_RETRY_OPERATOR.md).

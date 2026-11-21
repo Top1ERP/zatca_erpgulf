@@ -376,9 +376,40 @@ installed ERP15/16 or genuine SDK/authority acceptance. Original240 financial
 comparison stays91 identical/117 review/32 blocked. No live source/site/schema,
 worker/service, authority API or actual invoice operation was changed or invoked.
 
+Explicit unchanged retry now has a readonly Attempt-form action and separate
+retry-v1 authenticated command through the same store/callback/fixed-worker path.
+The exact saved version, prior attempt and prior fence are bound to the reviewer.
+Unknown/unreceived attempts require server lease expiry; received technical/auth
+failures are rederived from encrypted original/receipt custody. Staging, before
+commit and actual reservation repeat the gate. No automatic unknown replay or
+new invoice identity is introduced. Matching late-current acceptance can resolve
+the queued request without another send, and303 Reporting continuity preserves
+the original body. Details: [EXACT_RETRY_OPERATOR.md](EXACT_RETRY_OPERATOR.md).
+
+The shared repository lease check and borrowed command callback arming were
+factored for reuse. Original submit/collection/recovery header bytes and domains
+remain unchanged with NULL retry indexes. New retry_attempt_id/retry_fence_token
+columns are source-only declarations; no installed migration/backfill occurred.
+No financial builder/reference, XML/UUID/hash/ICV or PIH was changed by staging.
+
+Latest exact-retry qualification:860 local cases across24 suites in5.84s,
+514 private SQL cases across14 suites in54.05s,94 synthetic English/Arabic UI cases
+across3 scripts, and20,751 across fixed81 issuer-binding suites in120.37s. Sets
+overlap. Logs: `/tmp/zatca-axis2-exact-retry-local-final.log`,
+`/tmp/zatca-axis2-exact-retry-private-final.log`,
+`/tmp/zatca-axis2-exact-retry-ui-final.log`,
+`/tmp/zatca-axis2-exact-retry-prepared-ui-final.log`,
+`/tmp/zatca-axis2-exact-retry-request-ui-final.log`,
+`/tmp/zatca-axis2-exact-retry-regression-final.log`.
+Manifest244 local/79 private suites was not run in full. Private active registration,
+ERP/financial/signing and HTTP inputs remain fixtures/doubles; this is not installed
+ERP15/16 or genuine SDK/authority acceptance. Original240 financial comparison
+remains91 identical/117 review/32 blocked. No live source/site/schema/service,
+authority request or actual invoice retry was performed.
+
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; frozen print/master information
-and File/external-print compatibility; explicit unchanged retry and
+and File/external-print compatibility; remaining late/superseded retry review and
 corrected-clock/operator adoption; installed GL/File and complete mixed legacy/native
 submitted-invoice batch coordination;
 issued-source transitions and remaining unknown/late/unsealed intent resolution, complete

@@ -99,7 +99,7 @@ def _result(doctype,name,value):
             'reused':value.reused_accepted,'source_projected':value.source_projected}
 
 
-def _run(doctype,invoice_name,*,runtime,translate,build,intent,source,expected_issuance_id=None):
+def _run(doctype,invoice_name,*,runtime,translate,build,intent,source,expected_issuance_id=None,retry_attempt_id=None,retry_fence_token=None):
     if doctype not in ('Sales Invoice','POS Invoice') or type(invoice_name) is not str or not invoice_name or not callable(build):
         raise NativeProviderError('native_provider_source_identity')
     if active_preparation(runtime) is not None:
@@ -110,10 +110,11 @@ def _run(doctype,invoice_name,*,runtime,translate,build,intent,source,expected_i
     source,company=selection
     with mute_operation_messages(runtime):
         return _run_selected(doctype,invoice_name,runtime=runtime,translate=translate,build=build,
-            intent=intent,source=source,company=company,expected_issuance_id=expected_issuance_id)
+            intent=intent,source=source,company=company,expected_issuance_id=expected_issuance_id,
+            retry_attempt_id=retry_attempt_id,retry_fence_token=retry_fence_token)
 
 
-def _run_selected(doctype,invoice_name,*,runtime,translate,build,intent,source,company,expected_issuance_id=None):
+def _run_selected(doctype,invoice_name,*,runtime,translate,build,intent,source,company,expected_issuance_id=None,retry_attempt_id=None,retry_fence_token=None):
     if not is_zatca_invoice_enabled(company) or resolve_zatca_phase(company)!=PHASE_2_VALUE:
         return {'status':'SKIPPED','accepted':False,'reason':'company_policy_changed'}
     retained=read_retained_invoice(doctype,invoice_name,runtime=runtime,
@@ -126,13 +127,20 @@ def _run_selected(doctype,invoice_name,*,runtime,translate,build,intent,source,c
         return _result(doctype,invoice_name,value)
     if not native_mode_enabled(runtime):
         raise NativeProviderError('native_provider_rollout_disabled')
-    if retained is not None and retained.state!='PREPARED':
+    retry=intent=='retry'
+    if retry:
+        if (retained is None or expected_issuance_id is None or retry_attempt_id is None or retry_fence_token is None
+                or retained.state not in ('DISPATCHING','OUTCOME_UNKNOWN') or retained.attempt_id!=retry_attempt_id):
+            raise NativeProviderError('native_explicit_retry_binding')
+    elif retry_attempt_id is not None or retry_fence_token is not None:
+        raise NativeProviderError('native_explicit_retry_operation')
+    if not retry and retained is not None and retained.state!='PREPARED':
         # A closed schedule cannot hide an already uncertain/rejected original
         # behind a harmless waiting result. Ordinary processing never retries it.
         return {'status':'ERROR' if retained.state=='REJECTED' else 'REVIEW','accepted':False,
             'source_doctype':doctype,'source_name':invoice_name,'issuance_id':retained.issuance_id,
             'state':retained.state,'reused':True}
-    effective_intent=intent
+    effective_intent='manual' if retry else intent
     origin=None
     if intent=='recovery':
         if (retained is None or expected_issuance_id is None or retained.attempt_id is not None
@@ -144,7 +152,7 @@ def _run_selected(doctype,invoice_name,*,runtime,translate,build,intent,source,c
         effective_intent=origin['intent']
     customer=runtime.get_doc('Customer',source.customer)
     _permitted(runtime,customer)
-    original_xml=retained.original_xml if retained is not None and retained.state=='PREPARED' else None
+    original_xml=retained.original_xml if retained is not None and (retained.state=='PREPARED' or retry) else None
     decision=delivery_decision(company,customer,effective_intent,original_xml=original_xml)
     if origin is not None and (decision.method!=origin['method'] or decision.simplified!=origin['simplified']
             or decision.action=='PREPARE'):
@@ -163,7 +171,8 @@ def _run_selected(doctype,invoice_name,*,runtime,translate,build,intent,source,c
         expected={'expected_issuance_id':retained.issuance_id}
     with native_delivery(runtime,source,effective_intent,decision,original_xml=original_xml):
         operation=prepare_saved_invoice if decision.action=='PREPARE' else dispatch_saved_invoice
-        value=operation(doctype,invoice_name,runtime=runtime,translate=translate,build=build,**expected)
+        value=operation(doctype,invoice_name,runtime=runtime,translate=translate,build=build,**expected,
+            **({'retry_attempt_id':retry_attempt_id,'retry_fence_token':retry_fence_token} if retry else {}))
     return _result(doctype,invoice_name,value)
 
 

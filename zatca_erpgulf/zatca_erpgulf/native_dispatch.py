@@ -367,7 +367,7 @@ def _prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build,reject
             return RetainedNativeIssuance(record_id,'PREPARED',False,doctype,invoice_name)
 
 
-def reserve_saved_issuance(doctype,invoice_name,*,runtime,translate,supersedes_attempt=None,expected_issuance_id=None):
+def reserve_saved_issuance(doctype,invoice_name,*,runtime,translate,supersedes_attempt=None,expected_issuance_id=None,expected_prior_fence=None):
     """Commit the attempt reservation, then release a transient exact invocation.
 
     No public retry flag or artifact re-creation. An uncertain commit raises
@@ -409,6 +409,14 @@ def reserve_saved_issuance(doctype,invoice_name,*,runtime,translate,supersedes_a
                     or locked.get('custom_zatca_issuing_unit')!='egs:'+chain['record_id']):
                 raise NativeDispatchError('native_source_issuance_outputs_review')
             attempt_id,fence=str(uuid4()),str(uuid4())
+            if expected_prior_fence is not None:
+                prior=repository._attempt(supersedes_attempt)
+                if prior['fence_token']!=expected_prior_fence:
+                    raise NativeDispatchError('native_retry_prior_fence_changed')
+            if supersedes_attempt is not None and issuance['state'] in ('DISPATCHING','OUTCOME_UNKNOWN'):
+                from .retry_evidence import require_retry_evidence
+                require_retry_evidence(repository,chain,issuance,attempt_id=supersedes_attempt,
+                    expected_fence=expected_prior_fence,now_utc=owner.utc_now())
             reserved=repository.start_attempt(chain,issuance,record_id=attempt_id,fence_token=fence,
                 actor=owner.actor,now_utc=owner.utc_now(),supersedes_attempt=supersedes_attempt)
             route=resolve_api_route(scope.company.values,reserved['endpoint'])
@@ -580,7 +588,7 @@ def _project_source_status(doctype, invoice_name, *, runtime, readonly_cache=Fal
 
 
 def dispatch_saved_invoice(doctype, invoice_name, *, runtime, translate, build, retry_attempt_id=None,
-                           expected_issuance_id=None):
+                           expected_issuance_id=None,retry_fence_token=None):
     """One native preparation, exact dispatch/custody and bounded303 fallback.
 
     Internal coordinator only, not a whitelisted RPC or public build callback.
@@ -607,9 +615,10 @@ def dispatch_saved_invoice(doctype, invoice_name, *, runtime, translate, build, 
     if retained is None:
         prepare_saved_invoice(doctype, invoice_name, runtime=runtime, translate=translate, build=build)
     supersedes = retry_attempt_id
-    for _ in range(2):
+    for step in range(2):
         invocation = reserve_saved_issuance(doctype, invoice_name, runtime=runtime,
-            translate=translate, supersedes_attempt=supersedes,**expected)
+            translate=translate, supersedes_attempt=supersedes,**expected,
+            **({'expected_prior_fence':retry_fence_token} if step==0 and retry_fence_token is not None else {}))
         response = None
         transport_error = None
         try:

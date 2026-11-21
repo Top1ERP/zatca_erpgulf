@@ -447,24 +447,9 @@ class DispatchStore:
                 endpoint=ENDPOINTS[0]
                 number=prior['attempt_number']+1
             elif issuance['state'] in ('DISPATCHING','OUTCOME_UNKNOWN'):
-                if not previous or supersedes_attempt!=previous or chain['active_attempt'] not in (None,previous):
-                    raise DispatchStoreError('dispatch_retry_review_required')
-                prior=self._attempt(previous)
-                retained_failure=(prior['state']=='RESPONSE_RETAINED'
-                    and prior['outcome'] in ('AUTHORIZATION_FAILED','TECHNICAL_FAILURE')
-                    and issuance['state']=='OUTCOME_UNKNOWN' and chain['active_attempt'] is None)
-                if (prior['issuance']!=issuance['record_id'] or prior['request_sha256']!=issuance['artifact_sha256']
-                        or (not retained_failure and (prior['state'] not in ('STARTED','OUTCOME_UNKNOWN')
-                            or chain['active_attempt']!=previous
-                            or type(prior['lease_expires_at_utc']) is not datetime
-                            or prior['lease_expires_at_utc']>now_utc))):
-                    raise DispatchStoreError('dispatch_attempt_busy')
+                prior=self.require_uncertain_retry(chain,issuance,attempt_id=supersedes_attempt,now_utc=now_utc)
                 number=prior['attempt_number']+1
                 endpoint=prior['endpoint']
-                if endpoint!=issuance['endpoint']:
-                    if endpoint!=ENDPOINTS[0] or issuance['endpoint']!=ENDPOINTS[1]:
-                        raise DispatchStoreError('dispatch_attempt_endpoint')
-                    self.open_clearance_fallback(issuance)
             else:raise DispatchStoreError('dispatch_attempt_state_review')
             if type(number) is not int or not 1<=number<=2147483647:
                 raise DispatchStoreError('dispatch_attempt_number')
@@ -489,6 +474,35 @@ class DispatchStore:
                 'WHERE name=%s AND state_version=%s',(record_id,chain['record_id'],chain['state_version']))
             self._changed_once()
             return MappingProxyType(header)
+
+    def require_uncertain_retry(self,chain,issuance,*,attempt_id,now_utc,expected_fence=None):
+        """Shared reservation eligibility; expiry alone never proves rejection.
+
+        The owned coordinator separately authenticates any retained failure
+        response. This repository check does not authorize transport or commit.
+        """
+        with self._operation():
+            self._require_locked(chain,issuance)
+            previous=issuance['active_attempt']
+            if (issuance['state'] not in ('DISPATCHING','OUTCOME_UNKNOWN') or not previous
+                    or attempt_id!=previous or chain['active_attempt'] not in (None,previous)
+                    or type(now_utc) is not datetime or now_utc.tzinfo is not None):
+                raise DispatchStoreError('dispatch_retry_review_required')
+            prior=self._attempt(previous)
+            retained_failure=(prior['state']=='RESPONSE_RETAINED'
+                and prior['outcome'] in ('AUTHORIZATION_FAILED','TECHNICAL_FAILURE')
+                and issuance['state']=='OUTCOME_UNKNOWN' and chain['active_attempt'] is None)
+            if (prior['issuance']!=issuance['record_id'] or prior['request_sha256']!=issuance['artifact_sha256']
+                    or expected_fence is not None and prior['fence_token']!=expected_fence
+                    or (not retained_failure and (prior['state'] not in ('STARTED','OUTCOME_UNKNOWN')
+                        or chain['active_attempt']!=previous or type(prior['lease_expires_at_utc']) is not datetime
+                        or prior['lease_expires_at_utc']>now_utc))):
+                raise DispatchStoreError('dispatch_attempt_busy')
+            if prior['endpoint']!=issuance['endpoint']:
+                if prior['endpoint']!=ENDPOINTS[0] or issuance['endpoint']!=ENDPOINTS[1]:
+                    raise DispatchStoreError('dispatch_attempt_endpoint')
+                self.open_clearance_fallback(issuance)
+            return MappingProxyType(prior)
 
     def mark_attempt_unknown(self,chain,issuance,*,attempt_id,fence_token):
         """An interrupted invocation is not a rejection or permission to reissue."""

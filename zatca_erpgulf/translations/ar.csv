@@ -926,3 +926,8 @@ Queue Saved Original,طلب إرسال الأصل المحفوظ
 Saved Original Request,طلب الأصل المحفوظ
 View Request,عرض الطلب
 Register an explicit manual request to send this exact saved original? No XML or invoice identity will be regenerated. This is not an unknown-outcome retry.,هل تريد تسجيل طلب يدوي لإرسال هذا الأصل المحفوظ نفسه؟ لن تتم إعادة إنشاء XML أو هوية الفاتورة. هذا الإجراء لا يعيد إرسال محاولة مجهولة النتيجة.
+"The exact retry could not be registered safely. Review the saved original, current attempt, reservation expiry and response. No invoice was regenerated or sent by this action.",تعذر تسجيل إعادة المحاولة المطابقة بأمان. راجع الأصل المحفوظ والمحاولة الحالية ووقت انتهاء الحجز والرد. لم تتم إعادة إنشاء فاتورة أو إرسالها بهذا الإجراء.
+"An explicit retry request for the same saved original was registered and will be queued after commit. The previous attempt may already have been received. This is not ZATCA acceptance; XML, UUID, hash and invoice counter stay unchanged.",تم تسجيل طلب صريح لإعادة إرسال الأصل المحفوظ نفسه وسيضاف إلى الطابور بعد حفظ المعاملة. ربما استُلمت المحاولة السابقة بالفعل. هذا لا يعني قبول هيئة الزكاة؛ تبقى XML وUUID والتجزئة وعداد الفاتورة دون تغيير.
+Request Exact Retry,طلب إعادة المحاولة المطابقة
+Exact Retry Request,طلب إعادة المحاولة المطابقة
+"The previous attempt may already have been received. Request a deliberate retry of the exact same XML, UUID and hash after server eligibility checks? No new invoice will be generated.",ربما استُلمت المحاولة السابقة بالفعل. هل تريد طلب إعادة إرسال XML وUUID والتجزئة نفسها بعد تحقق الخادم من الأهلية؟ لن تُنشأ فاتورة جديدة.

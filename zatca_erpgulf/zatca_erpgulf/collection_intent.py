@@ -9,7 +9,7 @@ is never converted to an ordinary retry by creating another request.
 from datetime import datetime,timezone
 
 from .submission_intent import (
-    ParentIntent,SubmissionIntentError,TABLE,METHOD,COLLECTION_BODY,validate_header,
+    ParentIntent,SubmissionIntentError,TABLE,METHOD,validate_header,envelope_kind,envelope_body,
     collection_source_key,collection_active_key,open_intent,fiscal_sha,require_intent_schema,
 )
 from .dispatch_store import DispatchStore
@@ -63,9 +63,11 @@ def _current_chain(runtime,source,company):
 
 class CollectionIntent(ParentIntent):
     """A separate command slot, leaving original v1 submit custody unchanged."""
+    OPERATIONS=('manual','scheduled','recovery')
+    REPLACE_REVIEW_OPERATIONS=('manual',)
     def __init__(self,runtime,doctype,name,*,intent,expected_issuance_id=None):
         self.bind_parent(runtime,doctype,name,intent=intent)
-        if intent not in ('manual','scheduled','recovery'):raise SubmissionIntentError('collection_operation')
+        if intent not in self.OPERATIONS:raise SubmissionIntentError('collection_operation')
         if intent=='recovery' and expected_issuance_id is None:
             raise SubmissionIntentError('collection_recovery_version')
         self.expected_input=expected_issuance_id
@@ -95,7 +97,7 @@ class CollectionIntent(ParentIntent):
             if any(header[key]!=self.header[key] for key in (
                     'active_key','expected_issuance_id','actor','chain','intent','source_sha256','company')):
                 raise SubmissionIntentError('collection_slot_binding')
-            if row['state']=='REVIEW' and intent=='manual' and self.safe_latest():
+            if row['state']=='REVIEW' and intent in self.REPLACE_REVIEW_OPERATIONS and self.safe_latest():
                 # An explicit new manual action may release a failed command
                 # only while native custody proves no uncertain/rejected send.
                 self.sql('UPDATE '+TABLE+' SET active_key=NULL WHERE name=%s AND state=%s AND active_key=%s',
@@ -107,9 +109,9 @@ class CollectionIntent(ParentIntent):
 
     def require_collection_schema(self):
         rows=self.sql('SELECT column_name,character_maximum_length AS size,is_nullable FROM information_schema.columns '
-            'WHERE table_schema=DATABASE() AND table_name=%s AND column_name IN (%s,%s,%s)',
-            ('tabZATCA Submission Intent','active_key','expected_issuance_id','operation'))
-        if (len(rows)!=3 or any(type(row['size']) is not int or row['size']<140 or row['is_nullable']!='YES' for row in rows)):
+            'WHERE table_schema=DATABASE() AND table_name=%s AND column_name IN (%s,%s,%s,%s,%s)',
+            ('tabZATCA Submission Intent','active_key','expected_issuance_id','operation','retry_attempt_id','retry_fence_token'))
+        if (len(rows)!=5 or any(type(row['size']) is not int or row['size']<140 or row['is_nullable']!='YES' for row in rows)):
             raise SubmissionIntentError('collection_schema_review')
         rows=self.sql('SELECT index_name,non_unique,GROUP_CONCAT(column_name ORDER BY seq_in_index) AS columns_used '
             'FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name=%s '
@@ -142,12 +144,15 @@ class CollectionIntent(ParentIntent):
         return (self.latest is None or self.latest['state'] in ('REPORTED','CLEARED')
             or self.latest['state']=='PREPARED' and self.latest['active_attempt'] is None)
 
-    def make_header(self):
+    def header_fields(self):
         expected=self.latest['record_id'] if self.latest is not None else None
-        header=dict(record_id=self.record_id,source_key=collection_source_key(self.record_id),
+        return dict(record_id=self.record_id,source_key=collection_source_key(self.record_id),
             source_doctype=self.source[0],source_name=self.source[1],company=self.company.name,actor=self.actor,
             chain=self.chain,intent=self.intent,source_sha256=self.digest,created_at_utc=self.created,
             request_kind='collection-v1',expected_issuance_id=expected)
+
+    def make_header(self):
+        header=self.header_fields()
         header['active_key']=collection_active_key(header)
         validate_header(header)
         return header
@@ -155,11 +160,12 @@ class CollectionIntent(ParentIntent):
     def insert(self,*,noop_duplicate):
         stamp=datetime.strptime(self.created,'%Y-%m-%dT%H:%M:%S.%f')
         self.sql('INSERT INTO '+TABLE+' (name,record_id,source_key,source_doctype,source_name,actor,active_key,'
-            'expected_issuance_id,operation,state,state_version,owner,modified_by,creation,modified,docstatus) '
-            'VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,0)'+
+            'expected_issuance_id,operation,retry_attempt_id,retry_fence_token,state,state_version,owner,modified_by,creation,modified,docstatus) '
+            'VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,0)'+
             (' ON DUPLICATE KEY UPDATE name=name' if noop_duplicate else ''),
             (self.record_id,self.record_id,self.header['source_key'],*self.source,self.actor,self.slot,
-             self.header['expected_issuance_id'],self.intent,'STAGED',self.actor,self.actor,stamp,stamp))
+             self.header['expected_issuance_id'],self.intent,self.header.get('retry_attempt_id'),self.header.get('retry_fence_token'),
+             'STAGED',self.actor,self.actor,stamp,stamp))
 
     def finalize(self,*,translate):
         self.require_owner()
@@ -171,7 +177,7 @@ class CollectionIntent(ParentIntent):
         if self.reused:return
         if self.finalized:raise SubmissionIntentError('collection_already_finalized')
         encoded=validate_header(self.header)
-        cipher=self.cipher.seal(self.record_id,'collection-intent',encoded,COLLECTION_BODY)
+        cipher=self.cipher.seal(self.record_id,envelope_kind(self.header),encoded,envelope_body(self.header))
         self.sql('UPDATE '+TABLE+' SET state=%s,state_version=1,intent_header=%s,intent_ciphertext=%s '
             'WHERE name=%s AND state=%s AND state_version=0 AND active_key=%s',
             ('READY',encoded.decode(),cipher,self.record_id,'STAGED',self.slot))
@@ -203,6 +209,11 @@ def _register(source,*,runtime,translate,intent,expected_issuance_id=None):
             raise SubmissionIntentError('collection_callbacks_missing')
     request=CollectionIntent(runtime,source.doctype,source.name,intent=intent,expected_issuance_id=expected_issuance_id)
     if request.blocked:return request.result()
+    return arm_collection_request(request,runtime=runtime,translate=translate,cache=cache,key=key)
+
+
+def arm_collection_request(request,*,runtime,translate,cache,key):
+    """Shared borrowed finalization/rollback/queue callbacks for fixed commands."""
     armed={'ready':False,'cancelled':False}
     def cancel():
         armed['cancelled']=True;request.closed=True;cache.pop(key,None)

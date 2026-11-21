@@ -75,7 +75,8 @@ def _process(runtime,translate,header,build,fence):
         require_bound_source(runtime,source,_chain(runtime,source,company))
         result=_run(source.doctype,source.name,runtime=runtime,translate=translate,
             build=build,intent=header['intent'],source=source,
-            **({'expected_issuance_id':header['expected_issuance_id']} if 'request_kind' in header else {}))
+            **({'expected_issuance_id':header['expected_issuance_id']} if 'request_kind' in header else {}),
+            **({field:header[field] for field in ('retry_attempt_id','retry_fence_token')} if header.get('request_kind')=='retry-v1' else {}))
     if result is None:
         raise SubmissionIntentError('submission_intent_native_owner_missing')
     return result

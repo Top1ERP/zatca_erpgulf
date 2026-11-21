@@ -165,6 +165,13 @@ receive current-policy-only automatic discovery, and retain explicit manual
 recovery. No original header/XML/AAD or financial reference changed:
 [ISSUANCE_ORIGIN_RECOVERY.md](ISSUANCE_ORIGIN_RECOVERY.md).
 
+The explicit [exact retry operator](EXACT_RETRY_OPERATOR.md) now stages a separate
+retry-v1 command through the same fixed worker. Only the exact current version/
+prior attempt/fence can use that mode, with fresh lease and canonical retained
+failure checks at reservation. Ordinary/manual/automatic first-send operations
+still cannot resend unknown custody. No body, UUID/hash/ICV or financial reference
+is replaced, and unchanged retry is distinct from corrected rejection issuance.
+
 The four existing-XML wrapper/API pairs now use exact private attached-original
 admission and the same owned facade. Retained PREPARED classification is frozen
 from authenticated XML through the shared policy recheck, and version expectations

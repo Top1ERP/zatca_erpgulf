@@ -167,3 +167,11 @@ do not grant automatic dispatch. This supersedes the earlier current-policy-only
 Background admission for NULL-origin native rows, which now need explicit manual
 recovery. No legacy/live migration or backfill was performed:
 [ISSUANCE_ORIGIN_RECOVERY.md](ISSUANCE_ORIGIN_RECOVERY.md).
+
+Explicit exact retry now has a permissioned Attempt-form action and a separate
+authenticated retry command in the same store/worker. Version, prior attempt and
+fence are immutable; current lease or rederived encrypted failure evidence is
+rechecked before reservation. Unknowns remain excluded from automatic discovery,
+and no invoice identity/bytes are regenerated. Matching late-current acceptance
+can satisfy the queued request without another send:
+[EXACT_RETRY_OPERATOR.md](EXACT_RETRY_OPERATOR.md).
