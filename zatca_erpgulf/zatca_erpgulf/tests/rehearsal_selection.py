@@ -1,6 +1,8 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "correction_clock",
+    "rejection_history",
     "late_acceptance",
     "submission_stage",
     "exact_retry",
@@ -211,6 +213,7 @@ LOCAL_SUITES = (
     "zatca_response", "compatibility_hardening",
 )
 PRIVATE_SUITES = (
+    "correction_clock_mariadb",
     "late_acceptance_mariadb",
     "submission_stage_mariadb",
     "exact_retry_mariadb",

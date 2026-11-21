@@ -188,3 +188,10 @@ attempt must satisfy the shared expired-unknown/received-failure gate. Technical
 history remains intact; current readers and projection use that reviewed receipt.
 No automatic late overwrite, replay or corrected version is inferred:
 [LATE_ACCEPTANCE_REVIEW.md](LATE_ACCEPTANCE_REVIEW.md).
+
+The explicit correction backend now reviews all bounded original-attempt custody
+before building: a latest400 cannot erase an older unknown, technical failure or
+acceptance. An opt-in server XML clock is adopted by both Sales/POS metadata
+adapters without changing ERP posting fields. Linked PREPARED custody remains
+unsent; Desk/durable correction commands still need adoption:
+[CORRECTION_HISTORY_AND_CLOCK.md](CORRECTION_HISTORY_AND_CLOCK.md).

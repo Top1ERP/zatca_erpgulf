@@ -1,5 +1,10 @@
 # Shared invoice issue-time contract — increment 30
 
+Later workstream2 adoption adds an explicit native corrected-version ticket;
+normal formatting below is unchanged. See
+[CORRECTION_HISTORY_AND_CLOCK.md](CORRECTION_HISTORY_AND_CLOCK.md) for server XML
+clock/date policy, prior-attempt review and the still-open operator workflow.
+
 ## Delivered scope, not deployment or signature acceptance
 
 `issue_timestamp.py` parses explicit date/clock fields without Frappe, a site,

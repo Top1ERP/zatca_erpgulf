@@ -93,7 +93,10 @@ def source_observation_sha256(identity,observation):
 
 class NativePreparation:
     """One locked source's scalar issuance inputs; no stored auth/private key."""
-    def __init__(self,runtime,*,source_identity,company_name,chain,invoice_uuid,owner_check):
+    def __init__(self,runtime,*,source_identity,company_name,chain,invoice_uuid,owner_check,replacement_timestamp=None):
+        from .issue_timestamp import IssueTimestamp
+        if replacement_timestamp is not None and type(replacement_timestamp) is not IssueTimestamp:
+            raise NativePreparationError('native_preparation_replacement_timestamp')
         if (type(source_identity) is not tuple or len(source_identity)!=2
                 or source_identity[0] not in ('Sales Invoice','POS Invoice')
                 or type(source_identity[1]) is not str or not source_identity[1]
@@ -114,6 +117,7 @@ class NativePreparation:
         self.owner_identity=(chain['owner_doctype'],chain['owner_name'])
         self.expected_material=(chain['certificate_sha256'],chain['public_key_sha256'])
         self.invoice_uuid=invoice_uuid;self.icv=str(int(last)+1);self.previous_hash=chain['previous_hash']
+        self.replacement_timestamp=replacement_timestamp
         self.seller_tax_id=chain['seller_tax_id']
         if len(self.icv)>64:raise NativePreparationError('native_preparation_counter_exhausted')
         self._owner_check=owner_check;self._material=None;self._route=None;self._payload=None
@@ -259,12 +263,12 @@ def reject_legacy_native_preparation(document, runtime):
 
 
 @contextmanager
-def native_preparation(runtime,*,source_identity,company_name,chain,invoice_uuid,owner_check):
+def native_preparation(runtime,*,source_identity,company_name,chain,invoice_uuid,owner_check,replacement_timestamp=None):
     """One internal lifetime and private scratch directory, never a queue payload."""
     if ACTIVE_PREPARATION.get() is not None:
         raise NativePreparationError('native_preparation_nested')
     current=NativePreparation(runtime,source_identity=source_identity,company_name=company_name,
-        chain=chain,invoice_uuid=invoice_uuid,owner_check=owner_check)
+        chain=chain,invoice_uuid=invoice_uuid,owner_check=owner_check,replacement_timestamp=replacement_timestamp)
     with tempfile.TemporaryDirectory(prefix='zatca-native-preparation-') as scratch:
         current._scratch=scratch
         token=ACTIVE_PREPARATION.set(current)
@@ -273,3 +277,17 @@ def native_preparation(runtime,*,source_identity,company_name,chain,invoice_uuid
             current.closed=True
             current._scratch=None
             ACTIVE_PREPARATION.reset(token)
+
+
+def metadata_issue_timestamp(document,*,runtime,purpose,format_default):
+    """Use the explicit replacement ticket only in its production lifetime.
+
+    Normal, Phase1, Debug and Compliance metadata retain their existing source
+    formatter. No posting fields are assigned or a second document fetched.
+    """
+    current=active_preparation(runtime)
+    if current is not None:
+        current.require_source(document,runtime)
+        if purpose!='production':raise NativePreparationError('native_preparation_purpose')
+        if current.replacement_timestamp is not None:return current.replacement_timestamp.qr_value
+    return format_default(document.posting_date,document.posting_time)

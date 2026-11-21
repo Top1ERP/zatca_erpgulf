@@ -657,6 +657,21 @@ class DispatchStore:
             (issuance['chain'],issuance['source_doctype'],issuance['source_name']))
         return len(rows)==1 and rows[0]['name']==issuance['record_id']
 
+    def lock_attempt_history(self,chain,issuance):
+        """Bounded current history for explicit replacement review, not replay."""
+        with self._operation():
+            self._require_locked(chain,issuance)
+            rows=self._sql('SELECT name,record_id,attempt_number,state,request_sha256 FROM '+TABLE_ATTEMPT+
+                ' WHERE issuance=%s ORDER BY attempt_number LIMIT 101 FOR UPDATE NOWAIT',(issuance['record_id'],))
+            if not rows or len(rows)>100:
+                raise DispatchStoreError('dispatch_attempt_history_review')
+            for number,row in enumerate(rows,1):
+                if (row['name']!=row['record_id'] or type(row['attempt_number']) is not int
+                        or row['attempt_number']!=number or row['request_sha256']!=issuance['artifact_sha256']):
+                    raise DispatchStoreError('dispatch_attempt_history_binding')
+                _identifier(row['record_id'])
+            return tuple(MappingProxyType(dict(row)) for row in rows)
+
     def open_late_acceptance(self,issuance,encoded,ciphertext):
         with self._operation():
             if self._locked_issuances.get(issuance['record_id']) is not issuance:

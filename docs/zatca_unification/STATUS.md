@@ -464,10 +464,44 @@ not installed GL/File/SDK or genuine authority acceptance. Live app HEAD/tooltip
 customer-address hashes remain unchanged. No authority request, tenant/site/service
 change or actual invoice action was performed. External acceptance gates remain.
 
+The explicit correction backend now reviews bounded current attempt history
+before building. A latest400 cannot erase a previous unknown invocation, matching
+acceptance, uncertain technical response or missing row. Known older validation/
+authorization/303 responses are rederived from custody, including unassessed or
+incorrect mutable labels. This intentionally holds replacements that the earlier
+current-attempt-only backend could allow; it does not change unchanged retries.
+Details: [CORRECTION_HISTORY_AND_CLOCK.md](CORRECTION_HISTORY_AND_CLOCK.md).
+
+An opt-in current XML clock now requires current native/Phase2/System-Manager and
+source/Company permissions under owned preparation. It passes a server-selected
+immutable timestamp through the request-local ticket to both actual Sales/POS
+metadata adapters and checks the produced XML against it before committing linked
+PREPARED custody. Normal/Phase1/Debug/Compliance formatting and ERP posting/amount
+fields remain unchanged. The current clock is an explicit implementation policy
+based on the public guideline's date distinction; no client clock or invented
+second is admitted. The resulting original has no automatic delivery origin.
+Desk/durable-worker correction workflow and its recovery/race adoption remain open.
+
+Latest correction qualification:1,206 local cases across31 reviewed suites in4.56s,
+593 private SQL cases across17 suites in59.79s, and20,751 across fixed81
+issuer-binding suites in113.02s. Sets overlap. Logs:
+`/tmp/zatca-axis2-correction-local-final.log`,
+`/tmp/zatca-axis2-correction-private-final.log`,
+`/tmp/zatca-axis2-correction-regression-final.log`.
+Manifest248 local/82 private suites was not run in full. The new suites add25
+local/16 private cases, included above. No UI source changed or new Node/browser
+acceptance is claimed. Private tests execute the actual metadata adapters on the
+fixture-owned SQL runtime, with synthetic signing/financial inputs and HTTP.
+These are not installed ERP15/16, GL/File/SDK or authority acceptance. No schema
+or financial reference changed; original240 comparison remains91/117/32. Live
+HEAD/tooltip/customer-address hashes remain unchanged. No authority API, live
+site/service or actual invoice action occurred; only the public guideline was
+read. Installed and actual dummy-company gates retain separate authorization.
+
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; frozen print/master information
 and File/external-print compatibility; remaining late/superseded retry review and
-corrected-clock/operator adoption; installed GL/File and complete mixed legacy/native
+durable corrected-version operator adoption; installed GL/File and complete mixed legacy/native
 submitted-invoice batch coordination;
 issued-source transitions and remaining unknown/late/historical unsealed intent resolution, complete
 remaining first-send migration/admission cases and whole runtime qualification.

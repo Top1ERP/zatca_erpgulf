@@ -96,7 +96,8 @@ def signed_build(b, source, *, validation_type='Simplified Invoice', endpoint='i
     ticket = ACTIVE_PREPARATION.get()
     assert ticket is not None
     _, xml = sign_invoice._build_onboarding_invoice_xml(b.company, validation_type,
-        issue_instant=issue_instant or datetime(2026, 11, 10, 9, 5, 42, tzinfo=timezone.utc))
+        issue_instant=issue_instant or (ticket.replacement_timestamp.utc_instant if ticket.replacement_timestamp is not None
+            else datetime(2026, 11, 10, 9, 5, 42, tzinfo=timezone.utc)))
     root = etree.fromstring(xml.encode())
     ns = {'cbc': 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2',
           'cac': 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2'}

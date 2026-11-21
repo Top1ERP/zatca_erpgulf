@@ -229,19 +229,35 @@ def prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build):
 
 
 def prepare_corrected_rejection(doctype,invoice_name,*,runtime,translate,build,
-                                rejected_issuance_id,rejected_attempt_id):
+                                rejected_issuance_id,rejected_attempt_id,use_current_issue_time=False):
     """Explicit new local version after an exact retained validation rejection.
 
     No submission or business-data edit is performed. The canonical builder
     must supply corrected saved data and a distinct valid issue timestamp;
     Reporting retains the original transaction date. An unchanged clock fails
     locally rather than silently rewriting ERP posting dates or times.
+    The opt-in current clock selects an immutable server timestamp for the
+    canonical Sales/POS metadata adapters; the existing callback default stays.
     """
     from .dispatch_store import _identifier
     _identifier(rejected_issuance_id)
     _identifier(rejected_attempt_id)
     return _prepare_saved_invoice(doctype,invoice_name,runtime=runtime,translate=translate,build=build,
-        rejection=(rejected_issuance_id,rejected_attempt_id))
+        rejection=(rejected_issuance_id,rejected_attempt_id),use_current_issue_time=use_current_issue_time)
+
+
+def _require_current_correction_policy(runtime,owner,source):
+    """Explicit current-clock generation remains a permissioned native action."""
+    from .native_onboarding import native_mode_enabled
+    from .issuing_reads import read_issuing_doc
+    from .zatca_runtime import is_zatca_invoice_enabled,resolve_zatca_phase,PHASE_2_VALUE
+    if not native_mode_enabled(runtime) or 'System Manager' not in runtime.get_roles(owner.actor):
+        raise NativeDispatchError('native_corrected_clock_access')
+    with owner.preparing(frozenset(('tabCompany',))):
+        company=read_issuing_doc(runtime,'Company',source.company,for_update=True)
+        _require_access(runtime,source,company,owner.actor)
+        if not is_zatca_invoice_enabled(company) or resolve_zatca_phase(company)!=PHASE_2_VALUE:
+            raise NativeDispatchError('native_corrected_clock_company_policy')
 
 
 def _rejected_original(repository,chain,latest,source,rejection):
@@ -265,10 +281,12 @@ def _rejected_original(repository,chain,latest,source,rejection):
     assessment=assess_native_receipt(header,original,receipt,body,fallback_receipt=fallback)
     if receipt['http_status']!=400 or assessment.outcome!='VALIDATION_REJECTED':
         raise NativeDispatchError('native_corrected_rejection_receipt_required')
+    from .rejection_history import require_rejection_history
+    require_rejection_history(repository,chain,latest,header,original,rejection[1])
     return header,original
 
 
-def _require_corrected_artifact(previous,original,header,packet):
+def _require_corrected_artifact(previous,original,header,packet,*,replacement_timestamp=None):
     """Check the new identity/time without calculating or editing ERP amounts."""
     from .issuance_candidate import _invoice_classification
     from .qr_xml_contract import _clock
@@ -276,6 +294,8 @@ def _require_corrected_artifact(previous,original,header,packet):
     old_xml,_=_original(previous,original)
     new_xml,_=_original(header,packet.request_bytes)
     old_clock,new_clock=_clock(old_xml),_clock(new_xml)
+    if replacement_timestamp is not None and new_clock!=(replacement_timestamp.xml_date,replacement_timestamp.xml_time):
+        raise NativeDispatchError('native_corrected_selected_clock_required')
     old_instant=parse_issue_datetime(*old_clock)
     new_instant=parse_issue_datetime(*new_clock)
     if (header['invoice_uuid']==previous['invoice_uuid'] or header['invoice_hash']==previous['invoice_hash']
@@ -288,10 +308,12 @@ def _require_corrected_artifact(previous,original,header,packet):
         raise NativeDispatchError('native_corrected_reporting_date_review')
 
 
-def _prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build,rejection=None):
+def _prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build,rejection=None,use_current_issue_time=False):
     if doctype not in SOURCE_TABLES or type(invoice_name) is not str or not invoice_name:
         raise NativeDispatchError('native_source_identity')
     if not callable(build):raise NativeDispatchError('native_build_callback')
+    if type(use_current_issue_time) is not bool or use_current_issue_time and rejection is None:
+        raise NativeDispatchError('native_corrected_clock_operation')
     with owned_worker_transaction(runtime) as owner:
         source=runtime.get_doc(doctype,invoice_name)
         company=runtime.get_doc('Company',source.company)
@@ -317,10 +339,16 @@ def _prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build,reject
             from .native_delivery import confirm_delivery_policy,require_no_legacy_artifact
             confirm_delivery_policy(scope,owner)
             latest=repository.latest_issuance(chain['record_id'],doctype,invoice_name)
-            previous=None
+            previous=None;replacement_timestamp=None
             if rejection is not None:
                 previous,old_original=_rejected_original(repository,chain,latest,locked,rejection)
                 _require_retained_binding(previous,chain,scope,material,doctype,invoice_name,check_source=False)
+                if use_current_issue_time:
+                    _require_current_correction_policy(runtime,owner,locked)
+                    from datetime import timezone
+                    from .correction_clock import corrected_issue_timestamp
+                    replacement_timestamp=corrected_issue_timestamp(previous,old_original,
+                        generation_instant=owner.utc_now().replace(tzinfo=timezone.utc))
             elif latest is not None:
                 header,original=repository.open_issuance(latest['record_id'])
                 _require_retained_binding(header,chain,scope,material,doctype,invoice_name,repository=repository)
@@ -339,7 +367,8 @@ def _prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build,reject
             proposed_uuid=str(uuid4())
             packet=None
             with native_preparation(runtime,source_identity=(doctype,invoice_name),company_name=scope.company.name,
-                                    chain=chain,invoice_uuid=proposed_uuid,owner_check=owner.owner_current):
+                                    chain=chain,invoice_uuid=proposed_uuid,owner_check=owner.owner_current,
+                                    replacement_timestamp=replacement_timestamp):
                 with owner.preparing(tables):
                     try:build(locked)
                     except PreparedRequestHandoff as ready:packet=ready.packet
@@ -352,7 +381,7 @@ def _prepare_saved_invoice(doctype,invoice_name,*,runtime,translate,build,reject
             header=_header(packet,record_id,version)
             if previous is not None:
                 header['replaces_issuance']=previous['record_id']
-                _require_corrected_artifact(previous,old_original,header,packet)
+                _require_corrected_artifact(previous,old_original,header,packet,replacement_timestamp=replacement_timestamp)
             from .issuance_origin import capture_origin
             origin=capture_origin(runtime,locked,chain_id=chain['record_id'],occurred_at=occurred_at)
             repository.stage_issuance(chain,header,packet.request_bytes,

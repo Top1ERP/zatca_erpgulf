@@ -651,7 +651,9 @@ def salesinvoice_data(invoice, invoice_number, *, purpose="production", _include
 
         # Freeze time from the SAME loaded record, and validate BEFORE any UUID
         # persistence. A second get_doc could observe a different revision.
-        issue_timestamp = format_zatca_qr_timestamp(sales_invoice_doc.posting_date, sales_invoice_doc.posting_time)
+        from .native_preparation import metadata_issue_timestamp
+        issue_timestamp = metadata_issue_timestamp(sales_invoice_doc,runtime=frappe,purpose=purpose,
+            format_default=format_zatca_qr_timestamp)
         if _include_template_mode and purpose not in ("production", "debug"):
             raise ValueError("metadata_template_purpose")
         mode = (

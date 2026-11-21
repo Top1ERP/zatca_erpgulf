@@ -1081,3 +1081,13 @@ existing matcher; stopped intent reconciliation reuses the accepted view. No sen
 chain-head rewind or automatic adoption occurs. Contradictory newer rejection,
 unexpired or unrelated reservations and older versions remain held:
 [LATE_ACCEPTANCE_REVIEW.md](LATE_ACCEPTANCE_REVIEW.md).
+
+The correction backend now locks/rederives bounded attempt history and refuses
+replacement when a prior invocation is unknown, accepted, technical/unconfirmed
+or missing. A prior safe response need not have an already-written outcome label.
+An explicit use_current_issue_time mode requires current native/Phase2/System-
+Manager admission and supplies a server-selected immutable XML clock through the
+preparation ticket to both Sales/POS metadata. Final custody verifies that exact
+clock before committing the linked PREPARED version. Posting fields and normal/
+Debug/Compliance paths remain unchanged. Desk/durable correction adoption remains
+open: [CORRECTION_HISTORY_AND_CLOCK.md](CORRECTION_HISTORY_AND_CLOCK.md).

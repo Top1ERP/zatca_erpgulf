@@ -38,6 +38,7 @@ def rejected(coordinator, monkeypatch):
     c.repository.open_issuance.return_value = (header, raw)
     c.repository.open_receipt = Mock(return_value=(receipt, body))
     c.repository.lock_issuance = Mock(return_value=saved)
+    c.repository.lock_attempt_history=Mock(return_value=[dict(record_id=attempt,state='RESPONSE_RETAINED')])
     c.b.sales.custom_uuid = header['invoice_uuid']
     c.b.sales.custom_zatca_icv = header['icv']
     c.b.sales.custom_zatca_issuing_unit = 'egs:' + c.chain['record_id']
