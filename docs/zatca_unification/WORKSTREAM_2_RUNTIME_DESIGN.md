@@ -957,3 +957,17 @@ resolves the actual local DB object in parent/savepoint/queue guards. Private SQ
 uses the real proxy class and independent RR connections; installed ERP15/16
 acceptance remains a separate gate. Details and source-only schema changes:
 [NATIVE_COLLECTION_REQUESTS.md](NATIVE_COLLECTION_REQUESTS.md).
+
+## Destructive source lifecycle retention
+
+The Sales/POS destructive document hooks now borrow the current transaction and
+lock the saved source before reading native issuance/request history. Any retained
+history or saved egs marker holds cancellation/deletion/rename; merge also checks
+the destination. Normal unissued sources with UUID only retain ERP behavior.
+This is negative retention evidence, never a claim of authenticated acceptance.
+Phase/rollout changes and cleared output fields do not erase immutable identities.
+No commit/rollback, request retirement, counter rewind or history deletion occurs.
+Full physical source_name indexes and InnoDB are checked without migration; the
+Submission Intent source declaration adds its search index. Explicit reviewed
+request retirement and installed lifecycle qualification remain open. See
+[NATIVE_INVOICE_LIFECYCLE.md](NATIVE_INVOICE_LIFECYCLE.md).

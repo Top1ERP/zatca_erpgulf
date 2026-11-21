@@ -128,3 +128,10 @@ uncertain states remain held. Borrowed guards now compare the physical target of
 Frappe's LocalProxy, with real proxy/private SQL evidence. None of this qualifies
 installed schema/GL/File, complete recovery or activation:
 [NATIVE_COLLECTION_REQUESTS.md](NATIVE_COLLECTION_REQUESTS.md).
+
+Sales/POS cancellation, deletion and rename/merge now retain saved native issuance
+and queued-source identities through a borrowed current-lock guard, even after
+source output erasure or a phase/rollout change. UUID alone remains insufficient.
+A hold does not assert acceptance; explicit reviewed request retirement and
+installed lifecycle acceptance remain open:
+[NATIVE_INVOICE_LIFECYCLE.md](NATIVE_INVOICE_LIFECYCLE.md).

@@ -246,12 +246,32 @@ this is not installed ERP15/16 or authentic SDK/authority acceptance. No live
 source/schema/service or authority operation occurred; installed-source hashes
 remain unchanged. No financial reference was changed; comparison91/117/32 remains.
 
+Native Sales/POS cancellation, deletion and rename/merge now retain source
+identities when saved issuance/request history exists, even if source output
+fields were erased or current phase/rollout changed. Unissued UUID-only sources
+keep normal ERP checks. A hold explicitly does not assert authority acceptance;
+reviewed retirement of queued requests is not implemented. The guard borrows its
+current transaction, verifies InnoDB/index/physical connection ownership and never
+commits or rewinds a counter. See
+[NATIVE_INVOICE_LIFECYCLE.md](NATIVE_INVOICE_LIFECYCLE.md).
+
+Lifecycle local/private qualification:476 local cases across12 suites in1.76s and
+230 private SQL cases across6 suites in16.29s; the fixed81 issuer-binding suites
+pass20,751 in131.71s. Sets overlap. Logs:
+`/tmp/zatca-axis2-source-lifecycle-local-final.log`,
+`/tmp/zatca-axis2-source-lifecycle-private-final.log`,
+`/tmp/zatca-axis2-source-lifecycle-regression-final.log`.
+Manifest239 local/74 private suites was not run in full. The Submission Intent
+source_name search index remains a source-only schema change; no installed DDL,
+source invoice or live service was changed. Original financial comparison91/117/32
+and installed-source hashes remain unchanged.
+
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; frozen print/master information
 and File/external-print compatibility; explicit unchanged retry and
 corrected-clock/operator adoption; installed GL/File and complete mixed legacy/native
 submitted-invoice batch coordination;
-source lifecycle decisions; started/uncertain intent resolution, complete
+reviewed source/request lifecycle transitions; started/uncertain intent resolution, complete
 Standard/non-Background recovery and whole runtime qualification. The new durable handoff is
 not complete crash/delivery recovery. Do not announce3 or installation from these narrower checks.
 Installed15/16, financial review, authentic SDK and the specifically approved

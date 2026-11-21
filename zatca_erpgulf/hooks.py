@@ -274,10 +274,13 @@ doc_events = {
     },
     "Sales Invoice": {
         "before_print": "zatca_erpgulf.zatca_erpgulf.native_publication.before_print",
+        "before_rename": "zatca_erpgulf.zatca_erpgulf.native_invoice_lifecycle.protect_native_invoice_lifecycle",
+        "on_trash": "zatca_erpgulf.zatca_erpgulf.native_invoice_lifecycle.protect_native_invoice_lifecycle",
         # "before_insert": "zatca_erpgulf.zatca_erpgulf.sales_invoice_hooks.set_draft_series",
         "before_save": "zatca_erpgulf.zatca_erpgulf.zatca_response.normalize_zatca_full_response",
         "validate": "zatca_erpgulf.overrides.sales_invoice.validate_zatca_sales_invoice",
         "before_cancel": [
+            "zatca_erpgulf.zatca_erpgulf.native_invoice_lifecycle.protect_native_invoice_lifecycle",
             "zatca_erpgulf.zatca_erpgulf.validations.before_save",
             "zatca_erpgulf.zatca_erpgulf.advance_deduction.validate_advance_payment_invoice_cancellation",
         ],
@@ -303,9 +306,14 @@ doc_events = {
     },
     "POS Invoice": {
         "before_print": "zatca_erpgulf.zatca_erpgulf.native_publication.before_print",
+        "before_rename": "zatca_erpgulf.zatca_erpgulf.native_invoice_lifecycle.protect_native_invoice_lifecycle",
+        "on_trash": "zatca_erpgulf.zatca_erpgulf.native_invoice_lifecycle.protect_native_invoice_lifecycle",
         "before_save": "zatca_erpgulf.zatca_erpgulf.zatca_response.normalize_zatca_full_response",
         "validate": "zatca_erpgulf.zatca_erpgulf.tax_error.validate_negative_item_values_on_save",
-        "before_cancel": "zatca_erpgulf.zatca_erpgulf.validations.before_save",
+        "before_cancel": [
+            "zatca_erpgulf.zatca_erpgulf.native_invoice_lifecycle.protect_native_invoice_lifecycle",
+            "zatca_erpgulf.zatca_erpgulf.validations.before_save",
+        ],
         "before_submit": [
             "zatca_erpgulf.zatca_erpgulf.customer_address.validate_customer_address_for_zatca",
             "zatca_erpgulf.zatca_erpgulf.tax_error.validate_sales_invoice_taxes",
