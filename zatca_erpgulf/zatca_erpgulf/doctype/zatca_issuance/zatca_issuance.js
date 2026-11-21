@@ -2,8 +2,12 @@
 frappe.ui.form.on("ZATCA Issuance", {
     refresh(frm) {
         frm.remove_custom_button(__("Queue Saved Original"));
-        if (frm.is_new() || !(frappe.user_roles || []).includes("System Manager") ||
-            frm.doc.state !== "PREPARED" || frm.doc.active_attempt) return;
+        frm.remove_custom_button(__("Review Late Acceptance"));
+        if (frm.is_new() || !(frappe.user_roles || []).includes("System Manager")) return;
+        if (["DISPATCHING", "OUTCOME_UNKNOWN"].includes(frm.doc.state) && frm.doc.active_attempt) {
+            add_late_acceptance_review(frm);
+        }
+        if (frm.doc.state !== "PREPARED" || frm.doc.active_attempt) return;
         frm.add_custom_button(__("Queue Saved Original"), () => {
             if (frm.is_dirty()) return;
             const issuance_id = frm.doc.name;
@@ -29,3 +33,30 @@ frappe.ui.form.on("ZATCA Issuance", {
         });
     }
 });
+
+function add_late_acceptance_review(frm) {
+    frm.add_custom_button(__("Review Late Acceptance"), () => {
+        if (frm.is_dirty()) return;
+        const issuance_id = frm.doc.name;
+        const expected_attempt_id = frm.doc.active_attempt;
+        const expected_state_version = frm.doc.state_version;
+        const current = () => frm.doc.name === issuance_id && !frm.is_dirty() &&
+            frm.doc.active_attempt === expected_attempt_id && frm.doc.state_version === expected_state_version;
+        frappe.prompt([{fieldname: "accepted_attempt_id", fieldtype: "Link", options: "ZATCA Dispatch Attempt",
+            label: __("Earlier Response Attempt"), reqd: 1,
+            get_query: () => ({filters: {issuance: issuance_id, state: "RESPONSE_RETAINED"}})}], values => {
+            if (!current()) return;
+            const accepted_attempt_id = values.accepted_attempt_id;
+            frappe.confirm(__("Resolve this original only from an earlier matching saved acceptance? The server will review the newer attempt and retain both histories. Nothing will be generated or sent."), () => {
+                if (!current()) return;
+                frappe.call({method: "zatca_erpgulf.zatca_erpgulf.late_acceptance.reconcile_response",
+                    args: {issuance_id, expected_attempt_id, expected_state_version, accepted_attempt_id}, freeze: true,
+                    callback(r) {
+                        if (!current() || !r.message || r.message.status !== "RESOLVED") return;
+                        frappe.msgprint({title: __("Late Acceptance Review"), message: r.message.message, indicator: "green"});
+                        frm.reload_doc();
+                    }});
+            });
+        }, __("Review Late Acceptance"), __("Review Saved Response"));
+    });
+}

@@ -106,7 +106,8 @@ def project_accepted_status(doctype, invoice_name, *, runtime, skip_if_readonly=
         if not saved['active_attempt']:
             raise NativeDispatchError('native_retained_acceptance_review')
         header, original = repository.open_issuance(saved['record_id'])
-        receipt, body = repository.open_receipt(saved['active_attempt'])
+        from .late_acceptance_evidence import accepted_receipt
+        receipt, body = accepted_receipt(repository,saved)
         fallback = repository.open_clearance_fallback(saved) if header['endpoint'] != receipt['endpoint'] else None
         assessment = assess_native_receipt(header, original, receipt, body, fallback_receipt=fallback)
         expected = ('REPORTING_MATCHED', 'REPORTING_DUPLICATE_MATCHED') if status == 'REPORTED' else (

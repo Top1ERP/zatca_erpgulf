@@ -507,7 +507,7 @@ def retained_reader(c, *, accepted=True):
     c.repository.find_source_issuance = Mock(return_value=saved)
     c.repository.open_issuance.return_value = (header, original)
     body = json.dumps(success(header, xml)).encode()
-    receipt = dict(issuance=header['record_id'], request_sha256=header['artifact_sha256'],
+    receipt = dict(record_id=saved['active_attempt'],issuance=header['record_id'], request_sha256=header['artifact_sha256'],
         environment=header['environment'], endpoint=header['endpoint'], http_status=200,
         response_sha256=hashlib.sha256(body).hexdigest())
     c.repository.open_receipt = Mock(return_value=(receipt, body))

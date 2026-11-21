@@ -46,6 +46,9 @@ ASSESSMENT_STATES = {
 MAX_COUNTER_DIGITS = 64
 MAX_CIPHERTEXT_CHARS = 3+4*((16*1024*1024+28+2)//3)
 MAX_PUBLICATION_CIPHERTEXT_CHARS = 4096
+ISSUANCE_STATE_SQL=(',state,active_attempt,state_version,'
+    'SUBSTRING(late_acceptance_header,1,8193) AS late_acceptance_header,'
+    'SUBSTRING(late_acceptance_ciphertext,1,8193) AS late_acceptance_ciphertext')
 
 
 class DispatchStoreError(RuntimeError):
@@ -350,7 +353,7 @@ class DispatchStore:
             if doctype not in ('Sales Invoice','POS Invoice') or type(invoice_name) is not str or not invoice_name:
                 raise DispatchStoreError('dispatch_source_identity')
             rows=self._sql('SELECT '+','.join('`'+field+'`' for field in ARTIFACT_FIELDS)+
-                ',state,active_attempt,state_version FROM '+TABLE_ISSUANCE+
+                ISSUANCE_STATE_SQL+' FROM '+TABLE_ISSUANCE+
                 ' WHERE chain=%s AND source_doctype=%s AND source_name=%s ORDER BY source_version DESC LIMIT 1 FOR UPDATE NOWAIT',
                 (chain_id,doctype,invoice_name))
             return MappingProxyType(dict(rows[0])) if rows else None
@@ -362,7 +365,7 @@ class DispatchStore:
                 raise DispatchStoreError('dispatch_chain_lock_required')
             _identifier(record_id)
             rows=self._sql('SELECT '+','.join('`'+field+'`' for field in ARTIFACT_FIELDS)+
-                ',state,active_attempt,state_version FROM '+TABLE_ISSUANCE+
+                ISSUANCE_STATE_SQL+' FROM '+TABLE_ISSUANCE+
                 ' WHERE name=%s AND chain=%s FOR UPDATE NOWAIT',(record_id,chain['record_id']))
             if len(rows)!=1:raise DispatchStoreError('dispatch_issuance_missing')
             row=dict(rows[0])
@@ -384,7 +387,7 @@ class DispatchStore:
             if doctype not in ('Sales Invoice','POS Invoice'):
                 raise DispatchStoreError('dispatch_source_identity')
             rows=self._sql('SELECT '+','.join('`'+field+'`' for field in ARTIFACT_FIELDS)+
-                ',state,active_attempt,state_version FROM '+TABLE_ISSUANCE+
+                ISSUANCE_STATE_SQL+' FROM '+TABLE_ISSUANCE+
                 ' WHERE source_doctype=%s AND source_name=%s AND chain=%s '
                 'ORDER BY source_version DESC LIMIT 1 LOCK IN SHARE MODE NOWAIT',
                 (doctype,invoice_name,chain_id))
@@ -483,6 +486,8 @@ class DispatchStore:
         """
         with self._operation():
             self._require_locked(chain,issuance)
+            if any(issuance.get(key) is not None for key in ('late_acceptance_header','late_acceptance_ciphertext')):
+                raise DispatchStoreError('dispatch_retry_resolved_acceptance')
             previous=issuance['active_attempt']
             if (issuance['state'] not in ('DISPATCHING','OUTCOME_UNKNOWN') or not previous
                     or attempt_id!=previous or chain['active_attempt'] not in (None,previous)
@@ -651,6 +656,44 @@ class DispatchStore:
             'ORDER BY source_version DESC LIMIT 1 FOR UPDATE NOWAIT',
             (issuance['chain'],issuance['source_doctype'],issuance['source_name']))
         return len(rows)==1 and rows[0]['name']==issuance['record_id']
+
+    def open_late_acceptance(self,issuance,encoded,ciphertext):
+        with self._operation():
+            if self._locked_issuances.get(issuance['record_id']) is not issuance:
+                raise DispatchStoreError('dispatch_issuance_lock_required')
+            return self._cipher.open(issuance['record_id'],'late-acceptance',encoded,ciphertext)
+
+    def stage_late_acceptance(self,chain,issuance,proof):
+        """Save a server-assessed explicit decision; never rewind attempt history.
+
+        The owned service has authenticated both receipts and current source.
+        Shared retry eligibility is repeated under the same held locks before
+        revoking an expired/received-failure attempt. No commit or HTTP occurs.
+        """
+        from .late_acceptance_evidence import validate_proof,BODY,require_attempt_bindings
+        from .retry_evidence import require_retry_evidence
+        with self._operation():
+            self._require_locked(chain,issuance)
+            encoded=validate_proof(proof)
+            if (any(issuance.get(key) is not None for key in ('late_acceptance_header','late_acceptance_ciphertext'))
+                    or any(proof[key]!=issuance[key] for key in ('record_id','chain','artifact_sha256'))
+                    or proof['prior_attempt']!=issuance['active_attempt']
+                    or proof['prior_state']!=issuance['state'] or proof['prior_state_version']!=issuance['state_version']
+                    or not self._latest_source(issuance)):
+                raise DispatchStoreError('late_acceptance_current_required')
+            now=self._sql('SELECT UTC_TIMESTAMP(6) AS utc_now')[0]['utc_now']
+            require_retry_evidence(self,chain,issuance,attempt_id=proof['prior_attempt'],
+                expected_fence=proof['prior_fence'],now_utc=now)
+            ciphertext=self._cipher.seal(issuance['record_id'],'late-acceptance',encoded,BODY)
+            require_attempt_bindings(self,issuance,proof)
+            self._sql('UPDATE '+TABLE_ISSUANCE+' SET state=%s,late_acceptance_header=%s,late_acceptance_ciphertext=%s,'
+                'state_version=state_version+1 WHERE name=%s AND state_version=%s AND active_attempt=%s',
+                (ASSESSMENT_STATES[proof['outcome']],encoded.decode(),ciphertext,issuance['record_id'],issuance['state_version'],proof['prior_attempt']))
+            self._changed_once()
+            if chain['active_attempt']==proof['prior_attempt']:
+                self._sql('UPDATE '+TABLE_CHAIN+' SET active_attempt=NULL,state_version=state_version+1 '
+                    'WHERE name=%s AND state_version=%s',(chain['record_id'],chain['state_version']))
+                self._changed_once()
 
     def stage_issuance(self, chain, header, exact_request_bytes, *, actor, occurred_at, publication_sha256=None,generation_origin=None):
         """One local generation: store original + head; never remote acceptance.

@@ -245,6 +245,8 @@ def prepare_corrected_rejection(doctype,invoice_name,*,runtime,translate,build,
 
 
 def _rejected_original(repository,chain,latest,source,rejection):
+    if latest is not None and any(latest.get(key) is not None for key in ('late_acceptance_header','late_acceptance_ciphertext')):
+        raise NativeDispatchError('native_corrected_late_acceptance_review')
     if (latest is None or latest['record_id']!=rejection[0] or latest['state']!='REJECTED'
             or latest['active_attempt']!=rejection[1] or chain['active_attempt']):
         raise NativeDispatchError('native_corrected_rejection_current_required')
@@ -536,6 +538,8 @@ def read_retained_in_transaction(doctype,invoice_name,*,runtime,owner,require_cu
     saved=repository.find_source_issuance(doctype=doctype,invoice_name=invoice_name,
         company=source.company,chain_id=marker[4:],invoice_uuid=source.get('custom_uuid'),icv=str(value))
     header,original=repository.open_issuance(saved['record_id'])
+    from .late_acceptance_evidence import open_resolution
+    open_resolution(repository,saved)  # Contradictory state cannot hide a saved resolution.
     publication=None
     observed_source=None
     render_source=None
@@ -553,10 +557,12 @@ def read_retained_in_transaction(doctype,invoice_name,*,runtime,owner,require_cu
     xml,_evidence=_original(header,original)
     outcome='RETAINED_ORIGINAL';warnings=0;has_warnings=False;returned=None
     accepted=saved['state'] in ('REPORTED','CLEARED')
+    accepted_attempt=saved['active_attempt']
     if accepted:
         if not saved['active_attempt']:
             raise NativeDispatchError('native_retained_acceptance_review')
-        receipt,body=repository.open_receipt(saved['active_attempt'])
+        from .late_acceptance_evidence import accepted_receipt
+        receipt,body=accepted_receipt(repository,saved)
         fallback=repository.open_clearance_fallback(saved) if header['endpoint']!=receipt['endpoint'] else None
         assessment=assess_native_receipt(header,original,receipt,body,fallback_receipt=fallback)
         required=('REPORTING_MATCHED','REPORTING_DUPLICATE_MATCHED') if saved['state']=='REPORTED' else (
@@ -565,6 +571,7 @@ def read_retained_in_transaction(doctype,invoice_name,*,runtime,owner,require_cu
             raise NativeDispatchError('native_retained_acceptance_review')
         outcome=assessment.outcome;warnings=assessment.warning_count;has_warnings=assessment.has_warnings
         returned=assessment.returned_xml
+        accepted_attempt=receipt['record_id']
     origin=None
     if require_origin:
         from .issuance_origin import verify_origin_request
@@ -574,7 +581,7 @@ def read_retained_in_transaction(doctype,invoice_name,*,runtime,owner,require_cu
             if origin['simplified']!=_invoice_classification(xml)[1].startswith('02'):
                 raise NativeDispatchError('native_origin_classification')
             verify_origin_request(owner,origin,header)
-    return RetainedNativeView(saved['record_id'],saved['active_attempt'],saved['state'],outcome,
+    return RetainedNativeView(saved['record_id'],accepted_attempt,saved['state'],outcome,
         accepted,warnings,has_warnings,xml,returned,header['source_sha256'],
         header['invoice_uuid'],header['icv'],header['chain'],publication,render_source,header['invoice_hash'],origin)
 

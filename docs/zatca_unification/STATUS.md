@@ -434,6 +434,36 @@ authority acceptance. Read-only checks confirm live HEAD/tooltip/customer-addres
 hashes unchanged. No live site/service, actual invoice action or authority request
 was performed. Installed and dummy-company rehearsals retain their separate gates.
 
+An explicit Issuance-form late acceptance review now resolves an earlier matching
+same-original/operation response under the shared expired-unknown/received-failure
+gate. Current source/version/ACL, selected custody and the server-reviewed current
+attempt/revision are rechecked under owned locks. The accepted decision commits
+with its audit, preserving the newer technical pointer and both response histories.
+Canonical views/projection select the authenticated older receipt and rerun the
+existing matcher. Stopped request reconciliation and cached no-send projection
+use that same view. Contradictory newer rejection, active/unrelated reservations,
+other versions, missing evidence or corrupt proof remain held. Details:
+[LATE_ACCEPTANCE_REVIEW.md](LATE_ACCEPTANCE_REVIEW.md).
+
+Latest late-response qualification:780 local cases across26 reviewed suites
+in3.41s,577 private SQL cases across16 suites in58.43s,132 synthetic English/Arabic
+UI cases across4 scripts, and20,751 across fixed81 issuer-binding suites in114.99s.
+Sets overlap. Logs: `/tmp/zatca-axis2-late-local-final.log`,
+`/tmp/zatca-axis2-late-private-final.log`,
+`/tmp/zatca-axis2-late-ui-final.log`,
+`/tmp/zatca-axis2-late-request-ui-final.log`,
+`/tmp/zatca-axis2-late-retry-ui-final.log`,
+`/tmp/zatca-axis2-late-prepared-ui-final.log`,
+`/tmp/zatca-axis2-late-regression-final.log`.
+Manifest246 local/81 private suites was not run in full. New suites add27 local/
+31 private cases, included above. Two nullable issuance audit fields are source
+declarations only; no installed DDL, backfill or source data action occurred.
+Original headers/AAD/XML/UUID/hash/ICV/PIH and financial references are unchanged;
+original240 comparison remains91/117/32. ERP/signing/HTTP inputs remain doubles,
+not installed GL/File/SDK or genuine authority acceptance. Live app HEAD/tooltip/
+customer-address hashes remain unchanged. No authority request, tenant/site/service
+change or actual invoice action was performed. External acceptance gates remain.
+
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; frozen print/master information
 and File/external-print compatibility; remaining late/superseded retry review and

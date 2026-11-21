@@ -1071,3 +1071,13 @@ retirement now admits verified unclaimed stages, retaining the initial envelope
 and recording its prior state. Old NULL envelopes remain held. No source/financial
 repair, migration or installed action is performed:
 [AUTHENTICATED_STAGED_REQUESTS.md](AUTHENTICATED_STAGED_REQUESTS.md).
+
+The explicit Issuance-form late acceptance operator now authenticates an older
+same-original/operation receipt and shared current-attempt eligibility under owned
+locks. It records a separate protected decision and accepted state atomically,
+keeping the newer technical-attempt pointer and all response/original bytes.
+Canonical retained reads and projection authenticate that selection and rerun the
+existing matcher; stopped intent reconciliation reuses the accepted view. No send,
+chain-head rewind or automatic adoption occurs. Contradictory newer rejection,
+unexpired or unrelated reservations and older versions remain held:
+[LATE_ACCEPTANCE_REVIEW.md](LATE_ACCEPTANCE_REVIEW.md).

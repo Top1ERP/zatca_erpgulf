@@ -71,6 +71,11 @@ remain unchanged; arbitrary200/208/409 is not an acceptance grant. Late attempts
 retain their own responses and cannot overwrite a newer active outcome. This
 bundle does not adopt an arbitrary late/superseded acceptance as current truth.
 
+A subsequent separate [late acceptance review](LATE_ACCEPTANCE_REVIEW.md) operator
+now admits an explicitly reviewed earlier same-original/operation acceptance under
+the shared current-attempt eligibility gate. Retry itself still does not choose
+or adopt a superseded response, and contradictory newer rejections stay held.
+
 ## Evidence and remaining work
 
 Private SQL covers Sales/POS, owner variants, unchanged bytes/UUID/hash/ICV with a

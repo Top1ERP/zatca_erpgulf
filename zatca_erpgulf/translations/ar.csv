@@ -930,4 +930,11 @@ Register an explicit manual request to send this exact saved original? No XML or
 "An explicit retry request for the same saved original was registered and will be queued after commit. The previous attempt may already have been received. This is not ZATCA acceptance; XML, UUID, hash and invoice counter stay unchanged.",تم تسجيل طلب صريح لإعادة إرسال الأصل المحفوظ نفسه وسيضاف إلى الطابور بعد حفظ المعاملة. ربما استُلمت المحاولة السابقة بالفعل. هذا لا يعني قبول هيئة الزكاة؛ تبقى XML وUUID والتجزئة وعداد الفاتورة دون تغيير.
 Request Exact Retry,طلب إعادة المحاولة المطابقة
 Exact Retry Request,طلب إعادة المحاولة المطابقة
+"The late response could not resolve this invoice safely. Review the current version, newer attempt and saved response. Nothing was generated or sent.",تعذرت تسوية نتيجة الفاتورة من الرد المتأخر بأمان. راجع الإصدار الحالي والمحاولة الأحدث والرد المحفوظ. لم تتم إعادة إنشاء أو إرسال أي شيء.
+The matching saved response confirms acceptance of this original. The late response review was recorded and both attempts were retained. Nothing was generated or sent.,يؤكد الرد المحفوظ المطابق قبول هذا الأصل. تم تسجيل مراجعة الرد المتأخر والاحتفاظ بالمحاولتين. لم تتم إعادة إنشاء أو إرسال أي شيء.
+Review Late Acceptance,مراجعة القبول المتأخر
+Earlier Response Attempt,المحاولة السابقة ذات الرد المحفوظ
+Late Acceptance Review,مراجعة القبول المتأخر
+Review Saved Response,مراجعة الرد المحفوظ
+Resolve this original only from an earlier matching saved acceptance? The server will review the newer attempt and retain both histories. Nothing will be generated or sent.,هل تريد تسوية نتيجة هذا الأصل اعتمادًا على قبول سابق محفوظ ومطابق فقط؟ سيتحقق الخادم من المحاولة الأحدث ويحتفظ بسجل المحاولتين. لن تتم إعادة إنشاء أو إرسال أي شيء.
 "The previous attempt may already have been received. Request a deliberate retry of the exact same XML, UUID and hash after server eligibility checks? No new invoice will be generated.",ربما استُلمت المحاولة السابقة بالفعل. هل تريد طلب إعادة إرسال XML وUUID والتجزئة نفسها بعد تحقق الخادم من الأهلية؟ لن تُنشأ فاتورة جديدة.

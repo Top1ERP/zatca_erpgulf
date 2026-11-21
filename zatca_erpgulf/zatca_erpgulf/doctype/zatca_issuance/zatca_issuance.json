@@ -33,7 +33,9 @@
   "origin_actor",
   "origin_action",
   "origin_method",
-  "origin_ciphertext"
+  "origin_ciphertext",
+  "late_acceptance_header",
+  "late_acceptance_ciphertext"
  ],
  "fields": [
   {
@@ -266,6 +268,24 @@
    "fieldname": "origin_ciphertext",
    "fieldtype": "Long Text",
    "label": "Encrypted Generation Origin",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  },
+  {
+   "fieldname": "late_acceptance_header",
+   "fieldtype": "Long Text",
+   "label": "Late Acceptance Review Header",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  },
+  {
+   "fieldname": "late_acceptance_ciphertext",
+   "fieldtype": "Long Text",
+   "label": "Encrypted Late Acceptance Review",
    "read_only": 1,
    "hidden": 1,
    "no_copy": 1,

@@ -35,6 +35,11 @@ not grant any new delivery authorization. Source status/response fields are not
 repaired by this action; the existing separately guarded projection remains its
 own operation. No financial data, File, ICV or PIH is changed.
 
+After a separate explicit [late acceptance review](LATE_ACCEPTANCE_REVIEW.md),
+the same canonical current view may select the authenticated older matching
+receipt. This request reconciliation can then complete from it without transport;
+it does not independently adopt an arbitrary superseded response.
+
 ## Canonical readers and interrupted assessment
 
 The retained-view implementation was extracted into read_retained_in_transaction;

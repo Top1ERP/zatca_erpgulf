@@ -181,3 +181,10 @@ before before-commit finalization. Normal workers still refuse STAGED; an explic
 unissued retirement may close a verified stopped stage without generation, source
 changes or transport. Old NULL envelopes remain held and no history is backfilled:
 [AUTHENTICATED_STAGED_REQUESTS.md](AUTHENTICATED_STAGED_REQUESTS.md).
+
+Explicit late acceptance review now binds an earlier matching receipt of the
+same current original/operation to a separate authenticated decision. The newer
+attempt must satisfy the shared expired-unknown/received-failure gate. Technical
+history remains intact; current readers and projection use that reviewed receipt.
+No automatic late overwrite, replay or corrected version is inferred:
+[LATE_ACCEPTANCE_REVIEW.md](LATE_ACCEPTANCE_REVIEW.md).
