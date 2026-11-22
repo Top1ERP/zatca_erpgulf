@@ -56,7 +56,8 @@ def declared_egs_identity_key(environment, taxpayer, serial):
     """Local declared identity independent of owner row or signing-key rotation.
 
     It is not complete legacy/remote history or a NEW_EGS authorization. Renewal
-    must retain its chain rather than reserve this identity on another owner.
+    retains this logical EGS identity and prior ledgers while a new CSID has its
+    own issuance epoch; a changed key alone cannot reserve a second owner.
     """
     if type(environment) is not str or environment not in ('Sandbox','Simulation','Production'):
         raise CredentialIdentityError('credential_egs_identity')

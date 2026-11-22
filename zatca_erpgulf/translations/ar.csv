@@ -968,3 +968,21 @@ Audit Captured History,تدقيق السجل المحفوظ
 Restart Captured History Audit,إعادة بدء تدقيق السجل المحفوظ
 Saved History Review,مراجعة السجل المحفوظ
 Restart the local audit from the current captured head? The saved checkpoint will be replaced; captured pages remain retained. Nothing will be sent to ZATCA.,هل تريد إعادة التدقيق المحلي من آخر دفعة محفوظة؟ سيُستبدل تقدم التدقيق السابق مع الاحتفاظ بجميع دفعات السجل. لن يُرسل أي شيء إلى هيئة الزكاة.
+Certificate renewal preparation could not be confirmed. Review the retained renewal and saved issuer settings before repeating. No certificate request was sent and active credentials were not replaced.,تعذر تأكيد تحضير تجديد الشهادة. راجع طلب التجديد المحفوظ وإعدادات جهة الإصدار قبل إعادة المحاولة. لم يُرسل طلب شهادة ولم تُستبدل بيانات الشهادة الحالية.
+"The renewal key and CSR were saved separately from the current certificate. Active credentials and invoice counters stay unchanged. This is local preparation only; renewal, compliance checks and activation have not been performed.",حُفظ مفتاح التجديد وطلب CSR بصورة منفصلة عن الشهادة الحالية. تبقى بيانات الشهادة وعدادات الفواتير الحالية دون تغيير. هذا تحضير محلي فقط؛ لم يتم التجديد أو إجراء فحوص الامتثال أو التفعيل.
+Prepare Certificate Renewal,تحضير تجديد الشهادة
+Certificate Renewal Preparation,تحضير تجديد الشهادة
+Renewal Preparation Reason,سبب تحضير التجديد
+Prepare Renewal Locally,تحضير التجديد محليًا
+View Pending Renewal,عرض طلب التجديد المعلق
+"Prepare a separate key and CSR locally. The current certificate and invoice counter will not be replaced, and no request will be sent to ZATCA.",تحضير مفتاح وطلب CSR منفصلين محليًا. لن تُستبدل الشهادة الحالية أو عداد الفواتير، ولن يُرسل طلب إلى هيئة الزكاة.
+ZATCA CSID Renewal,تجديد شهادة زاتكا CSID
+Pending Renewal Owner Key,مفتاح مالك طلب التجديد المعلق
+Previous Issuing Chain,سلسلة الإصدار السابقة
+Declared EGS Identity Key,مفتاح هوية وحدة الفوترة المعلنة
+Previous Certificate Hash,تجزئة الشهادة السابقة
+Renewal Public Key Hash,تجزئة المفتاح العام للتجديد
+Renewal CSR Hash,تجزئة طلب CSR للتجديد
+Renewal Preparation State,حالة تحضير التجديد
+Renewal Preparation Header,بيانات ربط تحضير التجديد
+Renewal Preparation Ciphertext,النص المشفر لتحضير التجديد

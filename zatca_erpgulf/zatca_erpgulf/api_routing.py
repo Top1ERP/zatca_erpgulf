@@ -58,6 +58,7 @@ def resolve_api_route(
     *,
     environment: str | None = None,
     onboarding_only: bool = False,
+    method: str = "POST",
 ) -> ApiRoute:
     """Resolve explicit settings without treating blank/unknown values as live.
 
@@ -74,8 +75,12 @@ def resolve_api_route(
     operation = endpoint.strip().strip("/") if isinstance(endpoint, str) else ""
     if operation not in OPERATION_CREDENTIALS:
         raise ApiConfigurationError("operation")
-    credential = OPERATION_CREDENTIALS[operation]
-    if onboarding_only and credential == "production":
+    if type(method) is not str or method not in ("POST", "PATCH") or (method == "PATCH" and operation != "production/csids"):
+        raise ApiConfigurationError("method")
+    # The same path has different credential purposes: initial issuance is a
+    # POST under Compliance CSID, renewal is a PATCH under the old Production CSID.
+    credential = "production" if method == "PATCH" else OPERATION_CREDENTIALS[operation]
+    if onboarding_only and credential == "production" and method != "PATCH":
         raise ApiConfigurationError("onboarding_operation")
 
     field = ENVIRONMENT_FIELDS[selected]

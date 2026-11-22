@@ -42,7 +42,7 @@ def tables(isolated_server):
     try:
         with connection.cursor() as cursor:
             for doctype in ('zatca_issuing_chain','zatca_issuance','zatca_dispatch_attempt','zatca_onboarding_attempt',
-                    'zatca_submission_intent','zatca_legacy_history_page'):
+                    'zatca_submission_intent','zatca_legacy_history_page','zatca_csid_renewal'):
                 body=json.loads((ROOT/doctype/(doctype+'.json')).read_text())
                 columns=['`name` VARCHAR(140) PRIMARY KEY','`owner` VARCHAR(140)','`creation` DATETIME(6)',
                          '`modified` DATETIME(6)','`modified_by` VARCHAR(140)','`docstatus` INT DEFAULT 0']

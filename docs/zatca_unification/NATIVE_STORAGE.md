@@ -11,7 +11,9 @@ It requires System Manager and a clean current-site transaction/connection. It
 creates neither a database/schema nor an encryption key/configuration. The
 service tables named in native_storage.TABLES and read-only Single metadata must
 already be installed. Source declarations now include encrypted legacy history
-pages: [NATIVE_HISTORY_CAPTURE.md](NATIVE_HISTORY_CAPTURE.md).
+pages and separate pending renewal custody:
+[NATIVE_HISTORY_CAPTURE.md](NATIVE_HISTORY_CAPTURE.md),
+[NATIVE_RENEWAL_PREPARATION.md](NATIVE_RENEWAL_PREPARATION.md).
 
 The setup service shares the worker's physical connection/site/actor/key binding,
 parent-write/callback refusal and unknown-commit semantics. A submit-hook context

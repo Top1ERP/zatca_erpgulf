@@ -20,7 +20,8 @@ function setup(lang) {
         add_custom_button(label, action) {c.buttons.set(label, action);},
         remove_custom_button(label) {c.buttons.delete(label);},
         reload_doc() {c.reloads++;}, save() {assert.fail("No generic chain save");}};
-    c.frappe = {user_roles: ["System Manager"],
+    c.route = ["Form", "ZATCA Issuing Chain", "REVIEW"];
+    c.frappe = {user_roles: ["System Manager"], get_route: () => c.route,
         ui: {form: {on(dt, handlers) {
             assert.equal(dt, "ZATCA Issuing Chain"); c.refresh = () => handlers.refresh(c.frm);
         }}},
@@ -59,10 +60,11 @@ for (const lang of ["en", "ar"]) {
         if (reason === "slot") c.frm.doc.registration_review_key = null;
         c.refresh(); assert.equal(c.buttons.size, 0); assert.equal(c.calls.length, 0); count++;
     }
-    for (const reason of ["dirty", "navigate", "refresh", "active", "wrong-review", "wrong-status"]) {
+    for (const reason of ["dirty", "navigate", "route", "refresh", "active", "wrong-review", "wrong-status"]) {
         const c = setup(lang); c.refresh(); c.click("Audit Captured History");
         if (reason === "dirty") c.dirty = true;
         if (reason === "navigate") c.frm.doc.name = "OTHER";
+        if (reason === "route") c.route = ["List", "Company"];
         if (reason === "refresh") c.refresh();
         if (reason === "active") c.frm.doc.active = 1;
         if (reason === "wrong-review") c.reply.message.review_id = "OTHER";

@@ -37,6 +37,13 @@ own ICV series starting1; stable logical EGS identity and all prior ledger custo
 must survive. Evidence, scope and unresolved renewal PIH/adoption requirements:
 [CSID_COUNTER_EPOCHS.md](CSID_COUNTER_EPOCHS.md).
 
+Active native chains now have a fixed local **Prepare Certificate Renewal**
+action. Owned encrypted custody retains a separate new key/CSR and exact old
+material; replay recovers the same pending key. The shared resolver distinguishes
+initial POST/Compliance from renewal PATCH/Production on the same path. No PATCH,
+old-issuer drain, active credential replacement or ICV reset is performed:
+[NATIVE_RENEWAL_PREPARATION.md](NATIVE_RENEWAL_PREPARATION.md).
+
 The [official detailed technical guideline](https://www.zatca.gov.sa/en/E-Invoicing/Introduction/Guidelines/Documents/E-invoicing-Detailed-Technical-Guideline.pdf)
 distinguishes corrected rejection from an unchanged retry, retains generated
 rejected-document chain positions, and bases the next PIH on the immediately

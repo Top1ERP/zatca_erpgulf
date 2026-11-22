@@ -127,6 +127,64 @@ def validate_snapshot_time(observed_at):
         raise CredentialSnapshotError("snapshot_utc_timestamp")
 
 
+@dataclass(frozen=True, repr=False)
+class _BoundMaterial:
+    """Local key/token/certificate equality, without time or dispatch authority."""
+
+    owner: object
+    authorization: object
+    private_key: object
+    certificate: object
+    certificate_der: bytes
+    public_key_der: bytes
+
+    def __reduce_ex__(self, protocol):
+        raise CredentialSnapshotError("snapshot_not_serializable")
+
+
+def _bind_material(owner, purpose, certificate_text):
+    """Share exact material checks; callers retain their distinct time policy.
+
+    Invoice signing still requires current validity below. Local renewal
+    preparation can retain an expired old certificate without authorizing its
+    use for new invoice signing or claiming the renewal API will accept it.
+    """
+    validate_snapshot_owner(owner)
+    try:
+        auth_field = authorization_field_for_owner(owner, purpose)
+        values = {name: owner.values.get(name) for name in ("custom_private_key", auth_field)}
+        if any(value is not None and type(value) is not str for value in values.values()):
+            raise CredentialSnapshotError("snapshot_material_type")
+        for name, value in values.items():
+            bound = MAX_PRIVATE_KEY_TEXT if name == "custom_private_key" else MAX_AUTH_TEXT
+            if value is not None and len(value) > bound:
+                raise CredentialSnapshotError("snapshot_material_size")
+        frozen = CredentialOwner(owner.company_name, owner.doctype, owner.name, owner.source_kind, MappingProxyType(values))
+        authorization = authorization_for_owner(frozen, purpose)
+        certificate, der = parse_public_certificate_text(certificate_text)
+        if authentication_certificate_der(authorization.header) != der:
+            raise CredentialSnapshotError("snapshot_auth_certificate_mismatch")
+        key_text = values["custom_private_key"]
+        if not key_text:
+            raise CredentialSnapshotError("snapshot_private_key")
+        key = serialization.load_pem_private_key(key_text.encode("utf-8"), password=None)
+        public = certificate.public_key()
+        if (not isinstance(key, ec.EllipticCurvePrivateKey) or not isinstance(public, ec.EllipticCurvePublicKey)
+                or key.curve.name != "secp256k1" or public.curve.name != "secp256k1"):
+            raise CredentialSnapshotError("snapshot_algorithm")
+        options = (serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
+        public_der = public.public_bytes(*options)
+        if key.public_key().public_bytes(*options) != public_der:
+            raise CredentialSnapshotError("snapshot_key_mismatch")
+        return _BoundMaterial(frozen, authorization, key, certificate, der, public_der)
+    except CredentialSnapshotError:
+        raise
+    except (CredentialConfigurationError, ArtifactEvidenceError, IssuanceContractError):
+        raise CredentialSnapshotError("snapshot_material_invalid") from None
+    except (ValueError, TypeError, AttributeError, UnsupportedAlgorithm):
+        raise CredentialSnapshotError("snapshot_private_key") from None
+
+
 @dataclass(frozen=True)
 class CredentialSnapshot:
     """Locally bound material copied once, with safe fingerprint-only diagnostics.
@@ -154,37 +212,10 @@ class CredentialSnapshot:
         validate_snapshot_time(self.observed_at)
         validate_snapshot_owner(self.owner)
         try:
-            # Keep only immutable scalar secret fields consumed by this purpose.
-            auth_field = authorization_field_for_owner(self.owner, self.route.required_credential)
-            values = {name: self.owner.values.get(name) for name in ("custom_private_key", auth_field)}
-            if any(value is not None and type(value) is not str for value in values.values()):
-                raise CredentialSnapshotError("snapshot_material_type")
-            for name, value in values.items():
-                bound = MAX_PRIVATE_KEY_TEXT if name == "custom_private_key" else MAX_AUTH_TEXT
-                if value is not None and len(value) > bound:
-                    raise CredentialSnapshotError("snapshot_material_size")
-            owner = CredentialOwner(
-                self.owner.company_name, self.owner.doctype, self.owner.name, self.owner.source_kind,
-                MappingProxyType(values),
-            )
-            authorization = authorization_for_owner(owner, self.route.required_credential)
-            certificate, der = parse_public_certificate_text(self.certificate_text)
-            if authentication_certificate_der(authorization.header) != der:
-                raise CredentialSnapshotError("snapshot_auth_certificate_mismatch")
-            key_text = values["custom_private_key"]
-            if not key_text:
-                raise CredentialSnapshotError("snapshot_private_key")
-            key = serialization.load_pem_private_key(key_text.encode("utf-8"), password=None)
-            public_key = certificate.public_key()
-            if (
-                not isinstance(key, ec.EllipticCurvePrivateKey) or not isinstance(public_key, ec.EllipticCurvePublicKey)
-                or key.curve.name != "secp256k1" or public_key.curve.name != "secp256k1"
-            ):
-                raise CredentialSnapshotError("snapshot_algorithm")
-            options = (serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
-            public_der = public_key.public_bytes(*options)
-            if key.public_key().public_bytes(*options) != public_der:
-                raise CredentialSnapshotError("snapshot_key_mismatch")
+            material = _bind_material(self.owner, self.route.required_credential, self.certificate_text)
+            owner, authorization, key, certificate, der, public_der = (
+                material.owner, material.authorization, material.private_key, material.certificate,
+                material.certificate_der, material.public_key_der)
             before = getattr(certificate, "not_valid_before_utc", None)
             after = getattr(certificate, "not_valid_after_utc", None)
             before = before if before is not None else certificate.not_valid_before.replace(tzinfo=timezone.utc)

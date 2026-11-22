@@ -1,0 +1,138 @@
+{
+ "actions": [],
+ "autoname": "field:record_id",
+ "creation": "2026-11-22 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "record_id",
+  "owner_key",
+  "pending_owner_key",
+  "old_chain",
+  "environment",
+  "egs_identity_key",
+  "old_certificate_sha256",
+  "new_public_key_sha256",
+  "csr_sha256",
+  "state",
+  "preparation_header",
+  "preparation_ciphertext"
+ ],
+ "fields": [
+  {
+   "fieldname": "record_id",
+   "label": "Record ID",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "owner_key",
+   "label": "Owner and Environment Key",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "pending_owner_key",
+   "label": "Pending Renewal Owner Key",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "old_chain",
+   "label": "Previous Issuing Chain",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "environment",
+   "label": "Environment",
+   "fieldtype": "Select",
+   "read_only": 1,
+   "reqd": 1,
+   "options": "Sandbox\nSimulation\nProduction"
+  },
+  {
+   "fieldname": "egs_identity_key",
+   "label": "Declared EGS Identity Key",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "old_certificate_sha256",
+   "label": "Previous Certificate Hash",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "new_public_key_sha256",
+   "label": "Renewal Public Key Hash",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "csr_sha256",
+   "label": "Renewal CSR Hash",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "state",
+   "label": "Renewal Preparation State",
+   "fieldtype": "Select",
+   "read_only": 1,
+   "reqd": 1,
+   "options": "CSR_READY"
+  },
+  {
+   "fieldname": "preparation_header",
+   "label": "Renewal Preparation Header",
+   "fieldtype": "Long Text",
+   "read_only": 1,
+   "reqd": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  },
+  {
+   "fieldname": "preparation_ciphertext",
+   "label": "Renewal Preparation Ciphertext",
+   "fieldtype": "Long Text",
+   "read_only": 1,
+   "reqd": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 0,
+ "links": [],
+ "modified": "2026-11-22 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Zatca Erpgulf",
+ "name": "ZATCA CSID Renewal",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 0,
+ "allow_import": 0,
+ "allow_rename": 0
+}

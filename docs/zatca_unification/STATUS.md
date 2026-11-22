@@ -2,6 +2,39 @@
 
 ## Current: workstream2 in progress
 
+Active native chains now have a fixed local renewal-preparation POST action.
+One owned transaction retains exact old fields plus a separate new key/CSR in
+authenticated encrypted custody. Current owner READ+WRITE, Company/chain READ,
+active slot/marker, key/token/taxpayer/serial/environment and saved route bindings
+are checked before retention and again after crypto. Replay after unknown commit
+recovers the same pending key; changed/corrupt custody holds. Current owner fields
+and ICV/PIH stay unchanged, including later old-epoch counter advancement. Local
+expired-material preparation does not weaken ordinary signing's time checks.
+The eighth read-only service DocType and its table are source-only. Initial POST
+retains Compliance purpose; explicit renewal PATCH resolution uses Production
+purpose. No PATCH/renewal428 admission, drain/fence, activation or new CSID epoch
+was performed: [NATIVE_RENEWAL_PREPARATION.md](NATIVE_RENEWAL_PREPARATION.md).
+
+Final renewal qualification:901 local cases across11 suites in2.49s,249 private
+SQL cases across8 suites in25.24s and20,751 across the fixed81 issuer-binding
+suites in113.53s. The final local selection includes the subsequent public-message
+scope error case; the earlier900 local result preceded that one display-boundary
+extension. Private/core crypto behavior was unchanged by it. Synthetic Desk VM
+checks passed30 renewal and36 history-action cases in English/Arabic, including
+actual route departure while the old form object remains unchanged. Logs:
+`/tmp/zatca-axis2-renewal-local-release.log`,
+`/tmp/zatca-axis2-renewal-private-final.log`,
+`/tmp/zatca-axis2-renewal-issuer-regression.log`,
+`/tmp/zatca-axis2-renewal-ui-final.log`,
+`/tmp/zatca-axis2-renewal-history-ui-final.log`.
+Initial18 local/18 private and641 existing binding/schema cases also passed.
+New renewal suites contain20 local/21 private cases. The manifest has258 local/
+92 private suites and was not run in full; selections overlap and are not additive
+release totals. Active-chain/CA/ERP inputs are explicit fixtures; no installed
+ERP15/16, genuine CA/SDK or real/dummy-company activation is claimed. Offline
+guard remained active; no live-site/source/schema/service or authority request
+occurred. Original240 financial characterization remains91/117/32 unchanged.
+
 Existing inactive legacy reviews now have fixed capture/audit/restart Desk POST
 actions. Each invocation performs one bounded page/segment from authenticated
 saved arguments; access is rechecked by the actual service after owned read

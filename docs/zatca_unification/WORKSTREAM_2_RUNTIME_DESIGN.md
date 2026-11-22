@@ -7,6 +7,14 @@ stable chain must not imply one ICV sequence across renewed CSIDs. This is a
 design correction; no counter/reset/activation behavior was enabled:
 [CSID_COUNTER_EPOCHS.md](CSID_COUNTER_EPOCHS.md).
 
+The active chain form now adopts local pending-renewal preparation. New key/CSR
+and exact old fields are retained in separate authenticated encrypted custody;
+current owner/Company/chain ACL, identity, route and material are rechecked before
+one commit. Unknown commit replay never regenerates another key. The initial
+POST and renewal PATCH route credential purposes are distinct. No remote call,
+drain, active projection or counter change occurs:
+[NATIVE_RENEWAL_PREPARATION.md](NATIVE_RENEWAL_PREPARATION.md).
+
 Known-unit inactive review/reuse now returns a bounded source/XML history report,
 with exact missing-position arithmetic, adjacent declared PIH links, genesis/tail
 observations, changed public keys and explicit unresolved/unprobed limits. It
@@ -77,9 +85,9 @@ skips its old second immediate send when the hook registered a deferred submissi
 Two intra-company hook paths update output fields within the enclosing transaction,
 without save hooks or an early accounting commit.
 
-Seven source-only DocTypes declare protected metadata views: Dispatch Control,
+Eight source-only DocTypes declare protected metadata views: Dispatch Control,
 Issuing Chain, Issuance, Dispatch Attempt, Onboarding Attempt, Submission Intent
-and Legacy History Page. Their shared
+Legacy History Page and CSID Renewal. Their shared
 controller denies generic write/delete/rename; roles have read only. Invoice
 payloads contain no credentials; issued CSID secrets occur only in their distinct
 encrypted onboarding-response custody. No site has these schemas installed by the agent. The

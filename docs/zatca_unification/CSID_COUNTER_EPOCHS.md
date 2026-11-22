@@ -72,8 +72,10 @@ into a renewal shortcut. Legacy `icv._issuing_unit` currently hashes auth text;
 that is a historical namespace observation, not a reliable certificate identity
 or a renewal proof, and must not define the new native epoch boundary.
 
-Next development must add trusted pending old/new credential custody, stable
-logical-EGS mapping, CSID-specific immutable ledger epochs, explicit activation
+Separate owned encrypted pending old/new key/CSR custody is now implemented:
+[NATIVE_RENEWAL_PREPARATION.md](NATIVE_RENEWAL_PREPARATION.md). It makes no request,
+credential replacement or counter change. Next development must add authenticated
+remote renewal custody, stable logical-EGS mapping, CSID-specific immutable ledger epochs, explicit activation
 and drain/recovery semantics. Qualify renewal using the same private SQL/offline
 runtime matrix; actual installed15/16, authentic SDK and dummy-company rehearsal
 remain separately gated. No working-site counter, credential or API was touched

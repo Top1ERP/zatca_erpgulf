@@ -17,7 +17,7 @@ from .worker_transaction import _owned_transaction
 
 
 TABLES = ('tabZATCA Issuing Chain', 'tabZATCA Issuance', 'tabZATCA Dispatch Attempt', 'tabZATCA Onboarding Attempt',
-    'tabZATCA Submission Intent', 'tabZATCA Legacy History Page')
+    'tabZATCA Submission Intent', 'tabZATCA Legacy History Page', 'tabZATCA CSID Renewal')
 
 
 class NativeStorageError(RuntimeError):
