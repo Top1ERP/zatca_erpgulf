@@ -727,6 +727,12 @@ occurred. Complete backward captured-ledger/body/coverage verification, broader
 archives/rotated ownership, cutover/drain and qualification remain open; the
 protected append head alone does not close workstream2 or authorize activation.
 
+The new metadata label uses History Page Number with its scoped Arabic catalog
+key, leaving the generic application Page Number translation alone. The final
+label-only check passed71 framing/schema cases and a direct catalog/metadata
+consistency check: `/tmp/zatca-axis2-capture-labels.log`. Field names, stored
+envelopes, runtime behavior and the broad qualification above are unchanged.
+
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; remaining Letter Head/custom/direct-master/other print information
 and File/external-print compatibility; remaining late/superseded retry review and
