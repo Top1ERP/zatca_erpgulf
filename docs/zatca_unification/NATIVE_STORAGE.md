@@ -76,7 +76,9 @@ Ordinary legacy material without a matching native registration keeps its path.
 This is a reservation of a **known local declaration**, not proof of all legacy or
 remote history, semantic equivalence of changed serial declarations, CA trust or
 NEW_EGS genesis. It does not activate any chain or reset any counter. Renewal must
-retain the stable opaque chain; the deferred renewal service must handle declared
+retain stable logical EGS identity and old ledger custody while admitting a new
+CSID-specific issuance epoch; it must not assume one never-reset ICV across
+renewal. See [CSID_COUNTER_EPOCHS.md](CSID_COUNTER_EPOCHS.md). The deferred renewal service must handle declared
 identity changes explicitly. Complete legacy-consumer inventory/drain and reviewed
 initial/cutover activation remain open. FINAL_READY is still inactive.
 

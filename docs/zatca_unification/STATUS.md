@@ -2,6 +2,38 @@
 
 ## Current: workstream2 in progress
 
+Existing inactive legacy reviews now have fixed capture/audit/restart Desk POST
+actions. Each invocation performs one bounded page/segment from authenticated
+saved arguments; access is rechecked by the actual service after owned read
+preflight. One translated aggregate summary is shown, with English-only static
+diagnostics and preserved commit uncertainty. Refresh performs no work; dirty/
+stale/active/unauthorized forms cannot start it. Initial proposal creation, raw
+archive XML export, complete inventory, renewal/activation and installed
+acceptance remain open: [HISTORY_REVIEW_ACTIONS.md](HISTORY_REVIEW_ACTIONS.md).
+
+Operator release qualification:538 local cases across18 suites in2.15s and297
+private SQL cases across11 suites in61.27s, plus34 synthetic Desk VM cases in
+English/Arabic. Logs: `/tmp/zatca-axis2-history-actions-local-release.log`,
+`/tmp/zatca-axis2-history-actions-private-release.log`,
+`/tmp/zatca-axis2-history-actions-ui-release.log`. Initial focused132 local and
+expanded59 private also passed. These selections differ/overlap with earlier
+bundles; they are not additive release totals. The first permission-spy private
+run intercepted the namespace key-check probe itself; restricting the assertion
+to root/page XML decryption fixed the test without weakening runtime admission.
+New operator suites contain12 local/14 private cases. The explicit manifest now
+has257 local/91 private suites; the whole manifest was not run. Offline fixtures
+and no-live/no-authority constraints remained in effect. Financial references
+and original240 comparison91/117/32 remain unchanged. No installed15/16, genuine
+signing/SDK, browser or dummy-company acceptance is claimed.
+
+Renewal policy correction2026-11-22: the explicit developer-community guidance
+requires the new CSID's ICV to start1 after renewal/revocation. Stable logical EGS
+identity must retain successive CSID ledger epochs, not force continuation of a
+single counter across all certificates. Existing inactive onboarding guards stay
+unchanged; full pending renewal/epoch/activation is still required. Exact sources,
+distinction from PDF wording and design consequences are recorded in
+[CSID_COUNTER_EPOCHS.md](CSID_COUNTER_EPOCHS.md).
+
 Latest extension: resumable backward captured-ledger audit, described in
 [NATIVE_HISTORY_AUDIT.md](NATIVE_HISTORY_AUDIT.md). One owned transaction retains
 a bounded segment/checkpoint; protected capture-head/cursor/count/boundary binding,

@@ -952,3 +952,19 @@ History Page Number,رقم دفعة السجل
 After ICV,بعد عداد الإصدار ICV
 Through ICV,حتى عداد الإصدار ICV
 Record ID,معرّف السجل
+"The saved history operation could not be confirmed. Review the current inactive proposal, permissions and retained evidence before continuing. No invoice was created or sent.",تعذر تأكيد عملية السجل المحفوظ. راجع مقترح المراجعة غير النشط والصلاحيات والأدلة المحفوظة قبل المتابعة. لم يتم إنشاء أو إرسال أي فاتورة.
+Saved history pages: {0}. Captured sources: {1}. Unresolved sources: {2}. Continue explicitly to save the next page. No invoice was created or sent.,دفعات السجل المحفوظة: {0}. المستندات المحفوظة: {1}. المستندات غير المحسومة: {2}. اضغط متابعة صراحة لحفظ الدفعة التالية. لم يتم إنشاء أو إرسال أي فاتورة.
+The saved capture reaches the reviewed tail. This does not prove complete or valid history. Run the captured history audit to inspect the retained evidence.,وصل الحفظ إلى آخر إصدار خضع للمراجعة. هذا لا يثبت اكتمال السجل أو صحته. شغّل تدقيق السجل المحفوظ لفحص الأدلة.
+Checked pages: {0}. Remaining pages: {1}. Missing counter positions: {2}. Unresolved sources: {3}. Broken PIH links: {4}. Rotated-key sources: {5}.,الدفعات المدققة: {0}. الدفعات المتبقية: {1}. القيم المفقودة في التسلسل: {2}. المستندات غير المحسومة: {3}. روابط PIH غير المتطابقة: {4}. المستندات ذات مفتاح مختلف: {5}.
+"The captured-ledger traversal is complete. This is a local evidence report, not approval to activate an issuer or ZATCA acceptance.",اكتمل تدقيق الدفعات المحفوظة. هذا تقرير أدلة محلي، ولا يعني الموافقة على تفعيل جهة الإصدار أو قبول هيئة الزكاة.
+The audit checkpoint was saved. Continue explicitly to check the remaining pages.,تم حفظ تقدم التدقيق. اضغط متابعة صراحة لتدقيق الدفعات المتبقية.
+This is the saved report from {0} UTC. Restart the audit explicitly for a fresh check.,هذا التقرير محفوظ منذ {0} بالتوقيت العالمي UTC. أعد بدء التدقيق صراحة لإجراء فحص جديد.
+Initial PIH match: {0}.,تطابق PIH الأولي: {0}.
+Unknown,غير معروف
+Yes,نعم
+No,لا
+Capture Next History Page,حفظ الدفعة التالية من السجل
+Audit Captured History,تدقيق السجل المحفوظ
+Restart Captured History Audit,إعادة بدء تدقيق السجل المحفوظ
+Saved History Review,مراجعة السجل المحفوظ
+Restart the local audit from the current captured head? The saved checkpoint will be replaced; captured pages remain retained. Nothing will be sent to ZATCA.,هل تريد إعادة التدقيق المحلي من آخر دفعة محفوظة؟ سيُستبدل تقدم التدقيق السابق مع الاحتفاظ بجميع دفعات السجل. لن يُرسل أي شيء إلى هيئة الزكاة.

@@ -11,7 +11,10 @@ The existing internal review service accepts history_capture=True only with a
 valid history_review_id/history_page_after pair. It retains all existing System
 Manager, Source/Company/counter/File and selected-owner admission, current issuer/
 consumer/tail checks and exact authenticated unchanged-review binding. It is not
-a public RPC or UI action. Ordinary review/read-page defaults are unchanged.
+a public RPC. Existing inactive reviews now have fixed local operator actions,
+with saved arguments derived server-side:
+[HISTORY_REVIEW_ACTIONS.md](HISTORY_REVIEW_ACTIONS.md).
+Ordinary review/read-page defaults are unchanged.
 
 New capture starts at0. Continuation must start at the current protected head;
 skipping positions cannot append a disconnected page. An exact already-captured
@@ -100,8 +103,9 @@ An explicit resumable backward header/body/coverage check is now implemented in
 [NATIVE_HISTORY_AUDIT.md](NATIVE_HISTORY_AUDIT.md); its point-in-time report grants
 no qualification/adoption decision. There is no overall accepted/active flag.
 Privileged complete DB/key rollback is outside this local epoch guarantee.
-General archive publication/operator presentation and installed/pilot acceptance
-remain open; workstream2 is not closed by this capture primitive.
+General archive XML publication and installed/pilot acceptance remain open;
+operator capture/audit presentation is covered by the fixed actions above.
+Workstream2 is not closed by this capture primitive.
 
 ## Evidence
 

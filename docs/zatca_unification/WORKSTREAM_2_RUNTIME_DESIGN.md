@@ -1,5 +1,12 @@
 # Native dispatch integration design — workstream2, active
 
+Renewal correction2026-11-22: stable logical EGS identity is distinct from each
+new-CSID issuance ledger epoch. The new CSID's ICV starts1 per the explicit
+developer clarification; prior ledgers stay retained. Earlier wording about a
+stable chain must not imply one ICV sequence across renewed CSIDs. This is a
+design correction; no counter/reset/activation behavior was enabled:
+[CSID_COUNTER_EPOCHS.md](CSID_COUNTER_EPOCHS.md).
+
 Known-unit inactive review/reuse now returns a bounded source/XML history report,
 with exact missing-position arithmetic, adjacent declared PIH links, genesis/tail
 observations, changed public keys and explicit unresolved/unprobed limits. It
@@ -34,6 +41,14 @@ broken custody links/counts and changed heads, while retaining actual declared
 PIH/gap/unresolved/key findings in a metadata-only report. Completed replay is a
 saved snapshot; explicit restart rechecks current custody/ACL. No activation or
 crypto/cutover qualification follows: [NATIVE_HISTORY_AUDIT.md](NATIVE_HISTORY_AUDIT.md).
+
+The current inactive legacy chain form now adopts those services through fixed
+capture/audit/restart POST actions. Server-authenticated custody supplies the
+source/reason/cursor, current permissions precede root XML decryption, and actual
+service admission is repeated after owned read preflight. One translated summary
+is displayed with no automatic loop or authority operation. Initial review,
+archive raw export and activation remain separate:
+[HISTORY_REVIEW_ACTIONS.md](HISTORY_REVIEW_ACTIONS.md).
 
 This document records implementation decisions, not completed runtime adoption.
 The old uninstalled nested staging models remain deferred; adding another isolated

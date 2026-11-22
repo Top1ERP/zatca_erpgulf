@@ -11,7 +11,10 @@ The existing `review_legacy_registration` service accepts `history_audit=True`
 with its current inactive `history_review_id` and `history_page_after='0'`.
 Capture and audit cannot run in the same operation. The saved review, reason,
 anchor checksum, current issuer/tail and normal System Manager/Source/Company/
-counter/File admission must still match. There is no public RPC or Desk action.
+counter/File admission must still match. The core review is internal. Existing
+inactive reviews can now use the fixed local operator actions described in
+[HISTORY_REVIEW_ACTIONS.md](HISTORY_REVIEW_ACTIONS.md); those actions derive saved
+arguments server-side rather than exposing the internal command's parameters.
 
 The audit starts at the authenticated capture head and follows its predecessors;
 the caller supplies neither a backward cursor nor a previous digest. A bounded
@@ -90,9 +93,9 @@ Source READ denial between segments, compare failure, lost COMMIT acknowledgment
 report replay and explicit fresh recheck. Issue fixtures deliberately alter XML
 declarations and are not claimed to be cryptographically valid.
 
-Broader final qualification: 526 local cases across17 suites and316 private SQL
+Audit bundle qualification:526 local cases across17 suites and316 private SQL
 cases across10 suites. See STATUS for exact logs/timings. The reviewed manifest
-has256 local/90 private suites and was not run in full. Sets overlap with prior
+had256 local/90 private suites at that bundle and was not run in full. Sets overlap with prior
 bundles and are not release totals. The offline guard denies site initialization
 and external network; SQL fixtures use only a private `/tmp` Unix socket with
 `--no-defaults` and TCP disabled. Financial references remain91 identical/117

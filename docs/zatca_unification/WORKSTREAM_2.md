@@ -11,8 +11,9 @@ selection passes. Development remains offline in the isolated worktree.
   source permissions. Worker handoff must not serialize documents/credentials.
 - [ ] Durable exact artifact + UUID/ICV/PIH/issuer/environment/version ownership,
   committed before transport. Missing/uncertain storage cannot regenerate or send.
-- [ ] Stable EGS mapping across key renewal. Explicit NEW_EGS genesis and reviewed
-  legacy continuity; never infer zero from missing XML, blank PIH or a new token.
+- [ ] Stable logical EGS mapping with separate new-CSID issuance epochs across
+  renewal, retaining prior ledgers. Explicit NEW_EGS genesis and reviewed legacy
+  continuity; never infer a reset from missing XML, blank PIH or changed token text.
 - [ ] Atomic local chain advancement on document generation, independent of remote
   acceptance. Retain rejected originals; no counter/hash rewind or silent reuse.
 - [ ] Serialize competing workers and preparation; durable attempt fencing and
@@ -29,6 +30,12 @@ selection passes. Development remains offline in the isolated worktree.
   concurrent/restart/lost-response/private-SQL tests and readable operator messages.
 
 ## Primary guidance and deliberate policies
+
+The current renewal/counter decision supersedes the earlier assumption of a
+single never-reset counter across all certificates. A new admitted CSID has its
+own ICV series starting1; stable logical EGS identity and all prior ledger custody
+must survive. Evidence, scope and unresolved renewal PIH/adoption requirements:
+[CSID_COUNTER_EPOCHS.md](CSID_COUNTER_EPOCHS.md).
 
 The [official detailed technical guideline](https://www.zatca.gov.sa/en/E-Invoicing/Introduction/Guidelines/Documents/E-invoicing-Detailed-Technical-Guideline.pdf)
 distinguishes corrected rejection from an unchanged retry, retains generated
@@ -109,6 +116,13 @@ Saved-report replay differs from explicit fresh recheck. Gaps/unresolved/broken
 PIH remain observations, not activation grants:
 [NATIVE_HISTORY_AUDIT.md](NATIVE_HISTORY_AUDIT.md). Broader qualification and
 adoption remain open.
+
+Existing inactive reviews now expose fixed local capture/audit/restart actions
+on the chain form, with server-derived arguments and a second current admission
+after owned read preflight. One translated aggregate report is shown per action;
+no refresh loop, worker, authority call or invoice is created. Initial proposal
+creation, wider archive publication and activation remain separate:
+[HISTORY_REVIEW_ACTIONS.md](HISTORY_REVIEW_ACTIONS.md).
 
 Known owner/delegate/declared-unit consumer closure and a permission-checked,
 current locked counter catalog are now adopted in that inactive review. Another
