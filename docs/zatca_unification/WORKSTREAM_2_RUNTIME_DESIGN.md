@@ -15,9 +15,19 @@ known positions stay unprobed. Full counts/exact gaps are not an activation gran
 An explicit history_review_id/history_page_after mode now resumes bounded numeric
 page reads only against an unchanged authenticated current inactive proposal.
 The real boundary XML is reread, so callers cannot supply a previous digest or
-silently bridge missing positions. No record/commit or cumulative completion is
-introduced. Durable historical custody/coverage and activation remain open:
+silently bridge missing positions. Default reads introduce no record/commit or
+cumulative completion. Explicit durable capture is described below; complete
+coverage qualification and activation remain open:
 [NATIVE_HISTORY_PAGES.md](NATIVE_HISTORY_PAGES.md).
+
+history_capture=True now atomically retains immutable encrypted exact XML pages
+and a protected head under separate access/XML/head domains. Replay reads the
+saved bytes before invoking the producer, with current saved-row ACL before
+large XML decryption. Cursor, census and boundary substitution hold rather than
+overwrite; explicit superseding review preserves prior evidence. This adds one
+source-only read-only DocType and two nullable hidden chain fields, no installed
+schema or activation. Whole backward ledger/coverage audit and cryptographic/
+cutover qualification remain open: [NATIVE_HISTORY_CAPTURE.md](NATIVE_HISTORY_CAPTURE.md).
 
 This document records implementation decisions, not completed runtime adoption.
 The old uninstalled nested staging models remain deferred; adding another isolated
@@ -46,8 +56,9 @@ skips its old second immediate send when the hook registered a deferred submissi
 Two intra-company hook paths update output fields within the enclosing transaction,
 without save hooks or an early accounting commit.
 
-Six source-only DocTypes declare protected metadata views: Dispatch Control,
-Issuing Chain, Issuance, Dispatch Attempt, Onboarding Attempt and Submission Intent. Their shared
+Seven source-only DocTypes declare protected metadata views: Dispatch Control,
+Issuing Chain, Issuance, Dispatch Attempt, Onboarding Attempt, Submission Intent
+and Legacy History Page. Their shared
 controller denies generic write/delete/rename; roles have read only. Invoice
 payloads contain no credentials; issued CSID secrets occur only in their distinct
 encrypted onboarding-response custody. No site has these schemas installed by the agent. The

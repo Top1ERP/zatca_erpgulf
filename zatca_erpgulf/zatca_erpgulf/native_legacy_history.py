@@ -6,6 +6,7 @@ Even consistent declarations are not signature/hash/SDK or worker-drain proof.
 """
 
 from dataclasses import dataclass
+import hashlib
 
 from .artifact_evidence import ArtifactEvidenceError, inspect_invoice_artifact, MAX_XML_BYTES as MAX_SINGLE_XML_BYTES
 from .artifact_inventory import _read_local_attachment
@@ -23,6 +24,7 @@ MAX_SOURCES = 1024
 MAX_FILES_PER_SOURCE = 4
 MAX_XML_BYTES = 16 * 1024 * 1024
 MAX_PAGE_SOURCES = 64
+MAX_CAPTURE_XML_BYTES = 15 * 1024 * 1024
 
 
 @dataclass(frozen=True, repr=False)
@@ -49,6 +51,7 @@ class LegacyHistoryInventory:
 class _Budget:
     remaining: int
     read: int = 0
+    capture: dict | None = None
 
 
 @dataclass(frozen=True, repr=False)
@@ -93,6 +96,7 @@ def _older_xml(runtime, owner, row, seller_tax_id, budget):
     if not files or len(files) > MAX_FILES_PER_SOURCE:
         return None
     selected = None
+    captured_files = []
     for file_row in files:
         if budget.remaining <= 0:
             return None
@@ -123,6 +127,10 @@ def _older_xml(runtime, owner, row, seller_tax_id, budget):
                 evidence.invoice_digest, evidence.previous_hash, key):
             return None
         selected = candidate
+        if budget.capture is not None:
+            captured_files.append({'file_id': file.name, 'xml': content})
+    if budget.capture is not None:
+        budget.capture[doctype, name] = {'source': dict(row), 'observed': True, 'files': captured_files}
     return selected
 
 
@@ -209,7 +217,8 @@ def _page_rows(owner, unit, after_icv, *, boundary=False):
     return sorted(rows, key=lambda row: int(row['icv']))
 
 
-def inspect_known_legacy_page(runtime, owner, source, unit, anchor, public_key, *, review_id, after_icv):
+def inspect_known_legacy_page(runtime, owner, source, unit, anchor, public_key, *, review_id, after_icv,
+        capture_buffer=None, anchor_xml=None, anchor_file_id=None):
     """Read one suffix page after the caller authenticates an unchanged review.
 
     A returned cursor is a partial read position, never cumulative completion or
@@ -223,7 +232,11 @@ def inspect_known_legacy_page(runtime, owner, source, unit, anchor, public_key, 
     total = _count_slots(owner, unit)
     owner.database.sql('SELECT name FROM `tabFile` LIMIT 0', as_dict=True)
     require_range_engines(owner, ('tabSales Invoice', 'tabPOS Invoice', 'tabFile'))
-    budget = _Budget(MAX_XML_BYTES)
+    capturing = capture_buffer is not None
+    if capturing and (type(capture_buffer) is not dict or capture_buffer or type(anchor_xml) is not bytes
+            or hashlib.sha256(anchor_xml).hexdigest() != anchor.file_sha256):
+        raise ChainRegistrationError('registration_history_capture_input')
+    budget = _Budget(MAX_CAPTURE_XML_BYTES if capturing else MAX_XML_BYTES, capture=capture_buffer)
     rows, observations, attempted = [], {}, set()
     identity = (source.doctype, source.name)
 
@@ -232,6 +245,15 @@ def inspect_known_legacy_page(runtime, owner, source, unit, anchor, public_key, 
         attempted.add(key)
         observations[key] = ((anchor, public_key) if key == identity else
             _older_xml(runtime, owner, row, anchor.seller_tax_id, budget))
+        if capturing:
+            if key == identity:
+                if len(anchor_xml) > budget.remaining:
+                    raise ChainRegistrationError('registration_history_capture_anchor_limit')
+                budget.remaining -= len(anchor_xml)
+                capture_buffer[key] = {'source': dict(row), 'observed': True,
+                    'files': [{'file_id': anchor_file_id, 'xml': anchor_xml}]}
+            capture_buffer.setdefault(key, {'source': dict(row), 'observed': False, 'files': []})
+            capture_buffer[key]['boundary'] = start > 0 and row['icv'] == after_icv
         rows.append(row)
         return observations[key]
 
@@ -247,6 +269,8 @@ def inspect_known_legacy_page(runtime, owner, source, unit, anchor, public_key, 
     through = after_icv
     for row in found[:MAX_PAGE_SOURCES]:
         if budget.remaining <= 0:
+            break
+        if capturing and (row['doctype'], row['name']) == identity and len(anchor_xml) > budget.remaining:
             break
         observe(row); through = row['icv']
     remaining = _count_slots(owner, unit, after_icv=through)

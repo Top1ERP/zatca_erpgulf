@@ -42,7 +42,7 @@ def tables(isolated_server):
     try:
         with connection.cursor() as cursor:
             for doctype in ('zatca_issuing_chain','zatca_issuance','zatca_dispatch_attempt','zatca_onboarding_attempt',
-                    'zatca_submission_intent'):
+                    'zatca_submission_intent','zatca_legacy_history_page'):
                 body=json.loads((ROOT/doctype/(doctype+'.json')).read_text())
                 columns=['`name` VARCHAR(140) PRIMARY KEY','`owner` VARCHAR(140)','`creation` DATETIME(6)',
                          '`modified` DATETIME(6)','`modified_by` VARCHAR(140)','`docstatus` INT DEFAULT 0']
@@ -50,6 +50,8 @@ def tables(isolated_server):
                     kind={'Int':'INT','Check':'TINYINT','Long Text':'LONGTEXT','Datetime':'DATETIME(6)'}.get(field['fieldtype'],'VARCHAR(140)')
                     columns.append('`'+field['fieldname']+'` '+kind+(' UNIQUE' if field.get('unique') else ''))
                 cursor.execute('CREATE TABLE `tab'+body['name']+'` ('+','.join(columns)+') ENGINE=InnoDB')
+                if doctype == 'zatca_legacy_history_page':
+                    cursor.execute('CREATE INDEX history_review ON `tabZATCA Legacy History Page` (review_id)')
         yield
     finally:connection.close()
 

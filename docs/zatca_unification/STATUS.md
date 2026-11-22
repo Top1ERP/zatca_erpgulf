@@ -687,6 +687,46 @@ coverage and boundary failures stay explicit. Durable authenticated historical
 custody/coverage, rotated/unattributed archives, cutover/drain and activation
 remain open; workstream2 is not closed.
 
+Explicit history_capture=True now retains exact page/XML bytes and a protected
+capture head atomically under the unchanged inactive review. Separate access/XML/
+head cipher domains bind site/namespace/record/header; current Source/File READ
+and identity precede XML decryption. Replays return the saved immutable bytes
+before running the producer. Head compare failure rolls back the page; lost
+COMMIT acknowledgment recovers the same page and head. Cursor/census/boundary
+changes hold; explicitly superseding the inactive review permits a corrected
+capture while retaining the older pages. No authority/active/complete grant is
+derived from captured counts. Details:
+[NATIVE_HISTORY_CAPTURE.md](NATIVE_HISTORY_CAPTURE.md).
+
+Source declarations add the seventh read-only service DocType (Legacy History
+Page) and two nullable hidden chain head fields. Full page/review indexes,
+InnoDB/physical types and bounded SQL reads are checked; the cold namespace
+orphan census includes the new table. No schema/key/namespace/site was installed
+or modified outside fixture-owned tests. New visible metadata labels have Arabic
+catalog entries; no JS asset or ordinary invoice flow changed.
+
+Latest capture qualification:569 local cases across16 suites in2.11s and294
+private cases across9 suites in44.33s. New suites add20 local/23 private, included
+above; existing generic guards additionally cover the new DocType. Logs:
+`/tmp/zatca-axis2-capture-local-final2.log`,
+`/tmp/zatca-axis2-capture-private-final2.log`.
+Coverage includes three owner selections, replay after mutable input changes,
+current READ before XML decryption, lost commit acknowledgment, tampered/index/
+orphan/domain/head data,100k-character bounded head reads, atomic rollback,
+unresolved retention and fresh explicit review after correcting a missing file.
+The first focused local run's only failure expected the wrong exception family
+for a correctly rejected noncanonical counter; no validator was weakened.
+Initial focused16/expanded67 private cases and the earlier broad569/292 set also
+passed. Sets overlap; manifest255 local/89 private was not run in full.
+
+ERP/XML/HTTP data are fixture input, not installed15/16/SDK or authority evidence;
+altered signed declaration fixtures are not asserted cryptographically valid.
+Financial/golden references and original240 comparison91/117/32 are unchanged.
+No live site/source/schema/service, actual invoice or authority API operation
+occurred. Complete backward captured-ledger/body/coverage verification, broader
+archives/rotated ownership, cutover/drain and qualification remain open; the
+protected append head alone does not close workstream2 or authorize activation.
+
 Still open in2: complete legacy counter/source/XML/consumer inventory and reviewed activation/
 drain; remaining Letter Head/custom/direct-master/other print information
 and File/external-print compatibility; remaining late/superseded retry review and

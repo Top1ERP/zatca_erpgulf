@@ -100,7 +100,10 @@ The actual internal review now also has a saved-review-bound numeric XML page
 mode.64-source pages reread the actual cursor boundary under current permissions;
 last-page/suffix exhaustion is not cumulative completion. No review creation,
 superseding, commit or issuance occurs: [NATIVE_HISTORY_PAGES.md](NATIVE_HISTORY_PAGES.md).
-Durable authenticated historical page/byte capture and coverage remain open.
+Explicit capture now retains encrypted exact page/XML bytes and its authenticated
+head atomically, with idempotent replay and current ACL before XML decryption:
+[NATIVE_HISTORY_CAPTURE.md](NATIVE_HISTORY_CAPTURE.md). Full captured-ledger/
+coverage qualification and adoption remain open.
 
 Known owner/delegate/declared-unit consumer closure and a permission-checked,
 current locked counter catalog are now adopted in that inactive review. Another

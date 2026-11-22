@@ -945,3 +945,10 @@ Late Acceptance Review,مراجعة القبول المتأخر
 Review Saved Response,مراجعة الرد المحفوظ
 Resolve this original only from an earlier matching saved acceptance? The server will review the newer attempt and retain both histories. Nothing will be generated or sent.,هل تريد تسوية نتيجة هذا الأصل اعتمادًا على قبول سابق محفوظ ومطابق فقط؟ سيتحقق الخادم من المحاولة الأحدث ويحتفظ بسجل المحاولتين. لن تتم إعادة إنشاء أو إرسال أي شيء.
 "The previous attempt may already have been received. Request a deliberate retry of the exact same XML, UUID and hash after server eligibility checks? No new invoice will be generated.",ربما استُلمت المحاولة السابقة بالفعل. هل تريد طلب إعادة إرسال XML وUUID والتجزئة نفسها بعد تحقق الخادم من الأهلية؟ لن تُنشأ فاتورة جديدة.
+ZATCA Legacy History Page,دفعة محفوظة لسجل زاتكا السابق
+History Page Key,مفتاح دفعة السجل
+Legacy Review ID,معرّف مراجعة السجل السابق
+Page Number,رقم الدفعة
+After ICV,بعد عداد الإصدار ICV
+Through ICV,حتى عداد الإصدار ICV
+Record ID,معرّف السجل

@@ -32,7 +32,9 @@
   "onboarding_attempt",
   "onboarding_compliance_attempt",
   "onboarding_final_attempt",
-  "egs_identity_key"
+  "egs_identity_key",
+  "legacy_history_header",
+  "legacy_history_ciphertext"
  ],
  "fields": [
   {
@@ -261,12 +263,30 @@
    "print_hide": 1,
    "unique": 1,
    "description": "Stable local environment/taxpayer/serial identity. Keep this chain across credential renewal; an inactive legacy review does not occupy this slot."
+  },
+  {
+   "fieldname": "legacy_history_header",
+   "label": "Legacy History Head Header",
+   "fieldtype": "Long Text",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  },
+  {
+   "fieldname": "legacy_history_ciphertext",
+   "label": "Legacy History Head Ciphertext",
+   "fieldtype": "Long Text",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1
   }
  ],
  "index_web_pages_for_search": 0,
  "issingle": 0,
  "links": [],
- "modified": "2026-11-16 00:00:00.000000",
+ "modified": "2026-11-22 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Zatca Erpgulf",
  "name": "ZATCA Issuing Chain",

@@ -8,8 +8,10 @@ installed site, live activation or authority API request.
 `native_storage.initialize_native_storage(runtime=...)` is an internal service;
 there is no public RPC, install/migrate hook or implicit invoice-time bootstrap.
 It requires System Manager and a clean current-site transaction/connection. It
-creates neither a database/schema nor an encryption key/configuration. The four
-native custody tables and read-only Single metadata must already be installed.
+creates neither a database/schema nor an encryption key/configuration. The
+service tables named in native_storage.TABLES and read-only Single metadata must
+already be installed. Source declarations now include encrypted legacy history
+pages: [NATIVE_HISTORY_CAPTURE.md](NATIVE_HISTORY_CAPTURE.md).
 
 The setup service shares the worker's physical connection/site/actor/key binding,
 parent-write/callback refusal and unknown-commit semantics. A submit-hook context
@@ -18,7 +20,7 @@ submission. Normal workers have no missing-storage bypass.
 
 The Single stores exactly the namespace UUID, format version1 and an authenticated
 key-check ciphertext. Setup creates all three in one commit only when the control
-is absent and all four custody tables are empty. Orphan records, partial settings,
+is absent and all declared service tables are empty. Orphan records, partial settings,
 duplicates, unsupported state and insufficient physical column capacity require
 review. No automatic reset, repair, orphan adoption or deletion is performed.
 
