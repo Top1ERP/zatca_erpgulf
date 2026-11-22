@@ -95,10 +95,11 @@ valid namespaces and non-capture paths do not initialize missing history storage
 This pins immutable captured declarations and append progress, not a trusted
 database epoch, global archived/rotated-owner census, whole ledger availability,
 computed invoice-hash/signature/CA/SDK validation, worker drain or activation.
-Current append admission verifies the protected head/latest page and boundary;
-a complete backward header/body/coverage audit is still required before any
-qualification/adoption decision. There is no overall accepted/complete/active
-flag. Privileged complete DB/key rollback is outside this local epoch guarantee.
+Current append admission verifies the protected head/latest page and boundary.
+An explicit resumable backward header/body/coverage check is now implemented in
+[NATIVE_HISTORY_AUDIT.md](NATIVE_HISTORY_AUDIT.md); its point-in-time report grants
+no qualification/adoption decision. There is no overall accepted/active flag.
+Privileged complete DB/key rollback is outside this local epoch guarantee.
 General archive publication/operator presentation and installed/pilot acceptance
 remain open; workstream2 is not closed by this capture primitive.
 

@@ -1,6 +1,7 @@
 """Explicit reviewed test selection; no runtime/site discovery or broad pytest."""
 
 LOCAL_SUITES = (
+    "legacy_history_audit",
     "legacy_history_capture",
     "native_history_pages",
     "native_legacy_history",
@@ -220,6 +221,7 @@ LOCAL_SUITES = (
     "zatca_response", "compatibility_hardening",
 )
 PRIVATE_SUITES = (
+    "legacy_history_audit_mariadb",
     "legacy_history_capture_mariadb",
     "native_history_pages_mariadb",
     "native_legacy_history_mariadb",

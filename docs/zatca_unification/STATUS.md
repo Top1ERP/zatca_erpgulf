@@ -1,6 +1,28 @@
-# Implementation status — 2026-11-21
+# Implementation status — 2026-11-22
 
 ## Current: workstream2 in progress
+
+Latest extension: resumable backward captured-ledger audit, described in
+[NATIVE_HISTORY_AUDIT.md](NATIVE_HISTORY_AUDIT.md). One owned transaction retains
+a bounded segment/checkpoint; protected capture-head/cursor/count/boundary binding,
+current Source/File READ before XML decryption and exact page-catalog coverage
+are checked. Completed reports are timestamped saved observations; explicit
+restart authenticates and replaces derived progress, never immutable pages.
+Gaps/unresolved/broken PIH/rotated-key findings survive traversal completion.
+Two source-only nullable hidden chain fields and a distinct audit cipher domain
+were added. No active chain, invoice, financial algorithm or credential changed.
+
+Final release selection:526 local cases across17 suites in2.21s, including the
+additional payload-reservation test, and316 private SQL cases across10 suites
+in54.88s. Logs: `/tmp/zatca-axis2-audit-local-release.log`,
+`/tmp/zatca-axis2-audit-private-final.log`. The preceding local selection passed577
+before that additional test; the final17-suite selection differs and is not an
+additive total. New audit suites contain9 local and22 private cases. The reviewed
+manifest has256 local/90 private suites; it was not run in full. Offline guard
+remained mandatory, with only fixture-owned `/tmp` Unix SQL permitted. Real
+ERP15/16, authentic signing/SDK and installed/dummy acceptance remain unqualified.
+No live source/site/schema/service or authority API operation occurred. Original240
+financial characterization remains91 identical/117 review/32 blocked.
 
 Workstream1 closed at44fdd50. Its detached source qualification passed39,003
 across205 local suites; installed ERP15/16 and authentic SDK acceptance remain

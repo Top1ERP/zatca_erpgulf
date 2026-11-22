@@ -102,8 +102,13 @@ last-page/suffix exhaustion is not cumulative completion. No review creation,
 superseding, commit or issuance occurs: [NATIVE_HISTORY_PAGES.md](NATIVE_HISTORY_PAGES.md).
 Explicit capture now retains encrypted exact page/XML bytes and its authenticated
 head atomically, with idempotent replay and current ACL before XML decryption:
-[NATIVE_HISTORY_CAPTURE.md](NATIVE_HISTORY_CAPTURE.md). Full captured-ledger/
-coverage qualification and adoption remain open.
+[NATIVE_HISTORY_CAPTURE.md](NATIVE_HISTORY_CAPTURE.md). A resumable backward audit
+now checks the whole captured head's header/body/coverage declarations under
+current Source/File ACL, retaining authenticated counts, actor and UTC time.
+Saved-report replay differs from explicit fresh recheck. Gaps/unresolved/broken
+PIH remain observations, not activation grants:
+[NATIVE_HISTORY_AUDIT.md](NATIVE_HISTORY_AUDIT.md). Broader qualification and
+adoption remain open.
 
 Known owner/delegate/declared-unit consumer closure and a permission-checked,
 current locked counter catalog are now adopted in that inactive review. Another

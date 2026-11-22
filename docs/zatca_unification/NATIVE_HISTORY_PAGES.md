@@ -72,8 +72,9 @@ The cursor is a partial-read selector, not a protected cumulative approval token
 Default page reads do not capture bytes. Explicit history_capture=True now adds
 atomic immutable encrypted page/head retention:
 [NATIVE_HISTORY_CAPTURE.md](NATIVE_HISTORY_CAPTURE.md).
-Source/File changes between calls remain possible. Whole captured-ledger/coverage
-qualification, rotated/unattributed archives, computed hash/signature/
+Source/File changes between calls remain possible. An explicit bounded resumable
+captured-ledger audit now checks retained coverage and declarations:
+[NATIVE_HISTORY_AUDIT.md](NATIVE_HISTORY_AUDIT.md). Rotated/unattributed archives, computed hash/signature/
 SDK evidence, cutover/drain and activation remain open. No deployment, native
 activation or remote acceptance is inferred from exhausting a suffix.
 

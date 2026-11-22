@@ -29,6 +29,7 @@ from .native_legacy_history import (
     inspect_known_legacy_history, LegacyHistoryInventory, inspect_known_legacy_page, LegacyHistoryPage,
 )
 from .legacy_history_capture import HistoryCaptureStore, HistoryCaptureResult
+from .legacy_history_audit import audit_capture, HistoryAuditResult
 from .issuing_observation import freeze_native_value
 from .permission_compat import PermissionCompatibilityError, saved_row_has_permission
 from .worker_transaction import WorkerTransactionError, owned_worker_transaction
@@ -43,6 +44,7 @@ class LegacyRegistrationReview:
     history: LegacyHistoryInventory | None = None
     history_page: LegacyHistoryPage | None = None
     capture: HistoryCaptureResult | None = None
+    audit: HistoryAuditResult | None = None
 
 
 def _name(value):
@@ -125,7 +127,8 @@ def _legacy_anchor(runtime, owner, source, counter_name):
 
 def review_legacy_registration(doctype, invoice_name, counter_name, file_id, *,
                               runtime, translate, reason, expected_xml_sha256, supersedes_review_id=None,
-                              history_review_id=None, history_page_after=None, history_capture=False):
+                              history_review_id=None, history_page_after=None, history_capture=False,
+                              history_audit=False, history_audit_restart=False):
     """Stage one exact reviewed anchor, preserving both existing systems.
 
     Internal service only, no RPC/worker hook or caller-supplied approval flag.
@@ -138,13 +141,16 @@ def review_legacy_registration(doctype, invoice_name, counter_name, file_id, *,
     review or persist a cumulative history approval; no commit is performed.
     Explicit history_capture=True instead retains immutable encrypted page/XML
     bytes and its protected head atomically. It still grants no activation.
+    history_audit=True at cursor0 checks a bounded backward ledger segment,
+    committing only its protected checkpoint. Restart explicitly rechecks it.
     """
     uncertain = False
     try:
         return _review_legacy_registration(doctype,invoice_name,counter_name,file_id,runtime=runtime,
             translate=translate,reason=reason,expected_xml_sha256=expected_xml_sha256,
             supersedes_review_id=supersedes_review_id,history_review_id=history_review_id,
-            history_page_after=history_page_after,history_capture=history_capture)
+            history_page_after=history_page_after,history_capture=history_capture,
+            history_audit=history_audit,history_audit_restart=history_audit_restart)
     except (ChainRegistrationError,DispatchRecordError,DispatchStoreError,NativeDispatchError,
             ArtifactEvidenceError,IssuingAttemptError,IdentityInventoryError) as error:
         code = error.code
@@ -161,7 +167,7 @@ def review_legacy_registration(doctype, invoice_name, counter_name, file_id, *,
 
 def _review_legacy_registration(doctype, invoice_name, counter_name, file_id, *,
                                runtime, translate, reason, expected_xml_sha256, supersedes_review_id,
-                               history_review_id, history_page_after, history_capture):
+                               history_review_id, history_page_after, history_capture,history_audit,history_audit_restart):
     if ACTIVE.get() is not None:
         raise ChainRegistrationError('registration_issuing_context_active')
     if doctype not in SOURCE_TABLES:
@@ -174,6 +180,10 @@ def _review_legacy_registration(doctype, invoice_name, counter_name, file_id, *,
     paging = history_page_after is not None or history_review_id is not None
     if type(history_capture) is not bool or (history_capture and not paging):
         raise ChainRegistrationError('registration_history_capture_operation')
+    if (type(history_audit) is not bool or type(history_audit_restart) is not bool
+            or (history_audit_restart and not history_audit)
+            or (history_audit and (history_capture or not paging or history_page_after != '0'))):
+        raise ChainRegistrationError('registration_history_audit_operation')
     if paging:
         _identifier(history_review_id); _counter(history_page_after, zero=True)
         if supersedes_review_id is not None:
@@ -264,7 +274,13 @@ def _review_legacy_registration(doctype, invoice_name, counter_name, file_id, *,
                     and existing['previous_hash'] == observed.invoice_digest)
                 if unchanged:
                     if paging:
-                        capture_store = HistoryCaptureStore(runtime,owner,old,existing) if history_capture else None
+                        capture_store = HistoryCaptureStore(runtime,owner,old,existing) if history_capture or history_audit else None
+                        if history_audit:
+                            audited = audit_capture(capture_store,restart=history_audit_restart)
+                            scope.confirm_current()
+                            if not audited.reused:
+                                owner.commit()
+                            return LegacyRegistrationReview(existing['record_id'],value,True,audit=audited)
                         if capture_store is not None:
                             retained = capture_store.lookup(history_page_after)
                             if retained is not None:

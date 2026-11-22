@@ -26,8 +26,14 @@ saved bytes before invoking the producer, with current saved-row ACL before
 large XML decryption. Cursor, census and boundary substitution hold rather than
 overwrite; explicit superseding review preserves prior evidence. This adds one
 source-only read-only DocType and two nullable hidden chain fields, no installed
-schema or activation. Whole backward ledger/coverage audit and cryptographic/
-cutover qualification remain open: [NATIVE_HISTORY_CAPTURE.md](NATIVE_HISTORY_CAPTURE.md).
+schema or activation: [NATIVE_HISTORY_CAPTURE.md](NATIVE_HISTORY_CAPTURE.md).
+
+history_audit=True now verifies bounded backward segments from that protected
+head, with a durable authenticated checkpoint. It rejects missing/orphan pages,
+broken custody links/counts and changed heads, while retaining actual declared
+PIH/gap/unresolved/key findings in a metadata-only report. Completed replay is a
+saved snapshot; explicit restart rechecks current custody/ACL. No activation or
+crypto/cutover qualification follows: [NATIVE_HISTORY_AUDIT.md](NATIVE_HISTORY_AUDIT.md).
 
 This document records implementation decisions, not completed runtime adoption.
 The old uninstalled nested staging models remain deferred; adding another isolated

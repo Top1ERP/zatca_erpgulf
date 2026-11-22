@@ -209,7 +209,7 @@ class HistoryCaptureStore:
             if len(values) > 1:
                 self.fail('xml_conflict')
 
-    def opened(self, identifier):
+    def opened(self, identifier, *, with_size=False):
         result = self.row('name', identifier, body=True)
         if result is None:
             self.fail('page_missing')
@@ -226,7 +226,7 @@ class HistoryCaptureStore:
                 contents.page.inventory.known_positions) != (self.review_id, header['after_icv'], header['through_icv'], header['known_positions']):
             self.fail('payload_binding')
         self.declarations(contents.records)
-        return header, contents
+        return (header, contents, len(payload)) if with_size else (header, contents)
 
     def lookup(self, after):
         row = self.row('page_key', _key(self.review_id, after))

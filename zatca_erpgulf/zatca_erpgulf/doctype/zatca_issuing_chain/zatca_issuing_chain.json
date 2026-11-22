@@ -34,7 +34,9 @@
   "onboarding_final_attempt",
   "egs_identity_key",
   "legacy_history_header",
-  "legacy_history_ciphertext"
+  "legacy_history_ciphertext",
+  "legacy_audit_header",
+  "legacy_audit_ciphertext"
  ],
  "fields": [
   {
@@ -276,6 +278,24 @@
   {
    "fieldname": "legacy_history_ciphertext",
    "label": "Legacy History Head Ciphertext",
+   "fieldtype": "Long Text",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  },
+  {
+   "fieldname": "legacy_audit_header",
+   "label": "Legacy History Audit Checkpoint Header",
+   "fieldtype": "Long Text",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  },
+  {
+   "fieldname": "legacy_audit_ciphertext",
+   "label": "Legacy History Audit Checkpoint Ciphertext",
    "fieldtype": "Long Text",
    "read_only": 1,
    "hidden": 1,
